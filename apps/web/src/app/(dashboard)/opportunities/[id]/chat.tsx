@@ -26,6 +26,7 @@ interface EditalChatProps {
   tenderId: string
   documentCount?: number
   documentUrls?: DocumentInfo[]
+  hasAccess?: boolean
 }
 
 const SUGGESTED_QUESTIONS = [
@@ -68,7 +69,7 @@ async function extractPdfInBrowser(file: File): Promise<{ text: string; pages: n
   return { text: fullText, pages: pdfDoc.numPages }
 }
 
-export function EditalChat({ tenderId, documentCount = 0, documentUrls = [] }: EditalChatProps) {
+export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], hasAccess = true }: EditalChatProps) {
   const [started, setStarted] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -83,10 +84,19 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [] }: E
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dragCounterRef = useRef(0)
 
+  // Scroll only inside the chat messages container — never the page
   useEffect(() => {
     const container = messagesContainerRef.current
     if (container) {
-      container.scrollTop = container.scrollHeight
+      requestAnimationFrame(() => {
+        // Save page scroll position so the page doesn't jump during streaming
+        const pageScrollY = window.scrollY
+        container.scrollTop = container.scrollHeight
+        // Restore page position if the browser moved it
+        if (window.scrollY !== pageScrollY) {
+          window.scrollTo({ top: pageScrollY })
+        }
+      })
     }
   }, [messages])
 
@@ -497,6 +507,41 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [] }: E
     </div>
   )
 
+  // ── State 0: No access (plan upgrade required) ──────────────────
+  if (!hasAccess) {
+    return (
+      <Card className="border-gray-200 opacity-80">
+        <CardContent className="py-6">
+          <div className="text-center space-y-3">
+            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+              <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900">Chat com o Edital</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                Converse com a IA sobre os documentos do edital e obtenha insights detalhados.
+              </p>
+              <p className="text-xs text-gray-400 mt-2">
+                Disponivel nos planos Professional e Enterprise
+              </p>
+            </div>
+            <a
+              href="/billing"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand/10 text-brand rounded-lg text-sm font-medium hover:bg-brand/20 transition-colors"
+            >
+              Fazer upgrade
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+            </a>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
   // ── State 1: Not started ──────────────────────────────────────────
   if (!started) {
     return (
@@ -614,7 +659,7 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [] }: E
         {docChips}
 
         {/* Messages */}
-        <div ref={messagesContainerRef} className="h-[250px] md:h-[350px] overflow-y-auto space-y-3 border rounded-lg p-3 bg-gray-50">
+        <div ref={messagesContainerRef} className="h-[250px] md:h-[350px] overflow-y-auto overscroll-contain space-y-3 border rounded-lg p-3 bg-gray-50">
           {messages.map((msg, i) => (
             <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div

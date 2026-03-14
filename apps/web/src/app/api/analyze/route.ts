@@ -1,36 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-import { callNvidiaAI, parseJsonResponse } from '@/lib/nvidia'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 
-const SYSTEM_PROMPT = `Voce e um consultor especialista em licitacoes publicas brasileiras. Sua UNICA funcao e avaliar se o OBJETO da licitacao e COMPATIVEL com os CNAEs e atividades da empresa.
-
-PRINCIPIO FUNDAMENTAL: E MUITO MELHOR mostrar uma oportunidade que talvez nao seja perfeita do que PERDER uma boa oportunidade. Na duvida, INCLUA. O usuario pode descartar, mas nao pode encontrar o que voce escondeu.
-
-ANALISE INTELIGENTE DE CNAEs:
-- Cada CNAE cobre um UNIVERSO de atividades relacionadas. Interprete de forma AMPLA.
-- CNAE 6202/6203/6204 (TI): software, sistemas, suporte, consultoria TI, outsourcing, cloud, dados, automacao, seguranca digital, treinamento TI, help desk, infraestrutura, redes, telecom, licencas
-- CNAE 7020 (consultoria): assessoria, planejamento, gestao, auditoria, projetos, treinamento, capacitacao, estudos, diagnosticos, mapeamento
-- CNAEs de comercio (46xx, 47xx): fornecimento de TODOS os produtos daquele ramo, inclusive acessorios, pecas, consumiveis relacionados
-- CNAEs de servicos (80xx, 81xx, 82xx): terceirizacao, limpeza, seguranca, manutencao, apoio administrativo, facilities
-- CNAEs de construcao (41xx, 42xx, 43xx): obras, reformas, instalacoes, manutencao predial, servicos de engenharia
-- Se a empresa tem MULTIPLOS CNAEs, considere COMBINACOES de servicos que ela pode oferecer
-
-REGRAS DE PONTUACAO (SEJA GENEROSO):
-- Score 0-25: TOTALMENTE incompativel, ramos COMPLETAMENTE diferentes
-- Score 26-45: ramos diferentes mas com alguma intersecao possivel
-- Score 46-65: ha conexao razoavel, empresa PODERIA fornecer com adaptacao
-- Score 66-80: boa compatibilidade, atividade dentro do escopo dos CNAEs
-- Score 81-100: compatibilidade direta e clara
-
-REGRAS CRITICAS:
-- NAO penalize por falta de informacao. Se um campo esta vazio, assuma NEUTRO (score 70)
-- NAO penalize por localizacao — licitacoes publicas permitem participacao nacional
-- NAO penalize por porte da empresa
-- Se ha QUALQUER CNAE (principal ou secundario) que cubra o objeto = score 70+
-
-Sempre responda com JSON valido, sem texto adicional.`
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || ''
 
 const CNAE_GROUPS: Record<string, string> = {
   '62': 'Tecnologia da Informacao - desenvolvimento de software, consultoria em TI, suporte tecnico, processamento de dados',
@@ -106,14 +80,14 @@ ${tender.resumo ? `Resumo: ${String(tender.resumo).slice(0, 2000)}` : ''}
 ${tender.requisitos ? `Requisitos: ${JSON.stringify(tender.requisitos, null, 2).slice(0, 2000)}` : ''}`
 
   if (docsText) {
-    prompt += `\n\nTEXTO DOS DOCUMENTOS DO EDITAL:\n${docsText.slice(0, 80_000)}`
+    prompt += `\n\nTEXTO DOS DOCUMENTOS DO EDITAL:\n${docsText.slice(0, 200_000)}`
   }
 
   prompt += `
 
 ANALISE PRINCIPAL: O objeto da licitacao e algo que a empresa pode fornecer com base nos seus CNAEs e atividades? Considere interpretacao AMPLA dos CNAEs e servicos correlatos.
 
-Retorne APENAS JSON valido (sem markdown):
+Retorne APENAS JSON valido (sem markdown, sem backticks):
 {
   "score": 0-100,
   "breakdown": [
@@ -129,6 +103,29 @@ Retorne APENAS JSON valido (sem markdown):
 
   return prompt
 }
+
+const SYSTEM_PROMPT = `Voce e um consultor especialista em licitacoes publicas brasileiras. Sua UNICA funcao e avaliar se o OBJETO da licitacao e COMPATIVEL com os CNAEs e atividades da empresa.
+
+PRINCIPIO FUNDAMENTAL: E MUITO MELHOR mostrar uma oportunidade que talvez nao seja perfeita do que PERDER uma boa oportunidade. Na duvida, INCLUA.
+
+ANALISE INTELIGENTE DE CNAEs:
+- Cada CNAE cobre um UNIVERSO de atividades relacionadas. Interprete de forma AMPLA.
+- Se a empresa tem MULTIPLOS CNAEs, considere COMBINACOES de servicos que ela pode oferecer
+
+REGRAS DE PONTUACAO (SEJA GENEROSO):
+- Score 0-25: TOTALMENTE incompativel, ramos COMPLETAMENTE diferentes
+- Score 26-45: ramos diferentes mas com alguma intersecao possivel
+- Score 46-65: ha conexao razoavel, empresa PODERIA fornecer com adaptacao
+- Score 66-80: boa compatibilidade, atividade dentro do escopo dos CNAEs
+- Score 81-100: compatibilidade direta e clara
+
+REGRAS CRITICAS:
+- NAO penalize por falta de informacao. Se um campo esta vazio, assuma NEUTRO (score 70)
+- NAO penalize por localizacao — licitacoes publicas permitem participacao nacional
+- NAO penalize por porte da empresa
+- Se ha QUALQUER CNAE (principal ou secundario) que cubra o objeto = score 70+
+
+Sempre responda com JSON valido, sem texto adicional, sem markdown.`
 
 export async function POST(request: NextRequest) {
   // Auth + plan check
@@ -151,6 +148,10 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  if (!GEMINI_API_KEY) {
+    return NextResponse.json({ error: 'AI not configured' }, { status: 503 })
+  }
+
   const supabase = await createClient()
 
   const body = await request.json()
@@ -163,7 +164,7 @@ export async function POST(request: NextRequest) {
   // Fetch match with tender and company
   const { data: match } = await supabase
     .from('matches')
-    .select('id, company_id, tender_id, ai_justificativa, score, match_source')
+    .select('id, company_id, tender_id, ai_justificativa, score, match_source, breakdown, recomendacao, riscos, acoes_necessarias')
     .eq('id', matchId)
     .single()
 
@@ -171,9 +172,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Match not found' }, { status: 404 })
   }
 
-  // If AI analysis already exists, return cached
-  if (match.ai_justificativa && match.match_source === 'ai') {
-    return NextResponse.json({ cached: true, matchId: match.id })
+  // If AI analysis already exists and is valid, return cached
+  if (match.ai_justificativa && match.match_source === 'ai' && match.ai_justificativa !== 'Analise automatica') {
+    // Return full cached data so the UI can display it
+    return NextResponse.json({
+      cached: true,
+      matchId: match.id,
+      score: match.score,
+      breakdown: match.breakdown || [],
+      justificativa: match.ai_justificativa,
+      recomendacao: match.recomendacao || null,
+      riscos: match.riscos || [],
+      acoes_necessarias: match.acoes_necessarias || [],
+    })
   }
 
   // Fetch tender with documents
@@ -215,20 +226,32 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const response = await callNvidiaAI({
-      system: SYSTEM_PROMPT,
-      prompt: buildPrompt(company as Record<string, unknown>, tender as Record<string, unknown>, docsText),
-      maxTokens: 2048,
-      maxRetries: 2,
+    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY)
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash',
+      systemInstruction: SYSTEM_PROMPT,
     })
+
+    const result = await model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: buildPrompt(company as Record<string, unknown>, tender as Record<string, unknown>, docsText) }] }],
+      generationConfig: {
+        maxOutputTokens: 2048,
+        temperature: 0.1,
+      },
+    })
+
+    const response = result.response.text()
 
     if (!response || response.trim().length === 0) {
       return NextResponse.json({ error: 'Resposta vazia da IA' }, { status: 502 })
     }
 
+    // Parse JSON — strip markdown code fences if present
+    const cleanJson = response.replace(/```json?\s*/gi, '').replace(/```\s*/g, '').trim()
+
     let parsed: Record<string, unknown>
     try {
-      parsed = parseJsonResponse<Record<string, unknown>>(response)
+      parsed = JSON.parse(cleanJson)
     } catch {
       // Try manual extraction as fallback
       const scoreMatch = response.match(/"score"\s*:\s*(\d+)/)
@@ -243,6 +266,7 @@ export async function POST(request: NextRequest) {
           acoes_necessarias: [],
         }
       } else {
+        console.error('[Analyze] Failed to parse AI response:', response.slice(0, 500))
         return NextResponse.json({ error: 'Falha ao interpretar resposta da IA' }, { status: 502 })
       }
     }
@@ -281,6 +305,15 @@ export async function POST(request: NextRequest) {
       acoes_necessarias: parsed.acoes_necessarias,
     })
   } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error)
+
+    if (msg.includes('429') || msg.includes('RATE_LIMIT') || msg.includes('quota')) {
+      return NextResponse.json(
+        { error: 'Limite da API atingido. Tente novamente em alguns segundos.' },
+        { status: 429 },
+      )
+    }
+
     const isTimeout = (error as Error).name === 'TimeoutError' || (error as Error).name === 'AbortError'
     if (isTimeout) {
       return NextResponse.json({ error: 'Timeout na analise. Tente novamente.' }, { status: 504 })

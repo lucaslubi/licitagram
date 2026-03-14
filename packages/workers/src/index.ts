@@ -59,16 +59,16 @@ async function setupRepeatableJobs() {
 
   logger.info('Repeatable PNCP scraping jobs scheduled (every 4h)')
 
-  // Schedule pending notifications check every 30 minutes
+  // Schedule pending notifications check every 5 minutes
   await pendingNotificationsQueue.add(
     'check-pending',
     {},
     {
-      repeat: { every: 30 * 60 * 1000 },
-      jobId: 'pending-notifications-repeat',
+      repeat: { every: 5 * 60 * 1000 },
+      jobId: 'pending-notifications-5min',
     },
   )
-  logger.info('Pending notifications job scheduled (every 30 min)')
+  logger.info('Pending notifications job scheduled (every 5 min)')
 
   // Schedule dadosabertos.compras.gov.br scraping every 4 hours
   await comprasgovScrapingQueue.add(
@@ -216,9 +216,9 @@ async function setupRepeatableJobs() {
     logger.info({ count: pendingTenders.length }, 'Re-queued pending tenders for extraction')
   }
 
-  // Run CNAE classification backfill on startup (non-blocking, aggressive)
-  // Classifies 2000 unclassified tenders immediately on boot
-  batchClassifyTenders(2000).catch(err => {
+  // Run CNAE classification backfill on startup (non-blocking)
+  // Most classifications now resolve locally (instant), AI only for ambiguous cases
+  batchClassifyTenders(500).catch(err => {
     logger.error({ err }, 'CNAE classification backfill failed on startup')
   })
 
@@ -308,16 +308,43 @@ async function main() {
   await setupRepeatableJobs()
   await startBot()
 
-  // Schedule CNAE classification backfill every 5 minutes (turbo)
-  // Batch 1000 × concurrency 10 × 12/hour = up to 12,000/hour
-  // 32K backlog → classified in ~3 hours
+  // Listen for rematch-done events from the web app to trigger immediate notifications
+  try {
+    const IORedis = (await import('ioredis')).default
+    const subscriber = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
+      maxRetriesPerRequest: null,
+    })
+    await subscriber.subscribe('licitagram:rematch-done')
+    subscriber.on('message', async (channel, message) => {
+      if (channel === 'licitagram:rematch-done') {
+        try {
+          const { companyId, matchCount } = JSON.parse(message)
+          logger.info({ companyId, matchCount }, 'Rematch done — triggering immediate notification check')
+          await pendingNotificationsQueue.add(
+            `rematch-notify-${companyId}`,
+            {},
+            { jobId: `rematch-notify-${companyId}-${Date.now()}` },
+          )
+        } catch (err) {
+          logger.error({ err }, 'Failed to process rematch-done event')
+        }
+      }
+    })
+    logger.info('Listening for rematch-done events (immediate notification trigger)')
+  } catch (err) {
+    logger.warn({ err }, 'Failed to setup rematch-done listener (non-critical)')
+  }
+
+  // Schedule CNAE classification backfill every 15 minutes
+  // Now hybrid: ~80% resolve locally (instant), ~20% use Gemini fallback
+  // Much lower API consumption while maintaining accuracy
   setInterval(async () => {
     try {
-      await batchClassifyTenders(1000)
+      await batchClassifyTenders(500)
     } catch (err) {
       logger.error({ err }, 'CNAE classification backfill failed')
     }
-  }, 5 * 60 * 1000)
+  }, 15 * 60 * 1000)
 
   // Schedule CNAE-first keyword matching sweep every 4 hours
   setInterval(async () => {

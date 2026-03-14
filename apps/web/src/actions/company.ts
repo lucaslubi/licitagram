@@ -14,19 +14,11 @@ function getServiceSupabase() {
   )
 }
 
-// ─── CNAE-First Matching Constants ─────────────────────────────────────────
+// ─── Matching Constants ───────────────────────────────────────────────────
 
-const CNAE_WEIGHT = 0.55
-const KEYWORD_WEIGHT = 0.25
-const DESCRIPTION_WEIGHT = 0.20
-const MIN_MATCH_SCORE = 40
+const MIN_MATCH_SCORE = 30
 const DIRECT_CNAE_SCORE = 100
 const RELATED_CNAE_SCORE = 50
-
-// ─── Keyword-Only Fallback Constants (when tender has no CNAE data) ────────
-const KW_ONLY_KEYWORD_WEIGHT = 0.60
-const KW_ONLY_DESCRIPTION_WEIGHT = 0.40
-const KW_ONLY_MIN_SCORE = 55
 
 // ─── Text Processing ───────────────────────────────────────────────────────
 
@@ -74,7 +66,14 @@ function computeKeywordScore(
       matches++
     }
   }
-  return Math.min(100, Math.round((matches / companyTokens.size) * 100))
+  if (matches === 0) return 0
+
+  // Hybrid scoring: best of percentage-based and absolute-count-based
+  // Percentage: what fraction of company keywords appear in the tender
+  const percentScore = Math.round((matches / companyTokens.size) * 100)
+  // Absolute: diminishing returns on match count (3 matches = 45, 5 = 75, 7+ = 100)
+  const absoluteScore = Math.min(100, matches * 15)
+  return Math.max(percentScore, absoluteScore)
 }
 
 function computeCNAEScore(companyCnaes: string[], tenderCnaeDivisions: string[]): number {
@@ -214,15 +213,12 @@ export async function saveCompany(payload: CompanyPayload, existingId?: string) 
     companyId = id
   }
 
-  // Trigger re-matching against recent tenders (non-blocking for the save result)
-  let matchesFound = 0
-  try {
-    matchesFound = await runRematchForCompany(companyId, sanitized)
-  } catch (err) {
-    console.error('Re-matching failed (non-critical):', err)
-  }
+  // Trigger re-matching in background (don't block the save response)
+  runRematchForCompany(companyId, sanitized).catch((err) => {
+    console.error('[REMATCH] Failed (non-critical):', err)
+  })
 
-  return { id: companyId, matchesFound }
+  return { id: companyId, matchesFound: 0 }
 }
 
 // ─── Load Company Data ────────────────────────────────────────────────────
@@ -252,94 +248,71 @@ export async function loadCompanyData() {
   return { data }
 }
 
-// ─── Two-Mode Re-Matching Logic ─────────────────────────────────────────
+// ─── Unified Keyword-First Re-Matching Logic ────────────────────────────
+
+// Prevent concurrent rematches for the same company
+const activeRematches = new Map<string, Promise<number>>()
 
 /**
- * Upsert a match record for a company-tender pair.
- * Creates new match or updates score if it changed.
- */
-async function upsertMatch(
-  serviceSupabase: ReturnType<typeof getServiceSupabase>,
-  companyId: string,
-  tenderId: string,
-  finalScore: number,
-  breakdown: Array<{ category: string; score: number; reason: string }>,
-): Promise<boolean> {
-  const { data: existing } = await serviceSupabase
-    .from('matches')
-    .select('id, score')
-    .eq('company_id', companyId)
-    .eq('tender_id', tenderId)
-    .maybeSingle()
-
-  if (existing) {
-    if (existing.score !== finalScore) {
-      await serviceSupabase
-        .from('matches')
-        .update({
-          score: finalScore,
-          keyword_score: finalScore,
-          breakdown,
-        })
-        .eq('id', existing.id)
-    }
-    return false // Not a new match
-  }
-
-  const { error } = await serviceSupabase.from('matches').insert({
-    company_id: companyId,
-    tender_id: tenderId,
-    score: finalScore,
-    keyword_score: finalScore,
-    breakdown,
-    ai_justificativa: null,
-    riscos: [],
-    acoes_necessarias: [],
-    recomendacao: null,
-    match_source: 'keyword',
-    status: 'new',
-  })
-  return !error
-}
-
-/**
- * Run two-mode matching for a single company against recent tenders.
- * Called after company profile update (CNAEs, keywords, etc.)
- *
- * MODE A — CNAE-First: For tenders WITH cnae_classificados, uses weighted
- *          CNAE + keyword + description scoring with CNAE hard gate.
- * MODE B — Keyword-Only: For tenders WITHOUT cnae_classificados, uses only
- *          keyword + description scoring with a higher threshold (55).
- *
- * This ensures NO tender is skipped just because it hasn't been classified yet.
+ * Unified keyword-first matching for a single company against all tenders.
+ * Debounced: if a rematch is already running for this company, waits for it.
  */
 async function runRematchForCompany(
   companyId: string,
   company: CompanyPayload,
 ): Promise<number> {
+  const existing = activeRematches.get(companyId)
+  if (existing) {
+    console.log('[REMATCH] Already running for company, waiting...')
+    return existing
+  }
+
+  const promise = _runRematchForCompany(companyId, company)
+  activeRematches.set(companyId, promise)
+  try {
+    return await promise
+  } finally {
+    activeRematches.delete(companyId)
+  }
+}
+
+async function _runRematchForCompany(
+  companyId: string,
+  company: CompanyPayload,
+): Promise<number> {
   const serviceSupabase = getServiceSupabase()
+  const startTime = Date.now()
+
+  console.log('[REMATCH] Starting for company:', companyId)
 
   // Build company CNAE list
   const allCnaes: string[] = []
   if (company.cnae_principal) allCnaes.push(company.cnae_principal)
   if (company.cnaes_secundarios?.length) allCnaes.push(...company.cnaes_secundarios)
 
-  // Build keyword tokens
-  const userKwTokens = new Set<string>()
+  // Build keyword tokens from CNAE activities + user keywords
+  const companyKeywords = new Set<string>()
   if (company.palavras_chave?.length) {
     for (const kw of company.palavras_chave) {
-      for (const t of tokenize(kw)) userKwTokens.add(t)
+      for (const t of tokenize(kw)) companyKeywords.add(t)
     }
   }
 
-  // Add CNAE-derived keywords
+  // Add CNAE-derived keywords (activities the company performs)
   for (const cnae of allCnaes) {
     const div = cnae.substring(0, 2)
     const division = CNAE_DIVISIONS[div]
     if (division) {
       for (const kw of division.keywords) {
-        for (const token of tokenize(kw)) userKwTokens.add(token)
+        for (const token of tokenize(kw)) companyKeywords.add(token)
       }
+    }
+  }
+
+  // Add capacidades (technical capabilities)
+  if (company.capacidades?.length) {
+    for (const cap of company.capacidades) {
+      for (const t of tokenize(cap)) companyKeywords.add(t)
     }
   }
 
@@ -347,126 +320,185 @@ async function runRematchForCompany(
     ? new Set(tokenize(company.descricao_servicos))
     : new Set<string>()
 
-  // Need at least some matching criteria
-  if (allCnaes.length === 0 && userKwTokens.size === 0 && descTokens.size === 0) return 0
+  console.log('[REMATCH] Keywords:', companyKeywords.size, '| Desc tokens:', descTokens.size)
 
+  if (allCnaes.length === 0 && companyKeywords.size === 0 && descTokens.size === 0) {
+    console.log('[REMATCH] No matching criteria — aborting')
+    return 0
+  }
+
+  // ── PRE-LOAD existing match tender IDs (1 query instead of N) ──────────
+  const existingMatchIds = new Set<string>()
+  let matchPage = 0
+  while (true) {
+    const { data: existing } = await serviceSupabase
+      .from('matches')
+      .select('tender_id')
+      .eq('company_id', companyId)
+      .range(matchPage * 1000, (matchPage + 1) * 1000 - 1)
+
+    if (!existing || existing.length === 0) break
+    for (const m of existing) existingMatchIds.add(m.tender_id)
+    if (existing.length < 1000) break
+    matchPage++
+  }
+
+  console.log('[REMATCH] Existing matches loaded:', existingMatchIds.size)
+
+  // Always scan full year (365 days)
   const cutoffDate = new Date()
-  cutoffDate.setDate(cutoffDate.getDate() - 90)
+  cutoffDate.setDate(cutoffDate.getDate() - 365)
   const cutoff = cutoffDate.toISOString().split('T')[0]
+  const today = new Date().toISOString().split('T')[0]
 
   let matchCount = 0
-  const pageSize = 500
+  let scanned = 0
+  const pageSize = 1000
+  const BATCH_SIZE = 200
 
-  // ── MODE A: CNAE-First matching (tenders WITH cnae_classificados) ──────
-  if (allCnaes.length > 0) {
-    const { direct: companyDirectDivs, related: companyRelatedDivs } = getCompanyDivisions(allCnaes)
-    const allDivisions = [...companyDirectDivs, ...companyRelatedDivs]
+  // Buffer for batch inserts
+  let insertBuffer: Array<{
+    company_id: string
+    tender_id: string
+    score: number
+    keyword_score: number
+    breakdown: Array<{ category: string; score: number; reason: string }>
+    ai_justificativa: null
+    riscos: never[]
+    acoes_necessarias: never[]
+    recomendacao: null
+    match_source: 'keyword'
+    status: 'new'
+  }> = []
 
-    if (allDivisions.length > 0) {
-      let page = 0
-      while (true) {
-        const { data: tenders } = await serviceSupabase
-          .from('tenders')
-          .select('id, objeto, resumo, cnae_classificados')
-          .not('objeto', 'is', null)
-          .not('cnae_classificados', 'eq', '{}')
-          .not('cnae_classificados', 'is', null)
-          .gte('data_publicacao', cutoff)
-          .overlaps('cnae_classificados', allDivisions)
-          .order('data_publicacao', { ascending: false })
-          .range(page * pageSize, (page + 1) * pageSize - 1)
-
-        if (!tenders || tenders.length === 0) break
-
-        for (const tender of tenders) {
-          if (!tender.objeto) continue
-          const tenderCnaes = (tender.cnae_classificados as string[]) || []
-          if (tenderCnaes.length === 0) continue
-
-          const cnaeScore = computeCNAEScore(allCnaes, tenderCnaes)
-          if (cnaeScore === 0) continue
-
-          const objetoTokens = tokenize(tender.objeto)
-          const resumoTokens = tender.resumo ? tokenize(tender.resumo as string) : []
-          const tenderTokens = new Set([...objetoTokens, ...resumoTokens])
-
-          const kwScore = computeKeywordScore(userKwTokens, tenderTokens)
-          const descScore = computeKeywordScore(descTokens, tenderTokens)
-
-          const finalScore = Math.round(
-            cnaeScore * CNAE_WEIGHT +
-            kwScore * KEYWORD_WEIGHT +
-            descScore * DESCRIPTION_WEIGHT,
-          )
-
-          if (finalScore < MIN_MATCH_SCORE) continue
-
-          const breakdown = [
-            { category: 'cnae', score: cnaeScore, reason: `CNAE: ${tenderCnaes.join(', ')}` },
-            { category: 'keywords', score: kwScore, reason: 'Palavras-chave da empresa' },
-            { category: 'description', score: descScore, reason: 'Descrição de serviços' },
-          ]
-
-          const isNew = await upsertMatch(serviceSupabase, companyId, tender.id, finalScore, breakdown)
-          if (isNew) matchCount++
-        }
-
-        if (tenders.length < pageSize) break
-        page++
-      }
+  async function flushBuffer() {
+    if (insertBuffer.length === 0) return
+    const batch = insertBuffer.splice(0)
+    const { error, count } = await serviceSupabase
+      .from('matches')
+      .upsert(batch, { onConflict: 'company_id,tender_id', count: 'exact' })
+    if (error) {
+      console.error('[REMATCH] Batch upsert error:', error.message)
+    } else {
+      matchCount += batch.length
     }
   }
 
-  // ── MODE B: Keyword-Only matching (tenders WITHOUT cnae_classificados) ─
-  // Catches tenders that haven't been AI-classified yet
-  if (userKwTokens.size > 0 || descTokens.size > 0) {
-    let page = 0
-    while (true) {
-      const { data: tenders } = await serviceSupabase
-        .from('tenders')
-        .select('id, objeto, resumo, cnae_classificados')
-        .not('objeto', 'is', null)
-        .or('cnae_classificados.is.null,cnae_classificados.eq.{}')
-        .gte('data_publicacao', cutoff)
-        .order('data_publicacao', { ascending: false })
-        .range(page * pageSize, (page + 1) * pageSize - 1)
+  // ── SINGLE PASS: scan ALL tenders ────────────────────────────────────
+  let page = 0
+  while (true) {
+    const from = page * pageSize
+    const to = from + pageSize - 1
+    const { data: tenders, error: queryError } = await serviceSupabase
+      .from('tenders')
+      .select('id, objeto, resumo, data_encerramento')
+      .gt('objeto', '')
+      .or(`data_publicacao.gte.${cutoff},data_publicacao.is.null`)
+      .or(`data_encerramento.is.null,data_encerramento.gte.${today}`)
+      .order('created_at', { ascending: false })
+      .range(from, to)
 
-      if (!tenders || tenders.length === 0) break
+    if (queryError) {
+      console.error('[REMATCH] Query error page', page, ':', queryError.message)
+      break
+    }
 
-      for (const tender of tenders) {
-        if (!tender.objeto) continue
+    if (!tenders || tenders.length === 0) {
+      if (page === 0) console.log('[REMATCH] 0 tenders found')
+      break
+    }
 
-        const objetoTokens = tokenize(tender.objeto)
-        const resumoTokens = tender.resumo ? tokenize(tender.resumo as string) : []
-        const tenderTokens = new Set([...objetoTokens, ...resumoTokens])
+    if (page === 0) console.log('[REMATCH] First page:', tenders.length, 'tenders')
 
-        const kwScore = computeKeywordScore(userKwTokens, tenderTokens)
-        const descScore = computeKeywordScore(descTokens, tenderTokens)
+    for (const tender of tenders) {
+      if (!tender.objeto) continue
+      scanned++
 
-        const finalScore = Math.round(
-          kwScore * KW_ONLY_KEYWORD_WEIGHT +
-          descScore * KW_ONLY_DESCRIPTION_WEIGHT,
-        )
+      // Skip if already matched (avoids upsert overhead)
+      if (existingMatchIds.has(tender.id)) continue
 
-        if (finalScore < KW_ONLY_MIN_SCORE) continue
+      // Tokenize tender text
+      const objetoTokens = tokenize(tender.objeto)
+      const resumoTokens = tender.resumo ? tokenize(tender.resumo as string) : []
+      const tenderTokens = new Set([...objetoTokens, ...resumoTokens])
 
-        const breakdown = [
-          { category: 'cnae', score: 0, reason: 'Sem classificação CNAE (pendente)' },
-          { category: 'keywords', score: kwScore, reason: 'Palavras-chave da empresa' },
+      // 1. Keyword score
+      const kwScore = computeKeywordScore(companyKeywords, tenderTokens)
+
+      // 2. Description score
+      const descScore = computeKeywordScore(descTokens, tenderTokens)
+
+      // Scoring: keyword (60%) + description (40%)
+      const finalScore = Math.round(kwScore * 0.60 + descScore * 0.40)
+
+      if (finalScore < MIN_MATCH_SCORE) continue
+
+      insertBuffer.push({
+        company_id: companyId,
+        tender_id: tender.id,
+        score: finalScore,
+        keyword_score: finalScore,
+        breakdown: [
+          { category: 'keywords', score: kwScore, reason: 'Palavras-chave (CNAE + empresa)' },
           { category: 'description', score: descScore, reason: 'Descrição de serviços' },
-        ]
+        ],
+        ai_justificativa: null,
+        riscos: [],
+        acoes_necessarias: [],
+        recomendacao: null,
+        match_source: 'keyword',
+        status: 'new',
+      })
 
-        const isNew = await upsertMatch(serviceSupabase, companyId, tender.id, finalScore, breakdown)
-        if (isNew) matchCount++
+      // Flush when buffer is full
+      if (insertBuffer.length >= BATCH_SIZE) {
+        await flushBuffer()
       }
-
-      if (tenders.length < pageSize) break
-      page++
     }
+
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
+    if (page % 5 === 0) {
+      console.log(`[REMATCH] Page ${page}: scanned ${scanned}, ${matchCount} new matches (${elapsed}s)`)
+    }
+
+    if (tenders.length < pageSize) break
+    page++
   }
 
+  // Flush remaining
+  await flushBuffer()
+
+  const totalElapsed = ((Date.now() - startTime) / 1000).toFixed(1)
+  console.log(`[REMATCH] COMPLETE: scanned ${scanned} tenders, ${matchCount} new matches in ${totalElapsed}s`)
+
+  // Invalidate ALL match caches for this company
+  const deleted = await invalidateCache(CacheKeys.allCompanyMatches(companyId))
+  console.log('[REMATCH] Cache invalidated, keys deleted:', deleted)
+
+  const { getRedis } = await import('@/lib/redis')
+  const r = getRedis()
+  try {
+    const scoreKeys = [10, 15, 20, 25, 30, 40, 50, 60].map(
+      (s) => CacheKeys.matchCount(companyId, s),
+    )
+    await r.del(...scoreKeys)
+  } catch {
+    // Ignore Redis errors
+  }
+
+  await invalidateCache('cache:stats:dashboard:*')
+
+  // Trigger pending notifications immediately so Telegram alerts go out
   if (matchCount > 0) {
-    await invalidateCache(CacheKeys.allCompanyMatches(companyId))
+    try {
+      // Enqueue a BullMQ job via raw Redis XADD (avoids importing bullmq in the web app)
+      // BullMQ stores jobs in a Redis stream: bull:<queue>:events, and list: bull:<queue>:wait
+      // Simplest approach: publish a Redis message that the workers can pick up
+      await r.publish('licitagram:rematch-done', JSON.stringify({ companyId, matchCount }))
+      console.log('[REMATCH] Published rematch-done event for notifications')
+    } catch (err) {
+      console.error('[REMATCH] Failed to publish notification event (non-critical):', err)
+    }
   }
 
   return matchCount

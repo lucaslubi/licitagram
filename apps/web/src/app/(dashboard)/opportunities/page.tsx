@@ -19,6 +19,8 @@ import {
   getMatchCount,
   getTenderCount,
 } from '@/lib/cache'
+import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
+import type { PlanFeatures } from '@licitagram/shared'
 
 const DEFAULT_MIN_SCORE = 10
 const ALL_SCORE_OPTIONS = Array.from({ length: 19 }, (_, i) => 10 + i * 5)
@@ -35,10 +37,16 @@ export default async function OpportunitiesPage({
   const params = await searchParams
 
   // Single auth + profile fetch (replaces 2 separate queries)
-  const auth = await getAuthAndProfile()
+  const [auth, user] = await Promise.all([
+    getAuthAndProfile(),
+    getUserWithPlan(),
+  ])
   if (!auth) redirect('/login')
 
   const { companyId, minScore: userMinScore } = auth
+  const canExport = user ? hasFeature(user, 'export_excel') : false
+  const allowedPortals: string[] = (user?.features as PlanFeatures | null)?.portais || []
+  const hasAllPortals = user?.isPlatformAdmin || allowedPortals.length >= 5
 
   const page = parseInt(params.page || '1')
   const pageSize = 20
@@ -103,6 +111,8 @@ export default async function OpportunitiesPage({
       ordemDataFilter,
       userMinScore,
       baseParams,
+      canExport,
+      hasAllPortals,
     })
   }
 
@@ -224,7 +234,8 @@ export default async function OpportunitiesPage({
                   <option value="">Todas</option>
                   <option value="pncp">PNCP</option>
                   <option value="comprasgov">Compras.gov</option>
-                  <option value="bec_sp">BEC SP</option>
+                  {hasAllPortals && <option value="bec_sp">BEC SP</option>}
+                  {hasAllPortals && <option value="compras_mg">Compras MG</option>}
                 </select>
               </div>
               <div>
@@ -290,12 +301,14 @@ export default async function OpportunitiesPage({
                 </span>
               )}
             </CardTitle>
-            <a
-              href={`/api/export?view=tenders&uf=${ufFilter}&modalidade=${modalidadeFilter}&fonte=${fonteFilter}`}
-              className="px-3 py-1.5 bg-brand text-white rounded-md hover:bg-brand-dark text-xs sm:text-sm inline-flex items-center gap-1 w-fit"
-            >
-              Exportar Excel
-            </a>
+            {canExport && (
+              <a
+                href={`/api/export?view=tenders&uf=${ufFilter}&modalidade=${modalidadeFilter}&fonte=${fonteFilter}`}
+                className="px-3 py-1.5 bg-brand text-white rounded-md hover:bg-brand-dark text-xs sm:text-sm inline-flex items-center gap-1 w-fit"
+              >
+                Exportar Excel
+              </a>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -307,8 +320,9 @@ export default async function OpportunitiesPage({
                 <TableHead className="min-w-[150px]">Órgão</TableHead>
                 <TableHead className="w-14">UF</TableHead>
                 <TableHead className="w-32 hidden lg:table-cell">Valor</TableHead>
-                <TableHead className="w-28 hidden md:table-cell">Publicação</TableHead>
+                <TableHead className="w-28 hidden md:table-cell">Abertura</TableHead>
                 <TableHead className="w-32 hidden md:table-cell">Encerramento</TableHead>
+                <TableHead className="w-28 hidden lg:table-cell">Publicação</TableHead>
                 <TableHead className="w-24 hidden lg:table-cell">Fonte</TableHead>
                 <TableHead className="w-20">Status</TableHead>
               </TableRow>
@@ -335,12 +349,17 @@ export default async function OpportunitiesPage({
                         : '-'}
                     </TableCell>
                     <TableCell className="text-sm hidden md:table-cell">
-                      {tender.data_publicacao
-                        ? formatDate(tender.data_publicacao)
+                      {tender.data_abertura
+                        ? formatDate(tender.data_abertura)
                         : '-'}
                     </TableCell>
                     <TableCell className="text-sm hidden md:table-cell">
                       <EncerramentoBadge dataEncerramento={tender.data_encerramento} />
+                    </TableCell>
+                    <TableCell className="text-sm hidden lg:table-cell text-gray-400">
+                      {tender.data_publicacao
+                        ? formatDate(tender.data_publicacao)
+                        : '-'}
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">
                       <SourceBadge source={tender.source || 'pncp'} />
@@ -352,7 +371,7 @@ export default async function OpportunitiesPage({
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-gray-400 py-8">
+                  <TableCell colSpan={9} className="text-center text-gray-400 py-8">
                     Nenhuma licitação encontrada
                   </TableCell>
                 </TableRow>
@@ -409,11 +428,13 @@ function renderMatchesView(props: {
   ordemDataFilter: string
   userMinScore: number
   baseParams: URLSearchParams
+  canExport: boolean
+  hasAllPortals: boolean
 }) {
   const {
     matches, matchCount, totalPages, tenderCount, page,
     ufFilter, modalidadeFilter, scoreMinFilter, dataDeFilter, dataAteFilter, fonteFilter,
-    ordemValorFilter, ordemDataFilter, userMinScore, baseParams,
+    ordemValorFilter, ordemDataFilter, userMinScore, baseParams, canExport, hasAllPortals,
   } = props
 
   const effectiveMinScore = scoreMinFilter > 0 ? scoreMinFilter : userMinScore
@@ -499,7 +520,8 @@ function renderMatchesView(props: {
                   <option value="">Todas</option>
                   <option value="pncp">PNCP</option>
                   <option value="comprasgov">Compras.gov</option>
-                  <option value="bec_sp">BEC SP</option>
+                  {hasAllPortals && <option value="bec_sp">BEC SP</option>}
+                  {hasAllPortals && <option value="compras_mg">Compras MG</option>}
                 </select>
               </div>
               <div>
@@ -574,12 +596,14 @@ function renderMatchesView(props: {
                 (score &ge; {effectiveMinScore}%)
               </span>
             </CardTitle>
-            <a
-              href={`/api/export?view=matches&uf=${ufFilter}&modalidade=${modalidadeFilter}&fonte=${fonteFilter}&score_min=${effectiveMinScore}`}
-              className="px-3 py-1.5 bg-brand text-white rounded-md hover:bg-brand-dark text-xs sm:text-sm inline-flex items-center gap-1 w-fit"
-            >
-              Exportar Excel
-            </a>
+            {canExport && (
+              <a
+                href={`/api/export?view=matches&uf=${ufFilter}&modalidade=${modalidadeFilter}&fonte=${fonteFilter}&score_min=${effectiveMinScore}`}
+                className="px-3 py-1.5 bg-brand text-white rounded-md hover:bg-brand-dark text-xs sm:text-sm inline-flex items-center gap-1 w-fit"
+              >
+                Exportar Excel
+              </a>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -599,7 +623,7 @@ function renderMatchesView(props: {
                   <TableHead className="w-14">UF</TableHead>
                   <TableHead className="w-32 hidden md:table-cell">Valor</TableHead>
                   <TableHead className="w-28 hidden lg:table-cell">Modalidade</TableHead>
-                  <TableHead className="w-28 hidden md:table-cell">Publicação</TableHead>
+                  <TableHead className="w-28 hidden md:table-cell">Abertura</TableHead>
                   <TableHead className="w-32 hidden md:table-cell">Encerramento</TableHead>
                   <TableHead className="w-14 hidden lg:table-cell">Docs</TableHead>
                   <TableHead className="w-24 hidden xl:table-cell">Fonte</TableHead>
@@ -642,8 +666,8 @@ function renderMatchesView(props: {
                         {truncateText((tender?.modalidade_nome as string) || '-', 25)}
                       </TableCell>
                       <TableCell className="text-sm hidden md:table-cell">
-                        {tender?.data_publicacao
-                          ? formatDate(tender.data_publicacao as string)
+                        {tender?.data_abertura
+                          ? formatDate(tender.data_abertura as string)
                           : '-'}
                       </TableCell>
                       <TableCell className="text-sm hidden md:table-cell">

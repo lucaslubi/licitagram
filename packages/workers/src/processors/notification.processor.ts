@@ -5,76 +5,56 @@ import { bot } from '../telegram/bot'
 import { formatMatchAlert } from '../telegram/formatters'
 import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
-import { callGemini } from '../ai/gemini-client'
+import { CNAE_DIVISIONS } from '@licitagram/shared'
+import { tokenize } from './keyword-matcher'
 
-// ─── AI Quality Gate Constants ────────────────────────────────────────────
+// ─── Local Quality Gate (replaces AI quality gate — zero cost) ───────────
 
 const HIGH_CONFIDENCE_THRESHOLD = 66   // Score >= 66 → send directly
-const BORDERLINE_MIN = 40              // Score 40-65 → AI quick-check
-const AI_GATE_TIMEOUT = 10_000         // 10s timeout for AI check
+const BORDERLINE_MIN = 45              // Score 45-65 → keyword phrase check
 
 /**
- * AI Quality Gate: For borderline matches (score 40-65), verify with AI
- * that the company's CNAE actually allows participation in the tender.
- * Returns true if the match should be sent, false if it should be dismissed.
+ * Local Quality Gate: For borderline matches (score 45-65), verify using
+ * PHRASE-LEVEL keyword overlap that the company's CNAE is relevant.
+ * Uses complete keyword phrases (not individual tokens) to prevent false positives.
+ * Zero API cost — uses CNAE keyword matching instead of Gemini.
  */
-async function aiQualityGate(
+function localQualityGate(
   matchId: string,
   score: number,
   companyCnaes: string[],
   tenderObjeto: string,
-): Promise<boolean> {
+): boolean {
   // High confidence → send directly
   if (score >= HIGH_CONFIDENCE_THRESHOLD) return true
 
   // Below borderline minimum → don't send
   if (score < BORDERLINE_MIN) return false
 
-  // Borderline (40-65) → AI quick-check
-  try {
-    const cnaeList = companyCnaes.join(', ')
-    const prompt = `Uma empresa com CNAEs nas divisoes [${cnaeList}] pode participar de uma licitacao sobre: "${tenderObjeto.slice(0, 300)}"?\nResponda APENAS "SIM" ou "NAO".`
+  // Borderline (45-65) → check CNAE keyword PHRASE overlap with tender objeto
+  const objetoTokens = new Set(tokenize(tenderObjeto))
 
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), AI_GATE_TIMEOUT)
-
-    try {
-      const response = await callGemini({
-        model: 'gemini-2.0-flash-lite',
-        system: 'Voce e um especialista em licitacoes brasileiras. Responda apenas SIM ou NAO.',
-        prompt,
-        maxRetries: 1,
-      })
-
-      clearTimeout(timeout)
-
-      const answer = response.trim().toUpperCase()
-      const approved = answer.startsWith('SIM')
-
-      if (!approved) {
-        // Mark match as dismissed by AI gate
-        await supabase
-          .from('matches')
-          .update({ status: 'dismissed' })
-          .eq('id', matchId)
-
-        logger.info(
-          { matchId, score, answer },
-          'Match dismissed by AI quality gate (borderline score)',
-        )
+  for (const cnae of companyCnaes) {
+    const div = cnae.substring(0, 2)
+    const division = CNAE_DIVISIONS[div]
+    if (division) {
+      let kwPhraseMatches = 0
+      for (const kw of division.keywords) {
+        const kwTokens = tokenize(kw)
+        // PHRASE-LEVEL: ALL tokens of the keyword must be present in tender
+        if (kwTokens.length > 0 && kwTokens.every((t: string) => objetoTokens.has(t))) {
+          kwPhraseMatches++
+          if (kwPhraseMatches >= 3) return true // 3+ phrase matches → send
+        }
       }
-
-      return approved
-    } catch {
-      clearTimeout(timeout)
-      // If AI check fails, send the notification anyway (fail-open)
-      logger.warn({ matchId, score }, 'AI quality gate failed, sending notification anyway')
-      return true
     }
-  } catch (err) {
-    logger.warn({ matchId, err }, 'AI quality gate error, sending notification anyway')
-    return true
   }
+
+  logger.info(
+    { matchId, score },
+    'Match dismissed by local quality gate (borderline score, insufficient CNAE keyword phrase overlap)',
+  )
+  return false
 }
 
 const notificationWorker = new Worker<NotificationJobData>(
@@ -91,7 +71,7 @@ const notificationWorker = new Worker<NotificationJobData>(
       .from('matches')
       .select(`
         id, score, breakdown, ai_justificativa, company_id,
-        tenders (objeto, orgao_nome, uf, valor_estimado, data_abertura, modalidade_nome)
+        tenders (objeto, orgao_nome, uf, valor_estimado, data_abertura, data_encerramento, modalidade_nome)
       `)
       .eq('id', matchId)
       .single()
@@ -101,8 +81,25 @@ const notificationWorker = new Worker<NotificationJobData>(
       return
     }
 
-    // ── AI Quality Gate for borderline matches ────────────────────────
-    const tender = (match.tenders as unknown) as Record<string, unknown>
+    // ── Skip expired tenders — don't notify about already-closed tenders ──
+    const tenderData = (match.tenders as unknown) as Record<string, unknown>
+    if (tenderData?.data_encerramento) {
+      const encerramento = new Date(tenderData.data_encerramento as string)
+      if (encerramento < new Date()) {
+        logger.info(
+          { matchId, data_encerramento: tenderData.data_encerramento },
+          'Skipping notification for expired tender',
+        )
+        await supabase
+          .from('matches')
+          .update({ status: 'expired' })
+          .eq('id', matchId)
+        return
+      }
+    }
+
+    // ── Local Quality Gate for borderline matches ────────────────────
+    const tender = tenderData
     const tenderObjeto = (tender?.objeto as string) || ''
 
     // Fetch company CNAEs for the quality gate
@@ -121,9 +118,13 @@ const notificationWorker = new Worker<NotificationJobData>(
         }
       }
 
-      const shouldSend = await aiQualityGate(matchId, match.score, companyCnaes, tenderObjeto)
+      const shouldSend = localQualityGate(matchId, match.score, companyCnaes, tenderObjeto)
       if (!shouldSend) {
-        logger.info({ matchId, score: match.score }, 'Notification blocked by AI quality gate')
+        await supabase
+          .from('matches')
+          .update({ status: 'dismissed' })
+          .eq('id', matchId)
+        logger.info({ matchId, score: match.score }, 'Notification blocked by local quality gate')
         return
       }
     }

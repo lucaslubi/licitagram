@@ -65,10 +65,45 @@ const KEYWORD_TO_DOC_TYPE: Record<string, string[]> = {
 export function ComplianceChecker({
   companyId,
   requisitos,
+  hasAccess = true,
 }: {
   companyId: string
   requisitos: Requisito[]
+  hasAccess?: boolean
 }) {
+  if (!hasAccess) {
+    return (
+      <Card>
+        <CardContent className="py-6">
+          <div className="text-center space-y-3">
+            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+              <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900">Checklist de Compliance</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                Verifique automaticamente se sua empresa atende aos requisitos do edital.
+              </p>
+              <p className="text-xs text-gray-400 mt-2">
+                Disponivel nos planos Professional e Enterprise
+              </p>
+            </div>
+            <a
+              href="/billing"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand/10 text-brand rounded-lg text-sm font-medium hover:bg-brand/20 transition-colors"
+            >
+              Fazer upgrade
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+            </a>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
   const [items, setItems] = useState<ComplianceItem[]>([])
   const [loading, setLoading] = useState(true)
   const [score, setScore] = useState(0)

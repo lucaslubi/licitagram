@@ -14,11 +14,12 @@ export default async function DashboardPage() {
 
   const { data: profile } = await supabase
     .from('users')
-    .select('company_id')
+    .select('company_id, min_score')
     .eq('id', user.id)
     .single()
 
   const companyId = profile?.company_id
+  const minScore = profile?.min_score ?? 10
 
   if (!companyId) {
     return (
@@ -57,11 +58,11 @@ export default async function DashboardPage() {
     matchesWithDetails,
     documentsResult,
   ] = await Promise.all([
-    supabase.from('matches').select('*', { count: 'exact', head: true }).eq('company_id', companyId),
+    supabase.from('matches').select('*', { count: 'exact', head: true }).eq('company_id', companyId).gte('score', minScore),
     supabase.from('matches').select('*', { count: 'exact', head: true }).eq('company_id', companyId).gte('score', 70),
     supabase.from('tenders').select('*', { count: 'exact', head: true }).gte('created_at', sevenDaysAgo.toISOString()),
     supabase.from('tenders').select('*', { count: 'exact', head: true }),
-    supabase.from('matches').select('score').eq('company_id', companyId),
+    supabase.from('matches').select('score').eq('company_id', companyId).gte('score', minScore),
     supabase
       .from('matches')
       .select('id, score, status, created_at, tenders(objeto, orgao_nome, uf, valor_estimado)')

@@ -7,6 +7,18 @@ import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
 import type { PNCPContratacao } from '@licitagram/shared'
 
+/**
+ * Sanitize monetary value — PNCP API sometimes returns corrupted values.
+ * Cap at R$ 50 billion; anything above is clearly a data error.
+ */
+function sanitizeValor(valor: number | null | undefined): number | null {
+  if (valor === null || valor === undefined) return null
+  const num = typeof valor === 'string' ? parseFloat(String(valor).replace(/\./g, '').replace(',', '.')) : valor
+  if (isNaN(num) || num < 0) return null
+  if (num > 50_000_000_000) return null
+  return num
+}
+
 async function upsertTender(contratacao: PNCPContratacao): Promise<{ id: string; isNew: boolean }> {
   const pncpId = buildPncpId(contratacao)
   const cnpj = contratacao.orgaoEntidade.cnpj.replace(/\D/g, '')
@@ -34,8 +46,8 @@ async function upsertTender(contratacao: PNCPContratacao): Promise<{ id: string;
     modalidade_id: contratacao.modalidadeId,
     modalidade_nome: contratacao.modalidadeNome,
     objeto: contratacao.objetoCompra,
-    valor_estimado: contratacao.valorTotalEstimado,
-    valor_homologado: contratacao.valorTotalHomologado,
+    valor_estimado: sanitizeValor(contratacao.valorTotalEstimado),
+    valor_homologado: sanitizeValor(contratacao.valorTotalHomologado),
     data_publicacao: contratacao.dataPublicacaoPncp,
     data_abertura: contratacao.dataAberturaProposta,
     data_encerramento: contratacao.dataEncerramentoProposta,

@@ -146,12 +146,12 @@ async function fetchTenderListFromDB(params: TenderListParams): Promise<TenderLi
   }
 
   if (ordemData === 'data_asc') {
-    query = query.order('data_publicacao', { ascending: true })
+    query = query.order('data_publicacao', { ascending: true, nullsFirst: false })
   } else if (ordemData === 'data_desc') {
-    query = query.order('data_publicacao', { ascending: false })
+    query = query.order('data_publicacao', { ascending: false, nullsFirst: false })
   } else if (!ordemValor) {
-    // Default: data mais recente (only if no valor sort is active)
-    query = query.order('data_publicacao', { ascending: false })
+    // Default: mais recentes primeiro (por data de publicação no portal)
+    query = query.order('data_publicacao', { ascending: false, nullsFirst: false })
   }
 
   query = query.range((page - 1) * pageSize, page * pageSize - 1)
@@ -366,15 +366,18 @@ export async function getMatchCount(companyId: string, minScore: number): Promis
 
 /**
  * Get global tender count (cached).
+ * Counts only OPEN tenders (data_encerramento is null or >= today).
  */
 export async function getTenderCount(): Promise<number> {
   return cached(
-    CacheKeys.stats('tender-total'),
+    CacheKeys.stats('tender-open-total'),
     async () => {
       const supabase = await createClient()
+      const today = new Date().toISOString().split('T')[0]
       const { count } = await supabase
         .from('tenders')
         .select('id', { count: 'exact', head: true })
+        .or(`data_encerramento.is.null,data_encerramento.gte.${today}`)
       return count || 0
     },
     TTL.stats,

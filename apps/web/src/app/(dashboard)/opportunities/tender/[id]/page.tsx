@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { formatCurrency, formatDate } from '@licitagram/shared'
 import { EditalChat } from '../../[id]/chat'
 import { getAuthAndProfile, getTenderDetail } from '@/lib/cache'
+import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
 
 export default async function TenderDetailPage({
   params,
@@ -14,8 +15,13 @@ export default async function TenderDetailPage({
   const { id } = await params
 
   // Single auth check (replaces redundant auth + profile queries)
-  const auth = await getAuthAndProfile()
+  const [auth, user] = await Promise.all([
+    getAuthAndProfile(),
+    getUserWithPlan(),
+  ])
   if (!auth) redirect('/login')
+
+  const hasChatIa = user ? hasFeature(user, 'chat_ia') : false
 
   // Cached tender + docs fetch (parallel, 30 min TTL)
   const { tender, documents: docs } = await getTenderDetail(id)
@@ -217,6 +223,7 @@ export default async function TenderDetailPage({
         tenderId={id}
         documentCount={docs?.length || 0}
         documentUrls={(docs || []).filter((d: Record<string, unknown>) => d.url).map((d: Record<string, unknown>) => ({ id: d.id as string, titulo: (d.titulo as string) || null, tipo: (d.tipo as string) || null, url: d.url as string }))}
+        hasAccess={hasChatIa}
       />
     </div>
   )

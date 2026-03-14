@@ -64,7 +64,7 @@ export const CNAE_DIVISIONS: Record<string, CNAEDivision> = {
   '10': {
     nome: 'Fabricação de Produtos Alimentícios',
     descricao: 'Abate e fabricação de produtos de carne, conservas de frutas, óleos e gorduras, laticínios, moagem, fabricação de amidos, rações, produtos de padaria, açúcar, chocolate, massas alimentícias',
-    keywords: ['alimento', 'alimenticio', 'comida', 'carne', 'frigorífico', 'laticinio', 'leite', 'queijo', 'pao', 'padaria', 'acucar', 'chocolate', 'conserva', 'oleo', 'gordura', 'farinha', 'cereal', 'racao', 'massa', 'biscoito', 'embutido', 'suco', 'polpa'],
+    keywords: ['alimento', 'alimenticio', 'comida', 'carne', 'frigorífico', 'laticinio', 'leite', 'queijo', 'pao', 'padaria', 'acucar', 'chocolate', 'conserva', 'oleo', 'gordura', 'farinha', 'cereal', 'racao', 'massa', 'biscoito', 'embutido', 'suco', 'polpa', 'genero alimenticio', 'cesta basica', 'produto alimenticio'],
   },
   '11': {
     nome: 'Fabricação de Bebidas',
@@ -84,7 +84,7 @@ export const CNAE_DIVISIONS: Record<string, CNAEDivision> = {
   '14': {
     nome: 'Confecção de Artigos do Vestuário e Acessórios',
     descricao: 'Confecção de roupas e acessórios, uniformes, roupas profissionais, camisetas, calças, vestidos',
-    keywords: ['vestuario', 'roupa', 'uniforme', 'confeccao', 'camisa', 'calca', 'vestido', 'jaqueta', 'farda', 'epi', 'moda', 'costura', 'bordado'],
+    keywords: ['vestuario', 'roupa', 'uniforme', 'confeccao', 'camisa', 'calca', 'vestido', 'jaqueta', 'farda', 'epi', 'epis', 'moda', 'costura', 'bordado', 'fardamento', 'camiseta', 'jaleco', 'avental', 'vestimenta', 'equipamento protecao individual', 'luva', 'bota', 'capacete', 'fardamento escolar'],
   },
   '15': {
     nome: 'Preparação de Couros e Fabricação de Artigos de Couro',
@@ -104,7 +104,7 @@ export const CNAE_DIVISIONS: Record<string, CNAEDivision> = {
   '18': {
     nome: 'Impressão e Reprodução de Gravações',
     descricao: 'Atividades de impressão de jornais, livros, material de publicidade, impressão de rótulos e etiquetas, pré-impressão, acabamento gráfico',
-    keywords: ['impressao', 'grafica', 'impresso', 'livro', 'jornal', 'banner', 'folder', 'cartaz', 'rotulo', 'etiqueta', 'adesivo', 'offset', 'serigrafia', 'plotagem'],
+    keywords: ['impressao', 'grafica', 'impresso', 'livro', 'jornal', 'banner', 'folder', 'cartaz', 'rotulo', 'etiqueta', 'adesivo', 'offset', 'serigrafia', 'plotagem', 'carne', 'boleto', 'material grafico', 'servico grafico', 'encadernacao', 'publicacao'],
   },
   '19': {
     nome: 'Fabricação de Coque e Derivados de Petróleo',
@@ -119,7 +119,7 @@ export const CNAE_DIVISIONS: Record<string, CNAEDivision> = {
   '21': {
     nome: 'Fabricação de Produtos Farmoquímicos e Farmacêuticos',
     descricao: 'Fabricação de produtos farmoquímicos, medicamentos para uso humano e veterinário, preparações farmacêuticas',
-    keywords: ['farmaceutico', 'medicamento', 'remedio', 'farmaco', 'droga', 'vacina', 'insumo farmaceutico', 'laboratorio', 'farmacia', 'capsulas', 'comprimido', 'injetavel'],
+    keywords: ['farmaceutico', 'medicamento', 'remedio', 'farmaco', 'droga', 'vacina', 'insumo farmaceutico', 'laboratorio', 'farmacia', 'capsulas', 'comprimido', 'injetavel', 'farmacia basica', 'farmacia municipal', 'material hospitalar', 'material medico', 'produto farmaceutico'],
   },
   '22': {
     nome: 'Fabricação de Produtos de Borracha e de Material Plástico',
@@ -139,12 +139,12 @@ export const CNAE_DIVISIONS: Record<string, CNAEDivision> = {
   '25': {
     nome: 'Fabricação de Produtos de Metal',
     descricao: 'Fabricação de estruturas metálicas, tanques, caldeiras, forjaria, estamparia, metalurgia do pó, usinagem, soldagem, tratamento de metais',
-    keywords: ['metal', 'metalico', 'estrutura metalica', 'serralheria', 'caldeiraria', 'usinagem', 'soldagem', 'ferramentaria', 'estamparia', 'parafuso', 'porca', 'chapa', 'tubo metalico', 'grade', 'portao', 'cerca'],
+    keywords: ['metal', 'metalico', 'estrutura metalica', 'serralheria', 'caldeiraria', 'usinagem', 'soldagem', 'ferramentaria', 'estamparia', 'parafuso', 'porca', 'chapa', 'tubo metalico', 'grade', 'portao', 'cerca', 'placa', 'sinalizacao viaria', 'placa sinalizacao'],
   },
   '26': {
     nome: 'Fabricação de Equipamentos de Informática, Eletrônicos e Ópticos',
     descricao: 'Fabricação de componentes eletrônicos, computadores, equipamentos de comunicação, equipamentos de medição, instrumentos ópticos, mídias virgens',
-    keywords: ['equipamento informatica', 'computador', 'notebook', 'monitor', 'impressora', 'servidor', 'storage', 'switch', 'roteador', 'eletronico', 'componente', 'placa', 'circuito', 'camera', 'optico', 'instrumento', 'medicao', 'scanner'],
+    keywords: ['equipamento informatica', 'computador', 'notebook', 'monitor', 'impressora', 'servidor', 'storage', 'switch', 'roteador', 'eletronico', 'componente', 'placa', 'circuito', 'camera', 'optico', 'instrumento', 'medicao', 'scanner', 'equipamento tecnologia', 'tablet', 'desktop', 'microcomputador', 'nobreak', 'estabilizador'],
   },
   '27': {
     nome: 'Fabricação de Máquinas, Aparelhos e Materiais Elétricos',
@@ -159,7 +159,7 @@ export const CNAE_DIVISIONS: Record<string, CNAEDivision> = {
   '29': {
     nome: 'Fabricação de Veículos Automotores',
     descricao: 'Fabricação de automóveis, caminhões, ônibus, cabines, carrocerias, reboques, semi-reboques, peças e acessórios para veículos',
-    keywords: ['veiculo', 'automovel', 'carro', 'caminhao', 'onibus', 'carroceria', 'reboque', 'peca automotiva', 'automovel', 'motor veiculo', 'transmissao', 'freio'],
+    keywords: ['veiculo', 'automovel', 'carro', 'caminhao', 'onibus', 'carroceria', 'reboque', 'peca automotiva', 'motor veiculo', 'transmissao', 'freio', 'ambulancia', 'van', 'utilitario', 'automotor', 'veiculo automotor', 'veiculo passeio', 'caminhonete', 'micro-onibus'],
   },
   '30': {
     nome: 'Fabricação de Outros Equipamentos de Transporte',
@@ -169,12 +169,12 @@ export const CNAE_DIVISIONS: Record<string, CNAEDivision> = {
   '31': {
     nome: 'Fabricação de Móveis',
     descricao: 'Fabricação de móveis de madeira, metal, plástico, estofados, colchões, móveis para escritório, cozinha, dormitórios',
-    keywords: ['movel', 'mobiliario', 'armario', 'mesa', 'cadeira', 'estante', 'sofa', 'colchao', 'estofado', 'movel escritorio', 'movel planejado', 'divisoria', 'bancada'],
+    keywords: ['movel', 'mobiliario', 'armario', 'mesa', 'cadeira', 'estante', 'sofa', 'colchao', 'estofado', 'movel escritorio', 'movel planejado', 'divisoria', 'bancada', 'divisoria modular', 'prateleira', 'arquivo aco', 'gaveteiro', 'balcao'],
   },
   '32': {
     nome: 'Fabricação de Produtos Diversos',
     descricao: 'Fabricação de artigos de joalheria e bijuteria, instrumentos musicais, artigos de esporte, brinquedos, equipamentos médico-odontológicos',
-    keywords: ['joalheria', 'bijuteria', 'brinquedo', 'esporte', 'artigo esportivo', 'instrumento musical', 'medico hospitalar', 'odontologico', 'protese', 'ortese', 'equipamento hospitalar'],
+    keywords: ['joalheria', 'bijuteria', 'brinquedo', 'esporte', 'artigo esportivo', 'instrumento musical', 'medico hospitalar', 'odontologico', 'protese', 'ortese', 'equipamento hospitalar', 'hospitalar', 'equipamento medico', 'material odontologico'],
   },
   '33': {
     nome: 'Manutenção, Reparação e Instalação de Máquinas e Equipamentos',
@@ -186,24 +186,24 @@ export const CNAE_DIVISIONS: Record<string, CNAEDivision> = {
   '35': {
     nome: 'Eletricidade, Gás e Outras Utilidades',
     descricao: 'Geração, transmissão e distribuição de energia elétrica, produção e distribuição de gás, produção e distribuição de vapor, água quente e ar condicionado',
-    keywords: ['energia', 'eletricidade', 'energia eletrica', 'geracao', 'transmissao', 'distribuicao', 'subestacao', 'gas', 'utilidade', 'concessionaria', 'fotovoltaico', 'solar', 'eolica'],
+    keywords: ['energia', 'eletricidade', 'energia eletrica', 'geracao', 'transmissao', 'distribuicao', 'subestacao', 'gas', 'utilidade', 'concessionaria', 'fotovoltaico', 'solar', 'eolica', 'iluminacao publica', 'iluminacao', 'rede eletrica', 'poste', 'luminaria', 'lampada', 'led'],
   },
 
   // ── SEÇÃO E: Água, Esgoto, Resíduos ──
   '36': {
     nome: 'Captação, Tratamento e Distribuição de Água',
     descricao: 'Captação, tratamento e distribuição de água potável, dessalinização, saneamento',
-    keywords: ['agua', 'tratamento agua', 'saneamento', 'distribuicao agua', 'captacao', 'dessalinizacao', 'estacao tratamento', 'eta', 'potavel'],
+    keywords: ['agua', 'tratamento agua', 'saneamento', 'distribuicao agua', 'captacao', 'dessalinizacao', 'estacao tratamento', 'eta', 'potavel', 'poco artesiano', 'poco', 'abastecimento agua', 'agua potavel', 'hipoclorito', 'carro pipa', 'cisterna'],
   },
   '37': {
     nome: 'Esgoto e Atividades Relacionadas',
     descricao: 'Gestão de redes de esgoto, coleta e tratamento de esgoto, disposição final',
-    keywords: ['esgoto', 'efluente', 'tratamento esgoto', 'ete', 'fossa', 'rede coletora', 'saneamento'],
+    keywords: ['esgoto', 'efluente', 'tratamento esgoto', 'ete', 'fossa', 'rede coletora', 'saneamento', 'fossa septica', 'fossa septica', 'ligacao domiciliar esgoto', 'estacao elevatoria'],
   },
   '38': {
     nome: 'Coleta, Tratamento e Disposição de Resíduos',
     descricao: 'Coleta de resíduos não-perigosos e perigosos, tratamento e disposição de resíduos, recuperação de materiais, reciclagem',
-    keywords: ['residuo', 'lixo', 'coleta', 'reciclagem', 'aterro', 'residuo solido', 'residuo perigoso', 'descarte', 'compostagem', 'incineracao', 'sucata'],
+    keywords: ['residuo', 'lixo', 'coleta', 'reciclagem', 'aterro', 'residuo solido', 'residuo perigoso', 'descarte', 'compostagem', 'incineracao', 'sucata', 'aterro sanitario', 'coleta lixo', 'coleta residuo', 'lixeira', 'caçamba'],
   },
   '39': {
     nome: 'Descontaminação e Outros Serviços de Gestão de Resíduos',
@@ -215,24 +215,24 @@ export const CNAE_DIVISIONS: Record<string, CNAEDivision> = {
   '41': {
     nome: 'Construção de Edifícios',
     descricao: 'Incorporação de empreendimentos imobiliários, construção de edifícios residenciais e comerciais, reforma, restauração, ampliação de edificações',
-    keywords: ['construcao', 'edificio', 'predio', 'obra', 'residencial', 'comercial', 'reforma', 'restauracao', 'ampliacao', 'alvenaria', 'fundacao', 'estrutura', 'incorporacao', 'empreiteira', 'construtora'],
+    keywords: ['construcao', 'edificio', 'predio', 'obra', 'residencial', 'comercial', 'reforma', 'restauracao', 'ampliacao', 'alvenaria', 'fundacao', 'estrutura', 'incorporacao', 'empreiteira', 'construtora', 'obra civil', 'engenharia civil', 'reforma predial', 'construcao civil', 'modulo habitacional', 'habitacional', 'edificacao'],
   },
   '42': {
     nome: 'Obras de Infraestrutura',
     descricao: 'Construção de rodovias, ferrovias, obras de arte especiais, pontes, viadutos, túneis, redes de transportes, barragens, usinas, redes de telecomunicações, distribuição de água, gás, esgoto',
-    keywords: ['infraestrutura', 'rodovia', 'estrada', 'ferrovia', 'ponte', 'viaduto', 'tunel', 'barragem', 'usina', 'pavimentacao', 'asfalto', 'terraplenagem', 'drenagem', 'saneamento', 'rede', 'tubulacao', 'adutora'],
+    keywords: ['infraestrutura', 'rodovia', 'estrada', 'ferrovia', 'ponte', 'viaduto', 'tunel', 'barragem', 'usina', 'pavimentacao', 'asfalto', 'terraplenagem', 'drenagem', 'saneamento', 'rede', 'tubulacao', 'adutora', 'drenagem pluvial', 'drenagem urbana', 'galeria pluvial', 'sinalizacao viaria', 'meio fio', 'sarjeta', 'cbuq', 'obra infraestrutura'],
   },
   '43': {
     nome: 'Serviços Especializados para Construção',
     descricao: 'Demolição, preparação de terreno, instalações elétricas, hidráulicas, ar condicionado, obras de acabamento, pintura, revestimento, impermeabilização',
-    keywords: ['demolicao', 'terraplenagem', 'instalacao eletrica', 'instalacao hidraulica', 'ar condicionado', 'climatizacao', 'acabamento', 'pintura', 'revestimento', 'impermeabilizacao', 'gesso', 'forro', 'piso', 'azulejo', 'esquadria', 'vidracaria', 'telhado', 'cobertura'],
+    keywords: ['demolicao', 'terraplenagem', 'instalacao eletrica', 'instalacao hidraulica', 'ar condicionado', 'climatizacao', 'acabamento', 'pintura', 'revestimento', 'impermeabilizacao', 'gesso', 'forro', 'piso', 'azulejo', 'esquadria', 'vidracaria', 'telhado', 'cobertura', 'reforma predial', 'manutencao predial', 'servico engenharia', 'instalacao', 'eletrica', 'hidraulica', 'pintura predial', 'pintura interna', 'pintura externa', 'divisoria'],
   },
 
   // ── SEÇÃO G: Comércio ──
   '45': {
     nome: 'Comércio e Reparação de Veículos Automotores e Motocicletas',
     descricao: 'Comércio de veículos automotores, comércio de peças e acessórios, manutenção e reparação de veículos, comércio de motocicletas',
-    keywords: ['veiculo', 'automovel', 'carro', 'moto', 'peca', 'acessorio', 'oficina', 'mecanica', 'concessionaria', 'pneu', 'oleo', 'lubrificante', 'funilaria'],
+    keywords: ['veiculo', 'automovel', 'carro', 'moto', 'peca', 'acessorio', 'oficina', 'mecanica', 'concessionaria', 'pneu', 'oleo', 'lubrificante', 'funilaria', 'veiculo automotor', 'veiculo passeio', 'caminhonete', 'ambulancia', 'manutencao veiculo', 'reparo veiculo', 'frota', 'peca veiculo'],
   },
   '46': {
     nome: 'Comércio por Atacado',
@@ -242,7 +242,7 @@ export const CNAE_DIVISIONS: Record<string, CNAEDivision> = {
   '47': {
     nome: 'Comércio Varejista',
     descricao: 'Comércio varejista de mercadorias em geral, produtos alimentícios, combustíveis, material de construção, equipamentos de informática, artigos de escritório, papelaria, farmácia',
-    keywords: ['varejo', 'varejista', 'loja', 'comercio', 'venda', 'produto', 'mercadoria', 'supermercado', 'papelaria', 'informatica', 'material construcao', 'farmacia', 'magazine', 'livraria', 'otica'],
+    keywords: ['varejo', 'varejista', 'loja', 'comercio', 'venda', 'produto', 'mercadoria', 'supermercado', 'papelaria', 'informatica', 'material construcao', 'farmacia', 'magazine', 'livraria', 'otica', 'combustivel', 'abastecimento', 'gasolina', 'diesel', 'etanol', 'posto combustivel', 'fornecimento combustivel'],
   },
 
   // ── SEÇÃO H: Transporte ──
@@ -259,7 +259,7 @@ export const CNAE_DIVISIONS: Record<string, CNAEDivision> = {
   '51': {
     nome: 'Transporte Aéreo',
     descricao: 'Transporte aéreo de passageiros e carga',
-    keywords: ['aereo', 'aviacao', 'aviao', 'aeronave', 'voo', 'aeroporto', 'carga aerea', 'frete aereo'],
+    keywords: ['aereo', 'aviacao', 'aviao', 'aeronave', 'voo', 'aeroporto', 'carga aerea', 'frete aereo', 'passagem aerea', 'bilhete aereo'],
   },
   '52': {
     nome: 'Armazenamento e Atividades Auxiliares dos Transportes',
@@ -281,7 +281,7 @@ export const CNAE_DIVISIONS: Record<string, CNAEDivision> = {
   '56': {
     nome: 'Alimentação',
     descricao: 'Restaurantes, lanchonetes, bares, serviços de catering, bufê, fornecimento de refeições, cantina',
-    keywords: ['restaurante', 'alimentacao', 'refeicao', 'comida', 'lanchonete', 'bar', 'catering', 'bufe', 'cantina', 'cozinha', 'marmita', 'quentinha', 'coffee break', 'cafe', 'gastronomia'],
+    keywords: ['restaurante', 'alimentacao', 'refeicao', 'comida', 'lanchonete', 'bar', 'catering', 'bufe', 'cantina', 'cozinha', 'marmita', 'quentinha', 'coffee break', 'cafe', 'gastronomia', 'buffet', 'alimentacao escolar', 'merenda', 'refeicao transportada', 'fornecimento refeicao'],
   },
 
   // ── SEÇÃO J: Informação e Comunicação ──
@@ -325,7 +325,7 @@ export const CNAE_DIVISIONS: Record<string, CNAEDivision> = {
   '65': {
     nome: 'Seguros, Resseguros e Previdência Complementar',
     descricao: 'Seguros de vida, saúde, automóvel, previdência complementar, resseguro, planos de saúde',
-    keywords: ['seguro', 'seguradora', 'previdencia', 'resseguro', 'plano saude', 'apolice', 'sinistro', 'corretagem seguro'],
+    keywords: ['seguro', 'seguradora', 'previdencia', 'resseguro', 'plano saude', 'apolice', 'sinistro', 'corretagem seguro', 'seguro veiculo', 'seguro frota', 'seguro patrimonial', 'seguro vida', 'contratacao seguro'],
   },
   '66': {
     nome: 'Atividades Auxiliares dos Serviços Financeiros',
@@ -337,24 +337,24 @@ export const CNAE_DIVISIONS: Record<string, CNAEDivision> = {
   '68': {
     nome: 'Atividades Imobiliárias',
     descricao: 'Compra, venda, aluguel e administração de imóveis próprios e de terceiros, intermediação imobiliária, condomínios',
-    keywords: ['imobiliario', 'imovel', 'aluguel', 'locacao', 'condominio', 'imobiliaria', 'administracao imovel', 'compra', 'venda', 'intermediacao'],
+    keywords: ['imobiliario', 'imovel', 'aluguel', 'locacao imovel', 'condominio', 'imobiliaria', 'administracao imovel', 'compra', 'venda', 'intermediacao', 'avaliacao imovel', 'desapropriacao', 'locacao sala', 'locacao predio'],
   },
 
   // ── SEÇÃO M: Atividades Profissionais, Científicas e Técnicas ──
   '69': {
     nome: 'Atividades Jurídicas, Contábeis e de Auditoria',
     descricao: 'Atividades jurídicas, advocacia, contabilidade, auditoria, consultoria e assessoria tributária, fiscal, trabalhista',
-    keywords: ['juridico', 'advocacia', 'advogado', 'contabilidade', 'contador', 'auditoria', 'fiscal', 'tributario', 'trabalhista', 'assessoria', 'consultoria contabil'],
+    keywords: ['juridico', 'advocacia', 'advogado', 'contabilidade', 'contador', 'auditoria', 'fiscal', 'tributario', 'trabalhista', 'assessoria juridica', 'consultoria contabil', 'consultoria juridica', 'consultoria tributaria', 'medidas judiciais', 'assessoria contabil', 'prestacao contas', 'auditoria independente', 'contabil', 'pericia contabil'],
   },
   '70': {
     nome: 'Atividades de Sedes de Empresas e de Consultoria em Gestão Empresarial',
     descricao: 'Sedes de empresas, unidades administrativas locais, consultoria em gestão empresarial, assessoria em planejamento, organização, controle, gestão de projetos, estudos, diagnósticos, treinamentos corporativos',
-    keywords: ['consultoria', 'gestao', 'assessoria', 'planejamento', 'estrategia', 'organizacao', 'projeto', 'diagnostico', 'treinamento', 'capacitacao', 'mapeamento', 'processos', 'bpo', 'mentoria', 'coaching'],
+    keywords: ['consultoria', 'gestao', 'assessoria', 'planejamento', 'estrategia', 'organizacao', 'projeto', 'diagnostico', 'treinamento', 'capacitacao', 'mapeamento', 'processos', 'bpo', 'mentoria', 'coaching', 'consultoria administrativa', 'consultoria empresarial', 'assessoria administrativa'],
   },
   '71': {
     nome: 'Serviços de Arquitetura e Engenharia',
     descricao: 'Serviços de engenharia civil, elétrica, mecânica, ambiental, arquitetura, testes e análises técnicas, projetos, laudos, perícias, topografia, cartografia, geologia',
-    keywords: ['engenharia', 'arquitetura', 'projeto', 'laudo', 'pericia', 'topografia', 'levantamento', 'calculo', 'estrutural', 'geotecnia', 'sondagem', 'ensaio', 'teste', 'analise tecnica', 'fiscalizacao obra', 'supervisao', 'gerenciamento obra', 'meio ambiente'],
+    keywords: ['engenharia', 'arquitetura', 'projeto', 'laudo', 'pericia', 'topografia', 'levantamento', 'calculo', 'estrutural', 'geotecnia', 'sondagem', 'ensaio', 'teste', 'analise tecnica', 'fiscalizacao obra', 'supervisao', 'gerenciamento obra', 'meio ambiente', 'estudo ambiental', 'impacto ambiental', 'rima', 'eia', 'licenciamento ambiental', 'consultoria ambiental', 'avaliacao imovel'],
   },
   '72': {
     nome: 'Pesquisa e Desenvolvimento Científico',
@@ -369,7 +369,7 @@ export const CNAE_DIVISIONS: Record<string, CNAEDivision> = {
   '74': {
     nome: 'Outras Atividades Profissionais, Científicas e Técnicas',
     descricao: 'Design, fotografia, tradução, interpretação, atividades veterinárias, perícias técnicas, consultoria ambiental',
-    keywords: ['design', 'fotografia', 'traducao', 'interprete', 'veterinario', 'pericia', 'consultoria ambiental', 'certificacao'],
+    keywords: ['design', 'fotografia', 'traducao', 'interprete', 'veterinario', 'pericia', 'consultoria ambiental', 'certificacao', 'estudo ambiental', 'impacto ambiental', 'meio ambiente', 'licenciamento ambiental'],
   },
   '75': {
     nome: 'Atividades Veterinárias',
@@ -391,12 +391,12 @@ export const CNAE_DIVISIONS: Record<string, CNAEDivision> = {
   '79': {
     nome: 'Agências de Viagens e Operadores Turísticos',
     descricao: 'Agências de viagens, operadores turísticos, serviços de reservas, passagens aéreas, hospedagem, turismo',
-    keywords: ['viagem', 'turismo', 'passagem', 'hospedagem', 'reserva', 'agencia viagem', 'operadora turismo', 'evento'],
+    keywords: ['viagem', 'turismo', 'passagem', 'hospedagem', 'reserva', 'agencia viagem', 'operadora turismo', 'passagem aerea', 'bilhete passagem', 'agenciamento viagem', 'emissao passagem'],
   },
   '80': {
     nome: 'Atividades de Vigilância, Segurança e Investigação',
     descricao: 'Atividades de vigilância e segurança privada, armada e desarmada, segurança patrimonial, escolta, monitoramento eletrônico, alarmes, CFTV, portaria, controle de acesso',
-    keywords: ['vigilancia', 'seguranca', 'patrimonial', 'armada', 'desarmada', 'monitoramento', 'alarme', 'cftv', 'camera', 'portaria', 'controle acesso', 'vigila', 'ronda', 'escolta', 'blindagem'],
+    keywords: ['vigilancia', 'seguranca', 'patrimonial', 'armada', 'desarmada', 'monitoramento', 'alarme', 'cftv', 'camera', 'portaria', 'controle acesso', 'vigila', 'ronda', 'escolta', 'blindagem', 'extintor', 'incendio', 'sinalizacao seguranca', 'brigada', 'bombeiro civil'],
   },
   '81': {
     nome: 'Serviços para Edifícios e Atividades Paisagísticas',
@@ -406,7 +406,7 @@ export const CNAE_DIVISIONS: Record<string, CNAEDivision> = {
   '82': {
     nome: 'Serviços de Escritório e Apoio Administrativo',
     descricao: 'Fotocópias, digitalização, atividades de teleatendimento, call center, organização de feiras, congressos, exposições, serviços de apoio administrativo, secretariado, recepção, telefonista',
-    keywords: ['escritorio', 'administrativo', 'apoio', 'secretaria', 'recepcao', 'telefonista', 'call center', 'teleatendimento', 'cobranca', 'fotocopia', 'digitalizacao', 'evento', 'congresso', 'feira', 'convencao', 'organizacao evento'],
+    keywords: ['escritorio', 'administrativo', 'apoio', 'secretariado', 'recepcao', 'telefonista', 'call center', 'teleatendimento', 'cobranca', 'fotocopia', 'digitalizacao', 'evento', 'congresso', 'feira', 'convencao', 'organizacao evento'],
   },
 
   // ── SEÇÃO O: Administração Pública ──
@@ -420,31 +420,31 @@ export const CNAE_DIVISIONS: Record<string, CNAEDivision> = {
   '85': {
     nome: 'Educação',
     descricao: 'Educação infantil, ensino fundamental, médio, superior, técnico, profissional, cursos de idiomas, informática, preparatórios, treinamento, capacitação, ensino a distância (EAD)',
-    keywords: ['educacao', 'ensino', 'escola', 'universidade', 'faculdade', 'curso', 'treinamento', 'capacitacao', 'formacao', 'instrutor', 'professor', 'aula', 'ead', 'distancia', 'profissional', 'tecnico', 'idioma', 'preparatorio', 'palestra', 'workshop'],
+    keywords: ['educacao', 'ensino', 'escola', 'universidade', 'faculdade', 'curso', 'treinamento', 'capacitacao', 'formacao', 'instrutor', 'professor', 'aula', 'ead', 'distancia', 'profissional', 'tecnico', 'idioma', 'preparatorio', 'palestra', 'workshop', 'solucao educacional', 'educacional', 'curso online', 'on-line', 'pedagogico', 'didatico', 'aluno', 'estudante', 'creche', 'educacao infantil', 'escolar', 'material didatico', 'livro didatico', 'biblioteca'],
   },
 
   // ── SEÇÃO Q: Saúde e Serviços Sociais ──
   '86': {
     nome: 'Atividades de Atenção à Saúde Humana',
     descricao: 'Atividades de atendimento hospitalar, atenção ambulatorial, serviços de diagnóstico e terapia, urgência, emergência, clínica médica, odontologia, fisioterapia, nutrição, psicologia, fonoaudiologia, enfermagem',
-    keywords: ['saude', 'hospital', 'clinica', 'medico', 'enfermagem', 'ambulatorio', 'cirurgia', 'diagnostico', 'exame', 'laboratorio', 'imagem', 'raio x', 'tomografia', 'ressonancia', 'odontologia', 'fisioterapia', 'nutricao', 'psicologia', 'farmacia', 'uti', 'urgencia', 'emergencia'],
+    keywords: ['saude', 'hospital', 'clinica', 'medico', 'enfermagem', 'ambulatorio', 'cirurgia', 'diagnostico', 'exame', 'laboratorio', 'imagem', 'raio x', 'tomografia', 'ressonancia', 'odontologia', 'fisioterapia', 'nutricao', 'psicologia', 'farmacia', 'uti', 'urgencia', 'emergencia', 'laudo', 'eletrocardiograma', 'ultrassonografia', 'endoscopia', 'paciente', 'area medica', 'servico saude', 'prestacao servico saude', 'ambulancia', 'laudo medico', 'odontologico', 'consultorio', 'reabilitacao', 'oftalmologia', 'oftalmologico', 'catarata', 'atendimento medico', 'procedimento medico', 'unidade saude', 'hospitalar', 'medico hospitalar', 'sus'],
   },
   '87': {
     nome: 'Atividades de Atenção à Saúde Humana Integradas com Assistência Social',
     descricao: 'Atividades de assistência social com alojamento, cuidados de enfermagem, atenção ao deficiente físico e mental, idosos, dependentes químicos',
-    keywords: ['assistencia social', 'abrigo', 'asilo', 'idoso', 'deficiente', 'reabilitacao', 'internacao', 'cuidado'],
+    keywords: ['assistencia social', 'abrigo', 'asilo', 'idoso', 'deficiente', 'reabilitacao', 'internacao', 'cuidado', 'acolhimento', 'acolhimento institucional', 'casa repouso', 'vulnerabilidade', 'lar'],
   },
   '88': {
     nome: 'Serviços de Assistência Social sem Alojamento',
     descricao: 'Serviços de assistência social sem alojamento, creche, orientação e assistência social',
-    keywords: ['assistencia social', 'creche', 'orientacao', 'social', 'comunitario', 'vulnerabilidade'],
+    keywords: ['assistencia social', 'creche', 'orientacao', 'social', 'comunitario', 'vulnerabilidade', 'cras', 'creas', 'centro referencia', 'assistencia', 'acolhimento'],
   },
 
   // ── SEÇÃO R: Artes, Cultura, Esporte e Recreação ──
   '90': {
     nome: 'Atividades Artísticas, Criativas e de Espetáculos',
     descricao: 'Artes cênicas, espetáculos, atividades de artistas, teatro, dança, música, circo',
-    keywords: ['arte', 'espetaculo', 'teatro', 'danca', 'musica', 'show', 'evento', 'cultural', 'circo', 'artista'],
+    keywords: ['arte', 'espetaculo', 'teatro', 'danca', 'musica', 'show', 'evento cultural', 'circo', 'artista', 'cantor', 'banda', 'apresentacao artistica', 'show artistico', 'dupla', 'musico', 'carnaval', 'festa', 'teatral', 'grupo teatral', 'sonorizacao', 'iluminacao palco', 'palco'],
   },
   '91': {
     nome: 'Atividades Ligadas ao Patrimônio Cultural e Ambiental',
@@ -459,7 +459,7 @@ export const CNAE_DIVISIONS: Record<string, CNAEDivision> = {
   '93': {
     nome: 'Atividades Esportivas e de Recreação e Lazer',
     descricao: 'Gestão de instalações esportivas, clubes de futebol, academias, atividades de condicionamento físico, atividades recreativas e de lazer, parques de diversões',
-    keywords: ['esporte', 'esportivo', 'academia', 'futebol', 'clube', 'recreacao', 'lazer', 'parque', 'piscina', 'quadra', 'ginasio'],
+    keywords: ['esporte', 'esportivo', 'academia', 'futebol', 'clube', 'recreacao', 'lazer', 'parque', 'piscina', 'quadra', 'ginasio', 'arbitragem', 'volei', 'basquete', 'futsal', 'bocha', 'atletismo', 'competicao esportiva', 'evento esportivo'],
   },
 
   // ── SEÇÃO S: Outras Atividades de Serviços ──
@@ -476,7 +476,7 @@ export const CNAE_DIVISIONS: Record<string, CNAEDivision> = {
   '96': {
     nome: 'Outras Atividades de Serviços Pessoais',
     descricao: 'Lavanderias, cabeleireiros, atividades de estética, funerárias, atividades de bem-estar físico',
-    keywords: ['lavanderia', 'cabeleireiro', 'estetica', 'funeraria', 'barbearia', 'spa', 'tatuagem'],
+    keywords: ['lavanderia', 'cabeleireiro', 'estetica', 'funeraria', 'barbearia', 'spa', 'tatuagem', 'processamento roupa', 'enxoval', 'lavagem', 'higienizacao roupa', 'passadoria'],
   },
 
   // ── SEÇÃO T: Serviços Domésticos ──

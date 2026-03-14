@@ -18,6 +18,7 @@ export interface TenderRow {
   valor_homologado: number | null
   data_abertura: string | null
   data_publicacao: string | null
+  data_encerramento: string | null
   modalidade_nome: string | null
   modalidade_id: number | null
   status: string | null

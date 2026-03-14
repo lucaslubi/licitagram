@@ -7,7 +7,9 @@
     "build": "turbo build",
     "lint": "turbo lint",
     "type-check": "turbo type-check",
-    "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
+    "workers:dev": "pnpm --filter @licitagram/workers dev",
+    "recover-matches": "pnpm --filter @licitagram/workers recover-matches"
   },
   "devDependencies": {
     "turbo": "^2.3.0",

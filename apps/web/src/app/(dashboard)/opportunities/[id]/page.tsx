@@ -10,6 +10,7 @@ import { EditalChat } from './chat'
 import { HistoricalPrices } from './historical-prices'
 import { AiAnalysis } from './ai-analysis'
 import { getAuthAndProfile, getMatchDetail } from '@/lib/cache'
+import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
 
 export default async function OpportunityDetailPage({
   params,
@@ -19,13 +20,17 @@ export default async function OpportunityDetailPage({
   const { id } = await params
 
   // PARALLEL: auth + match detail (cached 1 min)
-  const [auth, match] = await Promise.all([
+  const [auth, match, user] = await Promise.all([
     getAuthAndProfile(),
     getMatchDetail(id),
+    getUserWithPlan(),
   ])
 
   if (!auth) redirect('/login')
   if (!match) notFound()
+
+  const hasChatIa = user ? hasFeature(user, 'chat_ia') : false
+  const hasComplianceChecker = user ? hasFeature(user, 'compliance_checker') : false
 
   const companyId = auth.companyId
 
@@ -110,15 +115,27 @@ export default async function OpportunityDetailPage({
                   <p className="text-sm">{(tender?.situacao_nome as string) || '-'}</p>
                 </div>
                 <div>
+                  <label className="text-sm font-medium text-gray-400">Data Publicação</label>
+                  <p className="text-sm">
+                    {tender?.data_publicacao ? formatDate(tender.data_publicacao as string) : '-'}
+                  </p>
+                </div>
+                <div>
                   <label className="text-sm font-medium text-gray-400">Data Abertura</label>
                   <p className="text-sm">
                     {tender?.data_abertura ? formatDate(tender.data_abertura as string) : '-'}
                   </p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-400">Publicação</label>
-                  <p className="text-sm">
-                    {tender?.data_publicacao ? formatDate(tender.data_publicacao as string) : '-'}
+                  <label className="text-sm font-medium text-gray-400">Data Encerramento</label>
+                  <p className={`text-sm font-medium ${
+                    tender?.data_encerramento && new Date(tender.data_encerramento as string) < new Date()
+                      ? 'text-red-600'
+                      : tender?.data_encerramento
+                        ? 'text-emerald-700'
+                        : ''
+                  }`}>
+                    {tender?.data_encerramento ? formatDate(tender.data_encerramento as string) : '-'}
                   </p>
                 </div>
               </div>
@@ -134,6 +151,7 @@ export default async function OpportunityDetailPage({
           <AiAnalysis
             matchId={String(match.id)}
             matchSource={matchSource}
+            hasAccess={hasChatIa}
             initialData={{
               score: Number(match.score) || 0,
               breakdown: breakdown as Array<{ category: string; score: number; reason: string }>,
@@ -227,6 +245,7 @@ export default async function OpportunityDetailPage({
           {companyId && requisitos && (requisitos as Record<string, any>).requisitos && (
             <ComplianceChecker
               companyId={companyId}
+              hasAccess={hasComplianceChecker}
               requisitos={
                 ((requisitos as Record<string, any>).requisitos as Array<{
                   categoria: string
@@ -326,6 +345,7 @@ export default async function OpportunityDetailPage({
             tenderId={(tender?.id as string) || id}
             documentCount={documents.length}
             documentUrls={documents.filter(d => d.url).map(d => ({ id: d.id, titulo: d.titulo, tipo: d.tipo, url: d.url }))}
+            hasAccess={hasChatIa}
           />
         </div>
       </div>

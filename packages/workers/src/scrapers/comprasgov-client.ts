@@ -553,7 +553,7 @@ export function normalizePregaoLegadoToTender(pregao: DadosAbertosPregaoLegado) 
     modalidade_id: 5, // Pregão
     modalidade_nome: pregao.ds_tipo_pregao_compra || 'Pregão',
     objeto: pregao.ds_objeto || '',
-    valor_estimado: pregao.vl_estimado_total_item,
+    valor_estimado: sanitizeValor(pregao.vl_estimado_total_item),
     data_publicacao: pregao.dt_data_edital || null,
     data_abertura: pregao.dt_inicio_proposta || null,
     data_encerramento: pregao.dt_fim_proposta || null,
@@ -614,6 +614,20 @@ export async function fetchPesquisaPrecoMaterial(params: {
 
 // ─── Normalization ──────────────────────────────────────────────
 
+/**
+ * Sanitize monetary value from API.
+ * The PNCP DadosAbertos API sometimes returns corrupted values (e.g., 4 trillion).
+ * Max reasonable valor for Brazilian public procurement: R$ 50 billion.
+ */
+function sanitizeValor(valor: number | null | undefined): number | null {
+  if (valor === null || valor === undefined) return null
+  const num = typeof valor === 'string' ? parseFloat(String(valor).replace(/\./g, '').replace(',', '.')) : valor
+  if (isNaN(num) || num < 0) return null
+  // Cap at R$ 50 billion — anything above is clearly a data error
+  if (num > 50_000_000_000) return null
+  return num
+}
+
 export function normalizeToTender(contratacao: DadosAbertosContratacao) {
   const cnpj = contratacao.orgaoEntidadeCnpj?.replace(/\D/g, '') || ''
 
@@ -628,8 +642,8 @@ export function normalizeToTender(contratacao: DadosAbertosContratacao) {
     modalidade_id: contratacao.codigoModalidade || contratacao.modalidadeIdPncp,
     modalidade_nome: contratacao.modalidadeNome || '',
     objeto: contratacao.objetoCompra || '',
-    valor_estimado: contratacao.valorTotalEstimado,
-    valor_homologado: contratacao.valorTotalHomologado,
+    valor_estimado: sanitizeValor(contratacao.valorTotalEstimado),
+    valor_homologado: sanitizeValor(contratacao.valorTotalHomologado),
     data_publicacao: contratacao.dataPublicacaoPncp || null,
     data_abertura: contratacao.dataAberturaPropostaPncp || null,
     data_encerramento: contratacao.dataEncerramentoPropostaPncp || null,
@@ -659,7 +673,7 @@ export function normalizeContratoToTender(contrato: DadosAbertosContrato) {
     modalidade_id: contrato.codigoModalidadeCompra ? Number(contrato.codigoModalidadeCompra) : null,
     modalidade_nome: contrato.nomeModalidadeCompra || '',
     objeto: contrato.objeto || '',
-    valor_estimado: contrato.valorGlobal,
+    valor_estimado: sanitizeValor(contrato.valorGlobal),
     data_publicacao: contrato.dataHoraInclusao || null,
     data_abertura: contrato.dataVigenciaInicial || null,
     data_encerramento: contrato.dataVigenciaFinal || null,
@@ -688,7 +702,7 @@ export function normalizeARPToTender(arp: DadosAbertosARP) {
     modalidade_id: arp.codigoModalidadeCompra ? Number(arp.codigoModalidadeCompra) : null,
     modalidade_nome: arp.nomeModalidadeCompra || '',
     objeto: arp.objeto || '',
-    valor_estimado: arp.valorTotal,
+    valor_estimado: sanitizeValor(arp.valorTotal),
     data_publicacao: arp.dataAssinatura || null,
     data_abertura: arp.dataVigenciaInicial || null,
     data_encerramento: arp.dataVigenciaFinal || null,

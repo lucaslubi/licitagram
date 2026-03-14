@@ -1,5 +1,18 @@
+/**
+ * CNAE Classifier — Hybrid (Local Keywords + Gemini AI Fallback)
+ *
+ * Strategy:
+ * 1. If tender already has cnae_classificados → return cached
+ * 2. If requisitos.cnae_relacionados exists → extract divisions from it
+ * 3. Try LOCAL keyword classification (zero cost, instant)
+ *    - If confidence HIGH (3+ keyword matches) → use directly
+ *    - If confidence LOW → try Gemini AI as fallback
+ * 4. If Gemini fails (429/timeout) → use local result anyway
+ * 5. Persist result in cnae_classificados column
+ */
+
 import { callGemini, parseJsonResponse } from './gemini-client'
-import { callAI } from './openrouter-client'
+import { classifyLocal } from './cnae-keyword-classifier'
 import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
 import { CNAE_DIVISIONS } from '@licitagram/shared'
@@ -44,7 +57,7 @@ OBJETO: ${objeto}`
 }
 
 /**
- * Validate and normalize CNAE division codes returned by AI.
+ * Validate and normalize CNAE division codes.
  * Only accepts codes that exist in our CNAE_DIVISIONS database.
  */
 function validateCNAECodes(codes: unknown): string[] {
@@ -66,11 +79,11 @@ function validateCNAECodes(codes: unknown): string[] {
 /**
  * Classify a tender into relevant CNAE divisions.
  *
- * Strategy:
- * 1. If tender already has requisitos.cnae_relacionados → use those
- * 2. Otherwise → call AI (Gemini Flash Lite, cheapest) to classify
- * 3. Fallback → NVIDIA Kimi if Gemini fails
- * 4. Persist result in cnae_classificados column
+ * Hybrid strategy:
+ * 1. Cached/requisitos → instant
+ * 2. Local keyword match (high confidence) → instant, zero cost
+ * 3. Gemini AI (low confidence fallback) → 1-2s, costs tokens
+ * 4. Local result as safety net if AI fails
  */
 export async function classifyTenderCNAEs(tenderId: string): Promise<string[]> {
   // 1. Fetch tender data
@@ -96,12 +109,10 @@ export async function classifyTenderCNAEs(tenderId: string): Promise<string[]> {
   if (requisitos?.cnae_relacionados) {
     const rawCnaes = requisitos.cnae_relacionados as string[]
     if (Array.isArray(rawCnaes) && rawCnaes.length > 0) {
-      // Extract 2-digit divisions from full CNAE codes
       const divisions = [...new Set(rawCnaes.map(c => String(c).substring(0, 2)))]
       const validated = validateCNAECodes(divisions)
 
       if (validated.length > 0) {
-        // Persist to cnae_classificados
         await persistClassification(tenderId, validated)
         logger.info({ tenderId, source: 'requisitos', cnaes: validated }, 'CNAE classification from requisitos')
         return validated
@@ -109,25 +120,41 @@ export async function classifyTenderCNAEs(tenderId: string): Promise<string[]> {
     }
   }
 
-  // 4. Fetch document text for richer context (if available)
-  let documentText: string | null = null
-  const { data: docs } = await supabase
-    .from('tender_documents')
-    .select('texto_extraido')
-    .eq('tender_id', tenderId)
-    .eq('status', 'done')
-    .limit(1)
+  // 4. LOCAL keyword classification (zero cost, instant)
+  const localResult = classifyLocal(tender.objeto, tender.resumo as string | null)
 
-  if (docs && docs.length > 0 && docs[0].texto_extraido) {
-    documentText = docs[0].texto_extraido as string
+  if (localResult.confidence === 'high') {
+    // High confidence → use local result directly, no AI needed
+    const validated = validateCNAECodes(localResult.divisions)
+    if (validated.length > 0) {
+      await persistClassification(tenderId, validated)
+      logger.info(
+        { tenderId, source: 'keyword-local', cnaes: validated, topScore: localResult.topScore },
+        'CNAE from local keywords (high confidence)',
+      )
+      return validated
+    }
   }
 
-  // 5. Call AI for classification
-  const prompt = buildClassificationPrompt(tender.objeto, tender.resumo as string | null, documentText)
+  // 5. Low confidence or no local result → try Gemini AI as fallback
   let classified: string[] = []
 
-  // Try Gemini Flash Lite first (cheapest)
   try {
+    // Only fetch document text when we actually need AI (saves a DB query for 80% of cases)
+    let documentText: string | null = null
+    const { data: docs } = await supabase
+      .from('tender_documents')
+      .select('texto_extraido')
+      .eq('tender_id', tenderId)
+      .eq('status', 'done')
+      .limit(1)
+
+    if (docs && docs.length > 0 && docs[0].texto_extraido) {
+      documentText = docs[0].texto_extraido as string
+    }
+
+    const prompt = buildClassificationPrompt(tender.objeto, tender.resumo as string | null, documentText)
+
     const response = await callGemini({
       model: 'gemini-2.0-flash-lite',
       system: SYSTEM_PROMPT,
@@ -140,38 +167,31 @@ export async function classifyTenderCNAEs(tenderId: string): Promise<string[]> {
       classified = validateCNAECodes(parsed)
     }
   } catch (geminiErr) {
-    logger.warn({ tenderId, err: geminiErr }, 'Gemini classification failed, trying NVIDIA fallback')
+    logger.warn({ tenderId, err: geminiErr }, 'Gemini classification failed, using local fallback')
   }
 
-  // Fallback to NVIDIA Kimi if Gemini failed
-  if (classified.length === 0) {
-    try {
-      const response = await callAI({
-        system: SYSTEM_PROMPT,
-        prompt,
-        maxRetries: 2,
-        maxTokens: 256,
-      })
+  // 6. If AI succeeded → use AI result
+  if (classified.length > 0) {
+    await persistClassification(tenderId, classified)
+    logger.info({ tenderId, source: 'ai-gemini', cnaes: classified }, 'CNAE classification from Gemini')
+    return classified
+  }
 
-      if (response && response.trim().length > 0) {
-        const { parseJsonResponse: parseNvidia } = await import('./openrouter-client')
-        const parsed = parseNvidia<string[]>(response)
-        classified = validateCNAECodes(parsed)
-      }
-    } catch (nvidiaErr) {
-      logger.error({ tenderId, err: nvidiaErr }, 'Both AI providers failed for CNAE classification')
+  // 7. AI failed → use local result as safety net
+  if (localResult.divisions.length > 0) {
+    const validated = validateCNAECodes(localResult.divisions)
+    if (validated.length > 0) {
+      await persistClassification(tenderId, validated)
+      logger.info(
+        { tenderId, source: 'keyword-fallback', cnaes: validated, topScore: localResult.topScore },
+        'CNAE from local keywords (AI failed, using as fallback)',
+      )
+      return validated
     }
   }
 
-  // 6. Persist result
-  if (classified.length > 0) {
-    await persistClassification(tenderId, classified)
-    logger.info({ tenderId, source: 'ai', cnaes: classified }, 'CNAE classification from AI')
-  } else {
-    logger.warn({ tenderId }, 'No CNAE codes classified for tender')
-  }
-
-  return classified
+  logger.warn({ tenderId }, 'No CNAE codes classified for tender (all methods failed)')
+  return []
 }
 
 /**
@@ -190,8 +210,7 @@ async function persistClassification(tenderId: string, cnaes: string[]) {
 
 /**
  * Batch classify multiple tenders that don't have CNAE classifications yet.
- * Uses parallel processing (chunks of 5) for faster throughput.
- * Used for backfill and sweep operations.
+ * Now much faster since most classifications are done locally.
  */
 export async function batchClassifyTenders(limit: number = 200): Promise<number> {
   const { data: tenders } = await supabase
@@ -207,10 +226,10 @@ export async function batchClassifyTenders(limit: number = 200): Promise<number>
     return 0
   }
 
-  logger.info({ count: tenders.length }, 'Starting batch CNAE classification')
+  logger.info({ count: tenders.length }, 'Starting batch CNAE classification (hybrid)')
 
   let classified = 0
-  const CONCURRENCY = 10
+  const CONCURRENCY = 20 // Higher concurrency since most are local (instant)
 
   // Process in parallel chunks
   for (let i = 0; i < tenders.length; i += CONCURRENCY) {
@@ -229,6 +248,6 @@ export async function batchClassifyTenders(limit: number = 200): Promise<number>
     }
   }
 
-  logger.info({ classified, total: tenders.length }, 'Batch CNAE classification complete')
+  logger.info({ classified, total: tenders.length }, 'Batch CNAE classification complete (hybrid)')
   return classified
 }

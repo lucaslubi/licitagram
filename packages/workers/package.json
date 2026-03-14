@@ -7,7 +7,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "type-check": "tsc --noEmit",
-    "lint": "eslint src/ --ext .ts"
+    "lint": "eslint src/ --ext .ts",
+    "recover-matches": "tsx src/scripts/recover-matches.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

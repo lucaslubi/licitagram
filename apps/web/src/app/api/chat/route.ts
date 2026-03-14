@@ -122,29 +122,98 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing tenderId or question (max 2000 chars)' }, { status: 400 })
   }
 
-  // Fetch tender data
-  const { data: tender } = await supabase
-    .from('tenders')
-    .select(`
-      objeto, orgao_nome, uf, modalidade_nome, valor_estimado,
-      data_abertura, data_publicacao, requisitos, resumo, situacao_nome,
-      tender_documents (id, titulo, tipo, url, texto_extraido, status)
-    `)
-    .eq('id', tenderId)
-    .single()
+  // Fetch tender data + company profile in parallel
+  const [tenderResult, userProfile] = await Promise.all([
+    supabase
+      .from('tenders')
+      .select(`
+        objeto, orgao_nome, uf, municipio, modalidade_nome, valor_estimado,
+        valor_homologado, data_abertura, data_publicacao, data_encerramento,
+        requisitos, resumo, situacao_nome,
+        tender_documents (id, titulo, tipo, url, texto_extraido, status)
+      `)
+      .eq('id', tenderId)
+      .single(),
+    supabase
+      .from('users')
+      .select('company_id')
+      .eq('id', userCtx.userId)
+      .single(),
+  ])
 
+  const tender = tenderResult.data
   if (!tender) {
     return NextResponse.json({ error: 'Tender not found' }, { status: 404 })
   }
 
+  // Fetch company profile if available
+  let company: Record<string, unknown> | null = null
+  if (userProfile.data?.company_id) {
+    const { data: companyData } = await supabase
+      .from('companies')
+      .select(`
+        razao_social, nome_fantasia, cnpj, porte,
+        cnae_principal, cnaes_secundarios,
+        descricao_servicos, capacidades, certificacoes,
+        palavras_chave, uf, municipio
+      `)
+      .eq('id', userProfile.data.company_id)
+      .single()
+    company = companyData as Record<string, unknown> | null
+  }
+
   // Build context
-  let context = `## Informações do Edital\n`
+  let context = ''
+
+  // ── Company profile context ─────────────────────────────────────────
+  if (company) {
+    context += `## Perfil da Empresa (cliente que está analisando este edital)\n`
+    context += `**Razão Social:** ${company.razao_social || 'N/A'}\n`
+    if (company.nome_fantasia) context += `**Nome Fantasia:** ${company.nome_fantasia}\n`
+    if (company.cnpj) context += `**CNPJ:** ${company.cnpj}\n`
+    if (company.porte) context += `**Porte:** ${company.porte}\n`
+    if (company.uf) context += `**UF:** ${company.uf}${company.municipio ? ` - ${company.municipio}` : ''}\n`
+
+    if (company.cnae_principal) {
+      const allCnaes = [company.cnae_principal as string]
+      if (Array.isArray(company.cnaes_secundarios) && company.cnaes_secundarios.length > 0) {
+        allCnaes.push(...(company.cnaes_secundarios as string[]))
+      }
+      context += `**CNAEs:** ${allCnaes.join(', ')}\n`
+    }
+
+    if (company.descricao_servicos) {
+      context += `**Descrição de Serviços:** ${String(company.descricao_servicos).slice(0, 3000)}\n`
+    }
+
+    if (Array.isArray(company.capacidades) && company.capacidades.length > 0) {
+      context += `**Capacidades Técnicas:** ${(company.capacidades as string[]).join(', ')}\n`
+    }
+
+    if (Array.isArray(company.certificacoes) && company.certificacoes.length > 0) {
+      context += `**Certificações:** ${(company.certificacoes as string[]).join(', ')}\n`
+    }
+
+    if (Array.isArray(company.palavras_chave) && company.palavras_chave.length > 0) {
+      context += `**Palavras-chave / Especialidades:** ${(company.palavras_chave as string[]).join(', ')}\n`
+    }
+
+    context += '\n'
+  }
+
+  // ── Tender context ──────────────────────────────────────────────────
+  context += `## Informações do Edital\n`
   context += `**Objeto:** ${tender.objeto || 'N/A'}\n`
   context += `**Órgão:** ${tender.orgao_nome || 'N/A'}\n`
-  context += `**UF:** ${tender.uf || 'N/A'}\n`
+  context += `**UF:** ${tender.uf || 'N/A'}${tender.municipio ? ` - ${tender.municipio}` : ''}\n`
   context += `**Modalidade:** ${tender.modalidade_nome || 'N/A'}\n`
   context += `**Valor Estimado:** ${tender.valor_estimado ? `R$ ${Number(tender.valor_estimado).toLocaleString('pt-BR')}` : 'Não informado'}\n`
+  if (tender.valor_homologado) {
+    context += `**Valor Homologado:** R$ ${Number(tender.valor_homologado).toLocaleString('pt-BR')}\n`
+  }
+  context += `**Data de Publicação:** ${tender.data_publicacao || 'N/A'}\n`
   context += `**Data de Abertura:** ${tender.data_abertura || 'N/A'}\n`
+  context += `**Data de Encerramento:** ${tender.data_encerramento || 'N/A'}\n`
   context += `**Situação:** ${tender.situacao_nome || 'N/A'}\n\n`
 
   if (tender.resumo) {
@@ -236,19 +305,30 @@ export async function POST(request: NextRequest) {
   }
 
   // ── Build Gemini messages ───────────────────────────────────────────
-  const systemPrompt = `Você é um assistente especialista em licitações públicas brasileiras.
+  const hasCompany = !!company
+  const systemPrompt = `Você é um assistente especialista em licitações públicas brasileiras, atuando como consultor dedicado para a empresa do usuário.
 
-REGRAS DE RESPOSTA:
-- Seja CURTO e DIRETO. Máximo 3-5 parágrafos por resposta.
-- Responda APENAS o que foi perguntado — não adicione informações extras não solicitadas.
-- Use bullet points curtos, não parágrafos longos.
-- Cite valores, datas e prazos de forma direta (ex: "R$ 500.000", "até 15/04/2026").
-- NÃO repita informações que já foram ditas em mensagens anteriores.
-- NÃO faça introduções longas. Vá direto ao ponto.
-- Se a pergunta for simples, a resposta deve ser simples (1-2 parágrafos).
-- Use português brasileiro claro e profissional.
+${hasCompany ? `CONTEXTO DA EMPRESA:
+Você tem acesso ao perfil completo da empresa que está analisando este edital. Use essas informações para:
+- Avaliar se a empresa atende aos requisitos técnicos, de qualificação e habilitação do edital
+- Identificar quais capacidades, certificações e experiências da empresa são relevantes para esta licitação
+- Apontar gaps: o que o edital exige que a empresa talvez não tenha
+- Sugerir como a empresa pode se posicionar na proposta com base nas suas especialidades
+- Quando o usuário perguntar "minha empresa pode participar?", "tenho chance?", "atendo os requisitos?" etc., analise detalhadamente usando os dados da empresa
+- Ao listar requisitos, indique ao lado se a empresa provavelmente atende ou não com base no perfil cadastrado
 
-Baseie suas respostas EXCLUSIVAMENTE no edital abaixo. Se não encontrar a informação, diga brevemente que não está disponível.
+` : ''}ESTILO DE RESPOSTA:
+- Seja objetivo e prático. Vá direto ao ponto sem introduções desnecessárias.
+- Use bullet points e listas quando apropriado para organizar a informação.
+- Cite dados concretos: valores em R$, datas dd/mm/aaaa, números de artigos/cláusulas.
+- Responda o que foi perguntado de forma completa — inclua todos os detalhes relevantes do edital.
+- Se a resposta exigir muitos itens (ex: lista de documentos), liste TODOS, não resuma.
+- NÃO repita informações já ditas em mensagens anteriores.
+- Se não encontrar a informação no edital, diga claramente "Não consta no edital."
+- Quando relevante, personalize a resposta para o contexto da empresa do usuário.
+- Use português BR profissional.
+
+Baseie-se neste edital e no perfil da empresa:
 
 ${context}`
 
@@ -278,7 +358,7 @@ ${context}`
     const chat = model.startChat({
       history: geminiHistory,
       generationConfig: {
-        maxOutputTokens: 4096,
+        maxOutputTokens: 20000,
         temperature: 0.2,
       },
     })

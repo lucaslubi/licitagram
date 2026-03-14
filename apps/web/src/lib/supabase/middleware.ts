@@ -12,6 +12,7 @@ import { PLAN_CTX_COOKIE, PLAN_CTX_TTL_MS } from '@licitagram/shared'
  */
 const FEATURE_GATED_ROUTES: Record<string, PlanFeatureKey> = {
   '/competitors': 'competitive_intel',
+  '/documents': 'compliance_checker',
 }
 
 /**

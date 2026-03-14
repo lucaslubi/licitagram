@@ -18,7 +18,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/archive', label: 'Arquivo' },
   { href: '/pipeline', label: 'Pipeline' },
   { href: '/competitors', label: 'Concorrentes', requiredFeature: 'competitive_intel' },
-  { href: '/documents', label: 'Certidões' },
+  { href: '/documents', label: 'Certidões', requiredFeature: 'compliance_checker' },
   { href: '/billing', label: 'Plano' },
   { href: '/settings', label: 'Configurações' },
 ]

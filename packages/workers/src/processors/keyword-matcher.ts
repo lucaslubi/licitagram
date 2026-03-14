@@ -1,43 +1,51 @@
 /**
- * CNAE-First Keyword Matcher (v2 — High Precision)
+ * Phrase-Based Keyword Matcher (v3 — High Precision)
+ *
+ * CRITICAL FIX over v2: Keywords are matched as COMPLETE PHRASES,
+ * not individual tokens. This prevents false positives where generic
+ * single tokens like "sistema", "rede", "seguranca" match unrelated tenders.
+ *
+ * Example of v2 bug:
+ *   Company: IT (CNAE 62), keyword "seguranca informacao"
+ *   v2: Tokenized → {'seguranca', 'informacao'} individually
+ *       → "segurança patrimonial" matched on 'seguranca' alone! ❌
+ *   v3: Phrase → ['seguranca', 'informacao'] — ALL tokens must be present ✅
  *
  * Two-mode matching engine:
  *
- * MODE A — CNAE-First (when tender has CNAE classifications):
- *   1. Filter companies by CNAE overlap (direct or related)
- *   2. Score: CNAE (55%) + Keywords (25%) + Description (20%)
- *   3. Hard gate: cnae_score == 0 → NO match
+ * MODE A — CNAE-Gated (when tender HAS CNAE classifications):
+ *   1. Compute CNAE overlap between company and tender
+ *   2. Hard gate: NO CNAE overlap → NO match (blocks irrelevant sectors)
+ *   3. Score: CNAE (40%) + Keywords (35%) + Description (25%)
  *   4. Threshold: final_score >= 40
  *
  * MODE B — Keyword-Only (when tender has NO CNAE data):
- *   1. Match ALL companies using keyword + description tokens
+ *   1. Match using phrase-level keyword matching
  *   2. Score: Keywords (60%) + Description (40%)
- *   3. Higher threshold: final_score >= 55 (compensates for no CNAE gate)
- *   4. Ensures NO tender is completely ignored
- *
- * Sweep processes ALL tenders (not just CNAE-classified ones),
- * classifying on-the-fly when needed.
+ *   3. Higher threshold: final_score >= 50 (compensates for no CNAE gate)
+ *   4. Requires minimum 3 phrase matches to proceed
  */
 
 import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
 import { notificationQueue } from '../queues/notification.queue'
 import { invalidateMatchCaches, incrementStat } from '../lib/redis-cache'
-import { CNAE_DIVISIONS, RELATED_DIVISIONS, getCompanyDivisions } from '@licitagram/shared'
+import { CNAE_DIVISIONS, getCompanyDivisions } from '@licitagram/shared'
 import { classifyTenderCNAEs } from '../ai/cnae-classifier'
 
 // ─── Scoring Constants ────────────────────────────────────────────────────
 
-// Mode A: CNAE-first scoring weights
-const CNAE_WEIGHT = 0.55
-const KEYWORD_WEIGHT = 0.25
-const DESCRIPTION_WEIGHT = 0.20
-const MIN_MATCH_SCORE = 40
+// Mode A: CNAE-gated scoring weights (tender HAS CNAE classification)
+const CNAE_WEIGHT = 0.40
+const KEYWORD_WEIGHT_A = 0.35
+const DESCRIPTION_WEIGHT_A = 0.25
+const MIN_MATCH_SCORE_A = 40
 
-// Mode B: Keyword-only scoring weights (no CNAE data available)
-const KW_ONLY_KEYWORD_WEIGHT = 0.60
-const KW_ONLY_DESCRIPTION_WEIGHT = 0.40
-const KW_ONLY_MIN_SCORE = 55 // Higher threshold to compensate for no CNAE gate
+// Mode B: Keyword-only scoring weights (tender has NO CNAE data)
+const KEYWORD_WEIGHT_B = 0.60
+const DESCRIPTION_WEIGHT_B = 0.40
+const MIN_MATCH_SCORE_B = 50     // Higher threshold — no CNAE gate
+const MIN_PHRASE_MATCHES_B = 3   // Require at least 3 keyword phrases to match
 
 const DIRECT_CNAE_SCORE = 100
 const RELATED_CNAE_SCORE = 50
@@ -48,7 +56,7 @@ const STOPWORDS = new Set([
   // Common Portuguese words
   'de', 'da', 'do', 'das', 'dos', 'em', 'na', 'no', 'nas', 'nos', 'para',
   'com', 'por', 'uma', 'um', 'que', 'ao', 'aos', 'ou', 'e', 'o', 'a',
-  'os', 'as', 'se', 'ser', 'como', 'mais', 'tem', 'sua', 'seu', 'seus',
+  'os', 'as', 'se', 'ser', 'como', 'mais', 'tem', 'tem', 'sua', 'seu', 'seus',
   'suas', 'este', 'esta', 'estes', 'estas', 'esse', 'essa', 'isso',
   'aquele', 'aquela', 'nao', 'sim', 'muito', 'pouco', 'bem', 'mal',
   'ate', 'sobre', 'entre', 'apos', 'antes', 'durante', 'sob', 'contra',
@@ -69,7 +77,7 @@ const STOPWORDS = new Set([
 
 // ─── Text Processing ──────────────────────────────────────────────────────
 
-function normalizeText(text: string): string {
+export function normalizeText(text: string): string {
   return text
     .toLowerCase()
     .normalize('NFD')
@@ -79,7 +87,7 @@ function normalizeText(text: string): string {
     .trim()
 }
 
-function tokenize(text: string): string[] {
+export function tokenize(text: string): string[] {
   return normalizeText(text)
     .split(' ')
     .filter((w) => w.length >= 3 && !STOPWORDS.has(w))
@@ -106,70 +114,115 @@ function computeCNAEScore(companyCnaes: string[], tenderCnaeDivisions: string[])
   return bestScore
 }
 
-// ─── Keyword Score (Exact Token Match Only) ───────────────────────────────
+// ─── Phrase-Based Keyword Score ───────────────────────────────────────────
+//
+// CRITICAL: Keywords are matched as complete phrases, not individual tokens.
+// "seguranca informacao" only matches if BOTH tokens appear in the tender.
+// Single-word keywords like "software" match normally.
 
-function computeKeywordScore(
-  companyTokens: Set<string>,
+function computePhraseScore(
+  phrases: string[][],
   tenderTokens: Set<string>,
-): number {
-  if (companyTokens.size === 0 || tenderTokens.size === 0) return 0
+): { score: number; phraseMatches: number; matchedPhrases: string[] } {
+  if (phrases.length === 0 || tenderTokens.size === 0) {
+    return { score: 0, phraseMatches: 0, matchedPhrases: [] }
+  }
 
-  let matches = 0
-  for (const token of companyTokens) {
-    if (tenderTokens.has(token)) {
-      matches++
+  const matchedPhrases: string[] = []
+  for (const phrase of phrases) {
+    if (phrase.length > 0 && phrase.every((t) => tenderTokens.has(t))) {
+      matchedPhrases.push(phrase.join(' '))
     }
   }
 
-  return Math.min(100, Math.round((matches / companyTokens.size) * 100))
+  const phraseMatches = matchedPhrases.length
+  if (phraseMatches === 0) return { score: 0, phraseMatches: 0, matchedPhrases: [] }
+
+  // Score based on how many keyword PHRASES matched (not individual tokens)
+  // More conservative: 2 phrases = 30, 4 = 50, 6 = 70, 8+ = 90, 10+ = 100
+  const score = Math.min(100, phraseMatches * 12 + 6)
+
+  return { score, phraseMatches, matchedPhrases }
 }
 
-// ─── Build Company Keyword Tokens ─────────────────────────────────────────
+// ─── Build Company Keyword PHRASES (not individual tokens) ───────────────
 
-function buildCompanyTokenSets(company: {
+function buildCompanyPhrases(company: {
   cnae_principal: string | null
   cnaes_secundarios: string[] | null
   palavras_chave: string[] | null
   descricao_servicos: string | null
+  capacidades?: string[] | null
 }): {
-  cnaeKeywords: Set<string>
-  userKeywords: Set<string>
-  descKeywords: Set<string>
+  cnaePhrases: string[][]       // Each keyword as array of tokens (phrase-level)
+  userPhrases: string[][]       // Each user keyword as array of tokens
+  descTokens: Set<string>       // Description tokens (individual, for bonus scoring)
   allCnaes: string[]
 } {
-  const cnaeKeywords = new Set<string>()
+  const cnaePhrases: string[][] = []
   const allCnaes: string[] = []
   if (company.cnae_principal) allCnaes.push(String(company.cnae_principal))
   if (Array.isArray(company.cnaes_secundarios)) {
     allCnaes.push(...(company.cnaes_secundarios as string[]))
   }
 
+  // Build CNAE keyword phrases — each keyword stays as a complete phrase
   for (const cnae of allCnaes) {
     const div = cnae.substring(0, 2)
     const division = CNAE_DIVISIONS[div]
     if (division) {
       for (const kw of division.keywords) {
-        for (const token of tokenize(kw)) {
-          cnaeKeywords.add(token)
+        const tokens = tokenize(kw)
+        if (tokens.length > 0) {
+          cnaePhrases.push(tokens)
         }
       }
     }
   }
 
-  const userKeywords = new Set<string>()
+  // Build user keyword phrases — each keyword stays as a complete phrase
+  const userPhrases: string[][] = []
   if (Array.isArray(company.palavras_chave)) {
     for (const kw of company.palavras_chave as string[]) {
-      for (const token of tokenize(kw)) {
-        userKeywords.add(token)
+      const tokens = tokenize(kw)
+      if (tokens.length > 0) {
+        userPhrases.push(tokens)
       }
     }
   }
 
-  const descKeywords = company.descricao_servicos && typeof company.descricao_servicos === 'string'
+  // Add capacidades as phrases too
+  if (Array.isArray(company.capacidades)) {
+    for (const cap of company.capacidades as string[]) {
+      const tokens = tokenize(cap)
+      if (tokens.length > 0) {
+        userPhrases.push(tokens)
+      }
+    }
+  }
+
+  // Description tokens (individual) — only used as a small bonus
+  const descTokens = company.descricao_servicos && typeof company.descricao_servicos === 'string'
     ? new Set(tokenize(company.descricao_servicos))
     : new Set<string>()
 
-  return { cnaeKeywords, userKeywords, descKeywords, allCnaes }
+  return { cnaePhrases, userPhrases, descTokens, allCnaes }
+}
+
+// ─── Description Score (individual token match, capped) ──────────────────
+
+function computeDescScore(descTokens: Set<string>, tenderTokens: Set<string>): number {
+  if (descTokens.size === 0 || tenderTokens.size === 0) return 0
+
+  let matches = 0
+  for (const token of descTokens) {
+    if (tenderTokens.has(token)) matches++
+  }
+
+  if (matches === 0) return 0
+
+  // Percentage-based only — description is a weak signal
+  return Math.round((matches / descTokens.size) * 100)
 }
 
 // ─── Upsert Match + Notify Helper ────────────────────────────────────────
@@ -223,13 +276,17 @@ async function upsertMatchAndNotify(
   return true
 }
 
-// ─── Main Matching Function ───────────────────────────────────────────────
+// ─── Main Matching Function (Phrase-Based, CNAE-Gated) ───────────────────
+//
+// When a new tender arrives, match it against ALL companies.
+// Uses PHRASE-LEVEL matching (not individual tokens) to prevent false positives.
+// When tender has CNAE classification, REQUIRES CNAE overlap (hard gate).
 
 export async function runKeywordMatching(tenderId: string) {
   // 1. Fetch tender
   const { data: tender } = await supabase
     .from('tenders')
-    .select('id, objeto, resumo, cnae_classificados')
+    .select('id, objeto, resumo, cnae_classificados, data_encerramento')
     .eq('id', tenderId)
     .single()
 
@@ -238,17 +295,24 @@ export async function runKeywordMatching(tenderId: string) {
     return
   }
 
-  // 2. Try to get/classify CNAE data (non-blocking — don't skip if it fails)
+  // Skip expired tenders — don't create matches for already-closed tenders
+  if (tender.data_encerramento) {
+    const encerramento = new Date(tender.data_encerramento as string)
+    if (encerramento < new Date()) {
+      logger.info({ tenderId, data_encerramento: tender.data_encerramento }, 'Skipping expired tender (keyword matching)')
+      return
+    }
+  }
+
+  // 2. Try to get/classify CNAE data
   let tenderCnaes = (tender.cnae_classificados as string[]) || []
   if (tenderCnaes.length === 0) {
     try {
       tenderCnaes = await classifyTenderCNAEs(tenderId)
     } catch (err) {
-      logger.warn({ tenderId, err }, 'CNAE classification failed, will use keyword-only mode')
+      logger.warn({ tenderId, err }, 'CNAE classification failed, proceeding with keyword-only')
     }
   }
-
-  const hasCnaeData = tenderCnaes.length > 0
 
   // 3. Build tender tokens
   const objetoTokens = tokenize(tender.objeto)
@@ -258,124 +322,76 @@ export async function runKeywordMatching(tenderId: string) {
   // 4. Fetch ALL companies
   const { data: companies } = await supabase
     .from('companies')
-    .select('id, cnae_principal, cnaes_secundarios, palavras_chave, descricao_servicos')
+    .select('id, cnae_principal, cnaes_secundarios, palavras_chave, descricao_servicos, capacidades')
 
   if (!companies || companies.length === 0) {
     logger.info('No companies found, skipping keyword matching')
     return
   }
 
+  const hasTenderCnaes = tenderCnaes.length > 0
   let matchCount = 0
 
-  if (hasCnaeData) {
-    // ═══════════════════════════════════════════════════════════════════
-    // MODE A: CNAE-First matching (tender has CNAE classifications)
-    // ═══════════════════════════════════════════════════════════════════
+  // 5. Score each company using PHRASE-LEVEL matching
+  for (const company of companies) {
+    const { cnaePhrases, userPhrases, descTokens, allCnaes } = buildCompanyPhrases(company)
 
-    const relatedDivisions = new Set<string>()
-    for (const div of tenderCnaes) {
-      const related = RELATED_DIVISIONS[div]
-      if (related) {
-        for (const r of related) relatedDivisions.add(r)
-      }
+    // Combine CNAE + user keyword phrases
+    const allPhrases = [...cnaePhrases, ...userPhrases]
+
+    // Phrase-level keyword matching
+    const { score: kwScore, phraseMatches, matchedPhrases } = computePhraseScore(allPhrases, tenderTokens)
+    const descScore = computeDescScore(descTokens, tenderTokens)
+
+    // CNAE overlap check
+    let cnaeScore = 0
+    if (hasTenderCnaes && allCnaes.length > 0) {
+      cnaeScore = computeCNAEScore(allCnaes, tenderCnaes)
     }
-    for (const div of tenderCnaes) {
-      relatedDivisions.delete(div)
-    }
-    const allRelevantDivisions = [...tenderCnaes, ...relatedDivisions]
 
-    // Filter companies by CNAE overlap
-    const compatibleCompanies = companies.filter((company) => {
-      const compCnaes: string[] = []
-      if (company.cnae_principal) compCnaes.push(String(company.cnae_principal))
-      if (Array.isArray(company.cnaes_secundarios)) {
-        compCnaes.push(...(company.cnaes_secundarios as string[]))
-      }
-      for (const cnae of compCnaes) {
-        const div = cnae.substring(0, 2)
-        if (allRelevantDivisions.includes(div)) return true
-      }
-      return false
-    })
+    let finalScore: number
+    let minScore: number
 
-    if (compatibleCompanies.length > 0) {
-      logger.info(
-        { tenderId, tenderCnaes, totalCompanies: companies.length, compatibleCompanies: compatibleCompanies.length },
-        'MODE A: CNAE-filtered companies for matching',
+    if (hasTenderCnaes) {
+      // ── MODE A: CNAE-Gated ──
+      // HARD GATE: if tender has CNAE classification and company has NO overlap → BLOCK
+      if (cnaeScore === 0) continue
+
+      finalScore = Math.round(
+        kwScore * KEYWORD_WEIGHT_A +
+        cnaeScore * CNAE_WEIGHT +
+        descScore * DESCRIPTION_WEIGHT_A,
       )
-
-      for (const company of compatibleCompanies) {
-        const { cnaeKeywords, userKeywords, descKeywords, allCnaes } = buildCompanyTokenSets(company)
-
-        const cnaeScore = computeCNAEScore(allCnaes, tenderCnaes)
-        if (cnaeScore === 0) continue // HARD GATE: No CNAE match
-
-        const kwScore = computeKeywordScore(userKeywords, tenderTokens)
-        const descScore = computeKeywordScore(descKeywords, tenderTokens)
-
-        const finalScore = Math.round(
-          cnaeScore * CNAE_WEIGHT +
-          kwScore * KEYWORD_WEIGHT +
-          descScore * DESCRIPTION_WEIGHT,
-        )
-
-        if (finalScore < MIN_MATCH_SCORE) continue
-
-        const success = await upsertMatchAndNotify(
-          company.id, tenderId, finalScore,
-          [
-            { category: 'cnae', score: cnaeScore, reason: `CNAE: ${tenderCnaes.join(', ')}` },
-            { category: 'keywords', score: kwScore, reason: 'Palavras-chave da empresa' },
-            { category: 'description', score: descScore, reason: 'Descricao de servicos' },
-          ],
-          'cnae-first',
-        )
-        if (success) matchCount++
-      }
+      minScore = MIN_MATCH_SCORE_A
     } else {
-      logger.debug({ tenderId, tenderCnaes }, 'No CNAE-compatible companies for this tender')
-    }
-  } else {
-    // ═══════════════════════════════════════════════════════════════════
-    // MODE B: Keyword-Only matching (no CNAE data available)
-    // Uses higher threshold to compensate for missing CNAE gate
-    // ═══════════════════════════════════════════════════════════════════
+      // ── MODE B: Keyword-Only ──
+      // Require minimum phrase matches to prevent noise
+      if (phraseMatches < MIN_PHRASE_MATCHES_B) continue
 
-    logger.info({ tenderId }, 'MODE B: Keyword-only matching (no CNAE data)')
-
-    for (const company of companies) {
-      const { userKeywords, descKeywords } = buildCompanyTokenSets(company)
-
-      // Combine user keywords + CNAE-derived keywords for richer matching
-      const { cnaeKeywords } = buildCompanyTokenSets(company)
-      const combinedKeywords = new Set([...userKeywords, ...cnaeKeywords])
-
-      const kwScore = computeKeywordScore(combinedKeywords, tenderTokens)
-      const descScore = computeKeywordScore(descKeywords, tenderTokens)
-
-      // Keyword-only scoring — higher weights for keyword & description
-      const finalScore = Math.round(
-        kwScore * KW_ONLY_KEYWORD_WEIGHT +
-        descScore * KW_ONLY_DESCRIPTION_WEIGHT,
+      finalScore = Math.round(
+        kwScore * KEYWORD_WEIGHT_B +
+        descScore * DESCRIPTION_WEIGHT_B,
       )
-
-      if (finalScore < KW_ONLY_MIN_SCORE) continue
-
-      const success = await upsertMatchAndNotify(
-        company.id, tenderId, finalScore,
-        [
-          { category: 'cnae', score: 0, reason: 'CNAE nao classificado (keyword-only)' },
-          { category: 'keywords', score: kwScore, reason: 'Palavras-chave + CNAE keywords' },
-          { category: 'description', score: descScore, reason: 'Descricao de servicos' },
-        ],
-        'keyword-only',
-      )
-      if (success) matchCount++
+      minScore = MIN_MATCH_SCORE_B
     }
+
+    if (finalScore < minScore) continue
+
+    const matchedPhrasesStr = matchedPhrases.slice(0, 5).join(', ')
+    const success = await upsertMatchAndNotify(
+      company.id, tenderId, finalScore,
+      [
+        { category: 'keywords', score: kwScore, reason: `${phraseMatches} frases: ${matchedPhrasesStr}` },
+        { category: 'description', score: descScore, reason: 'Descricao de servicos' },
+        { category: 'cnae', score: cnaeScore, reason: cnaeScore > 0 ? `CNAE match: ${tenderCnaes.join(', ')}` : 'Sem classificacao CNAE' },
+      ],
+      'keyword',
+    )
+    if (success) matchCount++
   }
 
   if (matchCount > 0) {
-    logger.info({ tenderId, matchCount, mode: hasCnaeData ? 'cnae-first' : 'keyword-only' }, 'Matches created')
+    logger.info({ tenderId, matchCount }, 'Matches created (phrase-based v3)')
   }
 }
 
@@ -431,33 +447,61 @@ async function enqueueNotifications(companyId: string, tenderId: string, score: 
   }
 }
 
-// ─── Sweep: Processes ALL Tenders (classifies on-the-fly) ─────────────────
+// ─── Sweep: Processes Unmatched Tenders (classifies on-the-fly) ──────────
 
 /**
- * Process ALL tenders — not just those with CNAE classifications.
+ * Process tenders that have no matches yet.
  * For tenders without CNAE data, classifies on-the-fly then runs matching.
  * For tenders where AI classification fails, uses keyword-only matching.
+ *
+ * Optimization: only fetches tenders that have 0 matches (skips already-matched).
  */
 export async function runKeywordMatchingSweep() {
-  logger.info('Starting keyword matching sweep (ALL tenders)...')
+  logger.info('Starting keyword matching sweep (unmatched tenders)...')
 
   let page = 0
   const pageSize = 200
   let totalProcessed = 0
+  let totalMatched = 0
   let classified = 0
 
   while (true) {
-    const { data: tenders } = await supabase
+    const from = page * pageSize
+    const to = from + pageSize - 1
+    const today = new Date().toISOString().split('T')[0]
+    const { data: tenders, error: queryErr } = await supabase
       .from('tenders')
       .select('id, cnae_classificados')
-      .not('objeto', 'is', null)
-      // NO cnae_classificados filter — processes ALL tenders
+      .gt('objeto', '')
+      .or(`data_encerramento.is.null,data_encerramento.gte.${today}`)
       .order('created_at', { ascending: false })
-      .range(page * pageSize, (page + 1) * pageSize - 1)
+      .range(from, to)
 
-    if (!tenders || tenders.length === 0) break
+    if (queryErr) {
+      logger.error({ error: queryErr }, 'Sweep: query error')
+      break
+    }
 
-    for (const tender of tenders) {
+    if (!tenders || tenders.length === 0) {
+      if (page === 0) logger.info('Sweep: 0 tenders with non-empty objeto found')
+      break
+    }
+
+    if (page === 0) logger.info({ count: tenders.length }, 'Sweep: first page of tenders fetched')
+
+    // Filter to only tenders without any matches (batch check)
+    const tenderIds = tenders.map((t) => t.id)
+    const { data: existingMatches } = await supabase
+      .from('matches')
+      .select('tender_id')
+      .in('tender_id', tenderIds)
+
+    const tendersWithMatches = new Set(
+      (existingMatches || []).map((m) => m.tender_id),
+    )
+    const unmatchedTenders = tenders.filter((t) => !tendersWithMatches.has(t.id))
+
+    for (const tender of unmatchedTenders) {
       try {
         // Classify on-the-fly if needed
         const cnaes = (tender.cnae_classificados as string[]) || []
@@ -472,6 +516,14 @@ export async function runKeywordMatchingSweep() {
 
         await runKeywordMatching(tender.id)
         totalProcessed++
+
+        // Check if matches were created
+        const { count } = await supabase
+          .from('matches')
+          .select('id', { count: 'exact', head: true })
+          .eq('tender_id', tender.id)
+
+        if (count && count > 0) totalMatched++
       } catch (err) {
         logger.warn({ tenderId: tender.id, err }, 'Sweep matching failed for tender')
       }
@@ -481,5 +533,8 @@ export async function runKeywordMatchingSweep() {
     page++
   }
 
-  logger.info({ totalProcessed, classified }, 'Keyword matching sweep completed (ALL tenders)')
+  logger.info(
+    { totalProcessed, totalMatched, classified },
+    'Keyword matching sweep completed (unmatched tenders)',
+  )
 }

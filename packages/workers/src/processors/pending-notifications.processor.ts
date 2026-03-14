@@ -4,7 +4,7 @@ import { notificationQueue } from '../queues/notification.queue'
 import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
 
-const MAX_NOTIFICATIONS_PER_USER = 10
+const MAX_NOTIFICATIONS_PER_USER = 50
 
 /**
  * Pending notifications processor
