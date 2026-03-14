@@ -1,5 +1,5 @@
 import { tenderRequirementsSchema, type TenderRequirementsInput } from '@licitagram/shared'
-import { callAI, parseJsonResponse } from './openrouter-client'
+import { callLLM, parseJsonResponse } from './llm-client'
 import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
 
@@ -64,7 +64,8 @@ export async function extractRequirements(tenderId: string): Promise<TenderRequi
   const textToAnalyze = documentText || tender.objeto
 
   try {
-    const response = await callAI({
+    const response = await callLLM({
+      task: 'extraction',
       system: SYSTEM_PROMPT,
       prompt: buildPrompt(tender.objeto, textToAnalyze),
     })

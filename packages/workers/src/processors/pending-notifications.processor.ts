@@ -16,26 +16,26 @@ const pendingNotificationsWorker = new Worker(
   async () => {
     logger.info('Checking for pending notifications...')
 
-    // Find users with Telegram linked
+    // Find users with any notification channel linked
     const { data: users } = await supabase
       .from('users')
-      .select('id, company_id, telegram_chat_id, min_score, notification_preferences')
-      .not('telegram_chat_id', 'is', null)
+      .select('id, company_id, telegram_chat_id, whatsapp_number, min_score, notification_preferences')
       .not('company_id', 'is', null)
 
     if (!users || users.length === 0) {
-      logger.info('No users with Telegram linked, skipping')
+      logger.info('No users with notification channels, skipping')
       return
     }
 
     let totalEnqueued = 0
 
     for (const user of users) {
-      // Check if user has Telegram notifications enabled (default: true)
       const prefs = (user.notification_preferences as Record<string, boolean>) || {}
-      if (prefs.telegram === false) {
-        continue
-      }
+      const hasTelegram = user.telegram_chat_id && prefs.telegram !== false
+      const hasWhatsApp = user.whatsapp_number && prefs.whatsapp !== false
+
+      // Skip if no channel available
+      if (!hasTelegram && !hasWhatsApp) continue
 
       const minScore = user.min_score ?? 60
 
@@ -62,7 +62,8 @@ const pendingNotificationsWorker = new Worker(
           `pending-notify-${user.id}-${match.id}`,
           {
             matchId: match.id,
-            telegramChatId: user.telegram_chat_id,
+            telegramChatId: hasTelegram ? user.telegram_chat_id : undefined,
+            whatsappNumber: hasWhatsApp ? user.whatsapp_number : undefined,
           },
           {
             attempts: 3,

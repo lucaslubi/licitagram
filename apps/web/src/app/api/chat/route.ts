@@ -4,10 +4,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import pdf from 'pdf-parse'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import OpenAI from 'openai'
 
-// ── Gemini 2.5 Pro — 1M context, excellent for document analysis ────────
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || ''
+// ── DeepSeek V3.2 — streaming chat ────────
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || ''
+
+const deepseekClient = new OpenAI({
+  apiKey: DEEPSEEK_API_KEY,
+  baseURL: 'https://api.deepseek.com',
+})
 
 /**
  * SSRF Protection: block private/internal IPs only.
@@ -106,7 +111,7 @@ export async function POST(request: NextRequest) {
 
   const supabase = await createClient()
 
-  if (!GEMINI_API_KEY) {
+  if (!DEEPSEEK_API_KEY) {
     return NextResponse.json({ error: 'Chat AI not configured' }, { status: 503 })
   }
 
@@ -332,51 +337,47 @@ Baseie-se neste edital e no perfil da empresa:
 
 ${context}`
 
-  // Build conversation history for Gemini
-  const geminiHistory: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = []
+  // Build conversation history for DeepSeek (OpenAI-compatible flat messages)
+  const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+    { role: 'system', content: systemPrompt },
+  ]
 
   if (chatHistory && chatHistory.length > 0) {
     const recentHistory = chatHistory.slice(-20)
     for (const msg of recentHistory) {
       if (msg.content) {
-        geminiHistory.push({
-          role: msg.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: msg.content }],
+        messages.push({
+          role: msg.role === 'assistant' ? 'assistant' : 'user',
+          content: msg.content,
         })
       }
     }
   }
 
-  // ── Stream from Gemini ──────────────────────────────────────────────
+  messages.push({ role: 'user', content: question })
+
+  // ── Stream from DeepSeek ──────────────────────────────────────────────
   try {
-    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY)
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
-      systemInstruction: systemPrompt,
+    const stream = await deepseekClient.chat.completions.create({
+      model: 'deepseek-chat',
+      max_tokens: 20000,
+      temperature: 0.2,
+      stream: true,
+      messages,
     })
-
-    const chat = model.startChat({
-      history: geminiHistory,
-      generationConfig: {
-        maxOutputTokens: 20000,
-        temperature: 0.2,
-      },
-    })
-
-    const result = await chat.sendMessageStream(question)
 
     const encoder = new TextEncoder()
-    const stream = new ReadableStream({
+    const readable = new ReadableStream({
       async start(controller) {
         try {
-          for await (const chunk of result.stream) {
-            const text = chunk.text()
+          for await (const chunk of stream) {
+            const text = chunk.choices[0]?.delta?.content
             if (text) {
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: text })}\n\n`))
             }
           }
         } catch (err) {
-          console.error('[Chat Gemini] Stream error:', err)
+          console.error('[Chat DeepSeek] Stream error:', err)
           controller.enqueue(
             encoder.encode(
               `data: ${JSON.stringify({ content: '\n\n⚠️ Erro durante a geração da resposta.' })}\n\n`,
@@ -389,7 +390,7 @@ ${context}`
       },
     })
 
-    return new NextResponse(stream, {
+    return new NextResponse(readable, {
       headers: {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
@@ -397,7 +398,7 @@ ${context}`
       },
     })
   } catch (error) {
-    console.error('[Chat] Gemini error:', error)
+    console.error('[Chat] DeepSeek error:', error)
     const msg = error instanceof Error ? error.message : String(error)
 
     if (msg.includes('429') || msg.includes('RATE_LIMIT')) {

@@ -1,5 +1,5 @@
 import { matchResultSchema, type MatchResultInput } from '@licitagram/shared'
-import { callAI, parseJsonResponse } from './openrouter-client'
+import { callLLM, parseJsonResponse } from './llm-client'
 import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
 
@@ -146,10 +146,10 @@ export async function matchCompanyToTender(
   }
 
   try {
-    const response = await callAI({
+    const response = await callLLM({
+      task: 'matching',
       system: SYSTEM_PROMPT,
       prompt: buildPrompt(company, tender),
-      maxTokens: 2048,
     })
 
     if (!response || response.trim().length === 0) {

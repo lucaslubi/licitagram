@@ -2,9 +2,14 @@ import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import OpenAI from 'openai'
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || ''
+const TOGETHER_API_KEY = process.env.TOGETHER_API_KEY || ''
+
+const togetherClient = new OpenAI({
+  apiKey: TOGETHER_API_KEY,
+  baseURL: 'https://api.together.xyz/v1',
+})
 
 const CNAE_GROUPS: Record<string, string> = {
   '62': 'Tecnologia da Informacao - desenvolvimento de software, consultoria em TI, suporte tecnico, processamento de dados',
@@ -148,7 +153,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  if (!GEMINI_API_KEY) {
+  if (!TOGETHER_API_KEY) {
     return NextResponse.json({ error: 'AI not configured' }, { status: 503 })
   }
 
@@ -226,21 +231,18 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY)
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
-      systemInstruction: SYSTEM_PROMPT,
+    const completion = await togetherClient.chat.completions.create({
+      model: 'Qwen/Qwen2.5-72B-Instruct-Turbo',
+      max_tokens: 2048,
+      temperature: 0.1,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: buildPrompt(company as Record<string, unknown>, tender as Record<string, unknown>, docsText) },
+      ],
     })
 
-    const result = await model.generateContent({
-      contents: [{ role: 'user', parts: [{ text: buildPrompt(company as Record<string, unknown>, tender as Record<string, unknown>, docsText) }] }],
-      generationConfig: {
-        maxOutputTokens: 2048,
-        temperature: 0.1,
-      },
-    })
-
-    const response = result.response.text()
+    const response = completion.choices[0]?.message?.content || ''
 
     if (!response || response.trim().length === 0) {
       return NextResponse.json({ error: 'Resposta vazia da IA' }, { status: 502 })

@@ -3,6 +3,7 @@ import { connection } from '../queues/connection'
 import { type NotificationJobData } from '../queues/notification.queue'
 import { bot } from '../telegram/bot'
 import { formatMatchAlert } from '../telegram/formatters'
+import { sendMatchAlert as sendWhatsAppAlert, isConnected as isWhatsAppConnected } from '../whatsapp/client'
 import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
 import { CNAE_DIVISIONS } from '@licitagram/shared'
@@ -60,12 +61,12 @@ function localQualityGate(
 const notificationWorker = new Worker<NotificationJobData>(
   'notification',
   async (job) => {
-    if (!bot) {
-      logger.warn('Telegram bot not available, skipping notification')
+    const { matchId, telegramChatId, whatsappNumber } = job.data
+
+    if (!bot && !whatsappNumber) {
+      logger.warn('No notification channels available, skipping')
       return
     }
-
-    const { matchId, telegramChatId } = job.data
 
     const { data: match } = await supabase
       .from('matches')
@@ -129,35 +130,79 @@ const notificationWorker = new Worker<NotificationJobData>(
       }
     }
 
-    // ── Send notification ─────────────────────────────────────────────
-    const { text, keyboard } = formatMatchAlert({
-      matchId: match.id,
-      score: match.score,
-      breakdown: (match.breakdown as Array<{ category: string; score: number; reason: string }>) || [],
-      justificativa: match.ai_justificativa || '',
-      tender: {
-        objeto: tenderObjeto,
-        orgao_nome: (tender?.orgao_nome as string) || '',
-        uf: (tender?.uf as string) || '',
-        valor_estimado: tender?.valor_estimado as number | null,
-        data_abertura: tender?.data_abertura as string | null,
-        modalidade_nome: tender?.modalidade_nome as string | null,
-      },
-    })
+    // ── Send notifications (Telegram + WhatsApp in parallel) ──────────
+    const tenderInfo = {
+      objeto: tenderObjeto,
+      orgao_nome: (tender?.orgao_nome as string) || '',
+      uf: (tender?.uf as string) || '',
+      valor_estimado: tender?.valor_estimado as number | null,
+      data_abertura: tender?.data_abertura as string | null,
+      modalidade_nome: tender?.modalidade_nome as string | null,
+    }
 
-    await bot.api.sendMessage(telegramChatId, text, {
-      parse_mode: 'HTML',
-      reply_markup: keyboard,
-    })
+    const sendPromises: Promise<void>[] = []
 
-    const { error: updateErr } = await supabase
-      .from('matches')
-      .update({ status: 'notified', notified_at: new Date().toISOString() })
-      .eq('id', matchId)
+    // Telegram
+    if (telegramChatId && bot) {
+      const { text, keyboard } = formatMatchAlert({
+        matchId: match.id,
+        score: match.score,
+        breakdown: (match.breakdown as Array<{ category: string; score: number; reason: string }>) || [],
+        justificativa: match.ai_justificativa || '',
+        tender: tenderInfo,
+      })
+      sendPromises.push(
+        bot.api.sendMessage(telegramChatId, text, {
+          parse_mode: 'HTML',
+          reply_markup: keyboard,
+        }).then(() => {
+          logger.info({ matchId, telegramChatId }, 'Telegram notification sent')
+        }),
+      )
+    }
 
-    if (updateErr) logger.error({ matchId, error: updateErr }, 'Failed to mark match as notified')
+    // WhatsApp
+    if (whatsappNumber) {
+      sendPromises.push(
+        (async () => {
+          const waConnected = await isWhatsAppConnected()
+          if (!waConnected) {
+            logger.warn({ matchId }, 'WhatsApp not connected, skipping')
+            return
+          }
+          await sendWhatsAppAlert(
+            whatsappNumber,
+            {
+              score: match.score,
+              justificativa: match.ai_justificativa || '',
+              recomendacao: undefined,
+            },
+            tenderInfo,
+            matchId,
+          )
+        })(),
+      )
+    }
 
-    logger.info({ matchId, telegramChatId, score: match.score }, 'Notification sent')
+    const results = await Promise.allSettled(sendPromises)
+    const anySuccess = results.some((r) => r.status === 'fulfilled')
+
+    if (anySuccess) {
+      const { error: updateErr } = await supabase
+        .from('matches')
+        .update({ status: 'notified', notified_at: new Date().toISOString() })
+        .eq('id', matchId)
+
+      if (updateErr) logger.error({ matchId, error: updateErr }, 'Failed to mark match as notified')
+    }
+
+    for (const r of results) {
+      if (r.status === 'rejected') {
+        logger.warn({ matchId, error: (r.reason as Error).message }, 'Notification channel failed')
+      }
+    }
+
+    logger.info({ matchId, score: match.score, channels: sendPromises.length }, 'Notification processing complete')
   },
   {
     connection,

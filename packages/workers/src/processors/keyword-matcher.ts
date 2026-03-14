@@ -401,15 +401,19 @@ async function enqueueNotifications(companyId: string, tenderId: string, score: 
   try {
     const { data: users } = await supabase
       .from('users')
-      .select('id, telegram_chat_id, min_score, notification_preferences')
+      .select('id, telegram_chat_id, whatsapp_number, min_score, notification_preferences')
       .eq('company_id', companyId)
-      .not('telegram_chat_id', 'is', null)
 
     if (!users || users.length === 0) return
 
     for (const user of users) {
       const prefs = (user.notification_preferences as Record<string, boolean>) || {}
-      if (prefs.telegram === false) continue
+      const hasTelegram = user.telegram_chat_id && prefs.telegram !== false
+      const hasWhatsApp = user.whatsapp_number && prefs.whatsapp !== false
+
+      // Skip if no notification channel is available
+      if (!hasTelegram && !hasWhatsApp) continue
+
       const minScore = user.min_score ?? 60
       if (score < minScore) continue
 
@@ -425,7 +429,8 @@ async function enqueueNotifications(companyId: string, tenderId: string, score: 
           `kw-notify-${user.id}-${matchRow.id}`,
           {
             matchId: matchRow.id,
-            telegramChatId: user.telegram_chat_id,
+            telegramChatId: hasTelegram ? user.telegram_chat_id : undefined,
+            whatsappNumber: hasWhatsApp ? user.whatsapp_number : undefined,
           },
           {
             jobId: `kw-${user.id}-${matchRow.id}`,
@@ -434,7 +439,7 @@ async function enqueueNotifications(companyId: string, tenderId: string, score: 
           },
         )
         logger.info(
-          { userId: user.id, matchId: matchRow.id, score },
+          { userId: user.id, matchId: matchRow.id, score, channels: { telegram: !!hasTelegram, whatsapp: !!hasWhatsApp } },
           'Notification enqueued for match',
         )
       }

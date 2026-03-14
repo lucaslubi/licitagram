@@ -1,4 +1,4 @@
-import { callAI } from './openrouter-client'
+import { callLLM } from './llm-client'
 import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
 
@@ -23,7 +23,8 @@ export async function summarizeTender(tenderId: string): Promise<string | null> 
   const docText = docs?.[0]?.texto_extraido?.slice(0, 5000) || ''
 
   try {
-    const response = await callAI({
+    const response = await callLLM({
+      task: 'summary',
       system: SYSTEM_PROMPT,
       prompt: `Gere um resumo executivo em 2-3 frases para este edital:
 

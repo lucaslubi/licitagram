@@ -11,7 +11,7 @@
  * 5. Persist result in cnae_classificados column
  */
 
-import { callGemini, parseJsonResponse } from './gemini-client'
+import { callLLM, parseJsonResponse } from './llm-client'
 import { classifyLocal } from './cnae-keyword-classifier'
 import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
@@ -155,19 +155,20 @@ export async function classifyTenderCNAEs(tenderId: string): Promise<string[]> {
 
     const prompt = buildClassificationPrompt(tender.objeto, tender.resumo as string | null, documentText)
 
-    const response = await callGemini({
-      model: 'gemini-2.0-flash-lite',
+    const response = await callLLM({
+      task: 'classification',
       system: SYSTEM_PROMPT,
       prompt,
       maxRetries: 2,
+      jsonMode: true,
     })
 
     if (response && response.trim().length > 0) {
       const parsed = parseJsonResponse<string[]>(response)
       classified = validateCNAECodes(parsed)
     }
-  } catch (geminiErr) {
-    logger.warn({ tenderId, err: geminiErr }, 'Gemini classification failed, using local fallback')
+  } catch (llmErr) {
+    logger.warn({ tenderId, err: llmErr }, 'AI classification failed, using local fallback')
   }
 
   // 6. If AI succeeded → use AI result

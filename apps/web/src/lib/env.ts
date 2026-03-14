@@ -32,7 +32,14 @@ export const STRIPE_WEBHOOK_SECRET = requireEnv('STRIPE_WEBHOOK_SECRET')
 export const REDIS_URL = optionalEnv('REDIS_URL', 'redis://localhost:6379')
 
 /** AI */
-export const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY || ''
+export const TOGETHER_API_KEY = process.env.TOGETHER_API_KEY || ''
+export const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || ''
+export const GROQ_API_KEY = process.env.GROQ_API_KEY || ''
+
+/** WhatsApp (Evolution API) */
+export const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL || ''
+export const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || ''
+export const EVOLUTION_INSTANCE = process.env.EVOLUTION_INSTANCE || 'licitagram'
 
 /** App */
 export const APP_URL = optionalEnv('NEXT_PUBLIC_APP_URL', 'http://localhost:3000')

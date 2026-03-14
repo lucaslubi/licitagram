@@ -3,7 +3,8 @@ import { connection } from './connection'
 
 export interface NotificationJobData {
   matchId: string
-  telegramChatId: number
+  telegramChatId?: number
+  whatsappNumber?: string
 }
 
 export const notificationQueue = new Queue<NotificationJobData, unknown, string>('notification', {
