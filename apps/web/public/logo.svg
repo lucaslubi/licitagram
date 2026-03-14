@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 120" fill="none">
+  <defs>
+    <linearGradient id="og1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F7931E"/>
+      <stop offset="100%" stop-color="#E8650A"/>
+    </linearGradient>
+    <linearGradient id="og2" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#F7931E"/>
+      <stop offset="100%" stop-color="#E8650A"/>
+    </linearGradient>
+    <linearGradient id="dk" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#454545"/>
+      <stop offset="100%" stop-color="#222222"/>
+    </linearGradient>
+  </defs>
+  <!-- Top orange arrow shape (pointing right) -->
+  <path d="M10,5 L65,5 L90,25 L35,25 Z" fill="url(#og1)"/>
+  <!-- Middle dark arrow shape (pointing left) -->
+  <path d="M10,47 L65,47 L35,70 L-20,70 Z" fill="url(#dk)" transform="translate(25,0)"/>
+  <!-- Simplified: 3 shapes forming S -->
+  <!-- Top: orange parallelogram -->
+  <polygon points="15,5 70,5 85,28 30,28" fill="url(#og1)"/>
+  <!-- Middle: dark parallelogram (opposite direction) -->
+  <polygon points="15,43 70,43 55,66 0,66" fill="url(#dk)"/>
+  <!-- Bottom: orange parallelogram -->
+  <polygon points="30,82 85,82 70,105 15,105" fill="url(#og2)"/>
+</svg>

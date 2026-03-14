@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 40" fill="none">
+  <!-- Top-right diamond (orange) -->
+  <path d="M24 4L34 14L24 24L14 14Z" fill="#F43E01"/>
+  <!-- Bottom-left diamond (dark) -->
+  <path d="M16 16L26 26L16 36L6 26Z" fill="#26292E"/>
+  <!-- Overlap intersection -->
+  <path d="M24 16L26 14L24 24L14 14L16 16L24 16Z" fill="#C23101" opacity="0.7"/>
+  <!-- LICITAGRAM text -->
+  <text x="44" y="26" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="700" letter-spacing="1.5" fill="#26292E">LICITAGRAM</text>
+</svg>

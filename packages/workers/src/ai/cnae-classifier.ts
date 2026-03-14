@@ -1,0 +1,234 @@
+import { callGemini, parseJsonResponse } from './gemini-client'
+import { callAI } from './openrouter-client'
+import { supabase } from '../lib/supabase'
+import { logger } from '../lib/logger'
+import { CNAE_DIVISIONS } from '@licitagram/shared'
+
+const SYSTEM_PROMPT = `Voce e um especialista em licitacoes publicas brasileiras e no sistema CNAE (Classificacao Nacional de Atividades Economicas).
+
+Sua tarefa e classificar o objeto de uma licitacao nos codigos CNAE de DIVISAO (2 digitos) que sao necessarios para uma empresa participar.
+
+Regras:
+- Retorne APENAS os codigos de DIVISAO (2 digitos) mais relevantes
+- Retorne entre 1 e 5 divisoes, priorizando as mais diretamente relacionadas
+- Considere o objeto COMPLETO, incluindo servicos, materiais e equipamentos mencionados
+- NAO inclua divisoes que sao apenas tangencialmente relacionadas
+- Responda APENAS com um JSON array de strings, sem markdown, sem texto adicional
+
+Exemplo: Para "Contratacao de empresa para desenvolvimento de sistema web de gestao":
+["62"]
+
+Exemplo: Para "Aquisicao de computadores e impressoras para o departamento de TI":
+["26","47"]
+
+Exemplo: Para "Servicos de limpeza, conservacao e jardinagem":
+["81"]`
+
+function buildClassificationPrompt(objeto: string, resumo?: string | null, documentText?: string | null): string {
+  let prompt = `Classifique o objeto desta licitacao nos codigos CNAE de DIVISAO (2 digitos) necessarios para participar.
+
+OBJETO: ${objeto}`
+
+  if (resumo) {
+    prompt += `\n\nRESUMO: ${resumo}`
+  }
+
+  if (documentText) {
+    const truncated = documentText.slice(0, 2000)
+    prompt += `\n\nTRECHO DO EDITAL: ${truncated}`
+  }
+
+  prompt += `\n\nRetorne APENAS um JSON array de codigos de 2 digitos (ex: ["62","63"]). Nada mais.`
+
+  return prompt
+}
+
+/**
+ * Validate and normalize CNAE division codes returned by AI.
+ * Only accepts codes that exist in our CNAE_DIVISIONS database.
+ */
+function validateCNAECodes(codes: unknown): string[] {
+  if (!Array.isArray(codes)) return []
+
+  const valid: string[] = []
+  for (const code of codes) {
+    const str = String(code).trim().replace(/\D/g, '').substring(0, 2)
+    if (str.length === 2 && CNAE_DIVISIONS[str]) {
+      if (!valid.includes(str)) {
+        valid.push(str)
+      }
+    }
+  }
+
+  return valid.slice(0, 5) // Max 5 divisions
+}
+
+/**
+ * Classify a tender into relevant CNAE divisions.
+ *
+ * Strategy:
+ * 1. If tender already has requisitos.cnae_relacionados → use those
+ * 2. Otherwise → call AI (Gemini Flash Lite, cheapest) to classify
+ * 3. Fallback → NVIDIA Kimi if Gemini fails
+ * 4. Persist result in cnae_classificados column
+ */
+export async function classifyTenderCNAEs(tenderId: string): Promise<string[]> {
+  // 1. Fetch tender data
+  const { data: tender } = await supabase
+    .from('tenders')
+    .select('id, objeto, resumo, requisitos, cnae_classificados')
+    .eq('id', tenderId)
+    .single()
+
+  if (!tender || !tender.objeto) {
+    logger.warn({ tenderId }, 'No tender or objeto for CNAE classification')
+    return []
+  }
+
+  // 2. If already classified, return existing
+  const existing = tender.cnae_classificados as string[] | null
+  if (existing && Array.isArray(existing) && existing.length > 0) {
+    return existing
+  }
+
+  // 3. Check if requisitos.cnae_relacionados already has data
+  const requisitos = tender.requisitos as Record<string, unknown> | null
+  if (requisitos?.cnae_relacionados) {
+    const rawCnaes = requisitos.cnae_relacionados as string[]
+    if (Array.isArray(rawCnaes) && rawCnaes.length > 0) {
+      // Extract 2-digit divisions from full CNAE codes
+      const divisions = [...new Set(rawCnaes.map(c => String(c).substring(0, 2)))]
+      const validated = validateCNAECodes(divisions)
+
+      if (validated.length > 0) {
+        // Persist to cnae_classificados
+        await persistClassification(tenderId, validated)
+        logger.info({ tenderId, source: 'requisitos', cnaes: validated }, 'CNAE classification from requisitos')
+        return validated
+      }
+    }
+  }
+
+  // 4. Fetch document text for richer context (if available)
+  let documentText: string | null = null
+  const { data: docs } = await supabase
+    .from('tender_documents')
+    .select('texto_extraido')
+    .eq('tender_id', tenderId)
+    .eq('status', 'done')
+    .limit(1)
+
+  if (docs && docs.length > 0 && docs[0].texto_extraido) {
+    documentText = docs[0].texto_extraido as string
+  }
+
+  // 5. Call AI for classification
+  const prompt = buildClassificationPrompt(tender.objeto, tender.resumo as string | null, documentText)
+  let classified: string[] = []
+
+  // Try Gemini Flash Lite first (cheapest)
+  try {
+    const response = await callGemini({
+      model: 'gemini-2.0-flash-lite',
+      system: SYSTEM_PROMPT,
+      prompt,
+      maxRetries: 2,
+    })
+
+    if (response && response.trim().length > 0) {
+      const parsed = parseJsonResponse<string[]>(response)
+      classified = validateCNAECodes(parsed)
+    }
+  } catch (geminiErr) {
+    logger.warn({ tenderId, err: geminiErr }, 'Gemini classification failed, trying NVIDIA fallback')
+  }
+
+  // Fallback to NVIDIA Kimi if Gemini failed
+  if (classified.length === 0) {
+    try {
+      const response = await callAI({
+        system: SYSTEM_PROMPT,
+        prompt,
+        maxRetries: 2,
+        maxTokens: 256,
+      })
+
+      if (response && response.trim().length > 0) {
+        const { parseJsonResponse: parseNvidia } = await import('./openrouter-client')
+        const parsed = parseNvidia<string[]>(response)
+        classified = validateCNAECodes(parsed)
+      }
+    } catch (nvidiaErr) {
+      logger.error({ tenderId, err: nvidiaErr }, 'Both AI providers failed for CNAE classification')
+    }
+  }
+
+  // 6. Persist result
+  if (classified.length > 0) {
+    await persistClassification(tenderId, classified)
+    logger.info({ tenderId, source: 'ai', cnaes: classified }, 'CNAE classification from AI')
+  } else {
+    logger.warn({ tenderId }, 'No CNAE codes classified for tender')
+  }
+
+  return classified
+}
+
+/**
+ * Persist CNAE classification to the tenders table.
+ */
+async function persistClassification(tenderId: string, cnaes: string[]) {
+  const { error } = await supabase
+    .from('tenders')
+    .update({ cnae_classificados: cnaes })
+    .eq('id', tenderId)
+
+  if (error) {
+    logger.error({ tenderId, error }, 'Failed to persist CNAE classification')
+  }
+}
+
+/**
+ * Batch classify multiple tenders that don't have CNAE classifications yet.
+ * Uses parallel processing (chunks of 5) for faster throughput.
+ * Used for backfill and sweep operations.
+ */
+export async function batchClassifyTenders(limit: number = 200): Promise<number> {
+  const { data: tenders } = await supabase
+    .from('tenders')
+    .select('id')
+    .or('cnae_classificados.is.null,cnae_classificados.eq.{}')
+    .not('objeto', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (!tenders || tenders.length === 0) {
+    logger.info('No tenders need CNAE classification')
+    return 0
+  }
+
+  logger.info({ count: tenders.length }, 'Starting batch CNAE classification')
+
+  let classified = 0
+  const CONCURRENCY = 10
+
+  // Process in parallel chunks
+  for (let i = 0; i < tenders.length; i += CONCURRENCY) {
+    const chunk = tenders.slice(i, i + CONCURRENCY)
+    const results = await Promise.allSettled(
+      chunk.map(async (tender) => {
+        const result = await classifyTenderCNAEs(tender.id)
+        return result.length > 0
+      }),
+    )
+
+    for (const result of results) {
+      if (result.status === 'fulfilled' && result.value) {
+        classified++
+      }
+    }
+  }
+
+  logger.info({ classified, total: tenders.length }, 'Batch CNAE classification complete')
+  return classified
+}

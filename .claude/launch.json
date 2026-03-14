@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@licitagram/web", "dev"],
+      "port": 3000,
+      "autoPort": true
+    },
+    {
+      "name": "workers",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@licitagram/workers", "dev"],
+      "port": 3001,
+      "autoPort": true
+    }
+  ]
+}

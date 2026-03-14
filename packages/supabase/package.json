@@ -1,0 +1,12 @@
+{
+  "name": "@licitagram/supabase",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "db:push": "supabase db push",
+    "db:reset": "supabase db reset",
+    "db:types": "supabase gen types typescript --project-id $SUPABASE_PROJECT_ID > ../shared/src/types/database.ts",
+    "lint": "echo 'no lint configured'",
+    "type-check": "echo 'no type-check needed'"
+  }
+}

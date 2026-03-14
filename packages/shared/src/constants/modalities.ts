@@ -1,0 +1,21 @@
+export const PNCP_MODALITIES: Record<number, string> = {
+  1: 'Leilão Eletrônico',
+  2: 'Diálogo Competitivo',
+  3: 'Concurso',
+  4: 'Concorrência Eletrônica',
+  5: 'Concorrência Presencial',
+  6: 'Pregão Eletrônico',
+  7: 'Pregão Presencial',
+  8: 'Dispensa de Licitação',
+  9: 'Inexigibilidade',
+  10: 'Manifestação de Interesse',
+  11: 'Pré-qualificação',
+  12: 'Credenciamento',
+  13: 'Leilão Presencial',
+  14: 'Inaplicabilidade',
+  15: 'Chamada Pública',
+}
+
+export const COMPETITIVE_MODALITIES = [4, 5, 6, 7] as const
+// All modalities worth scraping — full coverage of PNCP
+export const ALL_SCRAPING_MODALITIES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] as const

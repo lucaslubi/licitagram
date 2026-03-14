@@ -1,0 +1,11 @@
+[project]
+id = ""
+
+[api]
+port = 54321
+
+[db]
+port = 54322
+
+[studio]
+port = 54323

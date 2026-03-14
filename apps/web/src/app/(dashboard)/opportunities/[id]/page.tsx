@@ -1,0 +1,349 @@
+import { redirect, notFound } from 'next/navigation'
+import Link from 'next/link'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { formatCurrency, formatDate } from '@licitagram/shared'
+import type { TenderDetail, TenderDocument } from '@/types/database'
+import { StatusChanger } from './status-changer'
+import { ComplianceChecker } from './compliance-checker'
+import { EditalChat } from './chat'
+import { HistoricalPrices } from './historical-prices'
+import { AiAnalysis } from './ai-analysis'
+import { getAuthAndProfile, getMatchDetail } from '@/lib/cache'
+
+export default async function OpportunityDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
+
+  // PARALLEL: auth + match detail (cached 1 min)
+  const [auth, match] = await Promise.all([
+    getAuthAndProfile(),
+    getMatchDetail(id),
+  ])
+
+  if (!auth) redirect('/login')
+  if (!match) notFound()
+
+  const companyId = auth.companyId
+
+  const tender = match.tenders as unknown as TenderDetail
+  const breakdown = (match.breakdown as Array<{ category: string; score: number; reason: string }>) || []
+  const requisitos = tender?.requisitos as Record<string, unknown> | null
+  const riscos = (match.riscos as string[]) || []
+  const acoesNecessarias = (match.acoes_necessarias as string[]) || []
+  const recomendacao = match.recomendacao as string | null
+  // Infer match source: if ai_justificativa exists and breakdown is non-empty, it was AI-analyzed
+  const matchSource = match.ai_justificativa && breakdown.length > 0 ? 'ai' : 'keyword'
+  const documents = ((tender?.tender_documents as unknown) as Array<{
+    id: string; titulo: string | null; tipo: string | null; url: string; texto_extraido: string | null; status: string
+  }>) || []
+
+  return (
+    <div>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mb-6">
+        <Link href="/opportunities" className="text-sm text-gray-400 hover:text-gray-900">
+          ← Voltar
+        </Link>
+        <h1 className="text-xl sm:text-2xl font-bold flex-1">Detalhes da Oportunidade</h1>
+        <ScoreBadgeLarge score={match.score} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main content */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Tender info */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Informações do Edital</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <label className="text-sm font-medium text-gray-400">Objeto</label>
+                <p className="text-sm">{(tender?.objeto as string) || 'N/A'}</p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-400">Órgão</label>
+                  <p className="text-sm">{(tender?.orgao_nome as string) || ''}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-400">CNPJ do Órgão</label>
+                  <p className="text-sm">{(tender?.orgao_cnpj as string) || ''}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-400">Modalidade</label>
+                  <p className="text-sm">{(tender?.modalidade_nome as string) || '-'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-400">UF</label>
+                  <p className="text-sm">{(tender?.uf as string) || ''}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-400">Município</label>
+                  <p className="text-sm">{(tender?.municipio as string) || '-'}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-400">Valor Estimado</label>
+                  <p className="text-sm font-medium text-emerald-700">
+                    {tender?.valor_estimado
+                      ? formatCurrency(tender.valor_estimado as number)
+                      : 'Não informado'}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-400">Valor Homologado</label>
+                  <p className="text-sm font-medium">
+                    {tender?.valor_homologado
+                      ? formatCurrency(tender.valor_homologado as number)
+                      : '-'}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-400">Situação</label>
+                  <p className="text-sm">{(tender?.situacao_nome as string) || '-'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-400">Data Abertura</label>
+                  <p className="text-sm">
+                    {tender?.data_abertura ? formatDate(tender.data_abertura as string) : '-'}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-400">Publicação</label>
+                  <p className="text-sm">
+                    {tender?.data_publicacao ? formatDate(tender.data_publicacao as string) : '-'}
+                  </p>
+                </div>
+              </div>
+              {Boolean(tender?.resumo) && (
+                <div>
+                  <label className="text-sm font-medium text-gray-400">Resumo</label>
+                  <p className="text-sm bg-gray-100 p-3 rounded-md">{tender.resumo as string}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <AiAnalysis
+            matchId={String(match.id)}
+            matchSource={matchSource}
+            initialData={{
+              score: Number(match.score) || 0,
+              breakdown: breakdown as Array<{ category: string; score: number; reason: string }>,
+              justificativa: (match.ai_justificativa as string) || null,
+              recomendacao: recomendacao || null,
+              riscos: riscos as string[],
+              acoes_necessarias: acoesNecessarias as string[],
+            }}
+          />
+
+          {/* Requirements */}
+          {requisitos && (requisitos as Record<string, any>).requisitos && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Requisitos Extraidos</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {(
+                    (requisitos as Record<string, any>).requisitos as Array<{
+                      categoria: string
+                      descricao: string
+                      obrigatorio: boolean
+                    }>
+                  ).map((req, i) => (
+                    <div key={i} className="flex gap-3 p-3 border rounded-md">
+                      <Badge
+                        variant={req.obrigatorio ? 'default' : 'secondary'}
+                        className="shrink-0 h-fit"
+                      >
+                        {req.obrigatorio ? 'Obrigatorio' : 'Desejavel'}
+                      </Badge>
+                      <div>
+                        <p className="text-xs font-medium text-gray-400 uppercase">
+                          {req.categoria}
+                        </p>
+                        <p className="text-sm">{req.descricao}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Documentos do Edital */}
+          {documents.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Documentos do Edital
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {documents.map((doc) => (
+                    <div key={doc.id} className="flex items-center justify-between p-3 border rounded-md">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {doc.titulo || 'Documento sem título'}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          {doc.tipo && (
+                            <Badge variant="outline" className="text-xs">
+                              {doc.tipo}
+                            </Badge>
+                          )}
+                          <Badge
+                            variant={doc.status === 'done' ? 'default' : 'secondary'}
+                            className="text-xs"
+                          >
+                            {doc.status === 'done' ? 'Extraído' : doc.status === 'error' ? 'Erro' : 'Pendente'}
+                          </Badge>
+                        </div>
+                      </div>
+                      <a
+                        href={doc.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="shrink-0 ml-3 text-sm text-brand hover:underline"
+                      >
+                        Download →
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Compliance Checker */}
+          {companyId && requisitos && (requisitos as Record<string, any>).requisitos && (
+            <ComplianceChecker
+              companyId={companyId}
+              requisitos={
+                ((requisitos as Record<string, any>).requisitos as Array<{
+                  categoria: string
+                  descricao: string
+                  obrigatorio: boolean
+                }>) || []
+              }
+            />
+          )}
+
+          {/* Historical Prices */}
+          <HistoricalPrices
+            currentObjeto={(tender?.objeto as string) || ''}
+            currentValorEstimado={(tender?.valor_estimado as number) || null}
+            currentTenderId={(tender?.id as string) || id}
+          />
+        </div>
+
+        {/* Sidebar */}
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Status</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <StatusChanger matchId={match.id} currentStatus={match.status} />
+            </CardContent>
+          </Card>
+
+          {/* Recommendation */}
+          {recomendacao && (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <p className="text-xs font-medium text-gray-400 uppercase mb-2">Recomendação IA</p>
+                  <Badge
+                    className={`text-sm px-3 py-1 ${
+                      recomendacao === 'participar'
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                        : recomendacao === 'avaliar_melhor'
+                          ? 'bg-amber-100 text-amber-800 border-amber-200'
+                          : 'bg-red-100 text-red-800 border-red-200'
+                    }`}
+                    variant="outline"
+                  >
+                    {recomendacao === 'participar'
+                      ? 'Participar'
+                      : recomendacao === 'avaliar_melhor'
+                        ? 'Avaliar Melhor'
+                        : 'Nao Recomendado'}
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {(() => {
+            const pncpId = tender?.pncp_id ? String(tender.pncp_id) : null
+            const pncpUrl = pncpId
+              ? `https://pncp.gov.br/app/editais/${pncpId.replace(/-/g, '/')}`
+              : null
+            const linkPncp = (tender?.link_pncp as string | null) || pncpUrl
+            const externalUrl = tender?.link_sistema_origem as string | null
+
+            if (!linkPncp && !externalUrl) return null
+
+            return (
+              <Card>
+                <CardContent className="pt-6 space-y-2">
+                  {linkPncp && (
+                    <a
+                      href={linkPncp}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block text-sm text-brand hover:underline"
+                    >
+                      Ver no PNCP →
+                    </a>
+                  )}
+                  {externalUrl && (
+                    <a
+                      href={externalUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block text-sm text-brand hover:underline"
+                    >
+                      Acessar Sistema de Origem →
+                    </a>
+                  )}
+                </CardContent>
+              </Card>
+            )
+          })()}
+
+          {/* AI Chat */}
+          <EditalChat
+            tenderId={(tender?.id as string) || id}
+            documentCount={documents.length}
+            documentUrls={documents.filter(d => d.url).map(d => ({ id: d.id, titulo: d.titulo, tipo: d.tipo, url: d.url }))}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ScoreBadgeLarge({ score }: { score: number }) {
+  const color =
+    score >= 80
+      ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+      : score >= 60
+        ? 'bg-amber-100 text-amber-800 border-amber-200'
+        : 'bg-red-100 text-red-800 border-red-200'
+
+  return (
+    <span className={`inline-flex items-center px-4 py-2 rounded-lg text-lg font-bold border ${color}`}>
+      Score {score}
+    </span>
+  )
+}
