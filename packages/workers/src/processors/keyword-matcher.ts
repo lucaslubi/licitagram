@@ -30,7 +30,7 @@ import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
 import { notificationQueue } from '../queues/notification.queue'
 import { invalidateMatchCaches, incrementStat } from '../lib/redis-cache'
-import { CNAE_DIVISIONS, getCompanyDivisions } from '@licitagram/shared'
+import { CNAE_DIVISIONS, getCompanyDivisions, NON_COMPETITIVE_MODALITIES } from '@licitagram/shared'
 import { classifyTenderCNAEs } from '../ai/cnae-classifier'
 
 // ─── Scoring Constants ────────────────────────────────────────────────────
@@ -286,12 +286,18 @@ export async function runKeywordMatching(tenderId: string) {
   // 1. Fetch tender
   const { data: tender } = await supabase
     .from('tenders')
-    .select('id, objeto, resumo, cnae_classificados, data_encerramento')
+    .select('id, objeto, resumo, cnae_classificados, data_encerramento, modalidade_id')
     .eq('id', tenderId)
     .single()
 
   if (!tender || !tender.objeto) {
     logger.warn({ tenderId }, 'No tender or objeto for keyword matching')
+    return
+  }
+
+  // Skip non-competitive modalities (inexigibilidade, inaplicabilidade) — no real competition
+  if (tender.modalidade_id && NON_COMPETITIVE_MODALITIES.includes(tender.modalidade_id as any)) {
+    logger.info({ tenderId, modalidade_id: tender.modalidade_id }, 'Skipping non-competitive tender (no matching)')
     return
   }
 
@@ -481,9 +487,10 @@ export async function runKeywordMatchingSweep() {
     const today = new Date().toISOString().split('T')[0]
     const { data: tenders, error: queryErr } = await supabase
       .from('tenders')
-      .select('id, cnae_classificados')
+      .select('id, cnae_classificados, modalidade_id')
       .gt('objeto', '')
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`)
+      .not('modalidade_id', 'in', `(${NON_COMPETITIVE_MODALITIES.join(',')})`)
       .order('created_at', { ascending: false })
       .range(from, to)
 

@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { invalidateCache, CacheKeys, isRedisAvailable, getRedis } from '@/lib/redis'
-import { CNAE_DIVISIONS, RELATED_DIVISIONS, getCompanyDivisions } from '@licitagram/shared'
+import { CNAE_DIVISIONS, RELATED_DIVISIONS, getCompanyDivisions, NON_COMPETITIVE_MODALITIES } from '@licitagram/shared'
 
 // ─── Service-role Supabase (bypasses RLS for match writes) ─────────────────
 
@@ -426,6 +426,7 @@ async function _runRematchForCompany(
       .gt('objeto', '')
       .or(`data_publicacao.gte.${cutoff},data_publicacao.is.null`)
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`)
+      .not('modalidade_id', 'in', `(${NON_COMPETITIVE_MODALITIES.join(',')})`)
       .order('created_at', { ascending: false })
       .range(from, to)
 
