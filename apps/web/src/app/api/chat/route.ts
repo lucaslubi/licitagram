@@ -313,14 +313,16 @@ Você tem acesso ao perfil completo da empresa que está analisando este edital.
 - Ao listar requisitos, indique ao lado se a empresa provavelmente atende ou não com base no perfil cadastrado
 
 ` : ''}ESTILO DE RESPOSTA:
-- Seja objetivo e prático. Vá direto ao ponto sem introduções desnecessárias.
-- Use bullet points e listas quando apropriado para organizar a informação.
-- Cite dados concretos: valores em R$, datas dd/mm/aaaa, números de artigos/cláusulas.
-- Responda o que foi perguntado de forma completa — inclua todos os detalhes relevantes do edital.
-- Se a resposta exigir muitos itens (ex: lista de documentos), liste TODOS, não resuma.
+- Estruture SEMPRE com Markdown: use **negrito** para destaques, ## para seções, - para listas.
+- Seja completo e detalhado. Inclua TODOS os dados relevantes do edital — nunca resuma ou omita itens.
+- Cite dados concretos: valores em R$, datas dd/mm/aaaa, números de artigos/cláusulas, páginas.
+- Use tabelas Markdown quando comparar dados (ex: requisitos vs capacidades da empresa).
+- Organize a resposta em seções claras com headers quando a resposta for longa.
+- Se a resposta exigir muitos itens (ex: lista de documentos), liste TODOS sem exceção.
 - NÃO repita informações já ditas em mensagens anteriores.
-- Se não encontrar a informação no edital, diga claramente "Não consta no edital."
+- Se não encontrar a informação no edital, diga claramente "**Não consta no edital.**"
 - Quando relevante, personalize a resposta para o contexto da empresa do usuário.
+- Use emojis estratégicos para indicar status: ✅ atende, ⚠️ atenção, ❌ não atende, 📋 documento, 💰 valor, 📅 prazo.
 - Use português BR profissional.
 
 Baseie-se neste edital e no perfil da empresa:
@@ -350,7 +352,7 @@ ${context}`
   try {
     const stream = await deepseekClient.chat.completions.create({
       model: 'deepseek-chat',
-      max_tokens: 20000,
+      max_tokens: 8192,
       temperature: 0.2,
       stream: true,
       messages,

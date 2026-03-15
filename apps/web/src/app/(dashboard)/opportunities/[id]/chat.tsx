@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import ReactMarkdown from 'react-markdown'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -662,13 +663,19 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
           {messages.map((msg, i) => (
             <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div
-                className={`max-w-[85%] px-3 py-2 rounded-lg text-sm whitespace-pre-wrap ${
-                  msg.role === 'user' ? 'bg-brand text-white' : 'bg-white border text-gray-900'
+                className={`max-w-[85%] px-3 py-2 rounded-lg text-sm ${
+                  msg.role === 'user' ? 'bg-brand text-white whitespace-pre-wrap' : 'bg-white border text-gray-900'
                 }`}
               >
                 {msg.role === 'user' && msg.content === INITIAL_PROMPT ? (
                   <span className="italic text-white/80">Análise inicial do edital</span>
-                ) : msg.content || (
+                ) : msg.role === 'assistant' && msg.content ? (
+                  <div className="prose prose-sm prose-gray max-w-none prose-headings:text-gray-900 prose-headings:font-semibold prose-headings:mt-3 prose-headings:mb-1 prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-strong:text-gray-900 prose-table:text-xs prose-th:bg-gray-50 prose-th:px-2 prose-th:py-1 prose-td:px-2 prose-td:py-1 prose-th:border prose-td:border">
+                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  </div>
+                ) : msg.content ? (
+                  <span className="whitespace-pre-wrap">{msg.content}</span>
+                ) : (
                   <span className="inline-flex gap-1">
                     <span className="animate-pulse">●</span>
                     <span className="animate-pulse" style={{ animationDelay: '150ms' }}>●</span>
