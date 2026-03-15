@@ -24,7 +24,7 @@ if (bot) {
           '/oportunidades - Ver melhores oportunidades\n' +
           '/top10 - Ranking dos 10 melhores matches\n' +
           '/buscar [termo] - Buscar licitações\n' +
-          '/alertar - Receber alertas pendentes\n' +
+          '/notificar - Receber alertas pendentes\n' +
           '/config - Configurar score mínimo\n' +
           '/pause - Pausar/retomar notificações\n' +
           '/status - Ver estatísticas\n' +
@@ -255,8 +255,8 @@ if (bot) {
     await ctx.reply(msg, { parse_mode: 'MarkdownV2', link_preview_options: { is_disabled: true } })
   })
 
-  // /alertar - Send pending notifications for all unnotified high-score matches
-  bot.command('alertar', async (ctx) => {
+  // /notificar & /alertar - Send pending notifications for all unnotified high-score matches
+  async function handleNotificar(ctx: any) {
     const { data: user } = await supabase
       .from('users')
       .select('id, company_id, min_score')
@@ -280,7 +280,7 @@ if (bot) {
       .eq('status', 'new')
       .gte('score', minScore)
       .order('score', { ascending: false })
-      .limit(5)
+      .limit(20)
 
     if (!pending || pending.length === 0) {
       await ctx.reply('✅ Nenhuma oportunidade pendente de notificação!')
@@ -335,11 +335,14 @@ if (bot) {
       .gte('score', minScore)
 
     if (remaining && remaining > 0) {
-      await ctx.reply(`✅ Alertas enviados! Ainda restam ${remaining} oportunidades. Use /alertar novamente para ver mais.`)
+      await ctx.reply(`✅ Alertas enviados! Ainda restam ${remaining} oportunidades. Use /notificar novamente para ver mais.`)
     } else {
       await ctx.reply('✅ Todos os alertas pendentes foram enviados!')
     }
-  })
+  }
+
+  bot.command('notificar', handleNotificar)
+  bot.command('alertar', handleNotificar)
 
   // /buscar [termo] - Search tenders by keyword
   bot.command('buscar', async (ctx) => {
@@ -479,7 +482,7 @@ if (bot) {
         '/oportunidades \\- Ver suas melhores oportunidades\n' +
         '/top10 \\- Ranking dos 10 melhores matches\n' +
         '/buscar \\[termo\\] \\- Buscar licitações por palavra\\-chave\n' +
-        '/alertar \\- Receber alertas pendentes\n\n' +
+        '/notificar \\- Receber alertas pendentes\n\n' +
         '⚙️ *Configurações*\n' +
         '/config \\- Ajustar score mínimo de alertas\n' +
         '/pause \\- Pausar/retomar notificações\n' +

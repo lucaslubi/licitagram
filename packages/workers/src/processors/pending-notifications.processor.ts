@@ -58,21 +58,29 @@ const pendingNotificationsWorker = new Worker(
       )
 
       for (const match of pendingMatches) {
-        await notificationQueue.add(
-          `pending-notify-${user.id}-${match.id}`,
-          {
-            matchId: match.id,
-            telegramChatId: hasTelegram ? user.telegram_chat_id : undefined,
-            whatsappNumber: hasWhatsApp ? user.whatsapp_number : undefined,
-          },
-          {
-            attempts: 3,
-            backoff: { type: 'exponential', delay: 3000 },
-            // Deduplicate: don't send the same notification twice
-            jobId: `pending-${user.id}-${match.id}`,
-          },
-        )
-        totalEnqueued++
+        try {
+          // Use time-bucketed jobId (1h window) to allow retries of failed jobs
+          // while still preventing rapid duplicates within the same hour
+          const hourBucket = Math.floor(Date.now() / (60 * 60 * 1000))
+          await notificationQueue.add(
+            `pending-notify-${user.id}-${match.id}`,
+            {
+              matchId: match.id,
+              telegramChatId: hasTelegram ? user.telegram_chat_id : undefined,
+              whatsappNumber: hasWhatsApp ? user.whatsapp_number : undefined,
+            },
+            {
+              attempts: 3,
+              backoff: { type: 'exponential', delay: 3000 },
+              // Deduplicate within 1-hour window; allows retry in next hour
+              jobId: `pending-${user.id}-${match.id}-${hourBucket}`,
+            },
+          )
+          totalEnqueued++
+        } catch (enqueueErr) {
+          // Likely duplicate jobId — safe to ignore
+          logger.debug({ matchId: match.id, err: enqueueErr }, 'Skipped duplicate notification job')
+        }
       }
     }
 

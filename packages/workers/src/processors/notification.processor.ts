@@ -64,8 +64,12 @@ const notificationWorker = new Worker<NotificationJobData>(
     const { matchId, telegramChatId, whatsappNumber } = job.data
 
     if (!bot && !whatsappNumber) {
-      logger.warn('No notification channels available, skipping')
+      logger.warn({ matchId }, 'No notification channels available (bot not initialized, no whatsapp), skipping')
       return
+    }
+
+    if (telegramChatId && !bot) {
+      logger.warn({ matchId, telegramChatId }, 'Telegram requested but bot not initialized')
     }
 
     const { data: match } = await supabase

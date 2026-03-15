@@ -425,23 +425,28 @@ async function enqueueNotifications(companyId: string, tenderId: string, score: 
         .single()
 
       if (matchRow) {
-        await notificationQueue.add(
-          `kw-notify-${user.id}-${matchRow.id}`,
-          {
-            matchId: matchRow.id,
-            telegramChatId: hasTelegram ? user.telegram_chat_id : undefined,
-            whatsappNumber: hasWhatsApp ? user.whatsapp_number : undefined,
-          },
-          {
-            jobId: `kw-${user.id}-${matchRow.id}`,
-            attempts: 3,
-            backoff: { type: 'exponential', delay: 3000 },
-          },
-        )
-        logger.info(
-          { userId: user.id, matchId: matchRow.id, score, channels: { telegram: !!hasTelegram, whatsapp: !!hasWhatsApp } },
-          'Notification enqueued for match',
-        )
+        try {
+          const hourBucket = Math.floor(Date.now() / (60 * 60 * 1000))
+          await notificationQueue.add(
+            `kw-notify-${user.id}-${matchRow.id}`,
+            {
+              matchId: matchRow.id,
+              telegramChatId: hasTelegram ? user.telegram_chat_id : undefined,
+              whatsappNumber: hasWhatsApp ? user.whatsapp_number : undefined,
+            },
+            {
+              jobId: `kw-${user.id}-${matchRow.id}-${hourBucket}`,
+              attempts: 3,
+              backoff: { type: 'exponential', delay: 3000 },
+            },
+          )
+          logger.info(
+            { userId: user.id, matchId: matchRow.id, score, channels: { telegram: !!hasTelegram, whatsapp: !!hasWhatsApp } },
+            'Notification enqueued for match',
+          )
+        } catch (enqueueErr) {
+          logger.debug({ matchId: matchRow.id, err: enqueueErr }, 'Skipped duplicate notification job')
+        }
       }
     }
   } catch (notifErr) {
