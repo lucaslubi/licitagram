@@ -281,16 +281,28 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // ── Smart context budget ────────────────────────────────────────────
+  // DeepSeek V3: 64K tokens context. Reserve ~8K for system prompt + history + response.
+  // ~3.5 chars/token for Portuguese → budget ~180K chars for documents.
+  const MAX_CONTEXT_CHARS = 180_000
+
   if (docsText) {
-    context += `## Texto Extraído dos Documentos (${docsLoaded} documento${docsLoaded > 1 ? 's' : ''})\n${docsText.slice(0, 800_000)}\n`
+    const truncated = docsText.length > MAX_CONTEXT_CHARS
+      ? docsText.slice(0, MAX_CONTEXT_CHARS) + '\n\n[... documento truncado por tamanho. Pergunte sobre seções específicas se necessário.]'
+      : docsText
+    context += `## Texto Extraído dos Documentos (${docsLoaded} documento${docsLoaded > 1 ? 's' : ''})\n${truncated}\n`
   }
 
   // Add user-uploaded document text (from browser-side PDF extraction)
   if (uploadedDocsText && uploadedDocsText.trim().length > 0) {
     const uploadedText = uploadedDocsText.trim()
-    context += `## Documentos Enviados pelo Usuário\n${uploadedText.slice(0, 800_000)}\n\n`
+    const remainingBudget = Math.max(20_000, MAX_CONTEXT_CHARS - (docsText?.length || 0))
+    const truncatedUpload = uploadedText.length > remainingBudget
+      ? uploadedText.slice(0, remainingBudget) + '\n\n[... documento truncado por tamanho.]'
+      : uploadedText
+    context += `## Documentos Enviados pelo Usuário\n${truncatedUpload}\n\n`
     docsLoaded++
-    console.log(`[Chat] User-uploaded docs: ${uploadedText.length} chars`)
+    console.log(`[Chat] User-uploaded docs: ${uploadedText.length} chars (sent ${truncatedUpload.length})`)
   }
 
   if (docsFailed > 0 && docsLoaded === 0) {
@@ -335,12 +347,16 @@ ${context}`
   ]
 
   if (chatHistory && chatHistory.length > 0) {
-    const recentHistory = chatHistory.slice(-20)
+    // Keep last 10 messages and truncate long assistant responses to save context
+    const recentHistory = chatHistory.slice(-10)
     for (const msg of recentHistory) {
       if (msg.content) {
+        const content = msg.role === 'assistant' && msg.content.length > 3000
+          ? msg.content.slice(0, 3000) + '...'
+          : msg.content
         messages.push({
           role: msg.role === 'assistant' ? 'assistant' : 'user',
-          content: msg.content,
+          content,
         })
       }
     }
@@ -402,10 +418,43 @@ ${context}`
     }
 
     if (msg.includes('context_length') || msg.includes('maximum context') || msg.includes('too long')) {
-      return NextResponse.json(
-        { error: 'O edital é muito grande para análise. Tente fazer uma pergunta mais específica.' },
-        { status: 413 },
-      )
+      // Context still too large — retry with aggressive truncation
+      console.warn('[Chat] Context too large, retrying with reduced context')
+      try {
+        const reducedSystem = systemPrompt.slice(0, 60_000)
+        const retryStream = await deepseekClient.chat.completions.create({
+          model: 'deepseek-chat',
+          max_tokens: 8192,
+          temperature: 0.2,
+          stream: true,
+          messages: [
+            { role: 'system', content: reducedSystem },
+            { role: 'user', content: question },
+          ],
+        })
+        const encoder2 = new TextEncoder()
+        const readable2 = new ReadableStream({
+          async start(controller) {
+            try {
+              for await (const chunk of retryStream) {
+                const text = chunk.choices[0]?.delta?.content
+                if (text) controller.enqueue(encoder2.encode(`data: ${JSON.stringify({ content: text })}\n\n`))
+              }
+            } catch { /* ignore */ } finally {
+              controller.enqueue(encoder2.encode('data: [DONE]\n\n'))
+              controller.close()
+            }
+          },
+        })
+        return new NextResponse(readable2, {
+          headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' },
+        })
+      } catch {
+        return NextResponse.json(
+          { error: 'O edital é muito extenso. Tente uma pergunta mais específica sobre uma seção.' },
+          { status: 413 },
+        )
+      }
     }
 
     return NextResponse.json({ error: `Falha ao processar: ${msg.slice(0, 200)}` }, { status: 500 })
