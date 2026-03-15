@@ -3,11 +3,35 @@ import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import pdf from 'pdf-parse'
 import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import OpenAI from 'openai'
 
-// ── Gemini 2.0 Flash — 1M token context, streaming chat ────────
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || ''
-const genAI = new GoogleGenerativeAI(GEMINI_API_KEY)
+// ── AI Providers ────────────────────────────────────────────────────────────
+// Primary: DeepSeek V3 (64K context, reliable)
+// Future: Gemini 2.0 Flash (1M context) when billing is active
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || ''
+const DEEPSEEK_BASE_URL = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com'
+
+const deepseek = new OpenAI({
+  apiKey: DEEPSEEK_API_KEY,
+  baseURL: DEEPSEEK_BASE_URL,
+})
+
+// DeepSeek V3 context: ~64K tokens ≈ ~180K chars (safe limit for system + user + response)
+const MAX_CONTEXT_CHARS = 150_000
+
+/**
+ * Smart truncation: keeps beginning (overview, terms) + end (appendices, tables)
+ * of the document when it exceeds the context limit.
+ */
+function smartTruncate(text: string, maxChars: number): string {
+  if (text.length <= maxChars) return text
+
+  const keepStart = Math.floor(maxChars * 0.65) // 65% from beginning
+  const keepEnd = Math.floor(maxChars * 0.30)   // 30% from end
+  const separator = `\n\n[... ${((text.length - keepStart - keepEnd) / 1000).toFixed(0)}K caracteres omitidos por limite de contexto — início e fim preservados ...]\n\n`
+
+  return text.slice(0, keepStart) + separator + text.slice(-keepEnd)
+}
 
 /**
  * SSRF Protection: block private/internal IPs only.
@@ -97,7 +121,7 @@ export async function POST(request: NextRequest) {
 
   const supabase = await createClient()
 
-  if (!GEMINI_API_KEY) {
+  if (!DEEPSEEK_API_KEY) {
     return NextResponse.json({ error: 'Chat AI not configured' }, { status: 503 })
   }
 
@@ -277,9 +301,8 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // ── Gemini has 1M token context — send ALL document text, no truncation ──
   if (docsText) {
-    context += `## Texto Extraído dos Documentos (${docsLoaded} documento${docsLoaded > 1 ? 's' : ''} — texto COMPLETO)\n${docsText}\n`
+    context += `## Texto Extraído dos Documentos (${docsLoaded} documento${docsLoaded > 1 ? 's' : ''})\n${docsText}\n`
   }
 
   // Add user-uploaded document text (from browser-side PDF extraction)
@@ -296,9 +319,16 @@ export async function POST(request: NextRequest) {
     context += `\n⚠️ NOTA: ${docsFailed} documento(s) não puderam ser carregados automaticamente.\n`
   }
 
-  // ── Build Gemini system instruction ───────────────────────────────────
+  // ── Smart truncation for DeepSeek 64K context ───────────────────────
+  const wasTruncated = context.length > MAX_CONTEXT_CHARS
+  if (wasTruncated) {
+    console.log(`[Chat] Context truncated: ${context.length} → ${MAX_CONTEXT_CHARS} chars`)
+    context = smartTruncate(context, MAX_CONTEXT_CHARS)
+  }
+
+  // ── Build system prompt ─────────────────────────────────────────────
   const hasCompany = !!company
-  const systemInstruction = `Você é um assistente especialista em licitações públicas brasileiras, atuando como consultor dedicado para a empresa do usuário. Você tem acesso ao edital COMPLETO, sem nenhum trecho cortado ou omitido.
+  const systemPrompt = `Você é um assistente especialista em licitações públicas brasileiras, atuando como consultor dedicado para a empresa do usuário.${wasTruncated ? ' O texto do edital foi parcialmente truncado por limite de contexto — início e fim foram preservados. Responda com base no que está disponível.' : ' Você tem acesso ao edital COMPLETO.'}
 
 ${hasCompany ? `CONTEXTO DA EMPRESA:
 Você tem acesso ao perfil completo da empresa que está analisando este edital. Use essas informações para:
@@ -326,104 +356,76 @@ Baseie-se neste edital e no perfil da empresa:
 
 ${context}`
 
-  console.log(`[Chat Gemini] Context: ${context.length} chars, System: ${systemInstruction.length} chars`)
+  console.log(`[Chat DeepSeek] Context: ${context.length} chars, System: ${systemPrompt.length} chars, Truncated: ${wasTruncated}`)
 
-  // ── Build Gemini conversation history ─────────────────────────────────
-  const geminiHistory: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = []
+  // ── Build conversation messages ─────────────────────────────────────
+  const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+    { role: 'system', content: systemPrompt },
+  ]
 
   if (chatHistory && chatHistory.length > 0) {
-    const recentHistory = chatHistory.slice(-20) // Gemini can handle more history with 1M context
+    const recentHistory = chatHistory.slice(-10) // Keep last 10 messages for context
     for (const msg of recentHistory) {
       if (msg.content) {
-        geminiHistory.push({
-          role: msg.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: msg.content }],
-        })
+        messages.push({ role: msg.role, content: msg.content })
       }
     }
   }
 
-  // ── Stream from Gemini 2.0 Flash (with auto-retry on rate limit) ─────
-  const MAX_RETRIES = 3
+  messages.push({ role: 'user', content: question })
 
-  const tryStream = async (attempt: number): Promise<NextResponse> => {
-    try {
-      const model = genAI.getGenerativeModel({
-        model: 'gemini-2.0-flash',
-        systemInstruction,
-        generationConfig: {
-          temperature: 0.2,
-          maxOutputTokens: 8192,
-        },
-      })
+  // ── Stream from DeepSeek V3 ─────────────────────────────────────────
+  try {
+    const completion = await deepseek.chat.completions.create({
+      model: 'deepseek-chat',
+      messages,
+      max_tokens: 8192,
+      temperature: 0.2,
+      stream: true,
+    })
 
-      const chat = model.startChat({ history: geminiHistory })
-      const result = await chat.sendMessageStream(question)
-
-      const encoder = new TextEncoder()
-      const readable = new ReadableStream({
-        async start(controller) {
-          try {
-            for await (const chunk of result.stream) {
-              const text = chunk.text()
-              if (text) {
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: text })}\n\n`))
-              }
+    const encoder = new TextEncoder()
+    const readable = new ReadableStream({
+      async start(controller) {
+        try {
+          for await (const chunk of completion) {
+            const content = chunk.choices?.[0]?.delta?.content
+            if (content) {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`))
             }
-          } catch (err) {
-            const errMsg = err instanceof Error ? err.message : String(err)
-            // If stream fails mid-way with rate limit, notify user gracefully
-            if (errMsg.includes('429') || errMsg.includes('RATE_LIMIT') || errMsg.includes('quota')) {
-              controller.enqueue(
-                encoder.encode(
-                  `data: ${JSON.stringify({ content: '\n\n⏳ Aguarde um momento, processando...' })}\n\n`,
-                ),
-              )
-            } else {
-              console.error('[Chat Gemini] Stream error:', err)
-              controller.enqueue(
-                encoder.encode(
-                  `data: ${JSON.stringify({ content: '\n\n⚠️ Erro durante a geração da resposta.' })}\n\n`,
-                ),
-              )
-            }
-          } finally {
-            controller.enqueue(encoder.encode('data: [DONE]\n\n'))
-            controller.close()
           }
-        },
-      })
+        } catch (err) {
+          console.error('[Chat DeepSeek] Stream error:', err)
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({ content: '\n\n⚠️ Erro durante a geração da resposta.' })}\n\n`,
+            ),
+          )
+        } finally {
+          controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+          controller.close()
+        }
+      },
+    })
 
-      return new NextResponse(readable, {
-        headers: {
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-          Connection: 'keep-alive',
-        },
-      })
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error)
-      const isRateLimit = msg.includes('429') || msg.includes('RATE_LIMIT') || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED')
+    return new NextResponse(readable, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      },
+    })
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error('[Chat] DeepSeek error:', { message: msg, contextLen: context.length })
 
-      if (isRateLimit && attempt < MAX_RETRIES) {
-        const delay = Math.pow(2, attempt) * 2000 // 2s, 4s, 8s
-        console.log(`[Chat Gemini] Rate limited, retry ${attempt + 1}/${MAX_RETRIES} in ${delay}ms`)
-        await new Promise((r) => setTimeout(r, delay))
-        return tryStream(attempt + 1)
-      }
-
-      console.error('[Chat] Gemini error:', { message: msg, contextLen: context.length, attempt })
-
-      if (isRateLimit) {
-        return NextResponse.json(
-          { error: 'O serviço está temporariamente sobrecarregado. Tente novamente em 30 segundos.' },
-          { status: 429 },
-        )
-      }
-
-      return NextResponse.json({ error: `Falha ao processar: ${msg.slice(0, 200)}` }, { status: 500 })
+    if (msg.includes('429') || msg.includes('rate')) {
+      return NextResponse.json(
+        { error: 'Limite temporário atingido. Tente novamente em alguns segundos.' },
+        { status: 429 },
+      )
     }
-  }
 
-  return tryStream(0)
+    return NextResponse.json({ error: `Falha ao processar: ${msg.slice(0, 200)}` }, { status: 500 })
+  }
 }
