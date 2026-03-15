@@ -289,6 +289,10 @@ async function fetchMatchListFromDB(params: MatchListParams): Promise<MatchListR
     .eq('company_id', companyId)
     .gte('score', effectiveMinScore)
 
+  // Filter out expired tenders — only show open opportunities
+  const today = new Date().toISOString().split('T')[0]
+  query = query.or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
+
   // Filters on the referenced tenders table
   if (uf) query = query.eq('tenders.uf', uf)
   if (modalidade) query = query.eq('tenders.modalidade_id', parseInt(modalidade))
