@@ -1,4 +1,4 @@
-import { getRedis } from './redis'
+import { getRedis, isRedisAvailable } from './redis'
 
 /**
  * Sliding window rate limiter using Redis.
@@ -11,6 +11,11 @@ export async function checkRateLimit(
   maxRequests: number,
   windowSeconds: number,
 ): Promise<{ allowed: boolean; retryAfter?: number }> {
+  // No Redis configured — skip rate limiting entirely (fail-open)
+  if (!isRedisAvailable()) {
+    return { allowed: true }
+  }
+
   try {
     const redis = getRedis()
     const now = Date.now()

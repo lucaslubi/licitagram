@@ -11,13 +11,21 @@ import IORedis from 'ioredis'
 
 let redis: IORedis | null = null
 
+/** Returns true if REDIS_URL is configured */
+export function isRedisAvailable(): boolean {
+  return !!process.env.REDIS_URL
+}
+
 export function getRedis(): IORedis {
   if (!redis) {
-    redis = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
+    const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379'
+    redis = new IORedis(redisUrl, {
       maxRetriesPerRequest: 3,
       lazyConnect: true,
+      connectTimeout: 5000,
       // Reconnect with exponential backoff
       retryStrategy(times) {
+        if (!process.env.REDIS_URL) return null // Don't retry if no Redis configured
         if (times > 10) return null // Give up after 10 retries
         return Math.min(times * 200, 5000)
       },

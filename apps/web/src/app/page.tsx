@@ -183,7 +183,7 @@ export default function LandingPage() {
         {/* YouTube background video — zoomed to crop YouTube UI */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <iframe
-            src="https://www.youtube.com/embed/qqJws-fmGsk?autoplay=1&mute=1&loop=1&playlist=qqJws-fmGsk&controls=0&showinfo=0&modestbranding=1&rel=0&iv_load_policy=3&disablekb=1&playsinline=1&enablejsapi=1&origin=https://licitagram.com.br"
+            src="https://www.youtube.com/embed/qqJws-fmGsk?autoplay=1&mute=1&loop=1&playlist=qqJws-fmGsk&controls=0&showinfo=0&modestbranding=1&rel=0&iv_load_policy=3&disablekb=1&playsinline=1&enablejsapi=1&start=20&origin=https://licitagram.com"
             title="Background video"
             allow="autoplay; encrypted-media"
             allowFullScreen

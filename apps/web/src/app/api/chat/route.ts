@@ -2,7 +2,6 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import pdf from 'pdf-parse'
-import { checkRateLimit } from '@/lib/rate-limit'
 import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
 import OpenAI from 'openai'
 
@@ -97,15 +96,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: 'Recurso disponível apenas para planos com Chat IA. Faça upgrade do seu plano.' },
       { status: 403 },
-    )
-  }
-
-  // Rate limiting
-  const rateCheck = await checkRateLimit(`chat:${userCtx.userId}`, 20, 60)
-  if (!rateCheck.allowed) {
-    return NextResponse.json(
-      { error: `Limite de requisições atingido. Tente novamente em ${rateCheck.retryAfter}s.` },
-      { status: 429 },
     )
   }
 
