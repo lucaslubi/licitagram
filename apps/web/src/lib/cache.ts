@@ -289,10 +289,6 @@ async function fetchMatchListFromDB(params: MatchListParams): Promise<MatchListR
     .eq('company_id', companyId)
     .gte('score', effectiveMinScore)
 
-  // Filter out expired tenders — only show open opportunities
-  const today = new Date().toISOString().split('T')[0]
-  query = query.or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
-
   // Filters on the referenced tenders table
   if (uf) query = query.eq('tenders.uf', uf)
   if (modalidade) query = query.eq('tenders.modalidade_id', parseInt(modalidade))
@@ -309,8 +305,21 @@ async function fetchMatchListFromDB(params: MatchListParams): Promise<MatchListR
     return { matches: [], count: 0, totalPages: 0 }
   }
 
+  // Filter out expired tenders in JS (Supabase referencedTable filters don't exclude parent rows)
+  const today = new Date().toISOString().split('T')[0]
+  const openMatches = allMatches.filter((match) => {
+    const tender = match.tenders as unknown as Record<string, unknown> | null
+    if (!tender) return false // no tender data = skip
+    const enc = tender.data_encerramento as string | null
+    return !enc || enc >= today // null (unknown deadline) or still open
+  })
+
+  if (openMatches.length === 0) {
+    return { matches: [], count: 0, totalPages: 0 }
+  }
+
   // Sort in application code (valor and data sorts on nested tender fields)
-  const sorted = [...allMatches]
+  const sorted = [...openMatches]
   sorted.sort((a, b) => {
     const tA = a.tenders as unknown as Record<string, unknown>
     const tB = b.tenders as unknown as Record<string, unknown>
@@ -340,7 +349,7 @@ async function fetchMatchListFromDB(params: MatchListParams): Promise<MatchListR
   // Manual pagination
   const start = (page - 1) * pageSize
   const paginatedMatches = sorted.slice(start, start + pageSize)
-  const total = count ?? allMatches.length
+  const total = openMatches.length
 
   return {
     matches: paginatedMatches,
