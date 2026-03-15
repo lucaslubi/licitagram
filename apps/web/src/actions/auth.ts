@@ -23,14 +23,16 @@ export async function signIn(formData: FormData) {
 export async function signUp(formData: FormData) {
   const supabase = await createClient()
 
-  const { error } = await supabase.auth.signUp({
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://licitagram.com'
+
+  const { data, error } = await supabase.auth.signUp({
     email: formData.get('email') as string,
     password: formData.get('password') as string,
     options: {
       data: {
         full_name: formData.get('full_name') as string,
       },
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
+      emailRedirectTo: `${appUrl}/auth/callback`,
     },
   })
 
@@ -38,6 +40,14 @@ export async function signUp(formData: FormData) {
     return { error: error.message }
   }
 
+  // If email confirmation is required, Supabase returns a user with identities
+  // but no active session. Don't redirect to dashboard — show confirmation message.
+  const needsConfirmation = data.user && !data.session
+  if (needsConfirmation) {
+    return { success: 'Verifique seu email para confirmar o cadastro.' }
+  }
+
+  // If email confirmation is disabled in Supabase, user is already logged in
   revalidatePath('/', 'layout')
   redirect('/dashboard')
 }

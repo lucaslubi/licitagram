@@ -37,7 +37,11 @@ function LoginForm() {
 
       <div className="rounded-large border border-border bg-card p-8 shadow-sm">
         {message && (
-          <div className="mb-4 rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-700">
+          <div className={`mb-4 rounded-lg p-3 text-sm ${
+            searchParams.get('type') === 'error'
+              ? 'bg-red-50 border border-red-200 text-red-700'
+              : 'bg-emerald-50 border border-emerald-200 text-emerald-700'
+          }`}>
             {message}
           </div>
         )}
