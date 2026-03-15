@@ -3,15 +3,11 @@ import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import pdf from 'pdf-parse'
 import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
-import OpenAI from 'openai'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 
-// ── DeepSeek V3.2 — streaming chat ────────
-const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || ''
-
-const deepseekClient = new OpenAI({
-  apiKey: DEEPSEEK_API_KEY,
-  baseURL: 'https://api.deepseek.com',
-})
+// ── Gemini 2.0 Flash — 1M token context, streaming chat ────────
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || ''
+const genAI = new GoogleGenerativeAI(GEMINI_API_KEY)
 
 /**
  * SSRF Protection: block private/internal IPs only.
@@ -101,7 +97,7 @@ export async function POST(request: NextRequest) {
 
   const supabase = await createClient()
 
-  if (!DEEPSEEK_API_KEY) {
+  if (!GEMINI_API_KEY) {
     return NextResponse.json({ error: 'Chat AI not configured' }, { status: 503 })
   }
 
@@ -178,7 +174,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (company.descricao_servicos) {
-      context += `**Descrição de Serviços:** ${String(company.descricao_servicos).slice(0, 3000)}\n`
+      context += `**Descrição de Serviços:** ${String(company.descricao_servicos).slice(0, 5000)}\n`
     }
 
     if (Array.isArray(company.capacidades) && company.capacidades.length > 0) {
@@ -281,28 +277,17 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // ── Smart context budget ────────────────────────────────────────────
-  // DeepSeek V3: 64K tokens context. Reserve ~8K for system prompt + history + response.
-  // ~3.5 chars/token for Portuguese → budget ~180K chars for documents.
-  const MAX_CONTEXT_CHARS = 180_000
-
+  // ── Gemini has 1M token context — send ALL document text, no truncation ──
   if (docsText) {
-    const truncated = docsText.length > MAX_CONTEXT_CHARS
-      ? docsText.slice(0, MAX_CONTEXT_CHARS) + '\n\n[... documento truncado por tamanho. Pergunte sobre seções específicas se necessário.]'
-      : docsText
-    context += `## Texto Extraído dos Documentos (${docsLoaded} documento${docsLoaded > 1 ? 's' : ''})\n${truncated}\n`
+    context += `## Texto Extraído dos Documentos (${docsLoaded} documento${docsLoaded > 1 ? 's' : ''} — texto COMPLETO)\n${docsText}\n`
   }
 
   // Add user-uploaded document text (from browser-side PDF extraction)
   if (uploadedDocsText && uploadedDocsText.trim().length > 0) {
     const uploadedText = uploadedDocsText.trim()
-    const remainingBudget = Math.max(20_000, MAX_CONTEXT_CHARS - (docsText?.length || 0))
-    const truncatedUpload = uploadedText.length > remainingBudget
-      ? uploadedText.slice(0, remainingBudget) + '\n\n[... documento truncado por tamanho.]'
-      : uploadedText
-    context += `## Documentos Enviados pelo Usuário\n${truncatedUpload}\n\n`
+    context += `## Documentos Enviados pelo Usuário\n${uploadedText}\n\n`
     docsLoaded++
-    console.log(`[Chat] User-uploaded docs: ${uploadedText.length} chars (sent ${truncatedUpload.length})`)
+    console.log(`[Chat] User-uploaded docs: ${uploadedText.length} chars`)
   }
 
   if (docsFailed > 0 && docsLoaded === 0) {
@@ -311,9 +296,9 @@ export async function POST(request: NextRequest) {
     context += `\n⚠️ NOTA: ${docsFailed} documento(s) não puderam ser carregados automaticamente.\n`
   }
 
-  // ── Build Gemini messages ───────────────────────────────────────────
+  // ── Build Gemini system instruction ───────────────────────────────────
   const hasCompany = !!company
-  const systemPrompt = `Você é um assistente especialista em licitações públicas brasileiras, atuando como consultor dedicado para a empresa do usuário.
+  const systemInstruction = `Você é um assistente especialista em licitações públicas brasileiras, atuando como consultor dedicado para a empresa do usuário. Você tem acesso ao edital COMPLETO, sem nenhum trecho cortado ou omitido.
 
 ${hasCompany ? `CONTEXTO DA EMPRESA:
 Você tem acesso ao perfil completo da empresa que está analisando este edital. Use essas informações para:
@@ -341,51 +326,49 @@ Baseie-se neste edital e no perfil da empresa:
 
 ${context}`
 
-  // Build conversation history for DeepSeek (OpenAI-compatible flat messages)
-  const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
-    { role: 'system', content: systemPrompt },
-  ]
+  console.log(`[Chat Gemini] Context: ${context.length} chars, System: ${systemInstruction.length} chars`)
+
+  // ── Build Gemini conversation history ─────────────────────────────────
+  const geminiHistory: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = []
 
   if (chatHistory && chatHistory.length > 0) {
-    // Keep last 10 messages and truncate long assistant responses to save context
-    const recentHistory = chatHistory.slice(-10)
+    const recentHistory = chatHistory.slice(-20) // Gemini can handle more history with 1M context
     for (const msg of recentHistory) {
       if (msg.content) {
-        const content = msg.role === 'assistant' && msg.content.length > 3000
-          ? msg.content.slice(0, 3000) + '...'
-          : msg.content
-        messages.push({
-          role: msg.role === 'assistant' ? 'assistant' : 'user',
-          content,
+        geminiHistory.push({
+          role: msg.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: msg.content }],
         })
       }
     }
   }
 
-  messages.push({ role: 'user', content: question })
-
-  // ── Stream from DeepSeek ──────────────────────────────────────────────
+  // ── Stream from Gemini 2.0 Flash ──────────────────────────────────────
   try {
-    const stream = await deepseekClient.chat.completions.create({
-      model: 'deepseek-chat',
-      max_tokens: 8192,
-      temperature: 0.2,
-      stream: true,
-      messages,
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.0-flash',
+      systemInstruction,
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 8192,
+      },
     })
+
+    const chat = model.startChat({ history: geminiHistory })
+    const result = await chat.sendMessageStream(question)
 
     const encoder = new TextEncoder()
     const readable = new ReadableStream({
       async start(controller) {
         try {
-          for await (const chunk of stream) {
-            const text = chunk.choices[0]?.delta?.content
+          for await (const chunk of result.stream) {
+            const text = chunk.text()
             if (text) {
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: text })}\n\n`))
             }
           }
         } catch (err) {
-          console.error('[Chat DeepSeek] Stream error:', err)
+          console.error('[Chat Gemini] Stream error:', err)
           controller.enqueue(
             encoder.encode(
               `data: ${JSON.stringify({ content: '\n\n⚠️ Erro durante a geração da resposta.' })}\n\n`,
@@ -407,54 +390,13 @@ ${context}`
     })
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)
-    const status = (error as { status?: number }).status
-    console.error('[Chat] DeepSeek error:', { message: msg, status, contextLen: context.length, messagesCount: messages.length })
+    console.error('[Chat] Gemini error:', { message: msg, contextLen: context.length })
 
-    if (status === 429 || msg.includes('429') || msg.includes('RATE_LIMIT')) {
+    if (msg.includes('429') || msg.includes('RATE_LIMIT') || msg.includes('quota')) {
       return NextResponse.json(
         { error: 'Limite da API atingido. Tente novamente em alguns segundos.' },
         { status: 429 },
       )
-    }
-
-    if (msg.includes('context_length') || msg.includes('maximum context') || msg.includes('too long')) {
-      // Context still too large — retry with aggressive truncation
-      console.warn('[Chat] Context too large, retrying with reduced context')
-      try {
-        const reducedSystem = systemPrompt.slice(0, 60_000)
-        const retryStream = await deepseekClient.chat.completions.create({
-          model: 'deepseek-chat',
-          max_tokens: 8192,
-          temperature: 0.2,
-          stream: true,
-          messages: [
-            { role: 'system', content: reducedSystem },
-            { role: 'user', content: question },
-          ],
-        })
-        const encoder2 = new TextEncoder()
-        const readable2 = new ReadableStream({
-          async start(controller) {
-            try {
-              for await (const chunk of retryStream) {
-                const text = chunk.choices[0]?.delta?.content
-                if (text) controller.enqueue(encoder2.encode(`data: ${JSON.stringify({ content: text })}\n\n`))
-              }
-            } catch { /* ignore */ } finally {
-              controller.enqueue(encoder2.encode('data: [DONE]\n\n'))
-              controller.close()
-            }
-          },
-        })
-        return new NextResponse(readable2, {
-          headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' },
-        })
-      } catch {
-        return NextResponse.json(
-          { error: 'O edital é muito extenso. Tente uma pergunta mais específica sobre uma seção.' },
-          { status: 413 },
-        )
-      }
     }
 
     return NextResponse.json({ error: `Falha ao processar: ${msg.slice(0, 200)}` }, { status: 500 })
