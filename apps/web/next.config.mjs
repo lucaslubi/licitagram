@@ -10,9 +10,14 @@ const nextConfig = {
     // run ESLint separately via `pnpm lint` instead.
     ignoreDuringBuilds: true,
   },
-  // Allow pdfjs-dist worker to be served as a static asset
+  // Avoid bundling pdfjs-dist worker (loaded via CDN instead)
   webpack: (config) => {
     config.resolve.alias.canvas = false
+    // Exclude pdf.worker from being processed by Terser
+    config.module.rules.push({
+      test: /pdf\.worker(\.min)?\.mjs$/,
+      type: 'asset/resource',
+    })
     return config
   },
 }

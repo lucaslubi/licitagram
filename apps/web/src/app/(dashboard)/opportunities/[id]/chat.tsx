@@ -45,10 +45,9 @@ const INITIAL_PROMPT =
  */
 async function extractPdfInBrowser(file: File): Promise<{ text: string; pages: number }> {
   const pdfjsLib = await import('pdfjs-dist')
-  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-    'pdfjs-dist/build/pdf.worker.mjs',
-    import.meta.url,
-  ).toString()
+  // Use CDN worker to avoid Next.js 14 Terser/ESM bundling issues
+  const pdfjsVersion = pdfjsLib.version
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsVersion}/pdf.worker.min.mjs`
 
   const arrayBuffer = await file.arrayBuffer()
   const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
