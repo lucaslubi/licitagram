@@ -56,6 +56,16 @@ export default async function OpportunityDetailPage({
         <ScoreBadgeLarge score={match.score} />
       </div>
 
+      {/* ── AI Chat — Feature Principal (full width, above everything) ── */}
+      <div className="mb-6">
+        <EditalChat
+          tenderId={(tender?.id as string) || id}
+          documentCount={documents.length}
+          documentUrls={documents.filter(d => d.url).map(d => ({ id: d.id, titulo: d.titulo, tipo: d.tipo, url: d.url }))}
+          hasAccess={hasChatIa}
+        />
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main content */}
         <div className="lg:col-span-2 space-y-6">
@@ -340,13 +350,6 @@ export default async function OpportunityDetailPage({
             )
           })()}
 
-          {/* AI Chat */}
-          <EditalChat
-            tenderId={(tender?.id as string) || id}
-            documentCount={documents.length}
-            documentUrls={documents.filter(d => d.url).map(d => ({ id: d.id, titulo: d.titulo, tipo: d.tipo, url: d.url }))}
-            hasAccess={hasChatIa}
-          />
         </div>
       </div>
     </div>

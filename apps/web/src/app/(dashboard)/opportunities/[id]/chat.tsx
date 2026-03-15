@@ -545,28 +545,28 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
   // ── State 1: Not started ──────────────────────────────────────────
   if (!started) {
     return (
-      <Card className={`border-brand/20 relative ${dragOver ? 'ring-2 ring-brand' : ''}`} {...dragProps}>
+      <Card className={`border-brand/30 bg-gradient-to-br from-white to-brand/5 shadow-lg relative ${dragOver ? 'ring-2 ring-brand' : ''}`} {...dragProps}>
         {dropOverlay}
-        <CardContent className="py-6">
+        <CardContent className="py-8 px-6">
           {fileInput}
-          <div className="text-center space-y-3">
-            <div className="w-12 h-12 bg-brand/10 rounded-full flex items-center justify-center mx-auto">
-              <svg className="w-6 h-6 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          <div className="text-center space-y-4">
+            <div className="w-14 h-14 bg-brand/10 rounded-2xl flex items-center justify-center mx-auto">
+              <svg className="w-7 h-7 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
               </svg>
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900">Chat com o Edital</h3>
-              <p className="text-sm text-gray-500 mt-1">
-                A IA vai analisar o edital completo e trazer os principais insights para você.
+              <h3 className="text-lg font-bold text-gray-900">Consultor IA do Edital</h3>
+              <p className="text-sm text-gray-500 mt-1 max-w-lg mx-auto">
+                Análise estratégica completa com IA. Leitura integral do edital, identificação de riscos, requisitos e recomendações para vencer a licitação.
               </p>
               {documentCount > 0 && uploadedDocs.length === 0 && documentUrls.length > 0 && (
-                <p className="text-xs text-emerald-600 bg-emerald-50 rounded-md px-3 py-1.5 mt-2 inline-block">
+                <p className="text-xs text-emerald-600 bg-emerald-50 rounded-md px-3 py-1.5 mt-3 inline-block">
                   ✓ {documentUrls.length} documento{documentUrls.length > 1 ? 's' : ''} detectado{documentUrls.length > 1 ? 's' : ''} — será{documentUrls.length > 1 ? 'ão' : ''} carregado{documentUrls.length > 1 ? 's' : ''} automaticamente
                 </p>
               )}
               {documentCount > 0 && uploadedDocs.length === 0 && documentUrls.length === 0 && (
-                <p className="text-xs text-amber-600 bg-amber-50 rounded-md px-3 py-1.5 mt-2 inline-block">
+                <p className="text-xs text-amber-600 bg-amber-50 rounded-md px-3 py-1.5 mt-3 inline-block">
                   Para melhor análise, baixe o PDF do edital acima e anexe aqui
                 </p>
               )}
@@ -574,12 +574,12 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
 
             {docChips}
 
-            <div className="flex flex-col items-center gap-2.5">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               {/* Upload area */}
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploadingFile}
-                className="w-full max-w-xs border-2 border-dashed border-gray-300 hover:border-brand rounded-lg p-4 transition-colors disabled:opacity-50 group"
+                className="border-2 border-dashed border-gray-300 hover:border-brand rounded-lg p-4 transition-colors disabled:opacity-50 group w-full sm:w-auto sm:min-w-[200px]"
               >
                 {uploadingFile ? (
                   <div className="flex flex-col items-center gap-1.5">
@@ -595,7 +595,7 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12l-3-3m0 0l-3 3m3-3v6m-1.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                     </svg>
                     <span className="text-xs text-gray-500 group-hover:text-brand transition-colors font-medium">
-                      Clique para anexar ou arraste o PDF aqui
+                      Anexar PDF extra
                     </span>
                   </div>
                 )}
@@ -603,12 +603,12 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
 
               <button
                 onClick={handleStart}
-                className="px-6 py-2.5 bg-brand text-white rounded-lg hover:bg-brand-dark transition-colors duration-150 font-medium text-sm inline-flex items-center gap-2"
+                className="px-8 py-3 bg-brand text-white rounded-xl hover:bg-brand-dark transition-all duration-150 font-semibold text-sm inline-flex items-center gap-2 shadow-md hover:shadow-lg"
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
                 </svg>
-                Começar agora
+                Iniciar Análise com IA
               </button>
             </div>
 
@@ -621,19 +621,29 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
 
   // ── State 2: Chat started ─────────────────────────────────────────
   return (
-    <Card className={`border-brand/20 relative ${dragOver ? 'ring-2 ring-brand' : ''}`} {...dragProps}>
+    <Card className={`border-brand/30 shadow-lg relative ${dragOver ? 'ring-2 ring-brand' : ''}`} {...dragProps}>
       {dropOverlay}
-      <CardHeader className="pb-2">
+      <CardHeader className="pb-2 bg-gradient-to-r from-brand/5 to-transparent rounded-t-lg">
         <CardTitle className="flex items-center justify-between text-base">
-          <span>Chat com o Edital</span>
-          {uploadedDocs.length > 0 && (
-            <span className="text-xs font-normal text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-              {uploadedDocs.length} PDF{uploadedDocs.length > 1 ? 's' : ''}
+          <span className="inline-flex items-center gap-2">
+            <svg className="w-5 h-5 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+            </svg>
+            Consultor IA do Edital
+          </span>
+          <div className="flex items-center gap-2">
+            {uploadedDocs.length > 0 && (
+              <span className="text-xs font-normal text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                {uploadedDocs.length} PDF{uploadedDocs.length > 1 ? 's' : ''}
+              </span>
+            )}
+            <span className="text-[10px] font-normal text-brand/60 bg-brand/5 px-2 py-0.5 rounded-full">
+              Gemini 2.5 Flash
             </span>
-          )}
+          </div>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-3 pt-3">
         {fileInput}
 
         {extractingDocs && (
@@ -658,28 +668,37 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
 
         {docChips}
 
-        {/* Messages */}
-        <div ref={messagesContainerRef} className="h-[250px] md:h-[350px] overflow-y-auto overscroll-contain space-y-3 border rounded-lg p-3 bg-gray-50">
+        {/* Messages — tall area for primary feature */}
+        <div ref={messagesContainerRef} className="h-[350px] md:h-[500px] overflow-y-auto overscroll-contain space-y-4 border rounded-xl p-4 bg-gray-50/50">
           {messages.map((msg, i) => (
             <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div
-                className={`max-w-[85%] px-3 py-2 rounded-lg text-sm ${
-                  msg.role === 'user' ? 'bg-brand text-white whitespace-pre-wrap' : 'bg-white border text-gray-900'
+                className={`max-w-[90%] rounded-xl text-sm ${
+                  msg.role === 'user'
+                    ? 'bg-brand text-white px-4 py-2.5 whitespace-pre-wrap'
+                    : 'bg-white border border-gray-200 shadow-sm px-4 py-3 text-gray-900'
                 }`}
               >
                 {msg.role === 'user' && msg.content === INITIAL_PROMPT ? (
-                  <span className="italic text-white/80">Análise inicial do edital</span>
+                  <span className="italic text-white/80 inline-flex items-center gap-1.5">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                    </svg>
+                    Análise estratégica do edital
+                  </span>
                 ) : msg.role === 'assistant' && msg.content ? (
-                  <div className="prose prose-sm prose-gray max-w-none prose-headings:text-gray-900 prose-headings:font-semibold prose-headings:mt-3 prose-headings:mb-1 prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-strong:text-gray-900 prose-table:text-xs prose-th:bg-gray-50 prose-th:px-2 prose-th:py-1 prose-td:px-2 prose-td:py-1 prose-th:border prose-td:border">
+                  <div className="prose prose-sm prose-gray max-w-none prose-headings:text-gray-900 prose-headings:font-semibold prose-headings:mt-4 prose-headings:mb-2 prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-strong:text-gray-900 prose-table:text-xs prose-th:bg-gray-50 prose-th:px-2 prose-th:py-1 prose-td:px-2 prose-td:py-1 prose-th:border prose-td:border">
                     <ReactMarkdown>{msg.content}</ReactMarkdown>
                   </div>
                 ) : msg.content ? (
                   <span className="whitespace-pre-wrap">{msg.content}</span>
                 ) : (
-                  <span className="inline-flex gap-1">
-                    <span className="animate-pulse">●</span>
-                    <span className="animate-pulse" style={{ animationDelay: '150ms' }}>●</span>
-                    <span className="animate-pulse" style={{ animationDelay: '300ms' }}>●</span>
+                  <span className="inline-flex items-center gap-1.5 text-brand">
+                    <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    <span className="text-xs text-gray-500">Analisando edital...</span>
                   </span>
                 )}
               </div>
@@ -695,7 +714,7 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
               <button
                 key={i}
                 onClick={() => handleSend(q)}
-                className="text-xs px-2.5 py-1.5 bg-brand/5 border border-brand/20 rounded-full text-brand hover:bg-brand/10 transition-colors duration-150"
+                className="text-xs px-3 py-1.5 bg-brand/5 border border-brand/20 rounded-full text-brand hover:bg-brand/10 transition-colors duration-150"
               >
                 {q}
               </button>
@@ -709,7 +728,7 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={uploadingFile}
-            className="h-9 w-9 shrink-0 flex items-center justify-center rounded-md border text-gray-400 hover:text-brand hover:border-brand/30 transition-colors disabled:opacity-50"
+            className="h-10 w-10 shrink-0 flex items-center justify-center rounded-lg border text-gray-400 hover:text-brand hover:border-brand/30 transition-colors disabled:opacity-50"
             title="Anexar PDF"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -721,14 +740,14 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Pergunte algo sobre este edital..."
-            className="flex-1 h-9 rounded-md border px-3 text-sm bg-background"
+            placeholder="Pergunte sobre requisitos, riscos, estratégias..."
+            className="flex-1 h-10 rounded-lg border px-4 text-sm bg-background focus:ring-2 focus:ring-brand/20 focus:border-brand/40 transition-all"
             disabled={loading}
           />
           <button
             type="submit"
             disabled={loading || !input.trim()}
-            className="h-9 px-4 bg-brand text-white rounded-lg text-sm hover:bg-brand-dark disabled:opacity-50 transition-colors duration-150"
+            className="h-10 px-5 bg-brand text-white rounded-lg text-sm font-medium hover:bg-brand-dark disabled:opacity-50 transition-colors duration-150"
           >
             Enviar
           </button>

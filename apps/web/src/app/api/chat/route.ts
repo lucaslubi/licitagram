@@ -6,31 +6,43 @@ import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
 import OpenAI from 'openai'
 
 // ── AI Providers ────────────────────────────────────────────────────────────
-// Primary: DeepSeek V3 (64K context, reliable)
-// Future: Gemini 2.0 Flash (1M context) when billing is active
+// Primary: Gemini 2.5 Flash Preview via OpenRouter (1M token context)
+// Fallback: DeepSeek V3 (64K context, if OpenRouter fails)
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || ''
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || ''
 const DEEPSEEK_BASE_URL = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com'
+
+const openrouter = new OpenAI({
+  apiKey: OPENROUTER_API_KEY,
+  baseURL: 'https://openrouter.ai/api/v1',
+  defaultHeaders: {
+    'HTTP-Referer': 'https://licitagram.com',
+    'X-Title': 'Licitagram',
+  },
+})
 
 const deepseek = new OpenAI({
   apiKey: DEEPSEEK_API_KEY,
   baseURL: DEEPSEEK_BASE_URL,
 })
 
-// DeepSeek V3 context: ~64K tokens ≈ ~180K chars (safe limit for system + user + response)
-const MAX_CONTEXT_CHARS = 150_000
+// DeepSeek fallback limit: ~64K tokens ≈ ~150K chars
+const DEEPSEEK_MAX_CONTEXT = 150_000
 
 /**
- * Smart truncation: keeps beginning (overview, terms) + end (appendices, tables)
- * of the document when it exceeds the context limit.
+ * Smart truncation for DeepSeek fallback only.
+ * Gemini 2.5 Flash has 1M tokens — no truncation needed.
  */
 function smartTruncate(text: string, maxChars: number): string {
   if (text.length <= maxChars) return text
-
-  const keepStart = Math.floor(maxChars * 0.65) // 65% from beginning
-  const keepEnd = Math.floor(maxChars * 0.30)   // 30% from end
-  const separator = `\n\n[... ${((text.length - keepStart - keepEnd) / 1000).toFixed(0)}K caracteres omitidos por limite de contexto — início e fim preservados ...]\n\n`
-
-  return text.slice(0, keepStart) + separator + text.slice(-keepEnd)
+  const keepStart = Math.floor(maxChars * 0.65)
+  const keepEnd = Math.floor(maxChars * 0.30)
+  const omitted = ((text.length - keepStart - keepEnd) / 1000).toFixed(0)
+  return (
+    text.slice(0, keepStart) +
+    `\n\n[... ${omitted}K caracteres omitidos por limite de contexto — início e fim preservados ...]\n\n` +
+    text.slice(-keepEnd)
+  )
 }
 
 /**
@@ -121,7 +133,7 @@ export async function POST(request: NextRequest) {
 
   const supabase = await createClient()
 
-  if (!DEEPSEEK_API_KEY) {
+  if (!OPENROUTER_API_KEY && !DEEPSEEK_API_KEY) {
     return NextResponse.json({ error: 'Chat AI not configured' }, { status: 503 })
   }
 
@@ -302,10 +314,10 @@ export async function POST(request: NextRequest) {
   }
 
   if (docsText) {
-    context += `## Texto Extraído dos Documentos (${docsLoaded} documento${docsLoaded > 1 ? 's' : ''})\n${docsText}\n`
+    context += `## Texto Extraído dos Documentos (${docsLoaded} documento${docsLoaded > 1 ? 's' : ''} — texto COMPLETO sem truncamento)\n${docsText}\n`
   }
 
-  // Add user-uploaded document text (from browser-side PDF extraction)
+  // Add user-uploaded document text
   if (uploadedDocsText && uploadedDocsText.trim().length > 0) {
     const uploadedText = uploadedDocsText.trim()
     context += `## Documentos Enviados pelo Usuário\n${uploadedText}\n\n`
@@ -319,44 +331,48 @@ export async function POST(request: NextRequest) {
     context += `\n⚠️ NOTA: ${docsFailed} documento(s) não puderam ser carregados automaticamente.\n`
   }
 
-  // ── Smart truncation for DeepSeek 64K context ───────────────────────
-  const wasTruncated = context.length > MAX_CONTEXT_CHARS
-  if (wasTruncated) {
-    console.log(`[Chat] Context truncated: ${context.length} → ${MAX_CONTEXT_CHARS} chars`)
-    context = smartTruncate(context, MAX_CONTEXT_CHARS)
-  }
-
   // ── Build system prompt ─────────────────────────────────────────────
   const hasCompany = !!company
-  const systemPrompt = `Você é um assistente especialista em licitações públicas brasileiras, atuando como consultor dedicado para a empresa do usuário.${wasTruncated ? ' O texto do edital foi parcialmente truncado por limite de contexto — início e fim foram preservados. Responda com base no que está disponível.' : ' Você tem acesso ao edital COMPLETO.'}
+  const systemPrompt = `Você é um consultor especialista em licitações públicas brasileiras de altíssimo nível. Sua missão é ajudar a empresa do cliente a VENCER licitações, fornecendo análises estratégicas profundas e acionáveis.
+
+Você tem acesso ao edital COMPLETO, sem nenhum trecho cortado ou omitido. Use TODA a informação disponível.
 
 ${hasCompany ? `CONTEXTO DA EMPRESA:
-Você tem acesso ao perfil completo da empresa que está analisando este edital. Use essas informações para:
-- Avaliar se a empresa atende aos requisitos técnicos, de qualificação e habilitação do edital
-- Identificar quais capacidades, certificações e experiências da empresa são relevantes para esta licitação
+Você tem acesso ao perfil completo da empresa. Use para:
+- Avaliar se a empresa atende aos requisitos técnicos, de qualificação e habilitação
+- Identificar capacidades, certificações e experiências relevantes para esta licitação
 - Apontar gaps: o que o edital exige que a empresa talvez não tenha
-- Sugerir como a empresa pode se posicionar na proposta com base nas suas especialidades
-- Quando o usuário perguntar "minha empresa pode participar?", "tenho chance?", "atendo os requisitos?" etc., analise detalhadamente usando os dados da empresa
-- Ao listar requisitos, indique ao lado se a empresa provavelmente atende ou não com base no perfil cadastrado
+- Sugerir como se posicionar estrategicamente na proposta
+- Quando perguntarem "minha empresa pode participar?", "tenho chance?", "atendo os requisitos?" — analise detalhadamente
+- Ao listar requisitos, indique se a empresa provavelmente atende ou não
+- Sugira estratégias para maximizar a nota técnica e minimizar riscos
 
-` : ''}ESTILO DE RESPOSTA:
-- Estruture SEMPRE com Markdown: use **negrito** para destaques, ## para seções, - para listas.
-- Seja completo e detalhado. Inclua TODOS os dados relevantes do edital — nunca resuma ou omita itens.
-- Cite dados concretos: valores em R$, datas dd/mm/aaaa, números de artigos/cláusulas, páginas.
-- Use tabelas Markdown quando comparar dados (ex: requisitos vs capacidades da empresa).
-- Organize a resposta em seções claras com headers quando a resposta for longa.
-- Se a resposta exigir muitos itens (ex: lista de documentos), liste TODOS sem exceção.
-- NÃO repita informações já ditas em mensagens anteriores.
-- Se não encontrar a informação no edital, diga claramente "**Não consta no edital.**"
-- Quando relevante, personalize a resposta para o contexto da empresa do usuário.
-- Use emojis estratégicos para indicar status: ✅ atende, ⚠️ atenção, ❌ não atende, 📋 documento, 💰 valor, 📅 prazo.
-- Use português BR profissional.
+` : ''}ABORDAGEM ESTRATÉGICA:
+- Aja como um consultor sênior de licitações que cobra R$ 500/hora
+- Dê recomendações ESTRATÉGICAS: não apenas liste informações, INTERPRETE e ACONSELHE
+- Identifique riscos, oportunidades e pontos de atenção que um licitante experiente notaria
+- Sugira estratégias de precificação quando relevante
+- Alerte sobre armadilhas comuns em editais similares
+- Indique se vale a pena participar com base no perfil da empresa vs requisitos
+- Destaque prazos críticos e documentos que precisam ser providenciados com antecedência
 
-Baseie-se neste edital e no perfil da empresa:
+ESTILO DE RESPOSTA:
+- Estruture SEMPRE com Markdown: **negrito** para destaques, ## para seções, - para listas
+- Seja completo e detalhado — inclua TODOS os dados relevantes, nunca resuma ou omita
+- Cite dados concretos: valores em R$, datas dd/mm/aaaa, números de artigos/cláusulas
+- Use tabelas Markdown para comparações (requisitos vs capacidades, cronograma, etc.)
+- Organize em seções claras com headers quando a resposta for longa
+- Se a resposta exigir muitos itens, liste TODOS sem exceção
+- NÃO repita informações já ditas em mensagens anteriores
+- Se não encontrar a informação, diga "**Não consta no edital.**"
+- Emojis estratégicos: ✅ atende, ⚠️ atenção, ❌ não atende, 📋 documento, 💰 valor, 📅 prazo, 🎯 estratégia, 🏆 vantagem competitiva
+- Português BR profissional
+
+EDITAL E DADOS:
 
 ${context}`
 
-  console.log(`[Chat DeepSeek] Context: ${context.length} chars, System: ${systemPrompt.length} chars, Truncated: ${wasTruncated}`)
+  console.log(`[Chat] Context: ${context.length} chars, System: ${systemPrompt.length} chars`)
 
   // ── Build conversation messages ─────────────────────────────────────
   const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
@@ -364,7 +380,8 @@ ${context}`
   ]
 
   if (chatHistory && chatHistory.length > 0) {
-    const recentHistory = chatHistory.slice(-10) // Keep last 10 messages for context
+    // Gemini 2.5 Flash has 1M context — keep full history
+    const recentHistory = chatHistory.slice(-20)
     for (const msg of recentHistory) {
       if (msg.content) {
         messages.push({ role: msg.role, content: msg.content })
@@ -374,11 +391,94 @@ ${context}`
 
   messages.push({ role: 'user', content: question })
 
-  // ── Stream from DeepSeek V3 ─────────────────────────────────────────
+  // ── Try Gemini 2.5 Flash via OpenRouter (primary) ───────────────────
+  const useOpenRouter = !!OPENROUTER_API_KEY
+
+  if (useOpenRouter) {
+    try {
+      console.log(`[Chat] Using Gemini 2.5 Flash via OpenRouter — ${context.length} chars context`)
+
+      const completion = await openrouter.chat.completions.create({
+        model: 'google/gemini-2.5-flash',
+        messages,
+        max_tokens: 16384,
+        temperature: 0.2,
+        stream: true,
+      })
+
+      const encoder = new TextEncoder()
+      const readable = new ReadableStream({
+        async start(controller) {
+          try {
+            for await (const chunk of completion) {
+              const content = chunk.choices?.[0]?.delta?.content
+              if (content) {
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`))
+              }
+            }
+          } catch (streamErr) {
+            console.error('[Chat] OpenRouter stream error:', streamErr)
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({ content: '\n\n⚠️ Erro durante a geração da resposta.' })}\n\n`,
+              ),
+            )
+          } finally {
+            controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+            controller.close()
+          }
+        },
+      })
+
+      return new NextResponse(readable, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          Connection: 'keep-alive',
+        },
+      })
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error)
+      console.error('[Chat] OpenRouter/Gemini failed, falling back to DeepSeek:', errMsg)
+      // Fall through to DeepSeek fallback
+    }
+  }
+
+  // ── Fallback: DeepSeek V3 ──────────────────────────────────────────
+  if (!DEEPSEEK_API_KEY) {
+    return NextResponse.json({ error: 'Serviço de chat indisponível. Tente novamente mais tarde.' }, { status: 503 })
+  }
+
+  // Truncate context for DeepSeek's 64K limit
+  const wasTruncated = context.length > DEEPSEEK_MAX_CONTEXT
+  const dsContext = wasTruncated ? smartTruncate(context, DEEPSEEK_MAX_CONTEXT) : context
+
+  if (wasTruncated) {
+    console.log(`[Chat] DeepSeek fallback — context truncated: ${context.length} → ${dsContext.length} chars`)
+  }
+
+  // Rebuild messages with truncated context for DeepSeek
+  const dsMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+    {
+      role: 'system',
+      content: systemPrompt.replace(context, dsContext) +
+        (wasTruncated ? '\n\nNOTA: O texto do edital foi parcialmente truncado. Responda com base no que está disponível.' : ''),
+    },
+  ]
+
+  if (chatHistory && chatHistory.length > 0) {
+    for (const msg of chatHistory.slice(-10)) {
+      if (msg.content) dsMessages.push({ role: msg.role, content: msg.content })
+    }
+  }
+  dsMessages.push({ role: 'user', content: question })
+
   try {
+    console.log(`[Chat] Using DeepSeek V3 fallback — ${dsContext.length} chars context`)
+
     const completion = await deepseek.chat.completions.create({
       model: 'deepseek-chat',
-      messages,
+      messages: dsMessages,
       max_tokens: 8192,
       temperature: 0.2,
       stream: true,
@@ -395,7 +495,7 @@ ${context}`
             }
           }
         } catch (err) {
-          console.error('[Chat DeepSeek] Stream error:', err)
+          console.error('[Chat] DeepSeek stream error:', err)
           controller.enqueue(
             encoder.encode(
               `data: ${JSON.stringify({ content: '\n\n⚠️ Erro durante a geração da resposta.' })}\n\n`,
@@ -417,15 +517,7 @@ ${context}`
     })
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)
-    console.error('[Chat] DeepSeek error:', { message: msg, contextLen: context.length })
-
-    if (msg.includes('429') || msg.includes('rate')) {
-      return NextResponse.json(
-        { error: 'Limite temporário atingido. Tente novamente em alguns segundos.' },
-        { status: 429 },
-      )
-    }
-
+    console.error('[Chat] DeepSeek error:', { message: msg, contextLen: dsContext.length })
     return NextResponse.json({ error: `Falha ao processar: ${msg.slice(0, 200)}` }, { status: 500 })
   }
 }
