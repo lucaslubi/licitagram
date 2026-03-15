@@ -53,7 +53,7 @@ export async function getClientDetail(companyId: string) {
 
   const [companyResult, subResult, usersResult, matchesResult, plansResult] = await Promise.all([
     supabase.from('companies').select('*').eq('id', companyId).single(),
-    supabase.from('subscriptions').select('*, plans(*)').eq('company_id', companyId).single(),
+    supabase.from('subscriptions').select('*, plans(*)').eq('company_id', companyId).maybeSingle(),
     supabase.from('users').select('id, full_name, email, role, is_active, created_at').eq('company_id', companyId),
     supabase.from('matches').select('id', { count: 'exact', head: true }).eq('company_id', companyId),
     supabase.from('plans').select('id, slug, name, price_cents').eq('is_active', true).order('sort_order'),
@@ -79,29 +79,57 @@ export async function updateClientSubscription(
     .from('subscriptions')
     .select('*')
     .eq('company_id', companyId)
-    .single()
+    .maybeSingle()
 
   // If changing plan, also sync the legacy `plan` slug column
   const fullUpdates: Record<string, unknown> = { ...updates }
+  let planSlug: string | null = null
   if (updates.plan_id) {
     const { data: plan } = await supabase.from('plans').select('slug').eq('id', updates.plan_id).single()
-    if (plan) fullUpdates.plan = plan.slug
+    if (plan) {
+      fullUpdates.plan = plan.slug
+      planSlug = plan.slug
+    }
   }
 
-  const { error } = await supabase
-    .from('subscriptions')
-    .update(fullUpdates)
-    .eq('company_id', companyId)
+  let error: { message: string } | null = null
+
+  if (before) {
+    // UPDATE existing subscription
+    const result = await supabase
+      .from('subscriptions')
+      .update(fullUpdates)
+      .eq('company_id', companyId)
+    error = result.error
+  } else {
+    // INSERT new subscription (company had none — e.g. pre-trial clients)
+    const result = await supabase
+      .from('subscriptions')
+      .insert({
+        company_id: companyId,
+        plan: planSlug || 'trial',
+        plan_id: updates.plan_id || null,
+        status: updates.status || 'active',
+        started_at: new Date().toISOString(),
+        matches_used_this_month: 0,
+      })
+    error = result.error
+  }
 
   if (error) return { error: error.message }
 
   await invalidateCompanySubscription(companyId)
 
   await logAction({
-    action: 'subscription.updated',
+    action: before ? 'subscription.updated' : 'subscription.created',
     targetType: 'company',
     targetId: companyId,
-    details: { before_status: before?.status, updates: fullUpdates },
+    details: {
+      before_status: before?.status || null,
+      before_plan: before?.plan_id || null,
+      updates: fullUpdates,
+      was_new: !before,
+    },
   })
 
   return { success: true }
