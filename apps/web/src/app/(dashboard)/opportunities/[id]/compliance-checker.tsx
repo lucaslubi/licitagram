@@ -87,7 +87,7 @@ export function ComplianceChecker({
                 Verifique automaticamente se sua empresa atende aos requisitos do edital.
               </p>
               <p className="text-xs text-gray-400 mt-2">
-                Disponivel nos planos Professional e Enterprise
+                Disponível nos planos Professional e Enterprise
               </p>
             </div>
             <a

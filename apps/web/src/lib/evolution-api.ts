@@ -8,11 +8,11 @@ const INSTANCE = process.env.EVOLUTION_INSTANCE || 'licitagram'
 
 export async function sendVerificationCode(phone: string, code: string): Promise<boolean> {
   const text = [
-    '*Codigo de Verificacao Licitagram*',
+    '*Código de Verificação Licitagram*',
     '',
-    `Seu codigo: *${code}*`,
+    `Seu código: *${code}*`,
     '',
-    'Digite este codigo no dashboard para ativar alertas via WhatsApp.',
+    'Digite este código no dashboard para ativar alertas via WhatsApp.',
     'Expira em 10 minutos.',
   ].join('\n')
 

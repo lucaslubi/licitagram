@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
   const fullPhone = clean.startsWith('55') ? clean : `55${clean}`
 
   if (fullPhone.length < 12 || fullPhone.length > 13) {
-    return NextResponse.json({ error: 'Numero invalido' }, { status: 400 })
+    return NextResponse.json({ error: 'Número inválido' }, { status: 400 })
   }
 
   const code = Math.floor(100000 + Math.random() * 900000).toString()
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
 
   if (insertError) {
     console.error('[WhatsApp] Insert verification error:', insertError)
-    return NextResponse.json({ error: 'Falha ao gerar codigo' }, { status: 500 })
+    return NextResponse.json({ error: 'Falha ao gerar código' }, { status: 500 })
   }
 
   // Send via Evolution API
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     await sendVerificationCode(fullPhone, code)
   } catch (err) {
     console.error('[WhatsApp] Send code error:', err)
-    return NextResponse.json({ error: 'Falha ao enviar codigo via WhatsApp' }, { status: 500 })
+    return NextResponse.json({ error: 'Falha ao enviar código via WhatsApp' }, { status: 500 })
   }
 
   return NextResponse.json({ success: true })

@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
   const { code } = await request.json()
 
   if (!code || String(code).length !== 6) {
-    return NextResponse.json({ error: 'Codigo invalido' }, { status: 400 })
+    return NextResponse.json({ error: 'Código inválido' }, { status: 400 })
   }
 
   const supabase = await createClient()
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (!verification) {
-    return NextResponse.json({ error: 'Codigo expirado ou nao encontrado. Solicite um novo.' }, { status: 400 })
+    return NextResponse.json({ error: 'Código expirado ou não encontrado. Solicite um novo.' }, { status: 400 })
   }
 
   // Increment attempts
@@ -47,11 +47,11 @@ export async function POST(request: NextRequest) {
     .eq('id', verification.id)
 
   if (newAttempts > 5) {
-    return NextResponse.json({ error: 'Maximo de tentativas atingido. Solicite um novo codigo.' }, { status: 400 })
+    return NextResponse.json({ error: 'Máximo de tentativas atingido. Solicite um novo código.' }, { status: 400 })
   }
 
   if (verification.code !== String(code)) {
-    return NextResponse.json({ error: 'Codigo incorreto' }, { status: 400 })
+    return NextResponse.json({ error: 'Código incorreto' }, { status: 400 })
   }
 
   // Code is correct — mark as verified and update user

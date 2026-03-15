@@ -166,7 +166,7 @@ export default async function OpportunityDetailPage({
           {requisitos && (requisitos as Record<string, any>).requisitos && (
             <Card>
               <CardHeader>
-                <CardTitle>Requisitos Extraidos</CardTitle>
+                <CardTitle>Requisitos Extraídos</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
@@ -182,7 +182,7 @@ export default async function OpportunityDetailPage({
                         variant={req.obrigatorio ? 'default' : 'secondary'}
                         className="shrink-0 h-fit"
                       >
-                        {req.obrigatorio ? 'Obrigatorio' : 'Desejavel'}
+                        {req.obrigatorio ? 'Obrigatório' : 'Desejável'}
                       </Badge>
                       <div>
                         <p className="text-xs font-medium text-gray-400 uppercase">
@@ -295,7 +295,7 @@ export default async function OpportunityDetailPage({
                       ? 'Participar'
                       : recomendacao === 'avaliar_melhor'
                         ? 'Avaliar Melhor'
-                        : 'Nao Recomendado'}
+                        : 'Não Recomendado'}
                   </Badge>
                 </div>
               </CardContent>

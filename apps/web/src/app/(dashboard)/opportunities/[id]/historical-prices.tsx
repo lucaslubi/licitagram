@@ -142,7 +142,7 @@ export function HistoricalPrices({
     return (
       <Card>
         <CardContent className="py-6 text-center text-gray-400 text-sm">
-          Buscando precos historicos...
+          Buscando preços históricos...
         </CardContent>
       </Card>
     )
@@ -166,19 +166,19 @@ export function HistoricalPrices({
         {/* Summary stats */}
         <div className="grid grid-cols-3 gap-3 p-3 bg-gray-100 rounded-lg">
           <div className="text-center">
-            <p className="text-xs text-gray-400">Valor Estimado Medio</p>
+            <p className="text-xs text-gray-400">Valor Estimado Médio</p>
             <p className="text-sm font-bold text-gray-900">
               {stats.avgEstimado > 0 ? formatCurrencyBR(stats.avgEstimado) : '-'}
             </p>
           </div>
           <div className="text-center">
-            <p className="text-xs text-gray-400">Valor Vencedor Medio</p>
+            <p className="text-xs text-gray-400">Valor Vencedor Médio</p>
             <p className="text-sm font-bold text-emerald-700">
               {stats.avgHomologado > 0 ? formatCurrencyBR(stats.avgHomologado) : '-'}
             </p>
           </div>
           <div className="text-center">
-            <p className="text-xs text-gray-400">Desconto Medio</p>
+            <p className="text-xs text-gray-400">Desconto Médio</p>
             <p className="text-sm font-bold text-brand">
               {stats.avgDesconto > 0 ? `${stats.avgDesconto.toFixed(1)}%` : '-'}
             </p>
@@ -188,9 +188,9 @@ export function HistoricalPrices({
         {/* Comparison with current */}
         {currentValorEstimado && stats.avgHomologado > 0 && (
           <div className="p-3 border border-brand/20 bg-brand/5 rounded-lg">
-            <p className="text-xs text-gray-500 mb-1">Sugestao de preco competitivo</p>
+            <p className="text-xs text-gray-500 mb-1">Sugestão de preço competitivo</p>
             <p className="text-sm font-medium text-gray-900">
-              Com base no desconto medio de {stats.avgDesconto.toFixed(1)}%, um preco competitivo
+              Com base no desconto médio de {stats.avgDesconto.toFixed(1)}%, um preço competitivo
               seria em torno de{' '}
               <span className="font-bold text-brand">
                 {formatCurrencyBR(currentValorEstimado * (1 - stats.avgDesconto / 100))}

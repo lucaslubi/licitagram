@@ -44,12 +44,12 @@ export function AiAnalysis({ matchId, initialData, matchSource, hasAccess = true
               </svg>
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900">Analise com IA</h3>
+              <h3 className="font-semibold text-gray-900">Análise com IA</h3>
               <p className="text-sm text-gray-500 mt-1">
-                Analise detalhada de compatibilidade da sua empresa com este edital.
+                Análise detalhada de compatibilidade da sua empresa com este edital.
               </p>
               <p className="text-xs text-gray-400 mt-2">
-                Disponivel nos planos Professional e Enterprise
+                Disponível nos planos Professional e Enterprise
               </p>
             </div>
             <a
@@ -138,7 +138,7 @@ export function AiAnalysis({ matchId, initialData, matchSource, hasAccess = true
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Analise IA</CardTitle>
+          <CardTitle>Análise IA</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-red-600 mb-3">{error}</p>
@@ -160,7 +160,7 @@ export function AiAnalysis({ matchId, initialData, matchSource, hasAccess = true
       {breakdown.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Analise por Categoria</CardTitle>
+            <CardTitle>Análise por Categoria</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {breakdown.map((item) => (
@@ -225,7 +225,7 @@ export function AiAnalysis({ matchId, initialData, matchSource, hasAccess = true
       {acoesNecessarias.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Acoes Necessarias</CardTitle>
+            <CardTitle>Ações Necessárias</CardTitle>
           </CardHeader>
           <CardContent>
             <ul className="space-y-2">

@@ -118,11 +118,11 @@ export default async function DocumentsPage() {
                 <thead className="[&_tr]:border-b">
                   <tr className="border-b transition-colors hover:bg-muted/50">
                     <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Tipo</th>
-                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground hidden sm:table-cell">Descricao</th>
-                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground hidden md:table-cell">Numero</th>
+                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground hidden sm:table-cell">Descrição</th>
+                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground hidden md:table-cell">Número</th>
                     <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Validade</th>
                     <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Status</th>
-                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Acoes</th>
+                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="[&_tr:last-child]:border-0">

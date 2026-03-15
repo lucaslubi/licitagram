@@ -263,7 +263,7 @@ export default async function OpportunitiesPage({
                   defaultValue={ordemValorFilter}
                   className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 >
-                  <option value="">Padrao</option>
+                  <option value="">Padrão</option>
                   <option value="valor_desc">Maior</option>
                   <option value="valor_asc">Menor</option>
                 </select>
@@ -549,7 +549,7 @@ function renderMatchesView(props: {
                   defaultValue={ordemValorFilter}
                   className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 >
-                  <option value="">Padrao</option>
+                  <option value="">Padrão</option>
                   <option value="valor_desc">Maior</option>
                   <option value="valor_asc">Menor</option>
                 </select>
@@ -561,7 +561,7 @@ function renderMatchesView(props: {
                   defaultValue={ordemDataFilter}
                   className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 >
-                  <option value="">Padrao</option>
+                  <option value="">Padrão</option>
                   <option value="data_desc">Recente</option>
                   <option value="data_asc">Antiga</option>
                 </select>

@@ -81,13 +81,13 @@ export default async function TenderDetailPage({
               <p className="font-medium">{tender.modalidade_nome}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">UF / Municipio</p>
+              <p className="text-sm text-gray-500">UF / Município</p>
               <p className="font-medium">{tender.uf || '-'} / {tender.municipio || '-'}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Valor Estimado</p>
               <p className="font-medium text-green-700">
-                {tender.valor_estimado ? formatCurrency(tender.valor_estimado) : 'Nao informado'}
+                {tender.valor_estimado ? formatCurrency(tender.valor_estimado) : 'Não informado'}
               </p>
             </div>
             <div>
@@ -165,7 +165,7 @@ export default async function TenderDetailPage({
       {tender.requisitos && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Requisitos Extraidos</CardTitle>
+            <CardTitle className="text-lg">Requisitos Extraídos</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
@@ -173,7 +173,7 @@ export default async function TenderDetailPage({
                 (req: { categoria: string; descricao: string; obrigatorio: boolean }, i: number) => (
                   <div key={i} className="flex gap-3 p-3 bg-gray-50 rounded-md">
                     <Badge variant={req.obrigatorio ? 'default' : 'secondary'} className="h-fit text-xs">
-                      {req.obrigatorio ? 'Obrigatorio' : 'Desejavel'}
+                      {req.obrigatorio ? 'Obrigatório' : 'Desejável'}
                     </Badge>
                     <div>
                       <p className="text-xs text-gray-500 uppercase">{req.categoria}</p>

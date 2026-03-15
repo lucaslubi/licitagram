@@ -201,7 +201,7 @@ export default async function CompetitorsPage({
                         <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Part.</th>
                         <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Vit.</th>
                         <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground hidden lg:table-cell">Notas</th>
-                        <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Acoes</th>
+                        <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Ações</th>
                       </tr>
                     </thead>
                     <tbody className="[&_tr:last-child]:border-0">

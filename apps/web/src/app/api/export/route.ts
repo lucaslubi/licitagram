@@ -67,14 +67,14 @@ export async function GET(request: NextRequest) {
       const t = m.tenders as unknown as Record<string, unknown>
       return {
         'Score': m.score,
-        'Recomendacao': m.recomendacao || '-',
+        'Recomendação': m.recomendacao || '-',
         'Status': m.status,
         'Objeto': t?.objeto || '',
-        'Orgao': t?.orgao_nome || '',
+        'Órgão': t?.orgao_nome || '',
         'UF': t?.uf || '',
         'Valor Estimado': t?.valor_estimado || '',
         'Data Abertura': t?.data_abertura || '',
-        'Data Publicacao': t?.data_publicacao || '',
+        'Data Publicação': t?.data_publicacao || '',
         'Modalidade': t?.modalidade_nome || '',
         'Fonte': t?.source || 'pncp',
       }
@@ -94,11 +94,11 @@ export async function GET(request: NextRequest) {
 
     rows = (data || []).map((t) => ({
       'Objeto': t.objeto || '',
-      'Orgao': t.orgao_nome || '',
+      'Órgão': t.orgao_nome || '',
       'UF': t.uf || '',
       'Valor Estimado': t.valor_estimado || '',
       'Data Abertura': t.data_abertura || '',
-      'Data Publicacao': t.data_publicacao || '',
+      'Data Publicação': t.data_publicacao || '',
       'Modalidade': t.modalidade_nome || '',
       'Status': t.status || '',
       'Fonte': t.source || 'pncp',
@@ -113,7 +113,7 @@ export async function GET(request: NextRequest) {
     // Create Excel
     const ws = XLSX.utils.json_to_sheet(rows)
     const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, view === 'matches' ? 'Matches' : 'Licitacoes')
+    XLSX.utils.book_append_sheet(wb, ws, view === 'matches' ? 'Matches' : 'Licitações')
 
     // Auto column width
     const colWidths = Object.keys(rows[0] || {}).map((key) => ({

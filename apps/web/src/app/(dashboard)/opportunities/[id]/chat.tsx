@@ -523,7 +523,7 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
                 Converse com a IA sobre os documentos do edital e obtenha insights detalhados.
               </p>
               <p className="text-xs text-gray-400 mt-2">
-                Disponivel nos planos Professional e Enterprise
+                Disponível nos planos Professional e Enterprise
               </p>
             </div>
             <a
