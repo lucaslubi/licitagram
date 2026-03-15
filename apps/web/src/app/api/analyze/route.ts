@@ -4,11 +4,9 @@ import { checkRateLimit } from '@/lib/rate-limit'
 import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
 import OpenAI from 'openai'
 
-const TOGETHER_API_KEY = process.env.TOGETHER_API_KEY || ''
-
-const togetherClient = new OpenAI({
-  apiKey: TOGETHER_API_KEY,
-  baseURL: 'https://api.together.xyz/v1',
+const deepseekClient = new OpenAI({
+  apiKey: process.env.DEEPSEEK_API_KEY || '',
+  baseURL: 'https://api.deepseek.com',
 })
 
 const CNAE_GROUPS: Record<string, string> = {
@@ -153,7 +151,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  if (!TOGETHER_API_KEY) {
+  if (!process.env.DEEPSEEK_API_KEY) {
     return NextResponse.json({ error: 'AI not configured' }, { status: 503 })
   }
 
@@ -231,9 +229,9 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const completion = await togetherClient.chat.completions.create({
-      model: 'Qwen/Qwen2.5-72B-Instruct-Turbo',
-      max_tokens: 2048,
+    const completion = await deepseekClient.chat.completions.create({
+      model: 'deepseek-chat',
+      max_tokens: 4096,
       temperature: 0.1,
       response_format: { type: 'json_object' },
       messages: [
