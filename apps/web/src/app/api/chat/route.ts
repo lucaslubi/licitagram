@@ -343,62 +343,87 @@ ${context}`
     }
   }
 
-  // ── Stream from Gemini 2.0 Flash ──────────────────────────────────────
-  try {
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash',
-      systemInstruction,
-      generationConfig: {
-        temperature: 0.2,
-        maxOutputTokens: 8192,
-      },
-    })
+  // ── Stream from Gemini 2.0 Flash (with auto-retry on rate limit) ─────
+  const MAX_RETRIES = 3
 
-    const chat = model.startChat({ history: geminiHistory })
-    const result = await chat.sendMessageStream(question)
+  const tryStream = async (attempt: number): Promise<NextResponse> => {
+    try {
+      const model = genAI.getGenerativeModel({
+        model: 'gemini-2.0-flash',
+        systemInstruction,
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 8192,
+        },
+      })
 
-    const encoder = new TextEncoder()
-    const readable = new ReadableStream({
-      async start(controller) {
-        try {
-          for await (const chunk of result.stream) {
-            const text = chunk.text()
-            if (text) {
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: text })}\n\n`))
+      const chat = model.startChat({ history: geminiHistory })
+      const result = await chat.sendMessageStream(question)
+
+      const encoder = new TextEncoder()
+      const readable = new ReadableStream({
+        async start(controller) {
+          try {
+            for await (const chunk of result.stream) {
+              const text = chunk.text()
+              if (text) {
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: text })}\n\n`))
+              }
             }
+          } catch (err) {
+            const errMsg = err instanceof Error ? err.message : String(err)
+            // If stream fails mid-way with rate limit, notify user gracefully
+            if (errMsg.includes('429') || errMsg.includes('RATE_LIMIT') || errMsg.includes('quota')) {
+              controller.enqueue(
+                encoder.encode(
+                  `data: ${JSON.stringify({ content: '\n\n⏳ Aguarde um momento, processando...' })}\n\n`,
+                ),
+              )
+            } else {
+              console.error('[Chat Gemini] Stream error:', err)
+              controller.enqueue(
+                encoder.encode(
+                  `data: ${JSON.stringify({ content: '\n\n⚠️ Erro durante a geração da resposta.' })}\n\n`,
+                ),
+              )
+            }
+          } finally {
+            controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+            controller.close()
           }
-        } catch (err) {
-          console.error('[Chat Gemini] Stream error:', err)
-          controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({ content: '\n\n⚠️ Erro durante a geração da resposta.' })}\n\n`,
-            ),
-          )
-        } finally {
-          controller.enqueue(encoder.encode('data: [DONE]\n\n'))
-          controller.close()
-        }
-      },
-    })
+        },
+      })
 
-    return new NextResponse(readable, {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        Connection: 'keep-alive',
-      },
-    })
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error)
-    console.error('[Chat] Gemini error:', { message: msg, contextLen: context.length })
+      return new NextResponse(readable, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          Connection: 'keep-alive',
+        },
+      })
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error)
+      const isRateLimit = msg.includes('429') || msg.includes('RATE_LIMIT') || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED')
 
-    if (msg.includes('429') || msg.includes('RATE_LIMIT') || msg.includes('quota')) {
-      return NextResponse.json(
-        { error: 'Limite da API atingido. Tente novamente em alguns segundos.' },
-        { status: 429 },
-      )
+      if (isRateLimit && attempt < MAX_RETRIES) {
+        const delay = Math.pow(2, attempt) * 2000 // 2s, 4s, 8s
+        console.log(`[Chat Gemini] Rate limited, retry ${attempt + 1}/${MAX_RETRIES} in ${delay}ms`)
+        await new Promise((r) => setTimeout(r, delay))
+        return tryStream(attempt + 1)
+      }
+
+      console.error('[Chat] Gemini error:', { message: msg, contextLen: context.length, attempt })
+
+      if (isRateLimit) {
+        return NextResponse.json(
+          { error: 'O serviço está temporariamente sobrecarregado. Tente novamente em 30 segundos.' },
+          { status: 429 },
+        )
+      }
+
+      return NextResponse.json({ error: `Falha ao processar: ${msg.slice(0, 200)}` }, { status: 500 })
     }
-
-    return NextResponse.json({ error: `Falha ao processar: ${msg.slice(0, 200)}` }, { status: 500 })
   }
+
+  return tryStream(0)
 }
