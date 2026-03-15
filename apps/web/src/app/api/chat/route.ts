@@ -398,16 +398,24 @@ ${context}`
       },
     })
   } catch (error) {
-    console.error('[Chat] DeepSeek error:', error)
     const msg = error instanceof Error ? error.message : String(error)
+    const status = (error as { status?: number }).status
+    console.error('[Chat] DeepSeek error:', { message: msg, status, contextLen: context.length, messagesCount: messages.length })
 
-    if (msg.includes('429') || msg.includes('RATE_LIMIT')) {
+    if (status === 429 || msg.includes('429') || msg.includes('RATE_LIMIT')) {
       return NextResponse.json(
         { error: 'Limite da API atingido. Tente novamente em alguns segundos.' },
         { status: 429 },
       )
     }
 
-    return NextResponse.json({ error: 'Falha ao processar a pergunta. Tente novamente.' }, { status: 500 })
+    if (msg.includes('context_length') || msg.includes('maximum context') || msg.includes('too long')) {
+      return NextResponse.json(
+        { error: 'O edital é muito grande para análise. Tente fazer uma pergunta mais específica.' },
+        { status: 413 },
+      )
+    }
+
+    return NextResponse.json({ error: `Falha ao processar: ${msg.slice(0, 200)}` }, { status: 500 })
   }
 }
