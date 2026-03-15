@@ -43,6 +43,7 @@ export default async function DashboardPage() {
   }
 
   const now = new Date()
+  const today = now.toISOString().split('T')[0] // YYYY-MM-DD
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
 
@@ -52,65 +53,111 @@ export default async function DashboardPage() {
     weekTendersResult,
     totalTendersResult,
     allMatchScores,
-    recentMatchesResult,
+    topMatchesResult,
     monthMatchesResult,
     interestedResult,
-    matchesWithDetails,
+    matchesForStats,
     documentsResult,
   ] = await Promise.all([
-    supabase.from('matches').select('*', { count: 'exact', head: true }).eq('company_id', companyId).gte('score', minScore),
-    supabase.from('matches').select('*', { count: 'exact', head: true }).eq('company_id', companyId).gte('score', 70),
-    supabase.from('tenders').select('*', { count: 'exact', head: true }).gte('created_at', sevenDaysAgo.toISOString()),
-    supabase.from('tenders').select('*', { count: 'exact', head: true }),
-    supabase.from('matches').select('score').eq('company_id', companyId).gte('score', minScore),
+    // Total matches (with open tenders only, using !inner join)
     supabase
       .from('matches')
-      .select('id, score, status, created_at, tenders(objeto, orgao_nome, uf, valor_estimado)')
+      .select('id, tenders!inner(data_encerramento)', { count: 'exact', head: false })
       .eq('company_id', companyId)
+      .gte('score', minScore)
+      .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' }),
+
+    // Score 70+ matches (with open tenders only)
+    supabase
+      .from('matches')
+      .select('id, tenders!inner(data_encerramento)', { count: 'exact', head: false })
+      .eq('company_id', companyId)
+      .gte('score', 70)
+      .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' }),
+
+    // Novas esta semana — filter on data_publicacao (actual publication date), NOT created_at
+    // Also only count OPEN tenders (not expired)
+    supabase
+      .from('tenders')
+      .select('id', { count: 'exact', head: true })
+      .gte('data_publicacao', sevenDaysAgo.toISOString().split('T')[0])
+      .or(`data_encerramento.is.null,data_encerramento.gte.${today}`),
+
+    // Licitações monitoradas — only OPEN tenders (not expired)
+    supabase
+      .from('tenders')
+      .select('id', { count: 'exact', head: true })
+      .or(`data_encerramento.is.null,data_encerramento.gte.${today}`),
+
+    // All match scores for distribution + average (only open tenders)
+    supabase
+      .from('matches')
+      .select('score, tenders!inner(data_encerramento)')
+      .eq('company_id', companyId)
+      .gte('score', minScore)
+      .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' }),
+
+    // Top 5 matches for "Melhores Oportunidades" (only open tenders, respecting minScore)
+    supabase
+      .from('matches')
+      .select('id, score, status, created_at, tenders!inner(objeto, orgao_nome, uf, valor_estimado, data_encerramento)')
+      .eq('company_id', companyId)
+      .gte('score', minScore)
+      .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
       .order('score', { ascending: false })
       .limit(5),
+
+    // Matches this month
     supabase
       .from('matches')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('company_id', companyId)
       .gte('created_at', thirtyDaysAgo.toISOString()),
+
+    // Interested/applied matches
     supabase
       .from('matches')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('company_id', companyId)
       .in('status', ['interested', 'applied']),
+
+    // Matches with tender details for Valor em Análise, Top UFs, Top Modalidades
+    // Use minScore (not hardcoded 45) and NO limit — fetch all for accurate stats
     supabase
       .from('matches')
-      .select('score, tenders(uf, modalidade_nome, valor_estimado)')
+      .select('score, tenders!inner(uf, modalidade_nome, valor_estimado, data_encerramento)')
       .eq('company_id', companyId)
-      .gte('score', 45)
-      .order('score', { ascending: false })
-      .limit(200),
+      .gte('score', minScore)
+      .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' }),
+
+    // Company documents for health check
     supabase
       .from('company_documents')
       .select('id, validade')
       .eq('company_id', companyId),
   ])
 
-  const totalMatches = totalMatchesResult.count ?? 0
-  const highMatches = highMatchesResult.count ?? 0
+  const totalMatches = totalMatchesResult.data?.length ?? 0
+  const highMatches = highMatchesResult.data?.length ?? 0
   const weekTenders = weekTendersResult.count ?? 0
   const totalTenders = totalTendersResult.count ?? 0
   const monthMatches = monthMatchesResult.count ?? 0
   const interestedCount = interestedResult.count ?? 0
 
+  // Score average and distribution
   const scores = (allMatchScores.data || []).map((m) => m.score)
-  const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0
+  const avgScore = scores.length > 0 ? Math.round(scores.reduce((a: number, b: number) => a + b, 0) / scores.length) : 0
 
   const scoreDistribution = [
-    { range: '90-100', count: scores.filter((s) => s >= 90).length, color: 'bg-emerald-500' },
-    { range: '70-89', count: scores.filter((s) => s >= 70 && s < 90).length, color: 'bg-emerald-400' },
-    { range: '50-69', count: scores.filter((s) => s >= 50 && s < 70).length, color: 'bg-amber-400' },
-    { range: '45-49', count: scores.filter((s) => s >= 45 && s < 50).length, color: 'bg-red-400' },
+    { range: '90-100', count: scores.filter((s: number) => s >= 90).length, color: 'bg-emerald-500' },
+    { range: '70-89', count: scores.filter((s: number) => s >= 70 && s < 90).length, color: 'bg-emerald-400' },
+    { range: '50-69', count: scores.filter((s: number) => s >= 50 && s < 70).length, color: 'bg-amber-400' },
+    { range: `${minScore}-49`, count: scores.filter((s: number) => s >= minScore && s < 50).length, color: 'bg-red-400' },
   ]
   const maxScoreCount = Math.max(...scoreDistribution.map((d) => d.count), 1)
 
-  const matchDetails = (matchesWithDetails.data || []) as Array<{ score: number; tenders: unknown }>
+  // Valor em Análise, Top UFs, Top Modalidades — from ALL matches (no limit)
+  const matchDetails = (matchesForStats.data || []) as Array<{ score: number; tenders: unknown }>
   let totalValueInAnalysis = 0
   const ufCounts: Record<string, number> = {}
   const modalidadeCounts: Record<string, number> = {}
@@ -128,6 +175,7 @@ export default async function DashboardPage() {
   const topUFs = Object.entries(ufCounts).sort((a, b) => b[1] - a[1]).slice(0, 5)
   const topModalidades = Object.entries(modalidadeCounts).sort((a, b) => b[1] - a[1]).slice(0, 5)
 
+  // Document health
   const docs = (documentsResult.data || []) as Array<{ id: string; validade: string | null }>
   const docsExpiring = docs.filter((d) => {
     if (!d.validade) return false
@@ -147,9 +195,9 @@ export default async function DashboardPage() {
 
       {/* Primary KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <KPICard label="Licitações Monitoradas" value={totalTenders.toLocaleString('pt-BR')} />
-        <KPICard label="Matches Este Mês" value={monthMatches.toString()} />
-        <KPICard label="Score 70+" value={highMatches.toString()} accent />
+        <KPICard label="Licitações Abertas" value={totalTenders.toLocaleString('pt-BR')} />
+        <KPICard label="Matches Este Mês" value={monthMatches.toLocaleString('pt-BR')} />
+        <KPICard label="Score 70+" value={highMatches.toLocaleString('pt-BR')} accent />
         <KPICard label="Novas Esta Semana" value={weekTenders.toLocaleString('pt-BR')} />
       </div>
 
@@ -158,7 +206,7 @@ export default async function DashboardPage() {
         <KPICard label="Score Médio" value={`${avgScore}/100`} />
         <KPICard label="Taxa de Interesse" value={`${conversionRate}%`} />
         <KPICard label="Valor em Análise" value={totalValueInAnalysis > 0 ? formatCurrency(totalValueInAnalysis) : 'R$ 0'} small />
-        <KPICard label="Total de Matches" value={totalMatches.toString()} />
+        <KPICard label="Total de Matches" value={totalMatches.toLocaleString('pt-BR')} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -243,7 +291,7 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
-      {/* Recent matches */}
+      {/* Top opportunities */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
@@ -252,9 +300,9 @@ export default async function DashboardPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {recentMatchesResult.data && recentMatchesResult.data.length > 0 ? (
+          {topMatchesResult.data && topMatchesResult.data.length > 0 ? (
             <div className="space-y-3">
-              {recentMatchesResult.data.map((match) => {
+              {topMatchesResult.data.map((match) => {
                 const tender = (match.tenders as unknown) as Record<string, unknown> | null
                 return (
                   <Link key={match.id} href={`/opportunities/${match.id}`} className="flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors duration-150">
@@ -267,7 +315,7 @@ export default async function DashboardPage() {
                     </div>
                     <div className="flex items-center gap-2 ml-3 shrink-0">
                       <ScoreBadge score={match.score} />
-                      <Badge variant="outline" className="text-xs">{match.status === 'new' ? 'Nova' : match.status === 'interested' ? 'Interesse' : match.status}</Badge>
+                      <Badge variant="outline" className="text-xs">{match.status === 'new' ? 'Nova' : match.status === 'interested' ? 'Interesse' : match.status === 'applied' ? 'Aplicada' : match.status}</Badge>
                     </div>
                   </Link>
                 )
@@ -277,7 +325,7 @@ export default async function DashboardPage() {
             <div className="text-center py-6">
               <p className="text-gray-400 text-sm mb-3">A IA está processando suas licitações. Os matches aparecerão aqui.</p>
               <Link href="/opportunities" className="inline-flex items-center px-4 py-2 bg-brand text-white rounded-lg hover:bg-brand-dark text-sm transition-colors duration-150">
-                Ver licitações ({totalTenders})
+                Ver licitações
               </Link>
             </div>
           )}
