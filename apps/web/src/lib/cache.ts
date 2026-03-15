@@ -360,18 +360,22 @@ async function fetchMatchListFromDB(params: MatchListParams): Promise<MatchListR
 
 /**
  * Get match count for tab badge (cached).
+ * Only counts matches with OPEN tenders (not expired).
  */
 export async function getMatchCount(companyId: string, minScore: number): Promise<number> {
   return cached(
     CacheKeys.matchCount(companyId, minScore),
     async () => {
       const supabase = await createClient()
-      const { count } = await supabase
+      const today = new Date().toISOString().split('T')[0]
+      const { data } = await supabase
         .from('matches')
-        .select('id', { count: 'exact', head: true })
+        .select('id, tenders!inner(data_encerramento)')
         .eq('company_id', companyId)
         .gte('score', minScore)
-      return count || 0
+        .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
+      // !inner join ensures only matches WITH a matching tender are returned
+      return data?.length || 0
     },
     TTL.matchCount,
   )
