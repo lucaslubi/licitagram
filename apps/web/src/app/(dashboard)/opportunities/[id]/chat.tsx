@@ -637,8 +637,8 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
                 {uploadedDocs.length} PDF{uploadedDocs.length > 1 ? 's' : ''}
               </span>
             )}
-            <span className="text-[10px] font-normal text-brand/60 bg-brand/5 px-2 py-0.5 rounded-full">
-              Gemini 2.5 Flash
+            <span className="text-[10px] font-semibold text-brand/70 bg-brand/10 px-2 py-0.5 rounded-full tracking-wide uppercase">
+              Licitagram AI
             </span>
           </div>
         </CardTitle>
