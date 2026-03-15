@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
-import { invalidateCache, CacheKeys } from '@/lib/redis'
+import { invalidateCache, CacheKeys, isRedisAvailable, getRedis } from '@/lib/redis'
 import { CNAE_DIVISIONS, RELATED_DIVISIONS, getCompanyDivisions } from '@licitagram/shared'
 
 // ─── Service-role Supabase (bypasses RLS for match writes) ─────────────────
@@ -213,12 +213,42 @@ export async function saveCompany(payload: CompanyPayload, existingId?: string) 
     companyId = id
   }
 
-  // Trigger re-matching in background (don't block the save response)
-  runRematchForCompany(companyId, sanitized).catch((err) => {
-    console.error('[REMATCH] Failed (non-critical):', err)
-  })
+  // ── Create trial subscription if company is new (no existing subscription) ──
+  if (!existingId) {
+    try {
+      const serviceSupabase = getServiceSupabase()
+      const { data: existingSub } = await serviceSupabase
+        .from('subscriptions')
+        .select('id')
+        .eq('company_id', companyId)
+        .maybeSingle()
 
-  return { id: companyId, matchesFound: 0 }
+      if (!existingSub) {
+        await serviceSupabase.from('subscriptions').insert({
+          company_id: companyId,
+          plan: 'trial',
+          plan_id: null,
+          status: 'trialing',
+          started_at: new Date().toISOString(),
+          expires_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+          matches_used_this_month: 0,
+        })
+        console.log('[COMPANY] Created trial subscription for', companyId)
+      }
+    } catch (subErr) {
+      console.error('[COMPANY] Failed to create trial subscription (non-critical):', subErr)
+    }
+  }
+
+  // Run matching SYNCHRONOUSLY so it completes before Vercel kills the function
+  let matchesFound = 0
+  try {
+    matchesFound = await runRematchForCompany(companyId, sanitized)
+  } catch (err) {
+    console.error('[REMATCH] Failed:', err)
+  }
+
+  return { id: companyId, matchesFound }
 }
 
 // ─── Load Company Data ────────────────────────────────────────────────────
@@ -345,9 +375,9 @@ async function _runRematchForCompany(
 
   console.log('[REMATCH] Existing matches loaded:', existingMatchIds.size)
 
-  // Always scan full year (365 days)
+  // Scan last 90 days (optimized for Vercel serverless timeout)
   const cutoffDate = new Date()
-  cutoffDate.setDate(cutoffDate.getDate() - 365)
+  cutoffDate.setDate(cutoffDate.getDate() - 90)
   const cutoff = cutoffDate.toISOString().split('T')[0]
   const today = new Date().toISOString().split('T')[0]
 
@@ -355,6 +385,7 @@ async function _runRematchForCompany(
   let scanned = 0
   const pageSize = 1000
   const BATCH_SIZE = 200
+  const MAX_RUNTIME_MS = 50_000 // 50s safety limit for Vercel
 
   // Buffer for batch inserts
   let insertBuffer: Array<{
@@ -462,6 +493,13 @@ async function _runRematchForCompany(
     }
 
     if (tenders.length < pageSize) break
+
+    // Safety: abort if approaching Vercel timeout
+    if (Date.now() - startTime > MAX_RUNTIME_MS) {
+      console.log(`[REMATCH] Approaching timeout after ${page + 1} pages, stopping early`)
+      break
+    }
+
     page++
   }
 
@@ -471,34 +509,29 @@ async function _runRematchForCompany(
   const totalElapsed = ((Date.now() - startTime) / 1000).toFixed(1)
   console.log(`[REMATCH] COMPLETE: scanned ${scanned} tenders, ${matchCount} new matches in ${totalElapsed}s`)
 
-  // Invalidate ALL match caches for this company
-  const deleted = await invalidateCache(CacheKeys.allCompanyMatches(companyId))
-  console.log('[REMATCH] Cache invalidated, keys deleted:', deleted)
-
-  const { getRedis } = await import('@/lib/redis')
-  const r = getRedis()
-  try {
-    const scoreKeys = [10, 15, 20, 25, 30, 40, 50, 60].map(
-      (s) => CacheKeys.matchCount(companyId, s),
-    )
-    await r.del(...scoreKeys)
-  } catch {
-    // Ignore Redis errors
-  }
-
-  await invalidateCache('cache:stats:dashboard:*')
-
-  // Trigger pending notifications immediately so Telegram alerts go out
-  if (matchCount > 0) {
+  // Invalidate caches only if Redis is available
+  if (isRedisAvailable()) {
     try {
-      // Enqueue a BullMQ job via raw Redis XADD (avoids importing bullmq in the web app)
-      // BullMQ stores jobs in a Redis stream: bull:<queue>:events, and list: bull:<queue>:wait
-      // Simplest approach: publish a Redis message that the workers can pick up
-      await r.publish('licitagram:rematch-done', JSON.stringify({ companyId, matchCount }))
-      console.log('[REMATCH] Published rematch-done event for notifications')
+      const deleted = await invalidateCache(CacheKeys.allCompanyMatches(companyId))
+      console.log('[REMATCH] Cache invalidated, keys deleted:', deleted)
+
+      const r = getRedis()
+      const scoreKeys = [10, 15, 20, 25, 30, 40, 50, 60].map(
+        (s) => CacheKeys.matchCount(companyId, s),
+      )
+      await r.del(...scoreKeys)
+      await invalidateCache('cache:stats:dashboard:*')
+
+      // Trigger pending notifications immediately so Telegram alerts go out
+      if (matchCount > 0) {
+        await r.publish('licitagram:rematch-done', JSON.stringify({ companyId, matchCount }))
+        console.log('[REMATCH] Published rematch-done event for notifications')
+      }
     } catch (err) {
-      console.error('[REMATCH] Failed to publish notification event (non-critical):', err)
+      console.error('[REMATCH] Redis operations failed (non-critical):', err)
     }
+  } else {
+    console.log('[REMATCH] Redis not available, skipping cache invalidation')
   }
 
   return matchCount
