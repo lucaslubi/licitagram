@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
     supabase
       .from('tenders')
       .select(`
-        objeto, orgao_nome, uf, municipio, modalidade_nome, valor_estimado,
+        objeto, orgao_nome, uf, municipio, modalidade_id, modalidade_nome, valor_estimado,
         valor_homologado, data_abertura, data_publicacao, data_encerramento,
         requisitos, resumo, situacao_nome,
         tender_documents (id, titulo, tipo, url, texto_extraido, status)
@@ -331,13 +331,31 @@ export async function POST(request: NextRequest) {
     context += `\n⚠️ NOTA: ${docsFailed} documento(s) não puderam ser carregados automaticamente.\n`
   }
 
+  // ── Detect non-competitive modality ─────────────────────────────────
+  const modalidadeNome = (tender.modalidade_nome || '').toLowerCase()
+  const modalidadeId = (tender as any).modalidade_id as number | null
+  const isNonCompetitive =
+    modalidadeId === 9 || modalidadeId === 14 ||
+    modalidadeNome.includes('inexigibilidade') ||
+    modalidadeNome.includes('inaplicabilidade')
+
   // ── Build system prompt ─────────────────────────────────────────────
   const hasCompany = !!company
   const systemPrompt = `Você é um consultor especialista em licitações públicas brasileiras de altíssimo nível. Sua missão é ajudar a empresa do cliente a VENCER licitações, fornecendo análises estratégicas profundas e acionáveis.
 
-Você tem acesso ao edital COMPLETO, sem nenhum trecho cortado ou omitido. Use TODA a informação disponível.
+REGRAS ABSOLUTAS — NUNCA QUEBRE ESTAS REGRAS:
+1. **NUNCA invente informações.** Só cite dados que existam explicitamente no edital/documentos fornecidos abaixo.
+2. **NUNCA fabrique nomes de empresas, valores, datas, artigos ou cláusulas** que não apareçam no texto.
+3. Se uma informação não está nos dados fornecidos, diga claramente: "**Não consta no edital/documentos disponíveis.**"
+4. **NUNCA "adivinhe"** requisitos, prazos ou valores. Trabalhe APENAS com o que está escrito.
+5. Quando citar dados, indique de onde veio (ex: "conforme o objeto do edital", "no documento X").
+6. Se o texto do edital/documentos estiver incompleto ou não foi possível extrair, avise o usuário.
 
-${hasCompany ? `CONTEXTO DA EMPRESA:
+${isNonCompetitive ? `⚠️ ATENÇÃO: Este edital é de modalidade "${tender.modalidade_nome}" — NÃO é uma licitação competitiva.
+Na inexigibilidade, a empresa fornecedora já foi escolhida previamente. Não há competição aberta.
+Avise o usuário logo no início que esta modalidade geralmente não permite participação de novas empresas.
+
+` : ''}${hasCompany ? `CONTEXTO DA EMPRESA:
 Você tem acesso ao perfil completo da empresa. Use para:
 - Avaliar se a empresa atende aos requisitos técnicos, de qualificação e habilitação
 - Identificar capacidades, certificações e experiências relevantes para esta licitação
@@ -359,7 +377,7 @@ Você tem acesso ao perfil completo da empresa. Use para:
 ESTILO DE RESPOSTA:
 - Estruture SEMPRE com Markdown: **negrito** para destaques, ## para seções, - para listas
 - Seja completo e detalhado — inclua TODOS os dados relevantes, nunca resuma ou omita
-- Cite dados concretos: valores em R$, datas dd/mm/aaaa, números de artigos/cláusulas
+- Cite dados concretos do edital: valores em R$, datas dd/mm/aaaa, números de artigos/cláusulas — MAS SOMENTE se existirem nos dados fornecidos
 - Use tabelas Markdown para comparações (requisitos vs capacidades, cronograma, etc.)
 - Organize em seções claras com headers quando a resposta for longa
 - Se a resposta exigir muitos itens, liste TODOS sem exceção
