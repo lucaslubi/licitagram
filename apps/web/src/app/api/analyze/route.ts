@@ -309,7 +309,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Save original keyword score so we can show the diff in the UI
-    if (match.match_source !== 'ai') {
+    // If already ai_triage, keyword_score was already saved by batch-triage — don't overwrite with triage score
+    if (match.match_source !== 'ai' && match.match_source !== 'ai_triage') {
       updatePayload.keyword_score = match.score
     }
 

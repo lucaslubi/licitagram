@@ -746,7 +746,7 @@ function renderMatchesView(props: {
 // ─── Shared Components ───────────────────────────────────────────────────────
 
 function ScoreBadge({ score, matchSource }: { score: number; matchSource?: string }) {
-  const isAi = matchSource === 'ai'
+  const isAi = matchSource === 'ai' || matchSource === 'ai_triage'
   const color =
     score >= 70
       ? 'bg-emerald-100 text-emerald-800'

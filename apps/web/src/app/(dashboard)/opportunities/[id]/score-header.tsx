@@ -80,11 +80,12 @@ export function ScoreProvider({
   children,
 }: ScoreHeaderProps & { children: React.ReactNode }) {
   const [score, setScore] = useState(initialScore)
-  const [verified, setVerified] = useState(matchSource === 'ai')
+  const isAiVerified = matchSource === 'ai' || matchSource === 'ai_triage'
+  const [verified, setVerified] = useState(isAiVerified)
   // Keep the original keyword score so we can show the diff after AI analysis
-  // If already AI-analyzed, use the saved keyword_score from DB; otherwise use current score as keyword estimate
+  // If already AI-analyzed (full or triage), use the saved keyword_score from DB; otherwise use current score as keyword estimate
   const [keywordScore] = useState(
-    matchSource === 'ai' ? initialKeywordScore : initialScore
+    isAiVerified ? initialKeywordScore : initialScore
   )
 
   const handleScoreUpdate = useCallback((newScore: number) => {

@@ -89,7 +89,8 @@ export function AiAnalysis({ matchId, initialData, matchSource, hasAccess = true
       </Card>
     )
   }
-  const hasAiAnalysis = matchSource === 'ai' && initialData.justificativa
+  const isAiVerified = matchSource === 'ai' || matchSource === 'ai_triage'
+  const hasAiAnalysis = isAiVerified && (initialData.justificativa || matchSource === 'ai_triage')
   const [data, setData] = useState<AnalysisData>(initialData)
   const [loading, setLoading] = useState(!hasAiAnalysis)
   const [error, setError] = useState<string | null>(null)
@@ -179,6 +180,45 @@ export function AiAnalysis({ matchId, initialData, matchSource, hasAccess = true
   const breakdown = data.breakdown || []
   const riscos = data.riscos || []
   const acoesNecessarias = data.acoes_necessarias || []
+
+  // Triage-only: show score summary + offer deep analysis button
+  if (matchSource === 'ai_triage' && breakdown.length === 0 && !data.justificativa) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Análise IA (Triagem)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm">
+                {data.score}
+              </div>
+              <div>
+                <p className="text-sm font-medium text-blue-900">Score verificado por IA</p>
+                <p className="text-xs text-blue-600">
+                  {data.recomendacao === 'participar'
+                    ? 'Recomendado participar'
+                    : data.recomendacao === 'nao_recomendado'
+                      ? 'Não recomendado'
+                      : 'Avaliar com mais detalhes'}
+                </p>
+              </div>
+            </div>
+            <p className="text-xs text-gray-500">
+              Esta licitação foi avaliada pela triagem automática de IA. Para uma análise detalhada com parecer técnico completo, clique abaixo.
+            </p>
+            <Button onClick={runAnalysis} variant="outline" size="sm" className="w-full">
+              <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+              Análise detalhada com IA
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <div className="space-y-6">
