@@ -311,16 +311,16 @@ async function main() {
   await setupRepeatableJobs()
   await startBot()
 
-  // Listen for rematch-done events from the web app to trigger immediate notifications
+  // Listen for Redis pub/sub events from the web app
   try {
     const IORedis = (await import('ioredis')).default
     const subscriber = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
       maxRetriesPerRequest: null,
     })
-    await subscriber.subscribe('licitagram:rematch-done')
+    await subscriber.subscribe('licitagram:rematch-done', 'licitagram:company-saved')
     subscriber.on('message', async (channel, message) => {
-      if (channel === 'licitagram:rematch-done') {
-        try {
+      try {
+        if (channel === 'licitagram:rematch-done') {
           const { companyId, matchCount } = JSON.parse(message)
           logger.info({ companyId, matchCount }, 'Rematch done — triggering immediate notification check')
           await pendingNotificationsQueue.add(
@@ -328,14 +328,59 @@ async function main() {
             {},
             { jobId: `rematch-notify-${companyId}-${Date.now()}` },
           )
-        } catch (err) {
-          logger.error({ err }, 'Failed to process rematch-done event')
+        } else if (channel === 'licitagram:company-saved') {
+          const { companyId } = JSON.parse(message)
+          logger.info({ companyId }, 'Company saved — triggering background keyword matching + AI triage')
+
+          // 1. Run keyword matching sweep for all tenders against this company
+          try {
+            await runKeywordMatchingSweep()
+          } catch (err) {
+            logger.error({ companyId, err }, 'Background keyword matching failed')
+          }
+
+          // 2. Enqueue AI triage for all keyword matches of this company
+          try {
+            const { aiTriageQueue } = await import('./queues/ai-triage.queue')
+            const PAGE = 1000
+            let offset = 0
+            const allMatchIds: string[] = []
+            while (true) {
+              const { data: page } = await supabase
+                .from('matches')
+                .select('id')
+                .eq('company_id', companyId)
+                .eq('match_source', 'keyword')
+                .range(offset, offset + PAGE - 1)
+              if (!page || page.length === 0) break
+              allMatchIds.push(...page.map(m => m.id))
+              if (page.length < PAGE) break
+              offset += PAGE
+            }
+
+            if (allMatchIds.length > 0) {
+              const CHUNK = 50
+              for (let i = 0; i < allMatchIds.length; i += CHUNK) {
+                const chunk = allMatchIds.slice(i, i + CHUNK)
+                await aiTriageQueue.add(
+                  `company-save-triage-${companyId}-${i}`,
+                  { companyId, matchIds: chunk },
+                  { jobId: `company-save-triage-${companyId}-${i}-${Date.now()}` },
+                )
+              }
+              logger.info({ companyId, matchCount: allMatchIds.length }, 'Enqueued AI triage for company matches')
+            }
+          } catch (err) {
+            logger.error({ companyId, err }, 'Failed to enqueue AI triage after company save')
+          }
         }
+      } catch (err) {
+        logger.error({ err, channel }, 'Failed to process Redis event')
       }
     })
-    logger.info('Listening for rematch-done events (immediate notification trigger)')
+    logger.info('Listening for Redis events (rematch-done, company-saved)')
   } catch (err) {
-    logger.warn({ err }, 'Failed to setup rematch-done listener (non-critical)')
+    logger.warn({ err }, 'Failed to setup Redis event listener (non-critical)')
   }
 
   // Schedule CNAE classification backfill every 15 minutes

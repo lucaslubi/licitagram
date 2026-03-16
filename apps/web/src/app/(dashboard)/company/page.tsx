@@ -148,11 +148,9 @@ export default function CompanyPage() {
       showMessage('Erro ao salvar: ' + result.error, 'error')
     } else if (result.id) {
       setCompany((prev) => ({ ...prev, id: result.id! }))
-      const matchMsg = result.matchesFound && result.matchesFound > 0
-        ? ` ${result.matchesFound} matches encontrados com base no seu perfil.`
-        : ' Matches serão atualizados automaticamente.'
       showMessage(
-        (company.id ? 'Empresa atualizada com sucesso!' : 'Empresa cadastrada com sucesso!') + matchMsg,
+        (company.id ? 'Empresa atualizada!' : 'Empresa cadastrada!') +
+        ' A IA vai buscar matches para o seu perfil em segundo plano. Pode continuar usando a plataforma.',
         'success',
       )
     }
@@ -359,7 +357,7 @@ export default function CompanyPage() {
         </Card>
 
         <Button onClick={handleSave} disabled={saving} className="w-full md:w-auto">
-          {saving ? 'Salvando e buscando matches...' : company.id ? 'Atualizar Empresa' : 'Cadastrar Empresa'}
+          {saving ? 'Salvando...' : company.id ? 'Atualizar Empresa' : 'Cadastrar Empresa'}
         </Button>
       </div>
     </div>

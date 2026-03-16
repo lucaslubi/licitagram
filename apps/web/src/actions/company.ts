@@ -253,15 +253,36 @@ export async function saveCompany(payload: CompanyPayload, existingId?: string) 
     }
   }
 
-  // Run matching SYNCHRONOUSLY so it completes before Vercel kills the function
-  let matchesFound = 0
+  // Trigger matching in BACKGROUND — save returns immediately for good UX
+  // The worker will handle keyword matching + AI triage + notifications
   try {
-    matchesFound = await runRematchForCompany(companyId, sanitized)
+    if (isRedisAvailable()) {
+      const r = getRedis()
+      // Signal the workers to run a full rematch for this company
+      await r.publish('licitagram:company-saved', JSON.stringify({
+        companyId,
+        company: sanitized,
+      }))
+      console.log('[COMPANY] Published company-saved event for background matching')
+    } else {
+      // Fallback: run matching synchronously if Redis is not available
+      console.log('[COMPANY] Redis unavailable — running matching synchronously')
+      await runRematchForCompany(companyId, sanitized)
+    }
   } catch (err) {
-    console.error('[REMATCH] Failed:', err)
+    console.error('[COMPANY] Background matching trigger failed:', err)
   }
 
-  return { id: companyId, matchesFound }
+  // Invalidate caches immediately so dashboard reflects the save
+  if (isRedisAvailable()) {
+    try {
+      await invalidateCache(CacheKeys.allCompanyMatches(companyId))
+      await invalidateCache('cache:stats:dashboard:*')
+      await invalidateCache(`cache:company:${companyId}`)
+    } catch { /* non-critical */ }
+  }
+
+  return { id: companyId }
 }
 
 // ─── Load Company Data ────────────────────────────────────────────────────
