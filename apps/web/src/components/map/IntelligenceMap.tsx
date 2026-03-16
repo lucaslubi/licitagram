@@ -43,6 +43,7 @@ export function IntelligenceMap({
   const [geoJson, setGeoJson] = useState<GeoJSON.FeatureCollection | null>(null)
   const [selectedUf, setSelectedUf] = useState<string | null>(null)
   const [selectedMatch, setSelectedMatch] = useState<MatchMarker | null>(null)
+  const [selectedGroup, setSelectedGroup] = useState<MatchMarker[] | null>(null)
   const [scoreFilter, setScoreFilter] = useState(0)
   const [regionFilter, setRegionFilter] = useState<Set<string>>(new Set(REGIONS))
 
@@ -70,6 +71,24 @@ export function IntelligenceMap({
       return true
     })
   }, [matchMarkers, scoreFilter, regionFilter, ufData])
+
+  // Group markers at the same coordinates to handle overlapping pins
+  const groupedMarkers = useMemo(() => {
+    const groups = new Map<string, MatchMarker[]>()
+    for (const m of filteredMarkers) {
+      // Round to 3 decimals (~110m) to group nearby markers
+      const key = `${m.lat.toFixed(3)},${m.lng.toFixed(3)}`
+      if (!groups.has(key)) groups.set(key, [])
+      groups.get(key)!.push(m)
+    }
+    // Sort each group by score descending (best score first)
+    const result: { best: MatchMarker; count: number; all: MatchMarker[] }[] = []
+    for (const markers of groups.values()) {
+      markers.sort((a, b) => b.score - a.score)
+      result.push({ best: markers[0], count: markers.length, all: markers })
+    }
+    return result
+  }, [filteredMarkers])
 
   // Recompute UF stats based on filtered markers (so sidebar reflects actual visible data)
   const filteredUfStats = useMemo(() => {
@@ -177,6 +196,7 @@ export function IntelligenceMap({
     (uf: string) => {
       setSelectedUf(uf)
       setSelectedMatch(null)
+      setSelectedGroup(null)
       const center = UF_CENTERS[uf]
       if (center && mapRef.current) {
         mapRef.current.flyTo({
@@ -192,6 +212,7 @@ export function IntelligenceMap({
   const resetView = useCallback(() => {
     setSelectedUf(null)
     setSelectedMatch(null)
+    setSelectedGroup(null)
     mapRef.current?.flyTo({
       center: [-52, -14],
       zoom: 3.8,
@@ -355,8 +376,8 @@ export function IntelligenceMap({
               <Layer {...heatmapLayer} />
             </Source>
 
-            {/* Individual match markers with score numbers */}
-            {filteredMarkers.map((m) => {
+            {/* Individual match markers — grouped by location */}
+            {groupedMarkers.map(({ best: m, count, all }) => {
               const isAi = m.matchSource === 'ai' || m.matchSource === 'ai_triage' || m.matchSource === 'semantic'
               return (
               <Marker
@@ -368,22 +389,30 @@ export function IntelligenceMap({
                   e.originalEvent.stopPropagation()
                   setSelectedMatch(m)
                   setSelectedUf(m.uf)
+                  setSelectedGroup(count > 1 ? all : null)
                 }}
               >
-                <div
-                  className={`flex items-center justify-center rounded-full cursor-pointer shadow-lg transition-transform hover:scale-125 hover:z-50 ${
-                    isAi ? 'border-2 border-blue-400/80' : 'border-2 border-white/50'
-                  }`}
-                  style={{
-                    width: 32,
-                    height: 32,
-                    backgroundColor: getMatchColor(m.score),
-                  }}
-                  title={`${m.objeto} — Score: ${m.score}${isAi ? ' (IA)' : ' (estimado)'}`}
-                >
-                  <span className="text-white font-bold text-[11px] leading-none drop-shadow-sm">
-                    {m.score}
-                  </span>
+                <div className="relative">
+                  <div
+                    className={`flex items-center justify-center rounded-full cursor-pointer shadow-lg transition-transform hover:scale-125 hover:z-50 ${
+                      isAi ? 'border-2 border-blue-400/80' : 'border-2 border-white/50'
+                    }`}
+                    style={{
+                      width: 32,
+                      height: 32,
+                      backgroundColor: getMatchColor(m.score),
+                    }}
+                    title={`${m.objeto} — Score: ${m.score}${isAi ? ' (IA)' : ' (estimado)'}${count > 1 ? ` (+${count - 1} mais)` : ''}`}
+                  >
+                    <span className="text-white font-bold text-[11px] leading-none drop-shadow-sm">
+                      {m.score}
+                    </span>
+                  </div>
+                  {count > 1 && (
+                    <div className="absolute -top-1.5 -right-1.5 bg-white text-gray-800 rounded-full min-w-[18px] h-[18px] flex items-center justify-center text-[9px] font-bold shadow-md border border-gray-200 px-0.5">
+                      {count}
+                    </div>
+                  )}
                 </div>
               </Marker>
               )
@@ -396,60 +425,68 @@ export function IntelligenceMap({
                 latitude={selectedMatch.lat}
                 closeButton={true}
                 closeOnClick={false}
-                onClose={() => setSelectedMatch(null)}
+                onClose={() => { setSelectedMatch(null); setSelectedGroup(null) }}
                 anchor="bottom"
                 offset={15}
                 className="!p-0"
-                maxWidth="280px"
+                maxWidth="300px"
               >
                 <div className="p-3 min-w-[220px]">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${getScoreBgClass(selectedMatch.score)}`}
-                    >
-                      {selectedMatch.score}
-                    </span>
-                    <span className={`text-[9px] font-medium px-1 py-0.5 rounded ${
-                      selectedMatch.matchSource === 'ai' || selectedMatch.matchSource === 'ai_triage' || selectedMatch.matchSource === 'semantic'
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'bg-gray-100 text-gray-500'
-                    }`}>
-                      {selectedMatch.matchSource === 'ai' || selectedMatch.matchSource === 'ai_triage' || selectedMatch.matchSource === 'semantic' ? 'IA' : 'estimado'}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      {selectedMatch.municipio ? `${selectedMatch.municipio}/${selectedMatch.uf}` : selectedMatch.uf}
-                    </span>
-                  </div>
-                  <p className="text-xs font-medium text-gray-900 leading-snug line-clamp-3 mb-1.5">
-                    {selectedMatch.objeto}
-                  </p>
-                  <p className="text-[10px] text-gray-500 truncate mb-2">{selectedMatch.orgao}</p>
-                  <div className="flex items-center gap-3 text-[10px]">
-                    {selectedMatch.valor && (
-                      <span className="font-medium text-emerald-600">
-                        {formatCompactBRL(selectedMatch.valor)}
-                      </span>
-                    )}
-                    {selectedMatch.modalidade && (
-                      <span className="text-gray-400">{selectedMatch.modalidade}</span>
-                    )}
-                    {selectedMatch.recomendacao && (
-                      <span className={`font-medium ${
-                        selectedMatch.recomendacao === 'participar' ? 'text-emerald-600' :
-                        selectedMatch.recomendacao === 'avaliar_melhor' ? 'text-amber-600' :
-                        'text-red-600'
-                      }`}>
-                        {selectedMatch.recomendacao === 'participar' ? 'Participar' :
-                         selectedMatch.recomendacao === 'avaliar_melhor' ? 'Avaliar' : 'Nao Rec.'}
-                      </span>
-                    )}
-                  </div>
-                  <Link
-                    href={`/opportunities/${selectedMatch.matchId}`}
-                    className="mt-2 block text-center text-xs font-medium text-brand hover:underline"
-                  >
-                    Ver detalhes &rarr;
-                  </Link>
+                  {selectedGroup && selectedGroup.length > 1 && (
+                    <div className="mb-2 pb-2 border-b border-gray-200">
+                      <p className="text-xs font-semibold text-gray-700">
+                        {selectedGroup.length} oportunidades em {selectedMatch.municipio || selectedMatch.uf}
+                      </p>
+                    </div>
+                  )}
+                  {(selectedGroup && selectedGroup.length > 1 ? selectedGroup.slice(0, 5) : [selectedMatch]).map((match, idx) => (
+                    <div key={match.matchId} className={idx > 0 ? 'mt-2 pt-2 border-t border-gray-100' : ''}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${getScoreBgClass(match.score)}`}
+                        >
+                          {match.score}
+                        </span>
+                        <span className={`text-[9px] font-medium px-1 py-0.5 rounded ${
+                          match.matchSource === 'ai' || match.matchSource === 'ai_triage' || match.matchSource === 'semantic'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-gray-100 text-gray-500'
+                        }`}>
+                          {match.matchSource === 'ai' || match.matchSource === 'ai_triage' || match.matchSource === 'semantic' ? 'IA' : 'estimado'}
+                        </span>
+                        {!selectedGroup && (
+                          <span className="text-xs text-gray-500">
+                            {match.municipio ? `${match.municipio}/${match.uf}` : match.uf}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs font-medium text-gray-900 leading-snug line-clamp-2 mb-1">
+                        {match.objeto}
+                      </p>
+                      <p className="text-[10px] text-gray-500 truncate mb-1">{match.orgao}</p>
+                      <div className="flex items-center gap-3 text-[10px]">
+                        {match.valor && (
+                          <span className="font-medium text-emerald-600">
+                            {formatCompactBRL(match.valor)}
+                          </span>
+                        )}
+                        {match.modalidade && (
+                          <span className="text-gray-400">{match.modalidade}</span>
+                        )}
+                      </div>
+                      <Link
+                        href={`/opportunities/${match.matchId}`}
+                        className="mt-1 block text-xs font-medium text-brand hover:underline"
+                      >
+                        Ver detalhes &rarr;
+                      </Link>
+                    </div>
+                  ))}
+                  {selectedGroup && selectedGroup.length > 5 && (
+                    <p className="mt-2 pt-2 border-t border-gray-100 text-[10px] text-gray-500 text-center">
+                      +{selectedGroup.length - 5} mais oportunidades — clique no estado para ver todas
+                    </p>
+                  )}
                 </div>
               </Popup>
             )}

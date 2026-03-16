@@ -144,7 +144,7 @@ export default async function MapPage() {
   const bestUf = ufData[0] || null
 
   return (
-    <div className="-m-4 md:-m-8 w-[calc(100%+2rem)] md:w-[calc(100%+4rem)] h-[calc(100vh-3.5rem)] md:h-[calc(100vh)] overflow-hidden">
+    <div className="-m-4 md:-m-8 w-[calc(100%+2rem)] md:w-[calc(100%+4rem)] h-[calc(100vh-3.5rem)] md:h-screen overflow-hidden">
       <IntelligenceMap
         ufData={ufData}
         matchMarkers={matchMarkers}
