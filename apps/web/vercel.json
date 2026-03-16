@@ -5,6 +5,12 @@
     },
     "src/app/api/chat/**/*.ts": {
       "maxDuration": 60
+    },
+    "src/app/api/generate-profile/**/*.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/analyze/**/*.ts": {
+      "maxDuration": 60
     }
   }
 }

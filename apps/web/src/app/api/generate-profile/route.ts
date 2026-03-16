@@ -5,6 +5,7 @@ import OpenAI from 'openai'
 const deepseekClient = new OpenAI({
   apiKey: process.env.DEEPSEEK_API_KEY || '',
   baseURL: 'https://api.deepseek.com',
+  timeout: 45_000, // 45s timeout (Vercel function has 60s max)
 })
 
 const CNAE_GROUPS: Record<string, string> = {
