@@ -76,8 +76,8 @@ export default async function OpportunitiesPage({
   if (ordemDataFilter) baseParams.set('ordem_data', ordemDataFilter)
 
   if (view === 'matches' && companyId) {
-    // PARALLEL: fetch matches + tender count simultaneously
-    const [matchResult, tenderCount] = await Promise.all([
+    // PARALLEL: fetch matches + both tab totals simultaneously
+    const [matchResult, tenderCount, matchTotalCount] = await Promise.all([
       getMatchList({
         companyId,
         page,
@@ -93,11 +93,13 @@ export default async function OpportunitiesPage({
         ordemData: ordemDataFilter || undefined,
       }),
       getTenderCount(),
+      getMatchCount(companyId, userMinScore),
     ])
 
     return renderMatchesView({
       matches: matchResult.matches,
-      matchCount: matchResult.count,
+      matchCount: matchTotalCount,
+      filteredMatchCount: matchResult.count,
       totalPages: matchResult.totalPages,
       tenderCount,
       page,
@@ -116,8 +118,8 @@ export default async function OpportunitiesPage({
     })
   }
 
-  // PARALLEL: fetch tenders + match count simultaneously
-  const [tenderResult, matchCount] = await Promise.all([
+  // PARALLEL: fetch tenders + both tab totals simultaneously
+  const [tenderResult, matchCount, tenderTotalCount] = await Promise.all([
     getTenderList({
       page,
       pageSize,
@@ -132,6 +134,7 @@ export default async function OpportunitiesPage({
       ordemData: ordemDataFilter || undefined,
     }),
     companyId ? getMatchCount(companyId, userMinScore) : Promise.resolve(0),
+    getTenderCount(),
   ])
 
   const { tenders, count, totalPages } = tenderResult
@@ -150,7 +153,7 @@ export default async function OpportunitiesPage({
               : 'bg-gray-150 text-gray-900 hover:bg-gray-200'
           }`}
         >
-          Abertas ({count ?? 0})
+          Abertas ({tenderTotalCount ?? 0})
         </Link>
         <Link
           href={`/opportunities?view=matches`}
@@ -415,6 +418,7 @@ export default async function OpportunitiesPage({
 function renderMatchesView(props: {
   matches: Array<Record<string, any>>
   matchCount: number
+  filteredMatchCount: number
   totalPages: number
   tenderCount: number
   page: number
@@ -432,7 +436,7 @@ function renderMatchesView(props: {
   hasAllPortals: boolean
 }) {
   const {
-    matches, matchCount, totalPages, tenderCount, page,
+    matches, matchCount, filteredMatchCount, totalPages, tenderCount, page,
     ufFilter, modalidadeFilter, scoreMinFilter, dataDeFilter, dataAteFilter, fonteFilter,
     ordemValorFilter, ordemDataFilter, userMinScore, baseParams, canExport, hasAllPortals,
   } = props
@@ -591,7 +595,7 @@ function renderMatchesView(props: {
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <CardTitle className="text-sm sm:text-base">
-              {matchCount ?? 0} matches
+              {filteredMatchCount ?? 0} matches
               <span className="text-sm font-normal text-gray-400 ml-2">
                 (score &ge; {effectiveMinScore}%)
               </span>
@@ -607,7 +611,7 @@ function renderMatchesView(props: {
           </div>
         </CardHeader>
         <CardContent>
-          {(matchCount ?? 0) === 0 ? (
+          {(filteredMatchCount ?? 0) === 0 ? (
             <div className="text-center py-8 text-gray-400">
               <p className="mb-2">A análise por IA está processando suas licitações.</p>
               <p className="text-sm">Os matches aparecerão aqui conforme as licitações forem analisadas.</p>
