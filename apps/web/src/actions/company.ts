@@ -209,8 +209,17 @@ export async function saveCompany(payload: CompanyPayload, existingId?: string) 
 
   if (existingId) {
     // Update existing company
-    const { error } = await supabase.from('companies').update(sanitized).eq('id', existingId)
-    if (error) return { error: error.message }
+    console.log('[COMPANY] Updating company:', existingId, '| descricao length:', sanitized.descricao_servicos?.length || 0, '| palavras_chave count:', sanitized.palavras_chave?.length || 0)
+    const { error, data: updated } = await supabase.from('companies').update(sanitized).eq('id', existingId).select('id')
+    if (error) {
+      console.error('[COMPANY] Update error:', error.message, error.code, error.details)
+      return { error: error.message }
+    }
+    if (!updated || updated.length === 0) {
+      console.error('[COMPANY] Update returned 0 rows — RLS may be blocking')
+      return { error: 'Erro ao atualizar: permissao negada. Tente fazer login novamente.' }
+    }
+    console.log('[COMPANY] Update success, rows:', updated.length)
     companyId = existingId
   } else {
     // Create new company — pre-generate UUID to avoid RETURNING + RLS conflict

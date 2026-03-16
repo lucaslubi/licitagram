@@ -70,6 +70,13 @@ export async function POST(req: NextRequest) {
 
   const cnaeDescriptions = buildCnaeDescriptions(allCnaes)
 
+  // If no CNAE matched our lookup table, still include raw codes
+  if (cnaeDescriptions.length === 0) {
+    for (const cnae of allCnaes) {
+      cnaeDescriptions.push(`CNAE ${cnae}`)
+    }
+  }
+
   if (type === 'description') {
     const prompt = `Com base nos CNAEs abaixo, gere uma descricao COMPLETA e DETALHADA (5-8 frases) dos servicos que esta empresa oferece. Seja especifico sobre o que a empresa FAZ, incluindo tipos de projetos, metodologias e areas de atuacao. Esta descricao sera usada para encontrar licitacoes compativeis, entao inclua o maximo de termos tecnicos relevantes do setor.
 
@@ -81,6 +88,7 @@ ${Array.isArray(capacidades) && capacidades.length > 0 ? `Capacidades: ${capacid
 Retorne APENAS a descricao, sem formatacao, sem markdown, sem aspas.`
 
     try {
+      console.log('[GENERATE] Description request for:', razao_social, '| CNAEs:', cnaeDescriptions.length)
       const response = await deepseekClient.chat.completions.create({
         model: 'deepseek-chat',
         messages: [{ role: 'user', content: prompt }],
@@ -89,13 +97,15 @@ Retorne APENAS a descricao, sem formatacao, sem markdown, sem aspas.`
       })
 
       const description = response.choices[0]?.message?.content?.trim()
+      console.log('[GENERATE] Description result length:', description?.length || 0)
       if (!description || description.length < 20) {
-        return NextResponse.json({ error: 'IA não conseguiu gerar descrição' }, { status: 500 })
+        return NextResponse.json({ error: 'IA nao conseguiu gerar descricao' }, { status: 500 })
       }
 
       return NextResponse.json({ description })
-    } catch {
-      return NextResponse.json({ error: 'Erro ao gerar descrição' }, { status: 500 })
+    } catch (err) {
+      console.error('[GENERATE] Description error:', err)
+      return NextResponse.json({ error: 'Erro ao gerar descricao: ' + (err instanceof Error ? err.message : 'desconhecido') }, { status: 500 })
     }
   }
 
@@ -150,8 +160,9 @@ Retorne APENAS os termos, um por linha, sem numeracao, sem explicacao, sem marca
       const uniqueKeywords = keywords.filter(t => !existingLower.has(t.toLowerCase().trim()))
 
       return NextResponse.json({ keywords: uniqueKeywords.slice(0, 30) })
-    } catch {
-      return NextResponse.json({ error: 'Erro ao gerar palavras-chave' }, { status: 500 })
+    } catch (err) {
+      console.error('[GENERATE] Keywords error:', err)
+      return NextResponse.json({ error: 'Erro ao gerar palavras-chave: ' + (err instanceof Error ? err.message : 'desconhecido') }, { status: 500 })
     }
   }
 
