@@ -196,15 +196,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Match not found' }, { status: 404 })
   }
 
-  // If AI analysis already exists and is valid, return cached
-  if (match.ai_justificativa && match.match_source === 'ai' && match.ai_justificativa !== 'Analise automatica') {
-    // Return full cached data so the UI can display it
+  // Return cached analysis for ai_triage (preserve triage score) or full AI analysis
+  const isCachedTriage = match.match_source === 'ai_triage'
+  const isCachedFull = match.match_source === 'ai' && match.ai_justificativa && match.ai_justificativa !== 'Analise automatica'
+  if (isCachedTriage || isCachedFull) {
     return NextResponse.json({
       cached: true,
       matchId: match.id,
       score: match.score,
       breakdown: match.breakdown || [],
-      justificativa: match.ai_justificativa,
+      justificativa: match.ai_justificativa || null,
       recomendacao: match.recomendacao || null,
       riscos: match.riscos || [],
       acoes_necessarias: match.acoes_necessarias || [],
