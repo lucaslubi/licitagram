@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { revalidatePath } from 'next/cache'
 import { invalidateCache, CacheKeys, isRedisAvailable, getRedis } from '@/lib/redis'
 import { CNAE_DIVISIONS, RELATED_DIVISIONS, getCompanyDivisions, NON_COMPETITIVE_MODALITIES, getCompanySectors, detectSectorConflict, stemWord } from '@licitagram/shared'
 
@@ -291,6 +292,10 @@ export async function saveCompany(payload: CompanyPayload, existingId?: string) 
       await invalidateCache(`cache:company:${companyId}`)
     } catch { /* non-critical */ }
   }
+
+  // Force Next.js to revalidate company page so reloading shows fresh data
+  revalidatePath('/company')
+  revalidatePath('/dashboard')
 
   return { id: companyId }
 }
