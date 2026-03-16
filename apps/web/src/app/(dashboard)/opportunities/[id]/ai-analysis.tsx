@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useState, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 
@@ -90,9 +90,8 @@ export function AiAnalysis({ matchId, initialData, matchSource, hasAccess = true
     )
   }
   const isAiVerified = matchSource === 'ai' || matchSource === 'ai_triage'
-  const hasAiAnalysis = isAiVerified && (initialData.justificativa || matchSource === 'ai_triage')
   const [data, setData] = useState<AnalysisData>(initialData)
-  const [loading, setLoading] = useState(!hasAiAnalysis)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const runAnalysis = useCallback(async () => {
@@ -134,12 +133,6 @@ export function AiAnalysis({ matchId, initialData, matchSource, hasAccess = true
     }
   }, [matchId])
 
-  useEffect(() => {
-    if (!hasAiAnalysis) {
-      runAnalysis()
-    }
-  }, [hasAiAnalysis, runAnalysis])
-
   if (loading) {
     return (
       <Card>
@@ -172,6 +165,22 @@ export function AiAnalysis({ matchId, initialData, matchSource, hasAccess = true
           <Button onClick={runAnalysis} variant="outline" size="sm">
             Tentar novamente
           </Button>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (!isAiVerified) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Analise IA</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-4">
+            <p className="text-sm text-gray-500">Aguardando analise automatica da IA...</p>
+            <p className="text-xs text-gray-400 mt-1">Esta licitacao sera analisada em breve pelo sistema.</p>
+          </div>
         </CardContent>
       </Card>
     )
