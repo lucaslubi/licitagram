@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { formatCurrency } from '@licitagram/shared'
+import { AI_VERIFIED_SOURCES, MIN_DISPLAY_SCORE } from '@/lib/cache'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -19,7 +20,7 @@ export default async function DashboardPage() {
     .single()
 
   const companyId = profile?.company_id
-  const minScore = profile?.min_score ?? 10
+  const minScore = Math.max(MIN_DISPLAY_SCORE, profile?.min_score ?? 10)
 
   if (!companyId) {
     return (
@@ -59,21 +60,23 @@ export default async function DashboardPage() {
     matchesForStats,
     documentsResult,
   ] = await Promise.all([
-    // Total matches (with open tenders only, using !inner join)
+    // Total matches (AI-verified only, open tenders only)
     // IMPORTANT: use head:true to get accurate count without row limit (max_rows=1000)
     supabase
       .from('matches')
       .select('id, tenders!inner(data_encerramento, modalidade_id)', { count: 'exact', head: true })
       .eq('company_id', companyId)
+      .in('match_source', [...AI_VERIFIED_SOURCES])
       .gte('score', minScore)
       .not('tenders.modalidade_id', 'in', '(9,14)')
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' }),
 
-    // Score 70+ matches (with open tenders only)
+    // Score 70+ matches (AI-verified only, open tenders only)
     supabase
       .from('matches')
       .select('id, tenders!inner(data_encerramento, modalidade_id)', { count: 'exact', head: true })
       .eq('company_id', companyId)
+      .in('match_source', [...AI_VERIFIED_SOURCES])
       .gte('score', 70)
       .not('tenders.modalidade_id', 'in', '(9,14)')
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' }),
@@ -92,40 +95,45 @@ export default async function DashboardPage() {
       .select('id', { count: 'exact', head: true })
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`),
 
-    // All match scores for distribution + average (only open tenders)
+    // All match scores for distribution + average (AI-verified, open tenders)
     // Use explicit .limit(10000) to override PostgREST max_rows=1000 default
     supabase
       .from('matches')
       .select('score, tenders!inner(data_encerramento, modalidade_id)')
       .eq('company_id', companyId)
+      .in('match_source', [...AI_VERIFIED_SOURCES])
       .gte('score', minScore)
       .not('tenders.modalidade_id', 'in', '(9,14)')
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
       .limit(10000),
 
-    // Top 5 matches for "Melhores Oportunidades" (only open tenders, respecting minScore)
+    // Top 5 matches for "Melhores Oportunidades" (AI-verified, open tenders)
     supabase
       .from('matches')
       .select('id, score, status, match_source, created_at, tenders!inner(objeto, orgao_nome, uf, valor_estimado, data_encerramento, modalidade_id)')
       .eq('company_id', companyId)
+      .in('match_source', [...AI_VERIFIED_SOURCES])
       .gte('score', minScore)
       .not('tenders.modalidade_id', 'in', '(9,14)')
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
       .order('score', { ascending: false })
       .limit(5),
 
-    // Matches this month
+    // Matches this month (AI-verified only)
     supabase
       .from('matches')
       .select('id', { count: 'exact', head: true })
       .eq('company_id', companyId)
+      .in('match_source', [...AI_VERIFIED_SOURCES])
+      .gte('score', minScore)
       .gte('created_at', thirtyDaysAgo.toISOString()),
 
-    // Interested/applied matches
+    // Interested/applied matches (AI-verified only)
     supabase
       .from('matches')
       .select('id', { count: 'exact', head: true })
       .eq('company_id', companyId)
+      .in('match_source', [...AI_VERIFIED_SOURCES])
       .in('status', ['interested', 'applied']),
 
     // Matches with tender details for Valor em Análise, Top UFs, Top Modalidades
@@ -134,6 +142,7 @@ export default async function DashboardPage() {
       .from('matches')
       .select('score, tenders!inner(uf, modalidade_nome, modalidade_id, valor_estimado, data_encerramento)')
       .eq('company_id', companyId)
+      .in('match_source', [...AI_VERIFIED_SOURCES])
       .gte('score', minScore)
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
       .not('tenders.modalidade_id', 'in', '(9,14)')
@@ -373,10 +382,11 @@ function KPICard({ label, value, small, accent }: { label: string; value: string
 
 function ScoreBadge({ score, source }: { score: number; source?: string | null }) {
   const color = score >= 70 ? 'bg-emerald-100 text-emerald-800' : score >= 50 ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'
+  const isAI = source === 'ai' || source === 'ai_triage' || source === 'semantic'
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${color}`} title={source === 'ai' ? 'Score da Analise IA' : 'Score do matching automatico'}>
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${color}`} title={isAI ? 'Score verificado por IA' : 'Score do matching automatico'}>
       {score}
-      {source === 'ai' && <span className="text-[9px] font-normal opacity-70">IA</span>}
+      {isAI && <span className="text-[9px] font-normal opacity-70">IA</span>}
     </span>
   )
 }
