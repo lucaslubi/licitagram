@@ -52,7 +52,7 @@ export default async function OpportunitiesPage({
   const pageSize = 20
   const ufFilter = params.uf || ''
   const searchQuery = params.q || ''
-  const view = params.view || 'tenders'
+  const view = params.view || 'matches'
   const modalidadeFilter = params.modalidade || ''
   const scoreMinFilter = parseInt(params.score_min || '') || 0
   const dataDeFilter = params.data_de || ''

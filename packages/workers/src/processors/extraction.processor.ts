@@ -1,6 +1,7 @@
 import { Worker } from 'bullmq'
 import { connection } from '../queues/connection'
 import { type ExtractionJobData } from '../queues/extraction.queue'
+import { aiTriageQueue } from '../queues/ai-triage.queue'
 import { extractTextFromPDF } from '../scrapers/pdf-extractor'
 import { runKeywordMatching } from './keyword-matcher'
 import { classifyTenderCNAEs } from '../ai/cnae-classifier'
@@ -148,13 +149,27 @@ const extractionWorker = new Worker<ExtractionJobData>(
     }
 
     // 5. Run CNAE-first keyword matching
+    let newMatchesByCompany = new Map<string, string[]>()
     try {
-      await runKeywordMatching(tenderId)
+      newMatchesByCompany = await runKeywordMatching(tenderId)
     } catch (err) {
       logger.warn({ tenderId, err }, 'Keyword matching failed')
     }
 
-    // 6. Invalidate caches so web app sees fresh data
+    // 6. Enqueue AI triage for new keyword matches (background, non-blocking)
+    for (const [companyId, matchIds] of newMatchesByCompany) {
+      try {
+        await aiTriageQueue.add(
+          `triage-${companyId}-${tenderId}`,
+          { companyId, matchIds },
+          { jobId: `triage-${companyId}-${tenderId}` },
+        )
+      } catch (err) {
+        logger.warn({ companyId, tenderId, err }, 'Failed to enqueue AI triage (non-critical)')
+      }
+    }
+
+    // 7. Invalidate caches so web app sees fresh data
     await invalidateTenderDetail(tenderId)
     await invalidateTenderCaches()
     await incrementStat('extractions-today')

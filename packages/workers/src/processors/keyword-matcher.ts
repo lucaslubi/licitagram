@@ -252,7 +252,8 @@ async function upsertMatchAndNotify(
   finalScore: number,
   breakdown: Array<{ category: string; score: number; reason: string }>,
   matchSource: string,
-): Promise<boolean> {
+): Promise<string | false> {
+  // Returns matchId on success (new keyword match), false on skip/error
   // Check if match already exists WITH AI analysis — don't overwrite AI data
   const { data: existing } = await supabase
     .from('matches')
@@ -272,7 +273,20 @@ async function upsertMatchAndNotify(
       logger.error({ companyId, tenderId, error }, 'Failed to update keyword_score on AI match')
       return false
     }
-    return true // Match exists, not creating a new one
+    return false // Match exists with AI, not a new keyword match
+  }
+
+  // If match already has ai_triage, don't overwrite with keyword score
+  if (existing?.match_source === 'ai_triage') {
+    const { error } = await supabase
+      .from('matches')
+      .update({ keyword_score: finalScore })
+      .eq('id', existing.id)
+
+    if (error) {
+      logger.error({ companyId, tenderId, error }, 'Failed to update keyword_score on ai_triage match')
+    }
+    return false // Already triaged, skip
   }
 
   const { error } = await supabase.from('matches').upsert(
@@ -316,7 +330,15 @@ async function upsertMatchAndNotify(
   await incrementStat('matches-today')
   await enqueueNotifications(companyId, tenderId, finalScore)
 
-  return true
+  // Fetch the match ID for AI triage enqueue
+  const { data: newMatch } = await supabase
+    .from('matches')
+    .select('id')
+    .eq('company_id', companyId)
+    .eq('tender_id', tenderId)
+    .single()
+
+  return newMatch?.id || false
 }
 
 // ─── Main Matching Function (Phrase-Based, CNAE-Gated) ───────────────────
@@ -325,7 +347,8 @@ async function upsertMatchAndNotify(
 // Uses PHRASE-LEVEL matching (not individual tokens) to prevent false positives.
 // When tender has CNAE classification, REQUIRES CNAE overlap (hard gate).
 
-export async function runKeywordMatching(tenderId: string) {
+export async function runKeywordMatching(tenderId: string): Promise<Map<string, string[]>> {
+  // Returns Map<companyId, matchId[]> of NEW keyword matches created
   // 1. Fetch tender
   const { data: tender } = await supabase
     .from('tenders')
@@ -335,13 +358,13 @@ export async function runKeywordMatching(tenderId: string) {
 
   if (!tender || !tender.objeto) {
     logger.warn({ tenderId }, 'No tender or objeto for keyword matching')
-    return
+    return new Map()
   }
 
   // Skip non-competitive modalities (inexigibilidade, inaplicabilidade) — no real competition
   if (tender.modalidade_id && NON_COMPETITIVE_MODALITIES.includes(tender.modalidade_id as any)) {
     logger.info({ tenderId, modalidade_id: tender.modalidade_id }, 'Skipping non-competitive tender (no matching)')
-    return
+    return new Map()
   }
 
   // Skip expired tenders — don't create matches for already-closed tenders
@@ -349,7 +372,7 @@ export async function runKeywordMatching(tenderId: string) {
     const encerramento = new Date(tender.data_encerramento as string)
     if (encerramento < new Date()) {
       logger.info({ tenderId, data_encerramento: tender.data_encerramento }, 'Skipping expired tender (keyword matching)')
-      return
+      return new Map()
     }
   }
 
@@ -375,11 +398,12 @@ export async function runKeywordMatching(tenderId: string) {
 
   if (!companies || companies.length === 0) {
     logger.info('No companies found, skipping keyword matching')
-    return
+    return new Map()
   }
 
   const hasTenderCnaes = tenderCnaes.length > 0
   let matchCount = 0
+  const newMatchesByCompany = new Map<string, string[]>()
 
   // Build tender text for sector conflict detection
   const tenderFullText = tender.objeto + (tender.resumo ? ' ' + tender.resumo : '')
@@ -446,7 +470,7 @@ export async function runKeywordMatching(tenderId: string) {
     if (finalScore < minScore) continue
 
     const matchedPhrasesStr = matchedPhrases.slice(0, 5).join(', ')
-    const success = await upsertMatchAndNotify(
+    const matchId = await upsertMatchAndNotify(
       company.id, tenderId, finalScore,
       [
         { category: 'keywords', score: kwScore, reason: `${phraseMatches} frases: ${matchedPhrasesStr}` },
@@ -455,12 +479,19 @@ export async function runKeywordMatching(tenderId: string) {
       ],
       'keyword',
     )
-    if (success) matchCount++
+    if (matchId) {
+      matchCount++
+      const existing = newMatchesByCompany.get(company.id) || []
+      existing.push(matchId)
+      newMatchesByCompany.set(company.id, existing)
+    }
   }
 
   if (matchCount > 0) {
     logger.info({ tenderId, matchCount }, 'Matches created (phrase-based v3)')
   }
+
+  return newMatchesByCompany
 }
 
 // ─── Notification Enqueue Helper ──────────────────────────────────────────

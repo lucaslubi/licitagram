@@ -20,7 +20,7 @@ export default async function MapPage() {
 
   const companyId = profile.company_id
 
-  // Map fetches ALL matches (no min_score gate) — the client-side score slider controls filtering
+  // Map shows only relevant matches (score >= 20 hides AI-triaged false positives)
   const today = new Date().toISOString().split('T')[0]
   const { data: matches } = await supabase
     .from('matches')
@@ -33,7 +33,7 @@ export default async function MapPage() {
       )
     `)
     .eq('company_id', companyId)
-    .gte('score', 10)
+    .gte('score', 20)
     .not('tenders.modalidade_id', 'in', '(9,14)')
     .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
     .order('score', { ascending: false })

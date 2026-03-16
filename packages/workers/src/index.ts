@@ -20,12 +20,13 @@ import { fornecedorEnrichmentWorker } from './processors/fornecedor-enrichment.p
 import { arpScrapingWorker } from './processors/comprasgov-arp.processor'
 import { legadoScrapingWorker } from './processors/comprasgov-legado.processor'
 import { mgScrapingWorker } from './processors/compras-mg.processor'
+import { aiTriageWorker } from './processors/ai-triage.processor'
 
 const allWorkers = [
   scrapingWorker, extractionWorker, matchingWorker, notificationWorker,
   pendingNotificationsWorker, comprasgovScrapingWorker, becSpScrapingWorker,
   resultsScrapingWorker, documentExpiryWorker, fornecedorEnrichmentWorker,
-  arpScrapingWorker, legadoScrapingWorker, mgScrapingWorker,
+  arpScrapingWorker, legadoScrapingWorker, mgScrapingWorker, aiTriageWorker,
 ]
 import { pendingNotificationsQueue } from './queues/pending-notifications.queue'
 import { comprasgovScrapingQueue } from './queues/comprasgov-scraping.queue'
