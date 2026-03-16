@@ -50,20 +50,32 @@ async function main() {
   let totalEnqueued = 0
 
   for (const company of companies) {
-    // Fetch all keyword matches for this company
-    const { data: matches } = await supabase
-      .from('matches')
-      .select('id')
-      .eq('company_id', company.id)
-      .eq('match_source', 'keyword')
-      .order('score', { ascending: false })
+    // Fetch ALL keyword matches for this company (paginated — Supabase limit is 1000)
+    const allMatchIds: string[] = []
+    let offset = 0
+    const PAGE = 1000
 
-    if (!matches || matches.length === 0) {
+    while (true) {
+      const { data: page } = await supabase
+        .from('matches')
+        .select('id')
+        .eq('company_id', company.id)
+        .eq('match_source', 'keyword')
+        .order('score', { ascending: false })
+        .range(offset, offset + PAGE - 1)
+
+      if (!page || page.length === 0) break
+      allMatchIds.push(...page.map((m) => m.id))
+      if (page.length < PAGE) break
+      offset += PAGE
+    }
+
+    if (allMatchIds.length === 0) {
       console.log(`  ${company.razao_social}: 0 keyword matches, skipping`)
       continue
     }
 
-    const matchIds = matches.map((m) => m.id)
+    const matchIds = allMatchIds
     console.log(`  ${company.razao_social}: ${matchIds.length} keyword matches`)
 
     // Enqueue in chunks of 50 match IDs per job (matches the BATCH_SIZE in the worker)
