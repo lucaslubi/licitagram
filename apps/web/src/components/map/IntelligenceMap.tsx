@@ -31,11 +31,14 @@ function getScoreBgClass(score: number): string {
   return 'bg-red-100 text-red-800'
 }
 
+const BATCH_SIZE = 25
+const MAX_CONCURRENT = 3
+
 export function IntelligenceMap({
   ufData,
-  matchMarkers,
-  totalOpportunities,
-  totalValue,
+  matchMarkers: initialMarkers,
+  totalOpportunities: _totalOpportunities,
+  totalValue: _totalValue,
   bestUf,
   companyId: _companyId,
 }: IntelligenceMapProps) {
@@ -45,6 +48,94 @@ export function IntelligenceMap({
   const [selectedMatch, setSelectedMatch] = useState<MatchMarker | null>(null)
   const [scoreFilter, setScoreFilter] = useState(0)
   const [regionFilter, setRegionFilter] = useState<Set<string>>(new Set(REGIONS))
+
+  // ── AI Triage State ──
+  const [liveMarkers, setLiveMarkers] = useState<MatchMarker[]>(initialMarkers)
+  const [triageProgress, setTriageProgress] = useState<{ done: number; total: number } | null>(null)
+  const triageStartedRef = useRef(false)
+
+  // Auto-triage unverified matches on mount
+  useEffect(() => {
+    if (triageStartedRef.current) return
+    triageStartedRef.current = true
+
+    const unverified = initialMarkers.filter(
+      (m) => m.matchSource !== 'ai' && m.matchSource !== 'ai_triage',
+    )
+    if (unverified.length === 0) return
+
+    // Sort by highest score first (most likely false positives)
+    const sorted = [...unverified].sort((a, b) => b.score - a.score)
+    const total = sorted.length
+    let done = 0
+    setTriageProgress({ done: 0, total })
+
+    // Split into batches
+    const batches: string[][] = []
+    for (let i = 0; i < sorted.length; i += BATCH_SIZE) {
+      batches.push(sorted.slice(i, i + BATCH_SIZE).map((m) => m.matchId))
+    }
+
+    // Process batches with concurrency limit
+    async function processBatches() {
+      const queue = [...batches]
+
+      async function worker() {
+        while (queue.length > 0) {
+          const batch = queue.shift()
+          if (!batch) break
+
+          try {
+            const res = await fetch('/api/batch-triage', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ matchIds: batch }),
+            })
+
+            if (res.ok) {
+              const { results } = await res.json() as {
+                results: Array<{ matchId: string; score: number; recomendacao: string }>
+              }
+
+              // Update markers with AI scores
+              if (results && results.length > 0) {
+                const scoreMap = new Map(results.map((r) => [r.matchId, r]))
+                setLiveMarkers((prev) =>
+                  prev.map((m) => {
+                    const update = scoreMap.get(m.matchId)
+                    if (update) {
+                      return {
+                        ...m,
+                        score: update.score,
+                        matchSource: 'ai_triage',
+                        recomendacao: update.recomendacao,
+                      }
+                    }
+                    return m
+                  }),
+                )
+              }
+            }
+          } catch (err) {
+            console.error('Batch triage error:', err)
+          }
+
+          done += batch.length
+          setTriageProgress({ done: Math.min(done, total), total })
+        }
+      }
+
+      // Launch concurrent workers
+      const workers = Array.from({ length: MAX_CONCURRENT }, () => worker())
+      await Promise.all(workers)
+      setTriageProgress(null) // Done
+    }
+
+    processBatches()
+  }, [initialMarkers])
+
+  // Use liveMarkers (which get updated by triage) instead of initialMarkers
+  const matchMarkers = liveMarkers
 
   // Build lookup
   const ufDataMap = useMemo(() => {
@@ -354,7 +445,7 @@ export function IntelligenceMap({
 
             {/* Individual match markers with score numbers */}
             {filteredMarkers.map((m) => {
-              const isAi = m.matchSource === 'ai'
+              const isAi = m.matchSource === 'ai' || m.matchSource === 'ai_triage'
               return (
               <Marker
                 key={`match-${m.matchId}`}
@@ -407,11 +498,11 @@ export function IntelligenceMap({
                       {selectedMatch.score}
                     </span>
                     <span className={`text-[9px] font-medium px-1 py-0.5 rounded ${
-                      selectedMatch.matchSource === 'ai'
+                      selectedMatch.matchSource === 'ai' || selectedMatch.matchSource === 'ai_triage'
                         ? 'bg-blue-100 text-blue-700'
                         : 'bg-gray-100 text-gray-500'
                     }`}>
-                      {selectedMatch.matchSource === 'ai' ? 'IA' : 'estimado'}
+                      {selectedMatch.matchSource === 'ai' || selectedMatch.matchSource === 'ai_triage' ? 'IA' : 'estimado'}
                     </span>
                     <span className="text-xs text-gray-500">
                       {selectedMatch.municipio ? `${selectedMatch.municipio}/${selectedMatch.uf}` : selectedMatch.uf}
@@ -452,6 +543,27 @@ export function IntelligenceMap({
             )}
           </MapGL>
         </div>
+
+        {/* AI Triage Progress */}
+        {triageProgress && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
+            <Card className="bg-black/80 border-blue-500/30 p-3 text-white min-w-[280px]">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="inline-block w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                <span className="text-xs font-medium">Refinando scores com IA...</span>
+              </div>
+              <div className="w-full bg-gray-700 rounded-full h-1.5">
+                <div
+                  className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
+                  style={{ width: `${Math.round((triageProgress.done / triageProgress.total) * 100)}%` }}
+                />
+              </div>
+              <p className="text-[10px] text-gray-400 mt-1">
+                {triageProgress.done}/{triageProgress.total} matches analisados
+              </p>
+            </Card>
+          </div>
+        )}
 
         {/* Legend */}
         <div className="absolute bottom-2 left-4 z-10">
@@ -625,16 +737,16 @@ export function IntelligenceMap({
                       <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
                         <span
                           className={`inline-flex items-center justify-center w-9 h-9 rounded-full text-xs font-bold text-white ${
-                            m.matchSource === 'ai' ? 'ring-2 ring-blue-400' : ''
+                            m.matchSource === 'ai' || m.matchSource === 'ai_triage' ? 'ring-2 ring-blue-400' : ''
                           }`}
                           style={{ backgroundColor: getMatchColor(m.score) }}
                         >
                           {m.score}
                         </span>
                         <span className={`text-[8px] font-medium ${
-                          m.matchSource === 'ai' ? 'text-blue-600' : 'text-gray-400'
+                          m.matchSource === 'ai' || m.matchSource === 'ai_triage' ? 'text-blue-600' : 'text-gray-400'
                         }`}>
-                          {m.matchSource === 'ai' ? 'IA' : 'est.'}
+                          {m.matchSource === 'ai' || m.matchSource === 'ai_triage' ? 'IA' : 'est.'}
                         </span>
                       </div>
                       <div className="flex-1 min-w-0">
