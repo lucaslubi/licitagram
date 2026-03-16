@@ -16,28 +16,81 @@ interface HistoricalTender {
   modalidade_nome: string | null
 }
 
+interface ScoredTender extends HistoricalTender {
+  relevance: number
+}
+
 function formatCurrencyBR(val: number): string {
   return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
-function extractKeywords(objeto: string): string[] {
-  const stopwords = new Set([
-    'de', 'da', 'do', 'das', 'dos', 'e', 'ou', 'a', 'o', 'as', 'os',
-    'em', 'no', 'na', 'nos', 'nas', 'para', 'por', 'com', 'sem',
-    'um', 'uma', 'uns', 'umas', 'que', 'ao', 'se', 'este', 'esta',
-    'registro', 'precos', 'preco', 'aquisicao', 'contratacao',
-    'eventual', 'fornecimento', 'prestacao', 'servicos', 'servico',
-    'materiais', 'material', 'empresa', 'objeto', 'licitacao',
-  ])
-
-  return objeto
+/** Normalize text: lowercase, strip accents, remove special chars */
+function normalize(text: string): string {
+  return text
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9\s]/g, ' ')
+    .trim()
+}
+
+const STOPWORDS = new Set([
+  'de', 'da', 'do', 'das', 'dos', 'e', 'ou', 'a', 'o', 'as', 'os',
+  'em', 'no', 'na', 'nos', 'nas', 'para', 'por', 'com', 'sem',
+  'um', 'uma', 'uns', 'umas', 'que', 'ao', 'se', 'este', 'esta',
+  'pelo', 'pela', 'pelos', 'pelas', 'ser', 'ter', 'como', 'mais',
+  'sua', 'seu', 'seus', 'suas', 'isso', 'esta', 'esse', 'essa',
+  // Termos genéricos de licitação
+  'constitui', 'objeto', 'presente', 'licitacao', 'pregao',
+  'registro', 'precos', 'preco', 'aquisicao', 'contratacao',
+  'eventual', 'fornecimento', 'prestacao', 'servicos', 'servico',
+  'materiais', 'material', 'empresa', 'empresas', 'futura',
+  'futuras', 'visando', 'objetivando', 'melhores', 'propostas',
+  'proposta', 'selecao', 'vantajosa', 'consignado', 'prazo',
+  'meses', 'dias', 'anos', 'conforme', 'acordo', 'termo',
+  'referencia', 'necessaria', 'necessario', 'atender', 'demandas',
+  'demanda', 'necessidades', 'secretaria', 'municipal', 'fundo',
+])
+
+/**
+ * Extract meaningful keywords, keeping the most specific/rare words.
+ * Returns up to 8 keywords sorted by length desc (longer = more specific).
+ */
+function extractKeywords(objeto: string): string[] {
+  const words = normalize(objeto)
     .split(/\s+/)
-    .filter((w) => w.length > 3 && !stopwords.has(w))
-    .slice(0, 5)
+    .filter((w) => w.length > 3 && !STOPWORDS.has(w))
+
+  // Deduplicate
+  const unique = [...new Set(words)]
+
+  // Sort by length descending — longer words tend to be more specific
+  unique.sort((a, b) => b.length - a.length)
+
+  return unique.slice(0, 8)
+}
+
+/**
+ * Calculate relevance score: how many keywords from the current tender
+ * appear in the historical tender's objeto.
+ */
+function calcRelevance(keywords: string[], tenderObjeto: string): number {
+  const normalized = normalize(tenderObjeto)
+  let matches = 0
+  let weightedScore = 0
+
+  for (const kw of keywords) {
+    if (normalized.includes(kw)) {
+      matches++
+      // Longer keywords are worth more
+      weightedScore += kw.length
+    }
+  }
+
+  // Require at least 2 keyword matches to be considered relevant
+  if (matches < 2) return 0
+
+  return weightedScore
 }
 
 export function HistoricalPrices({
@@ -49,7 +102,7 @@ export function HistoricalPrices({
   currentValorEstimado: number | null
   currentTenderId: string
 }) {
-  const [tenders, setTenders] = useState<HistoricalTender[]>([])
+  const [tenders, setTenders] = useState<ScoredTender[]>([])
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({
     avgEstimado: 0,
@@ -63,42 +116,109 @@ export function HistoricalPrices({
       const supabase = createClient()
       const keywords = extractKeywords(currentObjeto)
 
-      if (keywords.length === 0) {
+      if (keywords.length < 2) {
         setLoading(false)
         return
       }
 
-      // Search for similar tenders using the most specific keywords
-      // We use multiple OR conditions with ilike for trigram-like matching
-      const searchTerm = `%${keywords[0]}%`
+      // Use top 3 keywords for the DB query (most specific first)
+      // We require all of them to match in the DB query for precision
+      const kw1 = keywords[0]
+      const kw2 = keywords[1]
+      const kw3 = keywords.length > 2 ? keywords[2] : null
+
       let query = supabase
         .from('tenders')
         .select('id, objeto, orgao_nome, uf, valor_estimado, valor_homologado, data_abertura, modalidade_nome')
         .neq('id', currentTenderId)
-        .ilike('objeto', searchTerm)
+        .ilike('objeto', `%${kw1}%`)
+        .ilike('objeto', `%${kw2}%`)
         .not('valor_estimado', 'is', null)
         .order('data_abertura', { ascending: false })
-        .limit(20)
+        .limit(50)
 
-      // Add second keyword filter if available
-      if (keywords.length > 1) {
+      if (kw3) {
         query = supabase
           .from('tenders')
           .select('id, objeto, orgao_nome, uf, valor_estimado, valor_homologado, data_abertura, modalidade_nome')
           .neq('id', currentTenderId)
-          .ilike('objeto', `%${keywords[0]}%`)
-          .ilike('objeto', `%${keywords[1]}%`)
+          .ilike('objeto', `%${kw1}%`)
+          .ilike('objeto', `%${kw2}%`)
+          .ilike('objeto', `%${kw3}%`)
           .not('valor_estimado', 'is', null)
           .order('data_abertura', { ascending: false })
-          .limit(20)
+          .limit(50)
       }
 
       const { data } = await query
 
-      const results = (data || []) as HistoricalTender[]
+      if (!data || data.length === 0) {
+        // Fallback: try with just 2 keywords if 3 returned nothing
+        if (kw3) {
+          const { data: fallbackData } = await supabase
+            .from('tenders')
+            .select('id, objeto, orgao_nome, uf, valor_estimado, valor_homologado, data_abertura, modalidade_nome')
+            .neq('id', currentTenderId)
+            .ilike('objeto', `%${kw1}%`)
+            .ilike('objeto', `%${kw2}%`)
+            .not('valor_estimado', 'is', null)
+            .order('data_abertura', { ascending: false })
+            .limit(50)
+
+          if (!fallbackData || fallbackData.length === 0) {
+            setLoading(false)
+            return
+          }
+
+          processResults(fallbackData as HistoricalTender[], keywords)
+        } else {
+          setLoading(false)
+          return
+        }
+      } else {
+        processResults(data as HistoricalTender[], keywords)
+      }
+
+      setLoading(false)
+    }
+
+    function processResults(raw: HistoricalTender[], keywords: string[]) {
+      // Score each result by relevance (how many keywords match)
+      const scored: ScoredTender[] = raw
+        .map((t) => ({
+          ...t,
+          relevance: calcRelevance(keywords, t.objeto),
+        }))
+        .filter((t) => t.relevance > 0) // Must match at least 2 keywords
+
+      // Filter by value range if we have the current estimated value
+      // Keep only tenders within a reasonable range (0.1x to 10x)
+      let filtered = scored
+      if (currentValorEstimado && currentValorEstimado > 0) {
+        const lowerBound = currentValorEstimado * 0.1
+        const upperBound = currentValorEstimado * 10
+        const valueFiltered = scored.filter(
+          (t) => t.valor_estimado && t.valor_estimado >= lowerBound && t.valor_estimado <= upperBound,
+        )
+        // Only use value filter if it leaves enough results
+        if (valueFiltered.length >= 3) {
+          filtered = valueFiltered
+        }
+      }
+
+      // Sort by relevance desc, then by date desc
+      filtered.sort((a, b) => {
+        if (b.relevance !== a.relevance) return b.relevance - a.relevance
+        const dateA = a.data_abertura || ''
+        const dateB = b.data_abertura || ''
+        return dateB.localeCompare(dateA)
+      })
+
+      // Take top 15
+      const results = filtered.slice(0, 15)
       setTenders(results)
 
-      // Calculate statistics
+      // Calculate statistics only from the filtered relevant results
       if (results.length > 0) {
         const withEstimado = results.filter((t) => t.valor_estimado && t.valor_estimado > 0)
         const withHomologado = results.filter(
@@ -115,14 +235,25 @@ export function HistoricalPrices({
             ? withHomologado.reduce((sum, t) => sum + (t.valor_homologado || 0), 0) / withHomologado.length
             : 0
 
-        const discounts = withHomologado.map((t) => {
-          const est = t.valor_estimado || 1
-          const hom = t.valor_homologado || 0
-          return ((est - hom) / est) * 100
-        })
+        // Calculate median discount (more robust than mean for outliers)
+        const discounts = withHomologado
+          .map((t) => {
+            const est = t.valor_estimado || 1
+            const hom = t.valor_homologado || 0
+            return ((est - hom) / est) * 100
+          })
+          .filter((d) => d >= 0 && d <= 90) // Remove nonsensical discounts
+          .sort((a, b) => a - b)
 
-        const avgDesc =
-          discounts.length > 0 ? discounts.reduce((a, b) => a + b, 0) / discounts.length : 0
+        let avgDesc = 0
+        if (discounts.length > 0) {
+          // Use median for robustness
+          const mid = Math.floor(discounts.length / 2)
+          avgDesc =
+            discounts.length % 2 === 0
+              ? (discounts[mid - 1] + discounts[mid]) / 2
+              : discounts[mid]
+        }
 
         setStats({
           avgEstimado: avgEst,
@@ -131,18 +262,16 @@ export function HistoricalPrices({
           count: results.length,
         })
       }
-
-      setLoading(false)
     }
 
     fetchHistorical()
-  }, [currentObjeto, currentTenderId])
+  }, [currentObjeto, currentTenderId, currentValorEstimado])
 
   if (loading) {
     return (
       <Card>
         <CardContent className="py-6 text-center text-gray-400 text-sm">
-          Buscando preços históricos...
+          Buscando precos historicos...
         </CardContent>
       </Card>
     )
@@ -156,9 +285,9 @@ export function HistoricalPrices({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <span>📊</span> Histórico de Preços Similares
+          Historico de Precos Similares
           <Badge variant="secondary" className="text-xs ml-auto">
-            {stats.count} licitações
+            {stats.count} licitacoes
           </Badge>
         </CardTitle>
       </CardHeader>
@@ -166,19 +295,19 @@ export function HistoricalPrices({
         {/* Summary stats */}
         <div className="grid grid-cols-3 gap-3 p-3 bg-gray-100 rounded-lg">
           <div className="text-center">
-            <p className="text-xs text-gray-400">Valor Estimado Médio</p>
+            <p className="text-xs text-gray-400">Valor Estimado Medio</p>
             <p className="text-sm font-bold text-gray-900">
               {stats.avgEstimado > 0 ? formatCurrencyBR(stats.avgEstimado) : '-'}
             </p>
           </div>
           <div className="text-center">
-            <p className="text-xs text-gray-400">Valor Vencedor Médio</p>
+            <p className="text-xs text-gray-400">Valor Vencedor Medio</p>
             <p className="text-sm font-bold text-emerald-700">
               {stats.avgHomologado > 0 ? formatCurrencyBR(stats.avgHomologado) : '-'}
             </p>
           </div>
           <div className="text-center">
-            <p className="text-xs text-gray-400">Desconto Médio</p>
+            <p className="text-xs text-gray-400">Desconto Mediano</p>
             <p className="text-sm font-bold text-brand">
               {stats.avgDesconto > 0 ? `${stats.avgDesconto.toFixed(1)}%` : '-'}
             </p>
@@ -186,11 +315,11 @@ export function HistoricalPrices({
         </div>
 
         {/* Comparison with current */}
-        {currentValorEstimado && stats.avgHomologado > 0 && (
+        {currentValorEstimado && stats.avgDesconto > 0 && (
           <div className="p-3 border border-brand/20 bg-brand/5 rounded-lg">
-            <p className="text-xs text-gray-500 mb-1">Sugestão de preço competitivo</p>
+            <p className="text-xs text-gray-500 mb-1">Sugestao de preco competitivo</p>
             <p className="text-sm font-medium text-gray-900">
-              Com base no desconto médio de {stats.avgDesconto.toFixed(1)}%, um preço competitivo
+              Com base no desconto mediano de {stats.avgDesconto.toFixed(1)}%, um preco competitivo
               seria em torno de{' '}
               <span className="font-bold text-brand">
                 {formatCurrencyBR(currentValorEstimado * (1 - stats.avgDesconto / 100))}
@@ -226,7 +355,7 @@ export function HistoricalPrices({
                   {t.valor_homologado ? (
                     <p className="text-emerald-700 font-medium">
                       Ven: {formatCurrencyBR(t.valor_homologado)}
-                      {desconto !== null && (
+                      {desconto !== null && desconto >= 0 && (
                         <span className="text-brand ml-1">(-{desconto.toFixed(0)}%)</span>
                       )}
                     </p>
