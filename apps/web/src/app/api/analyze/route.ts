@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
+import { invalidateCache, invalidateKey, CacheKeys } from '@/lib/redis'
 import OpenAI from 'openai'
 
 const deepseekClient = new OpenAI({
@@ -70,7 +71,7 @@ function cleanCompanyProfile(company: Record<string, unknown>): Record<string, u
 function buildPrompt(company: Record<string, unknown>, tender: Record<string, unknown>, docsText: string): string {
   const profile = cleanCompanyProfile(company)
 
-  let prompt = `Avalie se esta empresa pode participar desta licitacao. LEMBRE: na duvida, INCLUA a oportunidade.
+  let prompt = `Avalie com PRECISAO se o objeto desta licitacao e compativel com as atividades REAIS da empresa. Seja PRECISO — scores inflados prejudicam o usuario.
 
 PERFIL DA EMPRESA:
 ${JSON.stringify(profile, null, 2)}
@@ -93,40 +94,60 @@ ANALISE PRINCIPAL: O objeto da licitacao e algo que a empresa pode fornecer com 
 Retorne APENAS JSON valido (sem markdown, sem backticks):
 {
   "score": 0-100,
+  "fit": "baixo|medio|alto|excelente",
   "breakdown": [
-    { "category": "compatibilidade_objeto", "score": 0-100, "reason": "..." },
-    { "category": "potencial_participacao", "score": 0-100, "reason": "..." },
-    { "category": "relevancia_estrategica", "score": 0-100, "reason": "..." }
+    { "category": "compatibilidade_objeto", "fit": "baixo|medio|alto|excelente", "reason": "explicacao tecnica em 1-2 frases" },
+    { "category": "potencial_participacao", "fit": "baixo|medio|alto|excelente", "reason": "explicacao tecnica em 1-2 frases" },
+    { "category": "relevancia_estrategica", "fit": "baixo|medio|alto|excelente", "reason": "explicacao tecnica em 1-2 frases" }
   ],
   "justificativa": "justificativa em 2-3 frases",
   "recomendacao": "participar|avaliar_melhor|nao_recomendado",
   "riscos": ["riscos identificados"],
   "acoes_necessarias": ["acoes para participar"]
-}`
+}
+
+REGRAS PARA O CAMPO "fit":
+- "baixo": score 0-40 — empresa nao atua neste ramo ou compatibilidade minima
+- "medio": score 41-60 — ha alguma relacao mas nao e foco direto da empresa
+- "alto": score 61-85 — atividade alinhada com CNAEs e capacidades da empresa
+- "excelente": score 86-100 — match direto, exatamente o que a empresa faz`
 
   return prompt
 }
 
-const SYSTEM_PROMPT = `Voce e um consultor especialista em licitacoes publicas brasileiras. Sua UNICA funcao e avaliar se o OBJETO da licitacao e COMPATIVEL com os CNAEs e atividades da empresa.
+const SYSTEM_PROMPT = `Voce e um consultor especialista em licitacoes publicas brasileiras. Sua funcao e avaliar com PRECISAO se o OBJETO da licitacao e COMPATIVEL com os CNAEs e atividades REAIS da empresa.
 
-PRINCIPIO FUNDAMENTAL: E MUITO MELHOR mostrar uma oportunidade que talvez nao seja perfeita do que PERDER uma boa oportunidade. Na duvida, INCLUA.
+PRINCIPIO FUNDAMENTAL: PRECISAO acima de tudo. Uma oportunidade so deve ter score alto se a empresa REALMENTE pode atende-la. Scores inflados prejudicam o usuario — ele perde tempo analisando licitacoes irrelevantes.
 
-ANALISE INTELIGENTE DE CNAEs:
-- Cada CNAE cobre um UNIVERSO de atividades relacionadas. Interprete de forma AMPLA.
-- Se a empresa tem MULTIPLOS CNAEs, considere COMBINACOES de servicos que ela pode oferecer
+ANALISE DE CNAEs:
+- Analise o CNAE principal e secundarios da empresa e verifique se o OBJETO da licitacao se enquadra ESPECIFICAMENTE nas atividades desses CNAEs
+- NAO assuma que um CNAE generico cobre qualquer coisa — verifique a atividade ESPECIFICA
+- Se a empresa tem CNAE 62 (TI) mas a licitacao pede seguranca patrimonial, score BAIXO
+- Se a empresa tem CNAE 62 (TI) e a licitacao pede desenvolvimento de software, score ALTO
 
-REGRAS DE PONTUACAO (SEJA GENEROSO):
-- Score 0-25: TOTALMENTE incompativel, ramos COMPLETAMENTE diferentes
-- Score 26-45: ramos diferentes mas com alguma intersecao possivel
-- Score 46-65: ha conexao razoavel, empresa PODERIA fornecer com adaptacao
-- Score 66-80: boa compatibilidade, atividade dentro do escopo dos CNAEs
-- Score 81-100: compatibilidade direta e clara
+REGRAS DE PONTUACAO (PRECISAS):
+- Score 0-20: INCOMPATIVEL — empresa nao atua neste ramo de forma alguma
+- Score 21-40: MUITO BAIXA compatibilidade — ramos diferentes com intersecao minima
+- Score 41-55: BAIXA compatibilidade — ha alguma relacao mas nao e a atividade principal
+- Score 56-70: MODERADA — empresa poderia participar mas nao e foco direto
+- Score 71-85: BOA compatibilidade — atividade alinhada com CNAEs da empresa
+- Score 86-100: EXCELENTE — objeto e EXATAMENTE o que a empresa faz, match direto
 
-REGRAS CRITICAS:
-- NAO penalize por falta de informacao. Se um campo esta vazio, assuma NEUTRO (score 70)
+CRITERIOS PARA SCORE 86-100 (EXCELENTE):
+- O objeto da licitacao descreve EXATAMENTE um servico/produto que a empresa oferece
+- Os CNAEs da empresa cobrem DIRETAMENTE a atividade solicitada
+- As palavras-chave e descricao de servicos da empresa mencionam este tipo de trabalho
+
+CRITERIOS PARA SCORE 71-85 (BOA):
+- O objeto esta no escopo dos CNAEs mas pode requerer alguma adaptacao
+- A empresa tem capacidade tecnica mas nao e sua especialidade principal
+
+REGRAS:
 - NAO penalize por localizacao — licitacoes publicas permitem participacao nacional
 - NAO penalize por porte da empresa
-- Se ha QUALQUER CNAE (principal ou secundario) que cubra o objeto = score 70+
+- Se faltam informacoes sobre a empresa, seja CONSERVADOR (score 50), NAO generoso
+- Analise o OBJETO REAL da licitacao — nao apenas palavras-chave soltas
+- Se o objeto menciona multiplos itens/lotes, avalie se a empresa pode fornecer PELO MENOS os itens principais
 
 Sempre responda com JSON valido, sem texto adicional, sem markdown.`
 
@@ -275,18 +296,27 @@ export async function POST(request: NextRequest) {
     const rawScore = typeof parsed.score === 'number' ? parsed.score : 0
     const safeScore = Math.min(100, Math.max(0, rawScore))
 
+    // Preserve original keyword score before AI overwrites it
+    const updatePayload: Record<string, unknown> = {
+      score: safeScore,
+      breakdown: parsed.breakdown as unknown[],
+      ai_justificativa: parsed.justificativa as string,
+      riscos: (parsed.riscos as string[]) || [],
+      acoes_necessarias: (parsed.acoes_necessarias as string[]) || [],
+      recomendacao: (parsed.recomendacao as string) || null,
+      match_source: 'ai',
+      analyzed_at: new Date().toISOString(),
+    }
+
+    // Save original keyword score so we can show the diff in the UI
+    if (match.match_source !== 'ai') {
+      updatePayload.keyword_score = match.score
+    }
+
     // Update match with AI analysis
     const { error: updateError } = await supabase
       .from('matches')
-      .update({
-        score: safeScore,
-        breakdown: parsed.breakdown as unknown[],
-        ai_justificativa: parsed.justificativa as string,
-        riscos: (parsed.riscos as string[]) || [],
-        acoes_necessarias: (parsed.acoes_necessarias as string[]) || [],
-        recomendacao: (parsed.recomendacao as string) || null,
-        match_source: 'ai',
-      })
+      .update(updatePayload)
       .eq('id', matchId)
 
     if (updateError) {
@@ -294,10 +324,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Falha ao salvar analise' }, { status: 500 })
     }
 
+    // Invalidate caches so other pages reflect the AI-updated score immediately
+    try {
+      await Promise.all([
+        invalidateKey(CacheKeys.matchDetail(matchId)),
+        invalidateCache(`cache:matches:${match.company_id}:*`),
+      ])
+    } catch {
+      // Cache invalidation is best-effort — don't fail the API call
+    }
+
     return NextResponse.json({
       cached: false,
       matchId: match.id,
       score: safeScore,
+      fit: parsed.fit || null,
       breakdown: parsed.breakdown,
       justificativa: parsed.justificativa,
       recomendacao: parsed.recomendacao,

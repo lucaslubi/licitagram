@@ -100,8 +100,8 @@ function DraggableCard({ match, isDragging }: { match: Match; isDragging: boolea
 
   const tender = match.tenders
   const scoreColor =
-    match.score >= 80 ? 'bg-emerald-100 text-emerald-800' :
-    match.score >= 60 ? 'bg-amber-100 text-amber-800' :
+    match.score >= 70 ? 'bg-emerald-100 text-emerald-800' :
+    match.score >= 50 ? 'bg-amber-100 text-amber-800' :
     'bg-red-100 text-red-800'
 
   return (
@@ -138,8 +138,8 @@ function DraggableCard({ match, isDragging }: { match: Match; isDragging: boolea
 function CardOverlay({ match }: { match: Match }) {
   const tender = match.tenders
   const scoreColor =
-    match.score >= 80 ? 'bg-emerald-100 text-emerald-800' :
-    match.score >= 60 ? 'bg-amber-100 text-amber-800' :
+    match.score >= 70 ? 'bg-emerald-100 text-emerald-800' :
+    match.score >= 50 ? 'bg-amber-100 text-amber-800' :
     'bg-red-100 text-red-800'
 
   return (

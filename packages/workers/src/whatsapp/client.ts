@@ -100,7 +100,7 @@ export async function sendMatchAlert(
   },
   matchId: string,
 ) {
-  const emoji = match.score >= 80 ? '🟢' : match.score >= 60 ? '🟡' : '🔴'
+  const emoji = match.score >= 70 ? '🟢' : match.score >= 50 ? '🟡' : '🔴'
   const rec = match.recomendacao === 'participar' ? '✅ PARTICIPAR'
     : match.recomendacao === 'nao_recomendado' ? '⛔ NAO RECOMENDADO'
     : '🔎 AVALIAR'

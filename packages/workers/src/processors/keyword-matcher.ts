@@ -30,7 +30,7 @@ import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
 import { notificationQueue } from '../queues/notification.queue'
 import { invalidateMatchCaches, incrementStat } from '../lib/redis-cache'
-import { CNAE_DIVISIONS, getCompanyDivisions, NON_COMPETITIVE_MODALITIES } from '@licitagram/shared'
+import { CNAE_DIVISIONS, getCompanyDivisions, NON_COMPETITIVE_MODALITIES, getCompanySectors, detectSectorConflict } from '@licitagram/shared'
 import { classifyTenderCNAEs } from '../ai/cnae-classifier'
 
 // ─── Scoring Constants ────────────────────────────────────────────────────
@@ -49,6 +49,11 @@ const MIN_PHRASE_MATCHES_B = 3   // Require at least 3 keyword phrases to match
 
 const DIRECT_CNAE_SCORE = 100
 const RELATED_CNAE_SCORE = 50
+
+// PRECISION CAPS — keyword matching alone cannot give certainty
+// Only AI analysis can push scores above these caps
+const MAX_KEYWORD_SCORE_MODE_A = 75  // CNAE-gated: decent confidence but not certain
+const MAX_KEYWORD_SCORE_MODE_B = 60  // Keyword-only: lower confidence, needs AI validation
 
 // ─── Portuguese Stopwords (expanded) ──────────────────────────────────────
 
@@ -129,18 +134,23 @@ function computePhraseScore(
   }
 
   const matchedPhrases: string[] = []
+  let weightedMatches = 0
   for (const phrase of phrases) {
     if (phrase.length > 0 && phrase.every((t) => tenderTokens.has(t))) {
       matchedPhrases.push(phrase.join(' '))
+      // Multi-word phrases are stronger signals than single-word matches
+      // 1 token = 0.3 weight (generic), 2 tokens = 0.7 (moderate), 3+ tokens = 1.0 (specific)
+      weightedMatches += phrase.length === 1 ? 0.3 : phrase.length === 2 ? 0.7 : 1.0
     }
   }
 
   const phraseMatches = matchedPhrases.length
   if (phraseMatches === 0) return { score: 0, phraseMatches: 0, matchedPhrases: [] }
 
-  // Score based on how many keyword PHRASES matched (not individual tokens)
-  // More conservative: 2 phrases = 30, 4 = 50, 6 = 70, 8+ = 90, 10+ = 100
-  const score = Math.min(100, phraseMatches * 12 + 6)
+  // Score based on WEIGHTED phrase matches (not raw count)
+  // Single-word generic matches contribute much less than multi-word specific phrases
+  // This prevents "rede" + "sistema" + "dados" from inflating scores
+  const score = Math.min(100, Math.round(100 * (1 - Math.exp(-weightedMatches * 0.18))))
 
   return { score, phraseMatches, matchedPhrases }
 }
@@ -167,13 +177,17 @@ function buildCompanyPhrases(company: {
   }
 
   // Build CNAE keyword phrases — each keyword stays as a complete phrase
+  // DEDUPLICATE: prevent same phrase from multiple CNAEs inflating the count
+  const seenPhrases = new Set<string>()
   for (const cnae of allCnaes) {
     const div = cnae.substring(0, 2)
     const division = CNAE_DIVISIONS[div]
     if (division) {
       for (const kw of division.keywords) {
         const tokens = tokenize(kw)
-        if (tokens.length > 0) {
+        const key = tokens.join('|')
+        if (tokens.length > 0 && !seenPhrases.has(key)) {
+          seenPhrases.add(key)
           cnaePhrases.push(tokens)
         }
       }
@@ -181,21 +195,26 @@ function buildCompanyPhrases(company: {
   }
 
   // Build user keyword phrases — each keyword stays as a complete phrase
+  // Also deduplicate against CNAE phrases
   const userPhrases: string[][] = []
   if (Array.isArray(company.palavras_chave)) {
     for (const kw of company.palavras_chave as string[]) {
       const tokens = tokenize(kw)
-      if (tokens.length > 0) {
+      const key = tokens.join('|')
+      if (tokens.length > 0 && !seenPhrases.has(key)) {
+        seenPhrases.add(key)
         userPhrases.push(tokens)
       }
     }
   }
 
-  // Add capacidades as phrases too
+  // Add capacidades as phrases too (deduplicated)
   if (Array.isArray(company.capacidades)) {
     for (const cap of company.capacidades as string[]) {
       const tokens = tokenize(cap)
-      if (tokens.length > 0) {
+      const key = tokens.join('|')
+      if (tokens.length > 0 && !seenPhrases.has(key)) {
+        seenPhrases.add(key)
         userPhrases.push(tokens)
       }
     }
@@ -234,6 +253,28 @@ async function upsertMatchAndNotify(
   breakdown: Array<{ category: string; score: number; reason: string }>,
   matchSource: string,
 ): Promise<boolean> {
+  // Check if match already exists WITH AI analysis — don't overwrite AI data
+  const { data: existing } = await supabase
+    .from('matches')
+    .select('id, match_source, ai_justificativa')
+    .eq('company_id', companyId)
+    .eq('tender_id', tenderId)
+    .single()
+
+  if (existing?.match_source === 'ai' && existing?.ai_justificativa) {
+    // Match was already AI-analyzed — only update keyword_score, don't touch AI fields
+    const { error } = await supabase
+      .from('matches')
+      .update({ keyword_score: finalScore })
+      .eq('id', existing.id)
+
+    if (error) {
+      logger.error({ companyId, tenderId, error }, 'Failed to update keyword_score on AI match')
+      return false
+    }
+    return true // Match exists, not creating a new one
+  }
+
   const { error } = await supabase.from('matches').upsert(
     {
       company_id: companyId,
@@ -241,12 +282,14 @@ async function upsertMatchAndNotify(
       score: finalScore,
       keyword_score: finalScore,
       breakdown,
-      ai_justificativa: null,
-      riscos: [],
-      acoes_necessarias: [],
-      recomendacao: null,
-      match_source: matchSource,
-      status: 'new',
+      ...(existing ? {} : {
+        ai_justificativa: null,
+        riscos: [],
+        acoes_necessarias: [],
+        recomendacao: null,
+        match_source: matchSource,
+        status: 'new',
+      }),
     },
     { onConflict: 'company_id,tender_id', ignoreDuplicates: false },
   )
@@ -338,9 +381,22 @@ export async function runKeywordMatching(tenderId: string) {
   const hasTenderCnaes = tenderCnaes.length > 0
   let matchCount = 0
 
+  // Build tender text for sector conflict detection
+  const tenderFullText = tender.objeto + (tender.resumo ? ' ' + tender.resumo : '')
+
   // 5. Score each company using PHRASE-LEVEL matching
   for (const company of companies) {
     const { cnaePhrases, userPhrases, descTokens, allCnaes } = buildCompanyPhrases(company)
+
+    // ── SECTOR CONFLICT GATE ──
+    // If tender clearly belongs to a different sector (e.g., "material de construção"
+    // for an IT company), block the match entirely. This prevents false positives
+    // from generic keyword overlap.
+    const companySectors = getCompanySectors(allCnaes)
+    const conflict = detectSectorConflict(tenderFullText, companySectors)
+    if (conflict) {
+      continue // Skip — tender is from an incompatible sector
+    }
 
     // Combine CNAE + user keyword phrases
     const allPhrases = [...cnaePhrases, ...userPhrases]
@@ -363,10 +419,13 @@ export async function runKeywordMatching(tenderId: string) {
       // HARD GATE: if tender has CNAE classification and company has NO overlap → BLOCK
       if (cnaeScore === 0) continue
 
-      finalScore = Math.round(
-        kwScore * KEYWORD_WEIGHT_A +
-        cnaeScore * CNAE_WEIGHT +
-        descScore * DESCRIPTION_WEIGHT_A,
+      finalScore = Math.min(
+        MAX_KEYWORD_SCORE_MODE_A,
+        Math.round(
+          kwScore * KEYWORD_WEIGHT_A +
+          cnaeScore * CNAE_WEIGHT +
+          descScore * DESCRIPTION_WEIGHT_A,
+        ),
       )
       minScore = MIN_MATCH_SCORE_A
     } else {
@@ -374,9 +433,12 @@ export async function runKeywordMatching(tenderId: string) {
       // Require minimum phrase matches to prevent noise
       if (phraseMatches < MIN_PHRASE_MATCHES_B) continue
 
-      finalScore = Math.round(
-        kwScore * KEYWORD_WEIGHT_B +
-        descScore * DESCRIPTION_WEIGHT_B,
+      finalScore = Math.min(
+        MAX_KEYWORD_SCORE_MODE_B,
+        Math.round(
+          kwScore * KEYWORD_WEIGHT_B +
+          descScore * DESCRIPTION_WEIGHT_B,
+        ),
       )
       minScore = MIN_MATCH_SCORE_B
     }

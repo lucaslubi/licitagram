@@ -8,7 +8,7 @@ import { StatusChanger } from './status-changer'
 import { ComplianceChecker } from './compliance-checker'
 import { EditalChat } from './chat'
 import { HistoricalPrices } from './historical-prices'
-import { AiAnalysis } from './ai-analysis'
+import { ScoreProvider, ScoreBadgeSlot, AnalysisSlot } from './score-header'
 import { getAuthAndProfile, getMatchDetail } from '@/lib/cache'
 import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
 
@@ -40,20 +40,35 @@ export default async function OpportunityDetailPage({
   const riscos = (match.riscos as string[]) || []
   const acoesNecessarias = (match.acoes_necessarias as string[]) || []
   const recomendacao = match.recomendacao as string | null
-  // Infer match source: if ai_justificativa exists and breakdown is non-empty, it was AI-analyzed
-  const matchSource = match.ai_justificativa && breakdown.length > 0 ? 'ai' : 'keyword'
+  // Use actual match_source from database (not inference)
+  const matchSource = (match.match_source as string) || 'keyword'
   const documents = ((tender?.tender_documents as unknown) as Array<{
     id: string; titulo: string | null; tipo: string | null; url: string; texto_extraido: string | null; status: string
   }>) || []
 
   return (
+    <ScoreProvider
+      initialScore={match.score}
+      initialKeywordScore={(match.keyword_score as number) ?? null}
+      matchSource={matchSource}
+      matchId={String(match.id)}
+      hasAccess={hasChatIa}
+      initialData={{
+        score: Number(match.score) || 0,
+        breakdown: breakdown as Array<{ category: string; score?: number; fit?: string; reason: string }>,
+        justificativa: (match.ai_justificativa as string) || null,
+        recomendacao: recomendacao || null,
+        riscos: riscos as string[],
+        acoes_necessarias: acoesNecessarias as string[],
+      }}
+    >
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mb-6">
         <Link href="/opportunities" className="text-sm text-gray-400 hover:text-gray-900">
           ← Voltar
         </Link>
         <h1 className="text-xl sm:text-2xl font-bold flex-1">Detalhes da Oportunidade</h1>
-        <ScoreBadgeLarge score={match.score} />
+        <ScoreBadgeSlot />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -156,19 +171,7 @@ export default async function OpportunityDetailPage({
             hasAccess={hasChatIa}
           />
 
-          <AiAnalysis
-            matchId={String(match.id)}
-            matchSource={matchSource}
-            hasAccess={hasChatIa}
-            initialData={{
-              score: Number(match.score) || 0,
-              breakdown: breakdown as Array<{ category: string; score: number; reason: string }>,
-              justificativa: (match.ai_justificativa as string) || null,
-              recomendacao: recomendacao || null,
-              riscos: riscos as string[],
-              acoes_necessarias: acoesNecessarias as string[],
-            }}
-          />
+          <AnalysisSlot />
 
           {/* Requirements */}
           {requisitos && (requisitos as Record<string, any>).requisitos && (
@@ -351,20 +354,6 @@ export default async function OpportunityDetailPage({
         </div>
       </div>
     </div>
-  )
-}
-
-function ScoreBadgeLarge({ score }: { score: number }) {
-  const color =
-    score >= 80
-      ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-      : score >= 60
-        ? 'bg-amber-100 text-amber-800 border-amber-200'
-        : 'bg-red-100 text-red-800 border-red-200'
-
-  return (
-    <span className={`inline-flex items-center px-4 py-2 rounded-lg text-lg font-bold border ${color}`}>
-      Score {score}
-    </span>
+    </ScoreProvider>
   )
 }

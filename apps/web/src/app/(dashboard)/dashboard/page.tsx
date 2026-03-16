@@ -60,19 +60,22 @@ export default async function DashboardPage() {
     documentsResult,
   ] = await Promise.all([
     // Total matches (with open tenders only, using !inner join)
+    // IMPORTANT: use head:true to get accurate count without row limit (max_rows=1000)
     supabase
       .from('matches')
-      .select('id, tenders!inner(data_encerramento)', { count: 'exact', head: false })
+      .select('id, tenders!inner(data_encerramento, modalidade_id)', { count: 'exact', head: true })
       .eq('company_id', companyId)
       .gte('score', minScore)
+      .not('tenders.modalidade_id', 'in', '(9,14)')
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' }),
 
     // Score 70+ matches (with open tenders only)
     supabase
       .from('matches')
-      .select('id, tenders!inner(data_encerramento)', { count: 'exact', head: false })
+      .select('id, tenders!inner(data_encerramento, modalidade_id)', { count: 'exact', head: true })
       .eq('company_id', companyId)
       .gte('score', 70)
+      .not('tenders.modalidade_id', 'in', '(9,14)')
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' }),
 
     // Novas esta semana — filter on data_publicacao (actual publication date), NOT created_at
@@ -90,19 +93,23 @@ export default async function DashboardPage() {
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`),
 
     // All match scores for distribution + average (only open tenders)
+    // Use explicit .limit(10000) to override PostgREST max_rows=1000 default
     supabase
       .from('matches')
-      .select('score, tenders!inner(data_encerramento)')
+      .select('score, tenders!inner(data_encerramento, modalidade_id)')
       .eq('company_id', companyId)
       .gte('score', minScore)
-      .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' }),
+      .not('tenders.modalidade_id', 'in', '(9,14)')
+      .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
+      .limit(10000),
 
     // Top 5 matches for "Melhores Oportunidades" (only open tenders, respecting minScore)
     supabase
       .from('matches')
-      .select('id, score, status, created_at, tenders!inner(objeto, orgao_nome, uf, valor_estimado, data_encerramento)')
+      .select('id, score, status, match_source, created_at, tenders!inner(objeto, orgao_nome, uf, valor_estimado, data_encerramento, modalidade_id)')
       .eq('company_id', companyId)
       .gte('score', minScore)
+      .not('tenders.modalidade_id', 'in', '(9,14)')
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
       .order('score', { ascending: false })
       .limit(5),
@@ -122,13 +129,15 @@ export default async function DashboardPage() {
       .in('status', ['interested', 'applied']),
 
     // Matches with tender details for Valor em Análise, Top UFs, Top Modalidades
-    // Use minScore (not hardcoded 45) and NO limit — fetch all for accurate stats
+    // Use explicit .limit(10000) to override PostgREST max_rows=1000 default
     supabase
       .from('matches')
-      .select('score, tenders!inner(uf, modalidade_nome, valor_estimado, data_encerramento)')
+      .select('score, tenders!inner(uf, modalidade_nome, modalidade_id, valor_estimado, data_encerramento)')
       .eq('company_id', companyId)
       .gte('score', minScore)
-      .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' }),
+      .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
+      .not('tenders.modalidade_id', 'in', '(9,14)')
+      .limit(10000),
 
     // Company documents for health check
     supabase
@@ -137,8 +146,8 @@ export default async function DashboardPage() {
       .eq('company_id', companyId),
   ])
 
-  const totalMatches = totalMatchesResult.data?.length ?? 0
-  const highMatches = highMatchesResult.data?.length ?? 0
+  const totalMatches = totalMatchesResult.count ?? 0
+  const highMatches = highMatchesResult.count ?? 0
   const weekTenders = weekTendersResult.count ?? 0
   const totalTenders = totalTendersResult.count ?? 0
   const monthMatches = monthMatchesResult.count ?? 0
@@ -152,7 +161,9 @@ export default async function DashboardPage() {
     { range: '90-100', count: scores.filter((s: number) => s >= 90).length, color: 'bg-emerald-500' },
     { range: '70-89', count: scores.filter((s: number) => s >= 70 && s < 90).length, color: 'bg-emerald-400' },
     { range: '50-69', count: scores.filter((s: number) => s >= 50 && s < 70).length, color: 'bg-amber-400' },
-    { range: `${minScore}-49`, count: scores.filter((s: number) => s >= minScore && s < 50).length, color: 'bg-red-400' },
+    ...(minScore < 50 ? [
+      { range: `${minScore}-49`, count: scores.filter((s: number) => s >= minScore && s < 50).length, color: 'bg-red-400' },
+    ] : []),
   ]
   const maxScoreCount = Math.max(...scoreDistribution.map((d) => d.count), 1)
 
@@ -191,7 +202,12 @@ export default async function DashboardPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6 text-gray-900">Dashboard</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+        <p className="text-[10px] text-gray-400">
+          Atualizado: {new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+        </p>
+      </div>
 
       {/* Primary KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -314,8 +330,17 @@ export default async function DashboardPage() {
                       </p>
                     </div>
                     <div className="flex items-center gap-2 ml-3 shrink-0">
-                      <ScoreBadge score={match.score} />
-                      <Badge variant="outline" className="text-xs">{match.status === 'new' ? 'Nova' : match.status === 'interested' ? 'Interesse' : match.status === 'applied' ? 'Aplicada' : match.status}</Badge>
+                      <ScoreBadge score={match.score} source={match.match_source as string | null} />
+                      <Badge variant="outline" className="text-xs">{
+                        match.status === 'new' ? 'Nova' :
+                        match.status === 'notified' ? 'Notificada' :
+                        match.status === 'interested' ? 'Interesse' :
+                        match.status === 'applied' ? 'Aplicada' :
+                        match.status === 'dismissed' ? 'Descartada' :
+                        match.status === 'won' ? 'Ganha' :
+                        match.status === 'lost' ? 'Perdida' :
+                        match.status
+                      }</Badge>
                     </div>
                   </Link>
                 )
@@ -346,7 +371,12 @@ function KPICard({ label, value, small, accent }: { label: string; value: string
   )
 }
 
-function ScoreBadge({ score }: { score: number }) {
-  const color = score >= 80 ? 'bg-emerald-100 text-emerald-800' : score >= 60 ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'
-  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${color}`}>{score}</span>
+function ScoreBadge({ score, source }: { score: number; source?: string | null }) {
+  const color = score >= 70 ? 'bg-emerald-100 text-emerald-800' : score >= 50 ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${color}`} title={source === 'ai' ? 'Score da Analise IA' : 'Score do matching automatico'}>
+      {score}
+      {source === 'ai' && <span className="text-[9px] font-normal opacity-70">IA</span>}
+    </span>
+  )
 }

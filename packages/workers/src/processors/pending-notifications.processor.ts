@@ -40,13 +40,17 @@ const pendingNotificationsWorker = new Worker(
       const minScore = user.min_score ?? 60
 
       // Find matches for this user's company that are 'new' (not yet notified)
+      // Only notify about competitive, non-expired tenders
+      const today = new Date().toISOString().split('T')[0]
       const { data: pendingMatches } = await supabase
         .from('matches')
-        .select('id, score')
+        .select('id, score, tenders!inner(data_encerramento, modalidade_id)')
         .eq('company_id', user.company_id)
         .eq('status', 'new')
         .gte('score', minScore)
         .is('notified_at', null)
+        .not('tenders.modalidade_id', 'in', '(9,14)')
+        .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
         .order('score', { ascending: false })
         .limit(MAX_NOTIFICATIONS_PER_USER)
 

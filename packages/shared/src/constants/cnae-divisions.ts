@@ -303,17 +303,17 @@ export const CNAE_DIVISIONS: Record<string, CNAEDivision> = {
   '61': {
     nome: 'Telecomunicações',
     descricao: 'Telecomunicações por fio, sem fio, satélite, operadoras de televisão por assinatura, provedores de internet, telefonia fixa e móvel, banda larga',
-    keywords: ['telecomunicacao', 'telefonia', 'internet', 'banda larga', 'fibra optica', 'wifi', 'rede', 'provedor', 'operadora', 'movel', 'celular', 'satelite', 'comunicacao', 'voip', 'link', 'dados'],
+    keywords: ['telecomunicacao', 'telefonia fixa', 'telefonia movel', 'internet banda larga', 'banda larga', 'fibra optica', 'wifi', 'rede telecomunicacao', 'provedor internet', 'operadora telefonia', 'satelite comunicacao', 'voip', 'link dados', 'link internet', 'rede dados'],
   },
   '62': {
     nome: 'Atividades dos Serviços de Tecnologia da Informação',
     descricao: 'Desenvolvimento de programas de computador sob encomenda e customizáveis, consultoria em tecnologia da informação, suporte técnico, manutenção e outros serviços em TI, desenvolvimento de software, aplicativos, sistemas, cloud computing, segurança da informação, processamento de dados, hosting, integração de sistemas, automação, inteligência artificial, business intelligence, ERP, CRM, help desk, infraestrutura de TI',
-    keywords: ['software', 'sistema', 'aplicativo', 'programa', 'desenvolvimento', 'programacao', 'tecnologia', 'informacao', 'computador', 'digital', 'cloud', 'nuvem', 'hosting', 'hospedagem', 'dados', 'seguranca informacao', 'rede', 'infraestrutura ti', 'suporte tecnico', 'help desk', 'erp', 'crm', 'integracao', 'automacao', 'web', 'mobile', 'app', 'banco dados', 'servidor', 'backup', 'monitoramento', 'devops', 'consultoria ti', 'outsourcing', 'terceirizacao ti', 'licenca software', 'saas', 'plataforma', 'portal', 'site', 'website', 'ciberseguranca'],
+    keywords: ['desenvolvimento software', 'sistema informacao', 'sistema informatizado', 'sistema gestao', 'aplicativo mobile', 'tecnologia informacao', 'computador desktop', 'computador notebook', 'cloud computing', 'hospedagem site', 'hospedagem web', 'seguranca informacao', 'ciberseguranca', 'infraestrutura tecnologia informacao', 'suporte tecnico informatica', 'help desk', 'erp sistema', 'crm sistema', 'integracao sistema', 'automacao processos', 'banco dados', 'servidor informatica', 'backup dados', 'monitoramento rede informatica', 'monitoramento tecnologia informacao', 'consultoria tecnologia informacao', 'consultoria tecnologia', 'outsourcing tecnologia informacao', 'terceirizacao tecnologia informacao', 'licenca software', 'saas', 'plataforma digital', 'portal web', 'website', 'devops', 'inteligencia artificial', 'business intelligence', 'solucao tecnologica', 'servico tecnologia informacao', 'informatica', 'programacao computador'],
   },
   '63': {
     nome: 'Atividades de Prestação de Serviços de Informação',
     descricao: 'Tratamento de dados, hosting, provedores de serviços de aplicação, portais de busca, agências de notícias, serviços de informação',
-    keywords: ['dados', 'tratamento dados', 'hosting', 'provedor', 'portal', 'busca', 'informacao', 'conteudo', 'agencia noticias', 'datacenter', 'processamento', 'armazenamento dados'],
+    keywords: ['tratamento dados', 'hosting servidor', 'provedor internet', 'portal web', 'portal busca', 'agencia noticias', 'datacenter', 'processamento dados', 'armazenamento dados', 'servico informacao'],
   },
 
   // ── SEÇÃO K: Atividades Financeiras ──
@@ -598,6 +598,254 @@ export const RELATED_DIVISIONS: Record<string, string[]> = {
   '18': ['17', '58'],
   '23': ['41', '42', '43'],
   '32': ['86', '93'],
+}
+
+/**
+ * Sector groups — divisions that belong to the same industry sector.
+ * Used for sector conflict detection: if a tender clearly belongs to one sector
+ * and the company is in a completely different sector, it's a false positive.
+ */
+export const SECTOR_GROUPS: Record<string, { name: string; divisions: string[] }> = {
+  construction: {
+    name: 'Construção & Engenharia',
+    divisions: ['41', '42', '43', '23'],
+  },
+  it: {
+    name: 'Tecnologia da Informação',
+    divisions: ['62', '63', '26', '95'],
+  },
+  telecom: {
+    name: 'Telecomunicações',
+    divisions: ['61'],
+  },
+  health: {
+    name: 'Saúde',
+    divisions: ['86', '87', '88', '21', '32'],
+  },
+  security: {
+    name: 'Segurança & Vigilância',
+    divisions: ['80'],
+  },
+  cleaning: {
+    name: 'Limpeza & Facilities',
+    divisions: ['81'],
+  },
+  food: {
+    name: 'Alimentação',
+    divisions: ['10', '11', '56'],
+  },
+  transport: {
+    name: 'Transporte & Logística',
+    divisions: ['49', '50', '51', '52'],
+  },
+  vehicles: {
+    name: 'Veículos',
+    divisions: ['29', '30', '45'],
+  },
+  agriculture: {
+    name: 'Agricultura & Pecuária',
+    divisions: ['01', '02', '03'],
+  },
+}
+
+/**
+ * Negative keyword phrases per sector.
+ * If a tender's text contains these phrases AND the company is NOT in this sector,
+ * the match should be blocked or severely penalized.
+ *
+ * Each phrase is normalized (no accents, lowercase).
+ * All tokens in the phrase must appear in the tender text to trigger.
+ */
+export const SECTOR_NEGATIVE_PHRASES: Record<string, string[]> = {
+  construction: [
+    'material construcao', 'obra civil', 'construcao civil', 'construcao edificio',
+    'reforma predial', 'pavimentacao asfalto', 'terraplenagem', 'concreto armado',
+    'alvenaria', 'engenharia civil', 'empreiteira', 'construtora',
+    'cimento areia', 'tijolo', 'telha', 'argamassa', 'ferragem construcao',
+    'material hidraulico', 'tubo pvc', 'tubulacao', 'encanamento',
+    'bloco ceramico', 'manta asfaltica', 'impermeabilizacao',
+    'forro gesso', 'piso ceramico', 'azulejo', 'rejunte', 'esquadria aluminio',
+    'madeira construcao', 'tinta parede', 'pintura predial', 'demolicao',
+    'fundacao estaca', 'laje pre moldada', 'estrutura metalica obra',
+    'pedra brita', 'areia lavada', 'cascalho', 'aterro',
+  ],
+  health: [
+    'material hospitalar', 'medicamento', 'insumo hospitalar', 'equipamento medico',
+    'cirurgia', 'ambulancia', 'uti', 'farmaceutico', 'ortese protese',
+    'material odontologico', 'laboratorio clinico', 'exame laboratorial',
+    'material cirurgico', 'luva procedimento', 'seringa agulha', 'cateter',
+    'produto farmaceutico', 'vacina imunizante', 'hemoderivado',
+    'raio diagnostico', 'tomografia', 'ressonancia magnetica',
+    'leito hospitalar', 'oxigenio medicinal', 'material enfermagem',
+  ],
+  food: [
+    'alimentacao escolar', 'merenda escolar', 'genero alimenticio', 'cesta basica',
+    'refeicao transportada', 'fornecimento refeicao', 'carne bovina',
+    'hortifruti', 'hortifrutigranjeiro', 'leite pasteurizado',
+    'carne suina', 'frango congelado', 'arroz feijao', 'oleo soja',
+    'acucar sal', 'farinha trigo', 'macarrao', 'cafe torrado',
+    'polpa fruta', 'suco natural', 'pao frances', 'kit lanche',
+  ],
+  security: [
+    'vigilancia armada', 'vigilancia desarmada', 'seguranca patrimonial',
+    'vigilante armado', 'vigilante desarmado', 'portaria vigilancia',
+    'escolta armada', 'monitoramento alarme', 'ronda patrimonial',
+    'cerca eletrica perimetral', 'guarita portaria', 'controle acesso portaria',
+  ],
+  cleaning: [
+    'limpeza predial', 'limpeza hospitalar', 'limpeza conservacao',
+    'asseio conservacao', 'servico limpeza', 'higienizacao predial',
+    'jardinagem paisagismo', 'rocagem', 'capina',
+    'dedetizacao', 'desratizacao', 'desinsetizacao', 'coleta residuo',
+    'limpeza caixa agua', 'lavagem fachada', 'enceramento piso',
+  ],
+  agriculture: [
+    'insumo agricola', 'defensivo agricola', 'semente plantio',
+    'fertilizante adubo', 'maquina agricola', 'trator agricola',
+    'irrigacao', 'gado bovino', 'racao animal',
+    'herbicida', 'inseticida agricola', 'colheitadeira', 'plantadeira',
+    'silagem', 'suplemento animal', 'vacinacao animal',
+  ],
+  vehicles: [
+    'veiculo automotor', 'caminhao basculante', 'onibus escolar',
+    'peca automotiva', 'pneu veiculo', 'oleo lubrificante motor',
+    'frota veiculo', 'locacao veiculo',
+    'pneu caminhao', 'bateria automotiva', 'filtro oleo combustivel',
+    'pastilha freio', 'amortecedor suspensao', 'retifica motor',
+  ],
+  transport: [
+    'transporte escolar', 'transporte passageiro', 'frete rodoviario',
+    'transporte carga', 'mudanca mobiliario',
+    'transporte coletivo', 'fretamento onibus', 'entrega encomenda',
+  ],
+  furniture: [
+    'mobiliario escritorio', 'mesa escritorio', 'cadeira escritorio',
+    'armario aco', 'estante metalica', 'arquivo aco',
+    'mobiliario escolar', 'carteira escolar', 'quadro branco',
+  ],
+  fuel: [
+    'combustivel', 'gasolina', 'diesel', 'etanol',
+    'oleo diesel', 'gasolina comum', 'abastecimento combustivel',
+    'posto combustivel', 'gas liquefeito', 'gas cozinha',
+  ],
+  textile: [
+    'uniforme', 'fardamento', 'camisa polo', 'calcado bota',
+    'tecido algodao', 'confeccao uniforme', 'roupa cama',
+    'toalha banho', 'lencol hospitalar', 'cortina persiana',
+  ],
+}
+
+/**
+ * Strong single-word sector indicators — words so specific that even ONE
+ * occurrence is a strong signal the tender belongs to that sector.
+ * These trigger conflict detection with just 1 match.
+ */
+export const SECTOR_STRONG_WORDS: Record<string, string[]> = {
+  construction: [
+    'alvenaria', 'terraplenagem', 'argamassa', 'concreto', 'empreiteira',
+    'construtora', 'demolicao', 'impermeabilizacao', 'rejunte', 'cascalho',
+    'pavimentacao', 'cimento', 'tijolo', 'telha', 'azulejo', 'encanamento',
+  ],
+  health: [
+    'medicamento', 'farmaceutico', 'cirurgia', 'ambulancia', 'hemoderivado',
+    'cateter', 'tomografia', 'ortese', 'protese', 'vacina',
+    'enfermagem', 'hospitalar', 'odontologico', 'laboratorial',
+  ],
+  food: [
+    'hortifruti', 'hortifrutigranjeiro', 'merenda', 'alimentacao',
+    'refeicao', 'cesta', 'hortalica', 'frigorificado',
+  ],
+  agriculture: [
+    'herbicida', 'colheitadeira', 'plantadeira', 'silagem',
+    'agropecuario', 'irrigacao', 'pecuaria', 'agrotoxico',
+  ],
+  fuel: [
+    'combustivel', 'gasolina', 'diesel', 'etanol', 'abastecimento',
+  ],
+  transport: [
+    'transporte', 'fretamento', 'rodoviario', 'onibus',
+  ],
+  vehicles: [
+    'automotivo', 'automotiva', 'basculante', 'pneu', 'amortecedor',
+    'retifica', 'lubrificante',
+  ],
+  cleaning: [
+    'limpeza', 'jardinagem', 'rocagem', 'capina', 'dedetizacao',
+    'desratizacao', 'desinsetizacao', 'varrição',
+  ],
+  security: [
+    'vigilancia', 'vigilante', 'ronda',
+  ],
+  textile: [
+    'uniforme', 'fardamento',
+  ],
+  furniture: [
+    'mobiliario',
+  ],
+}
+
+/**
+ * Get the sector group(s) a company belongs to based on its CNAEs.
+ */
+export function getCompanySectors(companyCnaes: string[]): Set<string> {
+  const sectors = new Set<string>()
+  for (const cnae of companyCnaes) {
+    const div = cnae.substring(0, 2)
+    for (const [sector, group] of Object.entries(SECTOR_GROUPS)) {
+      if (group.divisions.includes(div)) {
+        sectors.add(sector)
+      }
+    }
+  }
+  return sectors
+}
+
+/**
+ * Detect if tender text contains strong sector indicators from a DIFFERENT sector
+ * than the company's. Returns the conflicting sector name or null.
+ *
+ * Two-tier detection:
+ * 1. STRONG WORDS: A single highly-specific word (e.g. "alvenaria", "medicamento") = instant conflict
+ * 2. PHRASES: 1+ multi-word phrase match (e.g. "material construcao") = conflict
+ */
+export function detectSectorConflict(
+  tenderText: string,
+  companySectors: Set<string>,
+): string | null {
+  // Normalize tender text for matching
+  const normalized = tenderText
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  const textTokens = new Set(normalized.split(' '))
+
+  // Tier 1: Check strong single-word indicators (instant conflict)
+  for (const [sector, words] of Object.entries(SECTOR_STRONG_WORDS)) {
+    if (companySectors.has(sector)) continue
+    for (const word of words) {
+      if (textTokens.has(word)) {
+        return SECTOR_GROUPS[sector]?.name || sector
+      }
+    }
+  }
+
+  // Tier 2: Check multi-word phrase indicators (1 match = conflict)
+  for (const [sector, phrases] of Object.entries(SECTOR_NEGATIVE_PHRASES)) {
+    if (companySectors.has(sector)) continue
+
+    for (const phrase of phrases) {
+      const phraseTokens = phrase.split(' ').filter((t) => t.length >= 3)
+      if (phraseTokens.length >= 2 && phraseTokens.every((t) => textTokens.has(t))) {
+        return SECTOR_GROUPS[sector]?.name || sector
+      }
+    }
+  }
+
+  return null
 }
 
 /**

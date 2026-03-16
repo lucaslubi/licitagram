@@ -155,27 +155,38 @@ if (bot) {
       return
     }
 
-    const { count: totalMatches } = await supabase
-      .from('matches')
-      .select('*', { count: 'exact', head: true })
-      .eq('company_id', user.company_id)
+    const today = new Date().toISOString().split('T')[0]
 
-    const { count: highMatches } = await supabase
+    const { count: totalMatchesCount } = await supabase
       .from('matches')
-      .select('*', { count: 'exact', head: true })
+      .select('id, tenders!inner(data_encerramento, modalidade_id)', { count: 'exact', head: true })
+      .eq('company_id', user.company_id)
+      .not('tenders.modalidade_id', 'in', '(9,14)')
+      .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
+
+    const { count: highMatchesCount } = await supabase
+      .from('matches')
+      .select('id, tenders!inner(data_encerramento, modalidade_id)', { count: 'exact', head: true })
       .eq('company_id', user.company_id)
       .gte('score', 70)
+      .not('tenders.modalidade_id', 'in', '(9,14)')
+      .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
 
     const { data: recent } = await supabase
       .from('matches')
-      .select('score, tenders(objeto)')
+      .select('score, tenders!inner(objeto, data_encerramento, modalidade_id)')
       .eq('company_id', user.company_id)
+      .not('tenders.modalidade_id', 'in', '(9,14)')
+      .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
       .order('created_at', { ascending: false })
       .limit(3)
 
+    const totalMatches = totalMatchesCount ?? 0
+    const highMatches = highMatchesCount ?? 0
+
     let msg = `📊 *Suas Estatísticas*\n\n`
-    msg += `Total de matches: ${totalMatches ?? 0}\n`
-    msg += `Matches acima de 70: ${highMatches ?? 0}\n\n`
+    msg += `Total de matches: ${totalMatches}\n`
+    msg += `Matches acima de 70: ${highMatches}\n\n`
 
     if (recent && recent.length > 0) {
       msg += `*Últimos matches:*\n`
@@ -203,14 +214,17 @@ if (bot) {
     }
 
     const minScore = user.min_score ?? 45
+    const today = new Date().toISOString().split('T')[0]
     const { data: matches } = await supabase
       .from('matches')
       .select(`
         id, score, status, ai_justificativa,
-        tenders (objeto, orgao_nome, uf, valor_estimado, data_abertura, modalidade_nome, pncp_id)
+        tenders!inner (objeto, orgao_nome, uf, valor_estimado, data_abertura, data_encerramento, modalidade_nome, modalidade_id, pncp_id)
       `)
       .eq('company_id', user.company_id)
       .gte('score', minScore)
+      .not('tenders.modalidade_id', 'in', '(9,14)')
+      .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
       .order('score', { ascending: false })
       .limit(10)
 
@@ -236,7 +250,7 @@ if (bot) {
       const pncpId = tender?.pncp_id as string || ''
       const pncpUrl = pncpId ? `https://pncp.gov.br/app/editais/${pncpId.replace(/-/g, '/')}` : ''
 
-      const emoji = m.score >= 80 ? '🟢' : m.score >= 60 ? '🟡' : '🔴'
+      const emoji = m.score >= 70 ? '🟢' : m.score >= 50 ? '🟡' : '🔴'
       const statusLabel = m.status === 'interested' ? ' ✅' : m.status === 'dismissed' ? ' ❌' : ''
 
       msg += `${emoji} *${m.score}/100*${statusLabel}\n`
@@ -270,15 +284,18 @@ if (bot) {
 
     const minScore = user.min_score ?? 45
 
+    const today = new Date().toISOString().split('T')[0]
     const { data: pending } = await supabase
       .from('matches')
       .select(`
         id, score, breakdown, ai_justificativa,
-        tenders (objeto, orgao_nome, uf, valor_estimado, data_abertura, modalidade_nome)
+        tenders!inner (objeto, orgao_nome, uf, valor_estimado, data_abertura, data_encerramento, modalidade_nome, modalidade_id)
       `)
       .eq('company_id', user.company_id)
       .eq('status', 'new')
       .gte('score', minScore)
+      .not('tenders.modalidade_id', 'in', '(9,14)')
+      .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
       .order('score', { ascending: false })
       .limit(20)
 
@@ -327,12 +344,15 @@ if (bot) {
       }
     }
 
-    const { count: remaining } = await supabase
+    const { count: remainingCount } = await supabase
       .from('matches')
-      .select('*', { count: 'exact', head: true })
+      .select('id, tenders!inner(data_encerramento, modalidade_id)', { count: 'exact', head: true })
       .eq('company_id', user.company_id)
       .eq('status', 'new')
       .gte('score', minScore)
+      .not('tenders.modalidade_id', 'in', '(9,14)')
+      .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
+    const remaining = remainingCount ?? 0
 
     if (remaining && remaining > 0) {
       await ctx.reply(`✅ Alertas enviados! Ainda restam ${remaining} oportunidades. Use /notificar novamente para ver mais.`)
@@ -410,13 +430,16 @@ if (bot) {
       return
     }
 
+    const today = new Date().toISOString().split('T')[0]
     const { data: matches } = await supabase
       .from('matches')
       .select(`
         id, score, recomendacao,
-        tenders (objeto, orgao_nome, uf, valor_estimado, data_abertura)
+        tenders!inner (objeto, orgao_nome, uf, valor_estimado, data_abertura, data_encerramento, modalidade_id)
       `)
       .eq('company_id', user.company_id)
+      .not('tenders.modalidade_id', 'in', '(9,14)')
+      .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
       .order('score', { ascending: false })
       .limit(10)
 
@@ -431,7 +454,7 @@ if (bot) {
     for (let i = 0; i < matches.length; i++) {
       const m = matches[i]
       const t = (m.tenders as unknown) as Record<string, unknown>
-      const emoji = m.score >= 80 ? '🟢' : m.score >= 60 ? '🟡' : '🔴'
+      const emoji = m.score >= 70 ? '🟢' : m.score >= 50 ? '🟡' : '🔴'
       const rec = m.recomendacao === 'participar' ? '✅' : m.recomendacao === 'nao_recomendado' ? '⛔' : '🔎'
       const obj = escTg(truncate((t?.objeto as string) || 'N/A', 70))
       const valor = t?.valor_estimado ? escTg(formatCurrency(t.valor_estimado as number)) : 'N/I'

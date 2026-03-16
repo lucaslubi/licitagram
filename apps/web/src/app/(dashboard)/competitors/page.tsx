@@ -111,11 +111,14 @@ export default async function CompetitorsPage({
     porte?: string; cnae_nome?: string; uf?: string; municipio?: string
   }> = []
   if (profile?.company_id && tab === 'ranking') {
-    // Get tenders the user has matched with
+    // Get tenders the user has matched with (only open, competitive ones)
+    const today = new Date().toISOString().split('T')[0]
     const { data: matchedTenders } = await supabase
       .from('matches')
-      .select('tender_id')
+      .select('tender_id, tenders!inner(data_encerramento, modalidade_id)')
       .eq('company_id', profile.company_id)
+      .not('tenders.modalidade_id', 'in', '(9,14)')
+      .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
       .limit(100)
 
     if (matchedTenders && matchedTenders.length > 0) {

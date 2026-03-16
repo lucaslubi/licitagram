@@ -644,7 +644,7 @@ function renderMatchesView(props: {
                     <TableRow key={match.id} className="cursor-pointer hover:bg-gray-100">
                       <TableCell>
                         <Link href={`/opportunities/${match.id}`}>
-                          <ScoreBadge score={match.score} />
+                          <ScoreBadge score={match.score} matchSource={match.match_source} />
                         </Link>
                       </TableCell>
                       <TableCell>
@@ -745,17 +745,19 @@ function renderMatchesView(props: {
 
 // ─── Shared Components ───────────────────────────────────────────────────────
 
-function ScoreBadge({ score }: { score: number }) {
+function ScoreBadge({ score, matchSource }: { score: number; matchSource?: string }) {
+  const isAi = matchSource === 'ai'
   const color =
-    score >= 80
+    score >= 70
       ? 'bg-emerald-100 text-emerald-800'
-      : score >= 60
+      : score >= 50
         ? 'bg-amber-100 text-amber-800'
         : 'bg-red-100 text-red-800'
 
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${color}`}>
+    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${color}`}>
       {score}
+      {isAi && <span className="text-[10px] font-normal opacity-70">IA</span>}
     </span>
   )
 }

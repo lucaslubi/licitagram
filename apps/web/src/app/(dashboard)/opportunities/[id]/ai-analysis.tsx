@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -16,9 +15,32 @@ const CATEGORY_LABELS: Record<string, string> = {
   localizacao: 'Localização',
 }
 
+const FIT_LABELS: Record<string, string> = {
+  baixo: 'Baixo',
+  medio: 'Médio',
+  alto: 'Alto',
+  excelente: 'Excelente',
+}
+
+/** Derive fit label from a numeric score (for backward compat with old AI responses) */
+function scoreFitLabel(score: number): string {
+  if (score >= 86) return 'Excelente'
+  if (score >= 61) return 'Alto'
+  if (score >= 41) return 'Médio'
+  return 'Baixo'
+}
+
+interface BreakdownItem {
+  category: string
+  score?: number
+  fit?: string
+  reason: string
+}
+
 interface AnalysisData {
   score: number
-  breakdown: Array<{ category: string; score: number; reason: string }>
+  fit?: string
+  breakdown: BreakdownItem[]
   justificativa: string | null
   recomendacao: string | null
   riscos: string[]
@@ -30,9 +52,10 @@ interface AiAnalysisProps {
   initialData: AnalysisData
   matchSource: string | null
   hasAccess?: boolean
+  onScoreUpdate?: (newScore: number) => void
 }
 
-export function AiAnalysis({ matchId, initialData, matchSource, hasAccess = true }: AiAnalysisProps): React.JSX.Element {
+export function AiAnalysis({ matchId, initialData, matchSource, hasAccess = true, onScoreUpdate }: AiAnalysisProps): React.JSX.Element {
   if (!hasAccess) {
     return (
       <Card>
@@ -93,12 +116,15 @@ export function AiAnalysis({ matchId, initialData, matchSource, hasAccess = true
       if (result.score !== undefined) {
         setData({
           score: result.score,
+          fit: result.fit || undefined,
           breakdown: result.breakdown || [],
           justificativa: result.justificativa,
           recomendacao: result.recomendacao,
           riscos: result.riscos || [],
           acoes_necessarias: result.acoes_necessarias || [],
         })
+        // Propagate AI-verified score to parent (header badge)
+        onScoreUpdate?.(result.score)
       }
     } catch (err) {
       setError((err as Error).message)
@@ -156,48 +182,31 @@ export function AiAnalysis({ matchId, initialData, matchSource, hasAccess = true
 
   return (
     <div className="space-y-6">
-      {/* Breakdown */}
+      {/* Parecer Técnico — Fit por Categoria */}
       {breakdown.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Análise por Categoria</CardTitle>
+            <CardTitle>Parecer Técnico</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {breakdown.map((item) => (
-              <div key={item.category}>
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="font-medium">
-                    {CATEGORY_LABELS[item.category] || item.category}
-                  </span>
-                  <span className="font-bold">{item.score}/100</span>
+            {breakdown.map((item) => {
+              const fitLabel = item.fit
+                ? (FIT_LABELS[item.fit] || item.fit)
+                : (typeof item.score === 'number' ? scoreFitLabel(item.score) : '—')
+              return (
+                <div key={item.category} className="border-b border-gray-100 pb-3 last:border-0 last:pb-0">
+                  <div className="flex items-baseline justify-between mb-1">
+                    <span className="text-sm font-medium text-gray-900">
+                      {CATEGORY_LABELS[item.category] || item.category}
+                    </span>
+                    <span className="text-sm text-gray-600 font-medium">
+                      {fitLabel}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 leading-relaxed">{item.reason}</p>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2.5">
-                  <div
-                    className={`h-2.5 rounded-full ${
-                      item.score >= 70
-                        ? 'bg-emerald-500'
-                        : item.score >= 40
-                          ? 'bg-amber-500'
-                          : 'bg-red-500'
-                    }`}
-                    style={{ width: `${item.score}%` }}
-                  />
-                </div>
-                <p className="text-xs text-gray-400 mt-1">{item.reason}</p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Justificativa */}
-      {data.justificativa && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Parecer da IA</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm">{data.justificativa}</p>
+              )
+            })}
           </CardContent>
         </Card>
       )}

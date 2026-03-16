@@ -42,6 +42,8 @@ export async function GET(request: NextRequest) {
 
   let rows: Record<string, unknown>[] = []
 
+  const today = new Date().toISOString().split('T')[0]
+
   if (view === 'matches' && profile?.company_id) {
     let query = supabase
       .from('matches')
@@ -49,11 +51,13 @@ export async function GET(request: NextRequest) {
         id, score, status, recomendacao,
         tenders!inner(
           objeto, orgao_nome, uf, valor_estimado, data_abertura,
-          data_publicacao, modalidade_nome, source
+          data_publicacao, modalidade_nome, modalidade_id, data_encerramento, source
         )
       `)
       .eq('company_id', profile.company_id)
       .gte('score', scoreMin || 45)
+      .not('tenders.modalidade_id', 'in', '(9,14)')
+      .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
       .order('score', { ascending: false })
       .limit(500)
 

@@ -289,6 +289,12 @@ async function fetchMatchListFromDB(params: MatchListParams): Promise<MatchListR
     .eq('company_id', companyId)
     .gte('score', effectiveMinScore)
 
+  // Always exclude non-competitive modalities and expired tenders
+  const today = new Date().toISOString().split('T')[0]
+  query = query
+    .not('tenders.modalidade_id', 'in', '(9,14)')
+    .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
+
   // Filters on the referenced tenders table
   if (uf) query = query.eq('tenders.uf', uf)
   if (modalidade) query = query.eq('tenders.modalidade_id', parseInt(modalidade))
@@ -305,14 +311,8 @@ async function fetchMatchListFromDB(params: MatchListParams): Promise<MatchListR
     return { matches: [], count: 0, totalPages: 0 }
   }
 
-  // Filter out expired tenders in JS (Supabase referencedTable filters don't exclude parent rows)
-  const today = new Date().toISOString().split('T')[0]
-  const openMatches = allMatches.filter((match) => {
-    const tender = match.tenders as unknown as Record<string, unknown> | null
-    if (!tender) return false // no tender data = skip
-    const enc = tender.data_encerramento as string | null
-    return !enc || enc >= today // null (unknown deadline) or still open
-  })
+  // !inner join + filters already exclude expired/non-competitive in the query
+  const openMatches = allMatches
 
   if (openMatches.length === 0) {
     return { matches: [], count: 0, totalPages: 0 }
@@ -349,7 +349,8 @@ async function fetchMatchListFromDB(params: MatchListParams): Promise<MatchListR
   // Manual pagination
   const start = (page - 1) * pageSize
   const paginatedMatches = sorted.slice(start, start + pageSize)
-  const total = openMatches.length
+  // Use the accurate count from { count: 'exact' } query — NOT .length which is capped by limit(2000)
+  const total = count ?? openMatches.length
 
   return {
     matches: paginatedMatches,
@@ -368,14 +369,16 @@ export async function getMatchCount(companyId: string, minScore: number): Promis
     async () => {
       const supabase = await createClient()
       const today = new Date().toISOString().split('T')[0]
-      const { data } = await supabase
+      // IMPORTANT: use head:true + count:'exact' to get accurate count
+      // without being capped by PostgREST max_rows=1000
+      const { count } = await supabase
         .from('matches')
-        .select('id, tenders!inner(data_encerramento)')
+        .select('id, tenders!inner(data_encerramento, modalidade_id)', { count: 'exact', head: true })
         .eq('company_id', companyId)
         .gte('score', minScore)
+        .not('tenders.modalidade_id', 'in', '(9,14)')
         .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
-      // !inner join ensures only matches WITH a matching tender are returned
-      return data?.length || 0
+      return count ?? 0
     },
     TTL.matchCount,
   )

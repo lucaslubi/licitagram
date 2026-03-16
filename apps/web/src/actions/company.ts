@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { invalidateCache, CacheKeys, isRedisAvailable, getRedis } from '@/lib/redis'
-import { CNAE_DIVISIONS, RELATED_DIVISIONS, getCompanyDivisions, NON_COMPETITIVE_MODALITIES } from '@licitagram/shared'
+import { CNAE_DIVISIONS, RELATED_DIVISIONS, getCompanyDivisions, NON_COMPETITIVE_MODALITIES, getCompanySectors, detectSectorConflict } from '@licitagram/shared'
 
 // ─── Service-role Supabase (bypasses RLS for match writes) ─────────────────
 
@@ -16,7 +16,7 @@ function getServiceSupabase() {
 
 // ─── Matching Constants ───────────────────────────────────────────────────
 
-const MIN_MATCH_SCORE = 30
+const MIN_MATCH_SCORE = 40
 const DIRECT_CNAE_SCORE = 100
 const RELATED_CNAE_SCORE = 50
 
@@ -32,11 +32,20 @@ const STOPWORDS = new Set([
   'desde', 'conforme', 'segundo', 'quando', 'onde', 'quem', 'qual',
   'quanto', 'todo', 'toda', 'todos', 'todas', 'cada', 'outro', 'outra',
   'outros', 'outras', 'mesmo', 'mesma', 'ja', 'ainda', 'tambem', 'apenas',
+  // Licitação-specific stopwords (too generic — match everything)
   'contratacao', 'aquisicao', 'prestacao', 'servico', 'servicos', 'fornecimento',
   'empresa', 'objeto', 'licitacao', 'pregao', 'edital', 'item', 'itens',
-  'lote', 'lotes', 'valor', 'preco', 'registro', 'precos',
+  'lote', 'lotes', 'valor', 'preco', 'registro', 'precos', 'ata',
   'processo', 'numero', 'tipo', 'modalidade', 'orgao', 'entidade',
   'publica', 'publico', 'federal', 'estadual', 'municipal', 'governo',
+  'secretaria', 'ministerio', 'departamento', 'diretoria', 'coordenacao',
+  'referente', 'descrito', 'abaixo', 'acima', 'seguinte',
+  'forma', 'modo', 'acordo', 'termos', 'condicoes', 'especificacoes',
+  'atender', 'necessidade', 'demanda', 'solicitacao', 'requisicao',
+  'prazo', 'dias', 'meses', 'periodo', 'vigencia', 'contrato',
+  'execucao', 'realizacao', 'elaboracao', 'instalacao',
+  'material', 'equipamento', 'sistema', 'solucao', 'produto', 'produtos',
+  'unidade', 'quantidade', 'total', 'global', 'mensal', 'anual',
 ])
 
 function normalizeText(text: string): string {
@@ -61,18 +70,22 @@ function computeKeywordScore(
 ): number {
   if (companyTokens.size === 0 || tenderTokens.size === 0) return 0
   let matches = 0
+  const matchedTokens: string[] = []
   for (const token of companyTokens) {
     if (tenderTokens.has(token)) {
       matches++
+      matchedTokens.push(token)
     }
   }
   if (matches === 0) return 0
 
-  // Hybrid scoring: best of percentage-based and absolute-count-based
-  // Percentage: what fraction of company keywords appear in the tender
+  // Require minimum 3 matching tokens to avoid noise from generic word overlap
+  if (matches < 3) return 0
+
+  // Percentage-based: what fraction of company keywords appear in the tender
   const percentScore = Math.round((matches / companyTokens.size) * 100)
-  // Absolute: diminishing returns on match count (3 matches = 45, 5 = 75, 7+ = 100)
-  const absoluteScore = Math.min(100, matches * 15)
+  // Absolute: slower ramp — 3 matches = 30, 5 = 50, 7 = 70, 10+ = 100
+  const absoluteScore = Math.min(100, matches * 10)
   return Math.max(percentScore, absoluteScore)
 }
 
@@ -350,11 +363,70 @@ async function _runRematchForCompany(
     ? new Set(tokenize(company.descricao_servicos))
     : new Set<string>()
 
-  console.log('[REMATCH] Keywords:', companyKeywords.size, '| Desc tokens:', descTokens.size)
+  // Compute company sectors for sector conflict detection
+  const companySectors = getCompanySectors(allCnaes)
+
+  console.log('[REMATCH] Keywords:', companyKeywords.size, '| Desc tokens:', descTokens.size, '| Sectors:', [...companySectors].join(','))
 
   if (allCnaes.length === 0 && companyKeywords.size === 0 && descTokens.size === 0) {
     console.log('[REMATCH] No matching criteria — aborting')
     return 0
+  }
+
+  // ── CLEANUP PHASE 1: Delete low-quality keyword-only matches ──────────
+  const { count: deletedCount } = await serviceSupabase
+    .from('matches')
+    .delete({ count: 'exact' })
+    .eq('company_id', companyId)
+    .eq('match_source', 'keyword')
+    .lte('score', 55)
+    .in('status', ['new', 'viewed'])
+
+  if (deletedCount && deletedCount > 0) {
+    console.log(`[REMATCH] Purged ${deletedCount} low-quality keyword matches`)
+  }
+
+  // ── CLEANUP PHASE 2: Sector conflict retroactive cleanup ─────────────
+  // Re-check ALL existing keyword matches for sector conflicts
+  // (catches old matches created before sector detection was added/expanded)
+  let sectorPurged = 0
+  let cleanupPage = 0
+  while (true) {
+    const { data: existingMatches } = await serviceSupabase
+      .from('matches')
+      .select('id, tender_id, tenders(objeto, resumo)')
+      .eq('company_id', companyId)
+      .eq('match_source', 'keyword')
+      .in('status', ['new', 'viewed'])
+      .range(cleanupPage * 500, (cleanupPage + 1) * 500 - 1)
+
+    if (!existingMatches || existingMatches.length === 0) break
+
+    const idsToDelete: string[] = []
+    for (const m of existingMatches) {
+      const t = m.tenders as any
+      if (!t?.objeto) continue
+      const text = t.objeto + (t.resumo ? ' ' + t.resumo : '')
+      const conflict = detectSectorConflict(text, companySectors)
+      if (conflict) {
+        idsToDelete.push(m.id)
+      }
+    }
+
+    if (idsToDelete.length > 0) {
+      await serviceSupabase
+        .from('matches')
+        .delete()
+        .in('id', idsToDelete)
+      sectorPurged += idsToDelete.length
+    }
+
+    if (existingMatches.length < 500) break
+    cleanupPage++
+  }
+
+  if (sectorPurged > 0) {
+    console.log(`[REMATCH] Purged ${sectorPurged} matches with sector conflicts`)
   }
 
   // ── PRE-LOAD existing match tender IDs (1 query instead of N) ──────────
@@ -449,6 +521,11 @@ async function _runRematchForCompany(
       // Skip if already matched (avoids upsert overhead)
       if (existingMatchIds.has(tender.id)) continue
 
+      // SECTOR CONFLICT GATE: block matches from incompatible sectors
+      const tenderFullText = tender.objeto + (tender.resumo ? ' ' + tender.resumo : '')
+      const conflict = detectSectorConflict(tenderFullText, companySectors)
+      if (conflict) continue
+
       // Tokenize tender text
       const objetoTokens = tokenize(tender.objeto)
       const resumoTokens = tender.resumo ? tokenize(tender.resumo as string) : []
@@ -460,8 +537,9 @@ async function _runRematchForCompany(
       // 2. Description score
       const descScore = computeKeywordScore(descTokens, tenderTokens)
 
-      // Scoring: keyword (60%) + description (40%)
-      const finalScore = Math.round(kwScore * 0.60 + descScore * 0.40)
+      // Scoring: keyword (60%) + description (40%), capped at 50 (keyword-only mode, no CNAE gate)
+      // Cap lower than worker's Mode B (60) since this uses tokens not phrases
+      const finalScore = Math.min(50, Math.round(kwScore * 0.60 + descScore * 0.40))
 
       if (finalScore < MIN_MATCH_SCORE) continue
 

@@ -248,7 +248,7 @@ export function ComplianceChecker({
           <Badge
             variant="outline"
             className={`text-sm ${
-              score >= 80
+              score >= 70
                 ? 'bg-green-100 text-green-800 border-green-200'
                 : score >= 50
                   ? 'bg-yellow-100 text-yellow-800 border-yellow-200'

@@ -19,13 +19,17 @@ export default async function PipelinePage() {
 
   if (!profile?.company_id) redirect('/company')
 
+  const today = new Date().toISOString().split('T')[0]
+
   const { data: matches } = await supabase
     .from('matches')
     .select(
-      'id, score, status, tenders(objeto, orgao_nome, uf, valor_estimado, data_abertura)',
+      'id, score, status, tenders!inner(objeto, orgao_nome, uf, valor_estimado, data_abertura, data_encerramento, modalidade_id)',
     )
     .eq('company_id', profile.company_id)
     .in('status', COLUMN_KEYS)
+    .not('tenders.modalidade_id', 'in', '(9,14)')
+    .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
     .order('score', { ascending: false })
 
   // Normalize the matches for the client component

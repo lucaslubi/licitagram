@@ -207,8 +207,21 @@ export function classifyLocal(objeto: string, resumo?: string | null): LocalClas
   const sorted = scores.sort((a, b) => b.score - a.score).slice(0, 5)
   const topScore = sorted[0]?.score || 0
 
+  // DOMINANCE FILTER: If the top division scores significantly higher than others,
+  // exclude divisions that are likely false positives from generic word overlap.
+  // A construction tender mentioning "sistema" shouldn't classify as CNAE 62 (IT)
+  // if CNAE 41 (construction) scores much higher.
+  const filtered = sorted.filter((s) => {
+    // Always keep the top scorer
+    if (s.score === topScore) return true
+    // Keep if within 40% of the top score (meaningful overlap)
+    if (s.score >= topScore * 0.6) return true
+    // Otherwise discard — likely noise from generic keywords
+    return false
+  })
+
   return {
-    divisions: sorted.map((s) => s.div),
+    divisions: filtered.map((s) => s.div),
     confidence: topScore >= HIGH_CONFIDENCE ? 'high' : 'low',
     topScore,
   }

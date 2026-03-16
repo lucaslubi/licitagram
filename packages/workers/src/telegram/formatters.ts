@@ -35,8 +35,8 @@ function scoreBar(score: number): string {
 }
 
 function scoreEmoji(score: number): string {
-  if (score >= 80) return '🟢'
-  if (score >= 60) return '🟡'
+  if (score >= 70) return '🟢'
+  if (score >= 50) return '🟡'
   return '🔴'
 }
 
