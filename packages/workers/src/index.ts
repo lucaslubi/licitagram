@@ -330,7 +330,18 @@ async function main() {
           )
         } else if (channel === 'licitagram:company-saved') {
           const { companyId } = JSON.parse(message)
-          logger.info({ companyId }, 'Company saved — triggering background keyword matching + AI triage')
+          logger.info({ companyId }, 'Company saved — generating terms + keyword matching + AI triage')
+
+          // 0. Auto-generate comprehensive search terms using AI
+          try {
+            const { generateCompanyTerms } = await import('./processors/ai-triage.processor')
+            const newTerms = await generateCompanyTerms(companyId)
+            if (newTerms.length > 0) {
+              logger.info({ companyId, count: newTerms.length }, 'AI generated new search terms for company')
+            }
+          } catch (err) {
+            logger.warn({ companyId, err }, 'Term generation failed (non-critical)')
+          }
 
           // 1. Run keyword matching sweep for all tenders against this company
           try {

@@ -406,3 +406,120 @@ aiTriageWorker.on('failed', (job, err) => {
 })
 
 export { aiTriageWorker }
+
+// ─── Auto-Generate Company Terms (keywords + capabilities) ──────────────────
+//
+// Uses DeepSeek to generate a comprehensive list of search terms for a company
+// based on its CNAEs, description, and existing keywords. These terms are
+// appended to palavras_chave to broaden matching scope.
+
+export async function generateCompanyTerms(companyId: string): Promise<string[]> {
+  const { data: company } = await supabase
+    .from('companies')
+    .select('id, razao_social, cnae_principal, cnaes_secundarios, descricao_servicos, palavras_chave, capacidades')
+    .eq('id', companyId)
+    .single()
+
+  if (!company) {
+    logger.warn({ companyId }, 'Company not found for term generation')
+    return []
+  }
+
+  const allCnaes: string[] = []
+  if (company.cnae_principal) allCnaes.push(String(company.cnae_principal))
+  if (Array.isArray(company.cnaes_secundarios)) allCnaes.push(...(company.cnaes_secundarios as string[]))
+
+  if (allCnaes.length === 0 && !company.descricao_servicos) {
+    logger.info({ companyId }, 'No CNAEs or description — skipping term generation')
+    return []
+  }
+
+  const cnaeDescriptions: string[] = []
+  for (const cnae of allCnaes) {
+    const group = cnae.substring(0, 2)
+    if (CNAE_GROUPS[group]) {
+      cnaeDescriptions.push(`${cnae}: ${CNAE_GROUPS[group]}`)
+    }
+  }
+
+  const existingTerms = [
+    ...((company.palavras_chave as string[]) || []),
+    ...((company.capacidades as string[]) || []),
+  ]
+
+  const prompt = `Voce e um especialista em licitacoes publicas brasileiras. Com base no perfil abaixo, gere uma lista ABRANGENTE de termos de busca que esta empresa deveria monitorar em editais de licitacao.
+
+PERFIL DA EMPRESA:
+${company.razao_social ? `Razao Social: ${company.razao_social}` : ''}
+${cnaeDescriptions.length > 0 ? `CNAEs:\n${cnaeDescriptions.join('\n')}` : ''}
+${company.descricao_servicos ? `Descricao: ${String(company.descricao_servicos).slice(0, 800)}` : ''}
+${existingTerms.length > 0 ? `Termos atuais: ${existingTerms.join(', ')}` : ''}
+
+INSTRUCOES:
+1. Gere 20-40 termos/frases que tipicamente aparecem em OBJETOS de licitacoes que esta empresa poderia participar
+2. Inclua variacoes e sinonimos (ex: "software" + "sistema" + "solucao tecnologica" + "plataforma digital")
+3. Inclua termos tecnicos do setor (ex: para TI: "infraestrutura de rede", "banco de dados", "cloud computing")
+4. Inclua termos de servicos correlatos que a empresa pode oferecer
+5. NAO inclua termos genericos como "servico", "fornecimento", "contratacao"
+6. NAO inclua termos de setores que a empresa NAO atua
+7. Cada termo deve ter 1-4 palavras
+
+Retorne APENAS os termos, um por linha, sem numeracao, sem explicacao.`
+
+  try {
+    const response = await deepseekClient.chat.completions.create({
+      model: 'deepseek-chat',
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 800,
+      temperature: 0.4,
+    })
+
+    const content = response.choices[0]?.message?.content?.trim()
+    if (!content) return []
+
+    // Parse response: one term per line, clean up
+    const newTerms = content
+      .split('\n')
+      .map(t => t.replace(/^[-•*\d.)\s]+/, '').trim())
+      .filter(t => t.length >= 3 && t.length <= 60)
+      .filter(t => !t.includes(':') && !t.includes('('))
+
+    if (newTerms.length === 0) return []
+
+    // Merge with existing terms (deduplicate, case-insensitive)
+    const existingLower = new Set(existingTerms.map(t => t.toLowerCase().trim()))
+    const uniqueNewTerms = newTerms.filter(t => !existingLower.has(t.toLowerCase().trim()))
+
+    if (uniqueNewTerms.length === 0) {
+      logger.info({ companyId }, 'All generated terms already exist')
+      return []
+    }
+
+    // Save merged terms to DB
+    const mergedTerms = [...existingTerms, ...uniqueNewTerms]
+    // Store new AI-generated terms in palavras_chave
+    const mergedKeywords = [
+      ...((company.palavras_chave as string[]) || []),
+      ...uniqueNewTerms,
+    ]
+
+    const { error } = await supabase
+      .from('companies')
+      .update({ palavras_chave: mergedKeywords })
+      .eq('id', companyId)
+
+    if (error) {
+      logger.error({ companyId, error }, 'Failed to save generated terms')
+      return []
+    }
+
+    logger.info(
+      { companyId, newTerms: uniqueNewTerms.length, totalKeywords: mergedKeywords.length },
+      'Generated and saved company terms',
+    )
+    return uniqueNewTerms
+  } catch (err) {
+    logger.warn({ companyId, err }, 'Failed to generate company terms')
+    return []
+  }
+}
