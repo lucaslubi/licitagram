@@ -30,7 +30,7 @@ import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
 import { notificationQueue } from '../queues/notification.queue'
 import { invalidateMatchCaches, incrementStat } from '../lib/redis-cache'
-import { CNAE_DIVISIONS, getCompanyDivisions, NON_COMPETITIVE_MODALITIES, getCompanySectors, detectSectorConflict } from '@licitagram/shared'
+import { CNAE_DIVISIONS, getCompanyDivisions, NON_COMPETITIVE_MODALITIES, getCompanySectors, detectSectorConflict, stemWord } from '@licitagram/shared'
 import { classifyTenderCNAEs } from '../ai/cnae-classifier'
 
 // ─── Scoring Constants ────────────────────────────────────────────────────
@@ -45,7 +45,7 @@ const MIN_MATCH_SCORE_A = 40
 const KEYWORD_WEIGHT_B = 0.60
 const DESCRIPTION_WEIGHT_B = 0.40
 const MIN_MATCH_SCORE_B = 50     // Higher threshold — no CNAE gate
-const MIN_PHRASE_MATCHES_B = 3   // Require at least 3 keyword phrases to match
+const MIN_PHRASE_MATCHES_B = 2   // Require at least 2 keyword phrases to match
 
 const DIRECT_CNAE_SCORE = 100
 const RELATED_CNAE_SCORE = 50
@@ -96,6 +96,38 @@ export function tokenize(text: string): string[] {
   return normalizeText(text)
     .split(' ')
     .filter((w) => w.length >= 3 && !STOPWORDS.has(w))
+    .map(stemWord)
+}
+
+// ─── Direct Term Match (simple substring search) ─────────────────────────
+//
+// Simplest possible matching: normalize the company's key terms and check
+// if they appear as substrings in the tender text. This catches cases where
+// the tokenizer/stemmer misses due to word boundaries or conjugation.
+// Returns matched terms and a score based on how many terms matched.
+
+function directTermMatch(
+  companyTerms: string[],
+  tenderText: string,
+): { matched: string[]; score: number } {
+  if (companyTerms.length === 0 || !tenderText) return { matched: [], score: 0 }
+
+  const normalizedTender = normalizeText(tenderText)
+  const matched: string[] = []
+
+  for (const term of companyTerms) {
+    const normalizedTerm = normalizeText(term)
+    // Only match terms with 4+ chars to avoid noise
+    if (normalizedTerm.length >= 4 && normalizedTender.includes(normalizedTerm)) {
+      matched.push(term)
+    }
+  }
+
+  if (matched.length === 0) return { matched: [], score: 0 }
+
+  // Score: 2+ terms = strong signal
+  const score = Math.min(60, matched.length * 20) // 1=20, 2=40, 3+=60 (capped, needs AI to go higher)
+  return { matched, score }
 }
 
 // ─── CNAE Score (Hierarchical) ────────────────────────────────────────────
@@ -437,6 +469,7 @@ export async function runKeywordMatching(tenderId: string): Promise<Map<string, 
 
     let finalScore: number
     let minScore: number
+    let usedDirectMatch = false
 
     if (hasTenderCnaes) {
       // ── MODE A: CNAE-Gated ──
@@ -451,32 +484,80 @@ export async function runKeywordMatching(tenderId: string): Promise<Map<string, 
           descScore * DESCRIPTION_WEIGHT_A,
         ),
       )
+
+      // If CNAE matches but keyword/desc score is low, boost with direct term match
+      if (finalScore < MIN_MATCH_SCORE_A) {
+        const companyTerms = [
+          ...((company.palavras_chave as string[]) || []),
+          ...((company.capacidades as string[]) || []),
+        ]
+        const { matched, score: directScore } = directTermMatch(companyTerms, tenderFullText)
+        if (matched.length >= 1 && directScore > 0) {
+          // CNAE match + direct term = valid match
+          finalScore = Math.max(finalScore, Math.min(MAX_KEYWORD_SCORE_MODE_A, directScore + Math.round(cnaeScore * CNAE_WEIGHT)))
+          usedDirectMatch = true
+        }
+      }
+
       minScore = MIN_MATCH_SCORE_A
     } else {
       // ── MODE B: Keyword-Only ──
       // Require minimum phrase matches to prevent noise
-      if (phraseMatches < MIN_PHRASE_MATCHES_B) continue
-
-      finalScore = Math.min(
-        MAX_KEYWORD_SCORE_MODE_B,
-        Math.round(
-          kwScore * KEYWORD_WEIGHT_B +
-          descScore * DESCRIPTION_WEIGHT_B,
-        ),
-      )
-      minScore = MIN_MATCH_SCORE_B
+      if (phraseMatches < MIN_PHRASE_MATCHES_B) {
+        // ── FALLBACK: Direct Term Match ──
+        // If phrase matching didn't hit threshold, try simple substring search
+        // using the company's raw palavras_chave and capacidades
+        const companyTerms = [
+          ...((company.palavras_chave as string[]) || []),
+          ...((company.capacidades as string[]) || []),
+        ]
+        const { matched, score: directScore } = directTermMatch(companyTerms, tenderFullText)
+        if (matched.length >= 2 && directScore >= MIN_MATCH_SCORE_A) {
+          finalScore = directScore
+          minScore = MIN_MATCH_SCORE_A
+          usedDirectMatch = true
+        } else {
+          continue
+        }
+      } else {
+        finalScore = Math.min(
+          MAX_KEYWORD_SCORE_MODE_B,
+          Math.round(
+            kwScore * KEYWORD_WEIGHT_B +
+            descScore * DESCRIPTION_WEIGHT_B,
+          ),
+        )
+        minScore = MIN_MATCH_SCORE_B
+      }
     }
 
-    if (finalScore < minScore) continue
+    if (!usedDirectMatch && finalScore < minScore) continue
 
     const matchedPhrasesStr = matchedPhrases.slice(0, 5).join(', ')
-    const matchId = await upsertMatchAndNotify(
-      company.id, tenderId, finalScore,
-      [
+
+    // For direct match, build breakdown from matched terms
+    let breakdown
+    if (usedDirectMatch) {
+      const companyTerms = [
+        ...((company.palavras_chave as string[]) || []),
+        ...((company.capacidades as string[]) || []),
+      ]
+      const { matched } = directTermMatch(companyTerms, tenderFullText)
+      breakdown = [
+        { category: 'direct_match', score: finalScore, reason: `Termos encontrados: ${matched.slice(0, 5).join(', ')}` },
+        { category: 'cnae', score: cnaeScore, reason: cnaeScore > 0 ? `CNAE match: ${tenderCnaes.join(', ')}` : 'Sem classificacao CNAE' },
+      ]
+    } else {
+      breakdown = [
         { category: 'keywords', score: kwScore, reason: `${phraseMatches} frases: ${matchedPhrasesStr}` },
         { category: 'description', score: descScore, reason: 'Descricao de servicos' },
         { category: 'cnae', score: cnaeScore, reason: cnaeScore > 0 ? `CNAE match: ${tenderCnaes.join(', ')}` : 'Sem classificacao CNAE' },
-      ],
+      ]
+    }
+
+    const matchId = await upsertMatchAndNotify(
+      company.id, tenderId, finalScore,
+      breakdown,
       'keyword',
     )
     if (matchId) {

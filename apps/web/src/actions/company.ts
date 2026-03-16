@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { invalidateCache, CacheKeys, isRedisAvailable, getRedis } from '@/lib/redis'
-import { CNAE_DIVISIONS, RELATED_DIVISIONS, getCompanyDivisions, NON_COMPETITIVE_MODALITIES, getCompanySectors, detectSectorConflict } from '@licitagram/shared'
+import { CNAE_DIVISIONS, RELATED_DIVISIONS, getCompanyDivisions, NON_COMPETITIVE_MODALITIES, getCompanySectors, detectSectorConflict, stemWord } from '@licitagram/shared'
 
 // ─── Service-role Supabase (bypasses RLS for match writes) ─────────────────
 
@@ -62,6 +62,7 @@ function tokenize(text: string): string[] {
   return normalizeText(text)
     .split(' ')
     .filter((w) => w.length >= 3 && !STOPWORDS.has(w))
+    .map(stemWord)
 }
 
 function computeKeywordScore(
@@ -79,8 +80,8 @@ function computeKeywordScore(
   }
   if (matches === 0) return 0
 
-  // Require minimum 3 matching tokens to avoid noise from generic word overlap
-  if (matches < 3) return 0
+  // Require minimum 2 matching tokens to avoid noise from generic word overlap
+  if (matches < 2) return 0
 
   // Percentage-based: what fraction of company keywords appear in the tender
   const percentScore = Math.round((matches / companyTokens.size) * 100)
