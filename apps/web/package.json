@@ -22,6 +22,7 @@
     "@supabase/ssr": "^0.5.0",
     "@supabase/supabase-js": "^2.47.0",
     "@tailwindcss/typography": "^0.5.19",
+    "adm-zip": "^0.5.16",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "ioredis": "^5.4.0",
@@ -42,6 +43,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@types/adm-zip": "^0.5.7",
     "@types/ioredis": "^5.0.0",
     "@types/mapbox-gl": "^3.5.0",
     "@types/react": "^18.3.0",

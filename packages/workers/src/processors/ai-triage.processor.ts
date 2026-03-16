@@ -284,6 +284,29 @@ const aiTriageWorker = new Worker<AiTriageJobData>(
       { companyId, triaged, lowScoreCount, total: matchIds.length },
       'Background AI triage complete',
     )
+
+    // Enqueue semantic matching if embedding provider is available and company has embedding
+    if (process.env.JINA_API_KEY || process.env.OPENAI_API_KEY) {
+      try {
+        const { data: co } = await supabase
+          .from('companies')
+          .select('embedding')
+          .eq('id', companyId)
+          .single()
+
+        if (co?.embedding) {
+          const { semanticMatchingQueue } = await import('../queues/semantic-matching.queue')
+          await semanticMatchingQueue.add(
+            `post-triage-semantic-${companyId}`,
+            { companyId },
+            { jobId: `post-triage-semantic-${companyId}-${Date.now()}` },
+          )
+          logger.info({ companyId }, 'Enqueued semantic matching after triage')
+        }
+      } catch {
+        // Non-critical — semantic matching will run in scheduled sweep
+      }
+    }
   },
   {
     connection,

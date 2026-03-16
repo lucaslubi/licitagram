@@ -89,7 +89,7 @@ export function AiAnalysis({ matchId, initialData, matchSource, hasAccess = true
       </Card>
     )
   }
-  const isAiVerified = matchSource === 'ai' || matchSource === 'ai_triage'
+  const isAiVerified = matchSource === 'ai' || matchSource === 'ai_triage' || matchSource === 'semantic'
   const [data, setData] = useState<AnalysisData>(initialData)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -191,7 +191,7 @@ export function AiAnalysis({ matchId, initialData, matchSource, hasAccess = true
   const acoesNecessarias = data.acoes_necessarias || []
 
   // Triage-only: show score summary + offer deep analysis button
-  if (matchSource === 'ai_triage' && breakdown.length === 0 && !data.justificativa) {
+  if ((matchSource === 'ai_triage' || matchSource === 'semantic') && breakdown.length === 0 && !data.justificativa) {
     return (
       <Card>
         <CardHeader>

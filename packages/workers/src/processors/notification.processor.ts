@@ -75,7 +75,7 @@ const notificationWorker = new Worker<NotificationJobData>(
     const { data: match } = await supabase
       .from('matches')
       .select(`
-        id, score, breakdown, ai_justificativa, company_id,
+        id, score, match_source, breakdown, ai_justificativa, company_id,
         tenders (objeto, orgao_nome, uf, valor_estimado, data_abertura, data_encerramento, modalidade_nome)
       `)
       .eq('id', matchId)
@@ -83,6 +83,16 @@ const notificationWorker = new Worker<NotificationJobData>(
 
     if (!match) {
       logger.warn({ matchId }, 'Match not found for notification')
+      return
+    }
+
+    // ── BLOCK unverified matches — only AI-verified sources get notified ──
+    const VERIFIED_SOURCES = ['ai', 'ai_triage', 'semantic']
+    if (!VERIFIED_SOURCES.includes(match.match_source || '')) {
+      logger.info(
+        { matchId, matchSource: match.match_source, score: match.score },
+        'Notification blocked: match not AI-verified (keyword-only)',
+      )
       return
     }
 

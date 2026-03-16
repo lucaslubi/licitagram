@@ -148,7 +148,17 @@ const extractionWorker = new Worker<ExtractionJobData>(
       logger.warn({ tenderId, err }, 'CNAE classification failed (will retry in sweep)')
     }
 
-    // 5. Run CNAE-first keyword matching
+    // 5. Embed tender for semantic matching (non-blocking)
+    if (process.env.JINA_API_KEY || process.env.OPENAI_API_KEY) {
+      try {
+        const { embedTender } = await import('./company-profiler')
+        await embedTender(tenderId)
+      } catch (err) {
+        logger.warn({ tenderId, err }, 'Tender embedding failed (will retry in sweep)')
+      }
+    }
+
+    // 6. Run CNAE-first keyword matching
     let newMatchesByCompany = new Map<string, string[]>()
     try {
       newMatchesByCompany = await runKeywordMatching(tenderId)
@@ -156,7 +166,7 @@ const extractionWorker = new Worker<ExtractionJobData>(
       logger.warn({ tenderId, err }, 'Keyword matching failed')
     }
 
-    // 6. Enqueue AI triage for new keyword matches (background, non-blocking)
+    // 7. Enqueue AI triage for new keyword matches (background, non-blocking)
     for (const [companyId, matchIds] of newMatchesByCompany) {
       try {
         await aiTriageQueue.add(
@@ -169,7 +179,7 @@ const extractionWorker = new Worker<ExtractionJobData>(
       }
     }
 
-    // 7. Invalidate caches so web app sees fresh data
+    // 8. Invalidate caches so web app sees fresh data
     await invalidateTenderDetail(tenderId)
     await invalidateTenderCaches()
     await incrementStat('extractions-today')

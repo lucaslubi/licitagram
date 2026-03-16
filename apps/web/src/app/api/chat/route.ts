@@ -81,14 +81,14 @@ function getServiceSupabase() {
   )
 }
 
-/** Extract text from a PDF URL */
+/** Extract text from a PDF or ZIP URL */
 async function extractPdfText(url: string): Promise<{ text: string | null; error: string | null }> {
   try {
     const pdfResponse = await fetch(url, {
       signal: AbortSignal.timeout(60_000),
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; Licitagram/1.0; +https://licitagram.com.br)',
-        Accept: 'application/pdf, */*',
+        Accept: 'application/pdf, application/zip, */*',
       },
       redirect: 'follow',
     })
@@ -96,18 +96,52 @@ async function extractPdfText(url: string): Promise<{ text: string | null; error
       return { text: null, error: `HTTP ${pdfResponse.status}` }
     }
     const contentType = pdfResponse.headers.get('content-type') || ''
-    const isPdfLike =
+    const isAcceptable =
       contentType.includes('pdf') ||
+      contentType.includes('zip') ||
       contentType.includes('octet-stream') ||
       contentType.includes('binary') ||
-      url.toLowerCase().endsWith('.pdf')
-    if (!isPdfLike && !contentType.includes('application/')) {
+      url.toLowerCase().endsWith('.pdf') ||
+      url.toLowerCase().endsWith('.zip')
+    if (!isAcceptable && !contentType.includes('application/')) {
       return { text: null, error: `Unexpected content-type: ${contentType}` }
     }
     const buffer = Buffer.from(await pdfResponse.arrayBuffer())
-    if (buffer.length > 50 * 1024 * 1024) return { text: null, error: 'PDF too large' }
-    if (buffer.length < 100) return { text: null, error: 'PDF empty' }
+    if (buffer.length > 50 * 1024 * 1024) return { text: null, error: 'File too large' }
+    if (buffer.length < 100) return { text: null, error: 'File empty' }
 
+    // Detect ZIP (magic bytes PK\x03\x04)
+    const isZip = buffer[0] === 0x50 && buffer[1] === 0x4B && buffer[2] === 0x03 && buffer[3] === 0x04
+    const looksLikeZip = isZip || contentType.includes('zip') || url.toLowerCase().endsWith('.zip')
+
+    if (looksLikeZip) {
+      const { default: AdmZip } = await import('adm-zip')
+      const zip = new AdmZip(buffer)
+      const entries = zip.getEntries()
+      const pdfEntries = entries.filter((e: any) =>
+        !e.isDirectory && e.entryName.toLowerCase().endsWith('.pdf'),
+      )
+      if (pdfEntries.length === 0) {
+        return { text: null, error: 'ZIP contains no PDF files' }
+      }
+      const texts: string[] = []
+      for (const entry of pdfEntries) {
+        try {
+          const pdfBuffer = entry.getData()
+          const data = await pdf(pdfBuffer)
+          const t = data.text.replace(/\s+/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
+          if (t && t.length >= 50) {
+            texts.push(`--- ${entry.entryName} ---\n${t}`)
+          }
+        } catch { /* skip unreadable PDFs inside ZIP */ }
+      }
+      if (texts.length === 0) return { text: null, error: 'No text extracted from PDFs in ZIP' }
+      const combined = texts.join('\n\n')
+      console.log(`[Chat PDF] Extracted ${combined.length} chars from ${pdfEntries.length} PDFs in ZIP: ${url.slice(0, 80)}`)
+      return { text: combined, error: null }
+    }
+
+    // Regular PDF
     const data = await pdf(buffer)
     const text = data.text.replace(/\s+/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
     if (!text || text.length < 50) return { text: null, error: 'No extractable text' }

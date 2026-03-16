@@ -357,7 +357,7 @@ export function IntelligenceMap({
 
             {/* Individual match markers with score numbers */}
             {filteredMarkers.map((m) => {
-              const isAi = m.matchSource === 'ai' || m.matchSource === 'ai_triage'
+              const isAi = m.matchSource === 'ai' || m.matchSource === 'ai_triage' || m.matchSource === 'semantic'
               return (
               <Marker
                 key={`match-${m.matchId}`}
@@ -410,11 +410,11 @@ export function IntelligenceMap({
                       {selectedMatch.score}
                     </span>
                     <span className={`text-[9px] font-medium px-1 py-0.5 rounded ${
-                      selectedMatch.matchSource === 'ai' || selectedMatch.matchSource === 'ai_triage'
+                      selectedMatch.matchSource === 'ai' || selectedMatch.matchSource === 'ai_triage' || selectedMatch.matchSource === 'semantic'
                         ? 'bg-blue-100 text-blue-700'
                         : 'bg-gray-100 text-gray-500'
                     }`}>
-                      {selectedMatch.matchSource === 'ai' || selectedMatch.matchSource === 'ai_triage' ? 'IA' : 'estimado'}
+                      {selectedMatch.matchSource === 'ai' || selectedMatch.matchSource === 'ai_triage' || selectedMatch.matchSource === 'semantic' ? 'IA' : 'estimado'}
                     </span>
                     <span className="text-xs text-gray-500">
                       {selectedMatch.municipio ? `${selectedMatch.municipio}/${selectedMatch.uf}` : selectedMatch.uf}
@@ -628,16 +628,16 @@ export function IntelligenceMap({
                       <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
                         <span
                           className={`inline-flex items-center justify-center w-9 h-9 rounded-full text-xs font-bold text-white ${
-                            m.matchSource === 'ai' || m.matchSource === 'ai_triage' ? 'ring-2 ring-blue-400' : ''
+                            m.matchSource === 'ai' || m.matchSource === 'ai_triage' || m.matchSource === 'semantic' ? 'ring-2 ring-blue-400' : ''
                           }`}
                           style={{ backgroundColor: getMatchColor(m.score) }}
                         >
                           {m.score}
                         </span>
                         <span className={`text-[8px] font-medium ${
-                          m.matchSource === 'ai' || m.matchSource === 'ai_triage' ? 'text-blue-600' : 'text-gray-400'
+                          m.matchSource === 'ai' || m.matchSource === 'ai_triage' || m.matchSource === 'semantic' ? 'text-blue-600' : 'text-gray-400'
                         }`}>
-                          {m.matchSource === 'ai' || m.matchSource === 'ai_triage' ? 'IA' : 'est.'}
+                          {m.matchSource === 'ai' || m.matchSource === 'ai_triage' || m.matchSource === 'semantic' ? 'IA' : 'est.'}
                         </span>
                       </div>
                       <div className="flex-1 min-w-0">

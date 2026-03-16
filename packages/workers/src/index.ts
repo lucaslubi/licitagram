@@ -21,12 +21,14 @@ import { arpScrapingWorker } from './processors/comprasgov-arp.processor'
 import { legadoScrapingWorker } from './processors/comprasgov-legado.processor'
 import { mgScrapingWorker } from './processors/compras-mg.processor'
 import { aiTriageWorker } from './processors/ai-triage.processor'
+import { semanticMatchingWorker } from './processors/semantic-matching.processor'
 
 const allWorkers = [
   scrapingWorker, extractionWorker, matchingWorker, notificationWorker,
   pendingNotificationsWorker, comprasgovScrapingWorker, becSpScrapingWorker,
   resultsScrapingWorker, documentExpiryWorker, fornecedorEnrichmentWorker,
   arpScrapingWorker, legadoScrapingWorker, mgScrapingWorker, aiTriageWorker,
+  semanticMatchingWorker,
 ]
 import { pendingNotificationsQueue } from './queues/pending-notifications.queue'
 import { comprasgovScrapingQueue } from './queues/comprasgov-scraping.queue'
@@ -364,7 +366,38 @@ async function main() {
     logger.error({ err }, 'Comprasgov document backfill failed')
   })
 
-  logger.info('All workers running. CNAE-first matching engine active. Press Ctrl+C to stop.')
+  // Semantic matching: embed tenders + profile companies + run sweep (non-blocking)
+  if (process.env.JINA_API_KEY || process.env.OPENAI_API_KEY) {
+    // Initial batch: embed unembedded tenders and profile companies
+    Promise.all([
+      import('./processors/company-profiler').then(m => m.batchEmbedTenders(500)),
+      import('./processors/company-profiler').then(m => m.profileAllCompanies()),
+    ]).then(() => {
+      // After embeddings are ready, run semantic matching sweep
+      return import('./processors/semantic-matcher').then(m => m.runSemanticMatchingSweep())
+    }).catch(err => {
+      logger.error({ err }, 'Semantic matching initialization failed')
+    })
+
+    // Schedule semantic matching sweep every 6 hours
+    setInterval(async () => {
+      try {
+        const { batchEmbedTenders, profileAllCompanies } = await import('./processors/company-profiler')
+        await batchEmbedTenders(500)
+        await profileAllCompanies()
+        const { runSemanticMatchingSweep } = await import('./processors/semantic-matcher')
+        await runSemanticMatchingSweep()
+      } catch (err) {
+        logger.error({ err }, 'Semantic matching sweep failed')
+      }
+    }, 6 * 60 * 60 * 1000)
+
+    logger.info('Semantic matching engine enabled (JINA/OpenAI embeddings)')
+  } else {
+    logger.info('Semantic matching disabled — set JINA_API_KEY or OPENAI_API_KEY to enable')
+  }
+
+  logger.info('All workers running. CNAE-first + semantic matching engine active. Press Ctrl+C to stop.')
 }
 
 /**
