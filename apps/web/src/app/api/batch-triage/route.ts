@@ -126,8 +126,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'matchIds required' }, { status: 400 })
   }
 
-  // Cap at 50 per request
-  const ids = matchIds.slice(0, 50)
+  // Cap at 100 per request (matches BATCH_SIZE in IntelligenceMap)
+  const ids = matchIds.slice(0, 100)
 
   const supabase = await createClient()
 
