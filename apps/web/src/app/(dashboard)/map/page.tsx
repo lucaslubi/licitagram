@@ -4,6 +4,7 @@ import { IntelligenceMap } from '@/components/map/IntelligenceMap'
 import { UF_CENTERS } from '@/lib/geo/uf-centers'
 import { calculateUfOpportunityScore, type UfMapData, type MatchMarker } from '@/lib/geo/map-utils'
 import { batchGetMunicipalityCoords } from '@/lib/geo/municipalities'
+import { MIN_DISPLAY_SCORE, AI_VERIFIED_SOURCES } from '@/lib/cache'
 
 export default async function MapPage() {
   const supabase = await createClient()
@@ -20,7 +21,7 @@ export default async function MapPage() {
 
   const companyId = profile.company_id
 
-  // Map shows only relevant matches (score >= 20 hides AI-triaged false positives)
+  // Map shows only AI-verified matches (score >= 40, source ai/ai_triage)
   const today = new Date().toISOString().split('T')[0]
   const { data: matches } = await supabase
     .from('matches')
@@ -33,7 +34,8 @@ export default async function MapPage() {
       )
     `)
     .eq('company_id', companyId)
-    .gte('score', 20)
+    .in('match_source', [...AI_VERIFIED_SOURCES])
+    .gte('score', MIN_DISPLAY_SCORE)
     .not('tenders.modalidade_id', 'in', '(9,14)')
     .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
     .order('score', { ascending: false })

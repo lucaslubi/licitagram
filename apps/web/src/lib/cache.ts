@@ -2,6 +2,12 @@ import { createClient } from '@/lib/supabase/server'
 import { cached, CacheKeys, TTL } from './redis'
 import crypto from 'crypto'
 
+/** Minimum score to display matches — hides unverified / low-confidence results */
+export const MIN_DISPLAY_SCORE = 40
+
+/** Only show matches from AI-verified sources */
+export const AI_VERIFIED_SOURCES = ['ai', 'ai_triage'] as const
+
 /**
  * Server-side cached data fetchers.
  *
@@ -267,7 +273,7 @@ export async function getMatchList(params: MatchListParams): Promise<MatchListRe
 async function fetchMatchListFromDB(params: MatchListParams): Promise<MatchListResult> {
   const supabase = await createClient()
   const { companyId, page, pageSize, uf, modalidade, dataFrom, dataTo, fonte, ordemValor, ordemData } = params
-  const effectiveMinScore = (params.scoreMin && params.scoreMin > 0) ? params.scoreMin : params.minScore
+  const effectiveMinScore = Math.max(MIN_DISPLAY_SCORE, (params.scoreMin && params.scoreMin > 0) ? params.scoreMin : params.minScore)
 
   // NOTE: Supabase .order() with referencedTable only orders the EMBEDDED
   // resource (nested tenders array), NOT the parent match rows. Since each
@@ -287,6 +293,7 @@ async function fetchMatchListFromDB(params: MatchListParams): Promise<MatchListR
       { count: 'exact' },
     )
     .eq('company_id', companyId)
+    .in('match_source', [...AI_VERIFIED_SOURCES])
     .gte('score', effectiveMinScore)
 
   // Always exclude non-competitive modalities and expired tenders
@@ -375,7 +382,8 @@ export async function getMatchCount(companyId: string, minScore: number): Promis
         .from('matches')
         .select('id, tenders!inner(data_encerramento, modalidade_id)', { count: 'exact', head: true })
         .eq('company_id', companyId)
-        .gte('score', minScore)
+        .in('match_source', [...AI_VERIFIED_SOURCES])
+        .gte('score', Math.max(MIN_DISPLAY_SCORE, minScore))
         .not('tenders.modalidade_id', 'in', '(9,14)')
         .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
       return count ?? 0
