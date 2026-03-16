@@ -22,8 +22,8 @@ import {
 import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
 import type { PlanFeatures } from '@licitagram/shared'
 
-const DEFAULT_MIN_SCORE = 10
-const ALL_SCORE_OPTIONS = Array.from({ length: 19 }, (_, i) => 10 + i * 5)
+const DEFAULT_MIN_SCORE = 40
+const ALL_SCORE_OPTIONS = Array.from({ length: 13 }, (_, i) => 40 + i * 5)
 
 export default async function OpportunitiesPage({
   searchParams,
