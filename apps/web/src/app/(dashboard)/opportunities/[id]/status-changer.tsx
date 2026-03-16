@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -26,6 +27,7 @@ export function StatusChanger({
   matchId: string
   currentStatus: string
 }) {
+  const router = useRouter()
   const [status, setStatus] = useState(currentStatus)
   const [updating, setUpdating] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
@@ -42,6 +44,8 @@ export function StatusChanger({
       setErrorMsg('Erro ao atualizar status. Tente novamente.')
     } else {
       setStatus(newStatus)
+      // Invalidate server cache so pipeline/opportunities pages reflect the change
+      router.refresh()
     }
     setUpdating(false)
   }
