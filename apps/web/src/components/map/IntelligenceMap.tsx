@@ -31,8 +31,7 @@ function getScoreBgClass(score: number): string {
   return 'bg-red-100 text-red-800'
 }
 
-const BATCH_SIZE = 25
-const MAX_CONCURRENT = 3
+const BATCH_SIZE = 50
 
 export function IntelligenceMap({
   ufData,
@@ -76,59 +75,55 @@ export function IntelligenceMap({
       batches.push(sorted.slice(i, i + BATCH_SIZE).map((m) => m.matchId))
     }
 
-    // Process batches with concurrency limit
+    // Process batches sequentially (1 at a time to save tokens)
     async function processBatches() {
-      const queue = [...batches]
+      for (const batch of batches) {
+        try {
+          const res = await fetch('/api/batch-triage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ matchIds: batch }),
+          })
 
-      async function worker() {
-        while (queue.length > 0) {
-          const batch = queue.shift()
-          if (!batch) break
-
-          try {
-            const res = await fetch('/api/batch-triage', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ matchIds: batch }),
-            })
-
-            if (res.ok) {
-              const { results } = await res.json() as {
-                results: Array<{ matchId: string; score: number; recomendacao: string }>
-              }
-
-              // Update markers with AI scores
-              if (results && results.length > 0) {
-                const scoreMap = new Map(results.map((r) => [r.matchId, r]))
-                setLiveMarkers((prev) =>
-                  prev.map((m) => {
-                    const update = scoreMap.get(m.matchId)
-                    if (update) {
-                      return {
-                        ...m,
-                        score: update.score,
-                        matchSource: 'ai_triage',
-                        recomendacao: update.recomendacao,
-                      }
-                    }
-                    return m
-                  }),
-                )
-              }
-            }
-          } catch (err) {
-            console.error('Batch triage error:', err)
+          // Stop on rate limit or auth error — don't waste tokens
+          if (res.status === 429 || res.status === 403) {
+            console.warn('Batch triage stopped:', res.status)
+            break
           }
 
-          done += batch.length
-          setTriageProgress({ done: Math.min(done, total), total })
+          if (res.ok) {
+            const { results } = await res.json() as {
+              results: Array<{ matchId: string; score: number; recomendacao: string }>
+            }
+
+            if (results && results.length > 0) {
+              const scoreMap = new Map(results.map((r) => [r.matchId, r]))
+              setLiveMarkers((prev) =>
+                prev.map((m) => {
+                  const update = scoreMap.get(m.matchId)
+                  if (update) {
+                    return {
+                      ...m,
+                      score: update.score,
+                      matchSource: 'ai_triage',
+                      recomendacao: update.recomendacao,
+                    }
+                  }
+                  return m
+                }),
+              )
+            }
+          }
+        } catch (err) {
+          console.error('Batch triage error:', err)
+          break // Stop on network error
         }
+
+        done += batch.length
+        setTriageProgress({ done: Math.min(done, total), total })
       }
 
-      // Launch concurrent workers
-      const workers = Array.from({ length: MAX_CONCURRENT }, () => worker())
-      await Promise.all(workers)
-      setTriageProgress(null) // Done
+      setTriageProgress(null)
     }
 
     processBatches()

@@ -106,8 +106,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Recurso disponivel nos planos Professional e Enterprise' }, { status: 403 })
   }
 
-  // Rate limit: 5 batch calls per minute (each processes up to 25 matches)
-  const rateCheck = await checkRateLimit(`batch-triage:${userCtx.userId}`, 5, 60)
+  // Rate limit: 30 batch calls per minute (sequential, 50 matches each)
+  const rateCheck = await checkRateLimit(`batch-triage:${userCtx.userId}`, 30, 60)
   if (!rateCheck.allowed) {
     return NextResponse.json(
       { error: `Limite atingido. Tente em ${rateCheck.retryAfter}s.` },
@@ -126,8 +126,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'matchIds required' }, { status: 400 })
   }
 
-  // Cap at 25 per request
-  const ids = matchIds.slice(0, 25)
+  // Cap at 50 per request
+  const ids = matchIds.slice(0, 50)
 
   const supabase = await createClient()
 
