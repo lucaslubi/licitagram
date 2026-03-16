@@ -65,9 +65,6 @@ const pendingNotificationsWorker = new Worker(
 
       for (const match of pendingMatches) {
         try {
-          // Use time-bucketed jobId (1h window) to allow retries of failed jobs
-          // while still preventing rapid duplicates within the same hour
-          const hourBucket = Math.floor(Date.now() / (60 * 60 * 1000))
           await notificationQueue.add(
             `pending-notify-${user.id}-${match.id}`,
             {
@@ -78,14 +75,13 @@ const pendingNotificationsWorker = new Worker(
             {
               attempts: 3,
               backoff: { type: 'exponential', delay: 3000 },
-              // Deduplicate within 1-hour window; allows retry in next hour
-              jobId: `pending-${user.id}-${match.id}-${hourBucket}`,
+              // No jobId dedup — notified_at=null filter already prevents re-sending.
+              // Once notification succeeds, match gets notified_at set and won't appear again.
             },
           )
           totalEnqueued++
         } catch (enqueueErr) {
-          // Likely duplicate jobId — safe to ignore
-          logger.debug({ matchId: match.id, err: enqueueErr }, 'Skipped duplicate notification job')
+          logger.debug({ matchId: match.id, err: enqueueErr }, 'Skipped notification job')
         }
       }
     }
