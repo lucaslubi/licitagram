@@ -37,7 +37,7 @@ const pendingNotificationsWorker = new Worker(
       // Skip if no channel available
       if (!hasTelegram && !hasWhatsApp) continue
 
-      const minScore = user.min_score ?? 60
+      const minScore = user.min_score ?? 50
 
       // Find matches for this user's company that are 'new' (not yet notified)
       // Only notify about competitive, non-expired tenders

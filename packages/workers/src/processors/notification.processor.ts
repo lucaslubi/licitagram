@@ -6,57 +6,11 @@ import { formatMatchAlert } from '../telegram/formatters'
 import { sendMatchAlert as sendWhatsAppAlert, isConnected as isWhatsAppConnected } from '../whatsapp/client'
 import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
-import { CNAE_DIVISIONS } from '@licitagram/shared'
-import { tokenize } from './keyword-matcher'
 
-// ─── Local Quality Gate (replaces AI quality gate — zero cost) ───────────
-
-const HIGH_CONFIDENCE_THRESHOLD = 50   // Score >= 50 → send directly
-const BORDERLINE_MIN = 40              // Score 40-49 → keyword phrase check
-
-/**
- * Local Quality Gate: For borderline matches (score 45-65), verify using
- * PHRASE-LEVEL keyword overlap that the company's CNAE is relevant.
- * Uses complete keyword phrases (not individual tokens) to prevent false positives.
- * Zero API cost — uses CNAE keyword matching instead of Gemini.
- */
-function localQualityGate(
-  matchId: string,
-  score: number,
-  companyCnaes: string[],
-  tenderObjeto: string,
-): boolean {
-  // High confidence → send directly
-  if (score >= HIGH_CONFIDENCE_THRESHOLD) return true
-
-  // Below borderline minimum → don't send
-  if (score < BORDERLINE_MIN) return false
-
-  // Borderline (45-65) → check CNAE keyword PHRASE overlap with tender objeto
-  const objetoTokens = new Set(tokenize(tenderObjeto))
-
-  for (const cnae of companyCnaes) {
-    const div = cnae.substring(0, 2)
-    const division = CNAE_DIVISIONS[div]
-    if (division) {
-      let kwPhraseMatches = 0
-      for (const kw of division.keywords) {
-        const kwTokens = tokenize(kw)
-        // PHRASE-LEVEL: ALL tokens of the keyword must be present in tender
-        if (kwTokens.length > 0 && kwTokens.every((t: string) => objetoTokens.has(t))) {
-          kwPhraseMatches++
-          if (kwPhraseMatches >= 3) return true // 3+ phrase matches → send
-        }
-      }
-    }
-  }
-
-  logger.info(
-    { matchId, score },
-    'Match dismissed by local quality gate (borderline score, insufficient CNAE keyword phrase overlap)',
-  )
-  return false
-}
+// ─── Notification Threshold ──────────────────────────────────────────────
+// AI triage already did rigorous filtering — trust its scores.
+// Only notify matches with score >= 50 (user's requested threshold).
+const MIN_NOTIFICATION_SCORE = 50
 
 const notificationWorker = new Worker<NotificationJobData>(
   'notification',
@@ -113,35 +67,13 @@ const notificationWorker = new Worker<NotificationJobData>(
       }
     }
 
-    // ── Local Quality Gate for borderline matches ────────────────────
+    // ── Score threshold — AI triage already did rigorous filtering ──────
     const tender = tenderData
     const tenderObjeto = (tender?.objeto as string) || ''
 
-    // Fetch company CNAEs for the quality gate
-    const { data: company } = await supabase
-      .from('companies')
-      .select('cnae_principal, cnaes_secundarios')
-      .eq('id', match.company_id)
-      .single()
-
-    if (company) {
-      const companyCnaes: string[] = []
-      if (company.cnae_principal) companyCnaes.push(String(company.cnae_principal).substring(0, 2))
-      if (Array.isArray(company.cnaes_secundarios)) {
-        for (const c of company.cnaes_secundarios as string[]) {
-          companyCnaes.push(String(c).substring(0, 2))
-        }
-      }
-
-      const shouldSend = localQualityGate(matchId, match.score, companyCnaes, tenderObjeto)
-      if (!shouldSend) {
-        await supabase
-          .from('matches')
-          .update({ status: 'dismissed' })
-          .eq('id', matchId)
-        logger.info({ matchId, score: match.score }, 'Notification blocked by local quality gate')
-        return
-      }
+    if (match.score < MIN_NOTIFICATION_SCORE) {
+      logger.info({ matchId, score: match.score }, 'Notification skipped: below minimum score threshold')
+      return
     }
 
     // ── Send notifications (Telegram + WhatsApp in parallel) ──────────

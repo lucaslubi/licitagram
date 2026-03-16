@@ -357,6 +357,19 @@ const aiTriageWorker = new Worker<AiTriageJobData>(
       'Background AI triage complete',
     )
 
+    // Trigger immediate notification check for this company (don't wait for 5-min sweep)
+    try {
+      const { pendingNotificationsQueue } = await import('../queues/pending-notifications.queue')
+      await pendingNotificationsQueue.add(
+        `post-triage-notify-${companyId}`,
+        {},
+        { jobId: `post-triage-notify-${companyId}-${Date.now()}` },
+      )
+      logger.info({ companyId }, 'Triggered immediate notification check after triage')
+    } catch {
+      // Non-critical — 5-min sweep will catch it
+    }
+
     // Enqueue semantic matching if embedding provider is available and company has embedding
     if (process.env.JINA_API_KEY || process.env.OPENAI_API_KEY) {
       try {
