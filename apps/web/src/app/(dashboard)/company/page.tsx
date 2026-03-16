@@ -47,6 +47,8 @@ export default function CompanyPage() {
   const [newCapacidade, setNewCapacidade] = useState('')
   const [newCertificacao, setNewCertificacao] = useState('')
   const [newPalavra, setNewPalavra] = useState('')
+  const [generatingDesc, setGeneratingDesc] = useState(false)
+  const [generatingKw, setGeneratingKw] = useState(false)
 
   useEffect(() => {
     loadCompany()
@@ -160,6 +162,73 @@ export default function CompanyPage() {
   function showMessage(msg: string, type: 'success' | 'error' | 'info') {
     setMessage(msg)
     setMessageType(type)
+  }
+
+  async function generateDescription() {
+    if (!company.cnae_principal) {
+      showMessage('Preencha o CNAE principal antes de gerar a descrição', 'error')
+      return
+    }
+    setGeneratingDesc(true)
+    try {
+      const res = await fetch('/api/generate-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'description',
+          razao_social: company.razao_social,
+          cnae_principal: company.cnae_principal,
+          cnaes_secundarios: company.cnaes_secundarios,
+          capacidades: company.capacidades,
+        }),
+      })
+      const data = await res.json()
+      if (data.description) {
+        setCompany((prev) => ({ ...prev, descricao_servicos: data.description }))
+        showMessage('Descrição gerada pela IA! Revise e ajuste se necessário.', 'success')
+      } else {
+        showMessage(data.error || 'Erro ao gerar descrição', 'error')
+      }
+    } catch {
+      showMessage('Erro de conexão ao gerar descrição', 'error')
+    }
+    setGeneratingDesc(false)
+  }
+
+  async function generateKeywords() {
+    if (!company.cnae_principal) {
+      showMessage('Preencha o CNAE principal antes de gerar palavras-chave', 'error')
+      return
+    }
+    setGeneratingKw(true)
+    try {
+      const res = await fetch('/api/generate-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'keywords',
+          razao_social: company.razao_social,
+          cnae_principal: company.cnae_principal,
+          cnaes_secundarios: company.cnaes_secundarios,
+          descricao_servicos: company.descricao_servicos,
+          capacidades: company.capacidades,
+          palavras_chave: company.palavras_chave,
+        }),
+      })
+      const data = await res.json()
+      if (data.keywords && data.keywords.length > 0) {
+        setCompany((prev) => ({
+          ...prev,
+          palavras_chave: [...prev.palavras_chave, ...data.keywords],
+        }))
+        showMessage(`${data.keywords.length} palavras-chave geradas pela IA! Revise e remova as que não se aplicam.`, 'success')
+      } else {
+        showMessage(data.error || 'Nenhuma palavra-chave nova gerada', 'error')
+      }
+    } catch {
+      showMessage('Erro de conexão ao gerar palavras-chave', 'error')
+    }
+    setGeneratingKw(false)
   }
 
   function addTag(
@@ -288,11 +357,23 @@ export default function CompanyPage() {
             </div>
 
             <div>
-              <Label>Descrição dos Serviços</Label>
+              <div className="flex items-center justify-between mb-1">
+                <Label>Descrição dos Serviços</Label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={generateDescription}
+                  disabled={generatingDesc || !company.cnae_principal}
+                  className="text-xs h-7 px-3 gap-1"
+                  type="button"
+                >
+                  {generatingDesc ? 'Gerando...' : 'Gerar com IA'}
+                </Button>
+              </div>
               <textarea
                 value={company.descricao_servicos}
                 onChange={(e) => setCompany({ ...company, descricao_servicos: e.target.value })}
-                placeholder="Descreva os principais serviços e produtos que a empresa oferece. Quanto mais detalhado, melhor será o matching com as licitações."
+                placeholder="Descreva os principais serviços e produtos que a empresa oferece. Ou clique em 'Gerar com IA' para criar automaticamente."
                 className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[100px] resize-y"
                 rows={4}
               />
@@ -341,18 +422,52 @@ export default function CompanyPage() {
               onRemove={(i) => removeTag('certificacoes', i)}
               placeholder="Ex: ISO 9001"
             />
-            <TagInput
-              label="Palavras-chave"
-              tags={company.palavras_chave}
-              value={newPalavra}
-              onChange={setNewPalavra}
-              onAdd={() => {
-                addTag('palavras_chave', newPalavra)
-                setNewPalavra('')
-              }}
-              onRemove={(i) => removeTag('palavras_chave', i)}
-              placeholder="Ex: software, consultoria"
-            />
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <Label>Palavras-chave</Label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={generateKeywords}
+                  disabled={generatingKw || !company.cnae_principal}
+                  className="text-xs h-7 px-3 gap-1"
+                  type="button"
+                >
+                  {generatingKw ? 'Gerando...' : 'Sugerir com IA'}
+                </Button>
+              </div>
+              <div className="flex gap-2 mt-1">
+                <Input
+                  value={newPalavra}
+                  onChange={(e) => setNewPalavra(e.target.value)}
+                  placeholder="Ex: software, consultoria"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      addTag('palavras_chave', newPalavra)
+                      setNewPalavra('')
+                    }
+                  }}
+                />
+                <Button variant="outline" onClick={() => { addTag('palavras_chave', newPalavra); setNewPalavra('') }} type="button">
+                  +
+                </Button>
+              </div>
+              {company.palavras_chave.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {company.palavras_chave.map((tag, i) => (
+                    <Badge
+                      key={i}
+                      variant="secondary"
+                      className="cursor-pointer"
+                      onClick={() => removeTag('palavras_chave', i)}
+                    >
+                      {tag} x
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
 
