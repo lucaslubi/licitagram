@@ -11,8 +11,8 @@ import { tokenize } from './keyword-matcher'
 
 // ─── Local Quality Gate (replaces AI quality gate — zero cost) ───────────
 
-const HIGH_CONFIDENCE_THRESHOLD = 66   // Score >= 66 → send directly
-const BORDERLINE_MIN = 45              // Score 45-65 → keyword phrase check
+const HIGH_CONFIDENCE_THRESHOLD = 75   // Score >= 75 → send directly (high bar to avoid spam)
+const BORDERLINE_MIN = 50              // Score 50-74 → keyword phrase check
 
 /**
  * Local Quality Gate: For borderline matches (score 45-65), verify using

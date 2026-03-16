@@ -72,22 +72,34 @@ function buildCompanyContext(company: Record<string, unknown>): string {
 
 // ─── AI Triage Prompt ────────────────────────────────────────────────────────
 
-const TRIAGE_SYSTEM_PROMPT = `Voce e um classificador de licitacoes. Recebe o perfil de uma empresa e uma lista de objetos de licitacoes. Para CADA licitacao, avalie se o objeto e compativel com as atividades da empresa.
+const TRIAGE_SYSTEM_PROMPT = `Voce e um classificador ULTRA-RIGOROSO de licitacoes. Recebe o perfil de uma empresa e uma lista de objetos de licitacoes. Para CADA licitacao, avalie se o objeto e DIRETAMENTE compativel com as atividades REAIS da empresa.
+
+PRINCIPIO: O usuario PERDE TEMPO e DINHEIRO quando recebe licitacoes irrelevantes. Cada falso positivo custa horas de analise. Seja EXTREMAMENTE conservador.
 
 REGRAS DE PONTUACAO:
-- 0-15: TOTALMENTE INCOMPATIVEL — objeto nao tem NENHUMA relacao com os CNAEs/atividades da empresa (ex: empresa de TI e licitacao de transporte escolar, limpeza, alimentacao)
-- 16-35: INCOMPATIVEL — ramos diferentes, intersecao minima
-- 36-55: BAIXA — alguma relacao mas nao e atividade principal
-- 56-75: MODERADA — empresa poderia participar, atividade relacionada aos CNAEs
-- 76-90: BOA — objeto alinhado com CNAEs e servicos da empresa
-- 91-100: EXCELENTE — match direto, exatamente o que a empresa faz
+- 0-15: INCOMPATIVEL — objeto nao tem relacao com os CNAEs/atividades da empresa
+- 16-35: MUITO BAIXA — ramos diferentes, intersecao minima ou tangencial
+- 36-50: BAIXA — alguma relacao mas NAO e atividade que a empresa realmente executa
+- 51-65: MODERADA — empresa PODERIA participar mas nao e seu foco direto
+- 66-80: BOA — objeto CLARAMENTE alinhado com CNAEs e servicos DECLARADOS da empresa
+- 81-100: EXCELENTE — match DIRETO, exatamente o que a empresa faz no dia-a-dia
 
-IMPORTANTE:
-- Seja RIGOROSO. Scores inflados prejudicam o usuario.
-- Se a empresa e de TI e a licitacao pede servicos de limpeza, transporte, alimentacao, seguranca patrimonial, construcao civil = score 0-15
-- Analise o OBJETO REAL, nao palavras soltas
-- NAO penalize por localizacao
-- Responda APENAS com JSON valido, sem texto adicional, sem markdown`
+FILTROS OBRIGATORIOS (score 0-15 automatico):
+- Empresa de TI e licitacao pede: alimentacao, limpeza, transporte, seguranca patrimonial, construcao civil, obras, uniformes, mobiliario, combustivel, medicamentos, material hospitalar, veiculos
+- Empresa de alimentacao e licitacao pede: software, TI, engenharia, construcao
+- Qualquer combinacao onde o CNAE principal da empresa NAO cobre o objeto
+
+SCORE 66+ SOMENTE SE:
+- O CNAE principal ou secundarios da empresa cobrem DIRETAMENTE a atividade
+- A descricao de servicos da empresa MENCIONA este tipo de trabalho
+- A empresa REALMENTE poderia executar o contrato
+
+NAO de score alto para:
+- Objetos genericos que "qualquer empresa" poderia fazer
+- Licitacoes que mencionam TI como componente menor de um objeto principal diferente
+- Objetos onde a empresa precisaria de capacidade que NAO possui
+
+Responda APENAS com JSON valido, sem texto adicional, sem markdown`
 
 // ─── Triage a Single Batch ───────────────────────────────────────────────────
 
