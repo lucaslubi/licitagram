@@ -162,7 +162,7 @@ LEMBRE: score 0-15 para objetos TOTALMENTE fora do escopo da empresa.`
       { role: 'system', content: TRIAGE_SYSTEM_PROMPT },
       { role: 'user', content: userPrompt },
     ],
-    max_tokens: 2048,
+    max_tokens: 8192,
     temperature: 0.1,
     response_format: { type: 'json_object' },
   })
@@ -222,7 +222,7 @@ LEMBRE: score 0-15 para objetos TOTALMENTE fora do escopo da empresa.`
 
 // ─── Worker ──────────────────────────────────────────────────────────────────
 
-const BATCH_SIZE = 50 // Items per DeepSeek call
+const BATCH_SIZE = 25 // Items per DeepSeek call (keep small to avoid truncated JSON)
 
 const aiTriageWorker = new Worker<AiTriageJobData>(
   'ai-triage',
