@@ -56,8 +56,8 @@ export default async function DashboardLayout({
 
       {/* Main content — add top padding on mobile for the fixed top bar */}
       <main className="flex-1 overflow-auto bg-gray-50">
-        <div className="pt-14 md:pt-0">
-          <div className="p-4 md:p-8">{children}</div>
+        <div className="pt-14 md:pt-0 h-full">
+          <div className="p-4 md:p-8 h-full">{children}</div>
         </div>
       </main>
     </div>
