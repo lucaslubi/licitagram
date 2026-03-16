@@ -104,11 +104,18 @@ async function triageBatch(
   companyContext: string,
   companyId: string,
 ): Promise<TriageResult[]> {
-  // Fetch matches with tender objects
+  // Fetch matches with tender objects, skipping expired tenders
+  const today = new Date().toISOString().split('T')[0]
   const { data: matches } = await supabase
     .from('matches')
-    .select('id, company_id, tender_id, score, match_source, tenders(id, objeto)')
+    .select('id, company_id, tender_id, score, match_source, tenders!inner(id, objeto, data_encerramento)')
     .in('id', matchIds)
+    .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
+
+  const skippedCount = matchIds.length - (matches?.length || 0)
+  if (skippedCount > 0) {
+    logger.info({ companyId, skipped: skippedCount }, 'Skipped expired tender matches')
+  }
 
   if (!matches || matches.length === 0) return []
 
