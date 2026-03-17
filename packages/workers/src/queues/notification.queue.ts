@@ -1,11 +1,25 @@
 import { Queue } from 'bullmq'
 import { connection } from './connection'
 
-export interface NotificationJobData {
-  matchId: string
-  telegramChatId?: number
-  whatsappNumber?: string
+export interface UrgencyMatchItem {
+  id: string
+  score: number
+  objeto: string
+  orgao: string
+  uf: string
+  municipio: string
+  valor: number
+  modalidade: string
+  dataEncerramento: string
+  numero: string
+  ano: string
 }
+
+export type NotificationJobData =
+  | { matchId: string; telegramChatId?: number; whatsappNumber?: string }
+  | { matchId: string; telegramChatId: number; type: 'hot'; rank: number; plan: string }
+  | { telegramChatId: number; type: 'urgency_48h'; matches: UrgencyMatchItem[]; totalValor: number }
+  | { telegramChatId: number; type: 'urgency_24h'; matches: UrgencyMatchItem[]; totalValor: number }
 
 export const notificationQueue = new Queue<NotificationJobData, unknown, string>('notification', {
   connection,

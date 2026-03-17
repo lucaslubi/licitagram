@@ -15,6 +15,13 @@ const MIN_NOTIFICATION_SCORE = 50
 const notificationWorker = new Worker<NotificationJobData>(
   'notification',
   async (job) => {
+    // Handle urgency/hot notification types (processed elsewhere or future expansion)
+    if ('type' in job.data && (job.data.type === 'urgency_48h' || job.data.type === 'urgency_24h' || job.data.type === 'hot')) {
+      // TODO: handle hot/urgency notification rendering
+      logger.info({ type: job.data.type }, 'Hot/urgency notification type not yet rendered, skipping')
+      return
+    }
+
     const { matchId, telegramChatId, whatsappNumber } = job.data
 
     if (!bot && !whatsappNumber) {

@@ -26,6 +26,7 @@ import { legadoScrapingWorker } from './processors/comprasgov-legado.processor'
 // import { mgScrapingWorker } from './processors/compras-mg.processor'
 import { aiTriageWorker } from './processors/ai-triage.processor'
 import { semanticMatchingWorker } from './processors/semantic-matching.processor'
+import { hotAlertsWorker } from './processors/hot-alerts.processor'
 
 const allWorkers = [
   scrapingWorker, extractionWorker, matchingWorker, notificationWorker,
@@ -33,6 +34,7 @@ const allWorkers = [
   resultsScrapingWorker, documentExpiryWorker, fornecedorEnrichmentWorker,
   arpScrapingWorker, legadoScrapingWorker, aiTriageWorker,
   semanticMatchingWorker,
+  hotAlertsWorker,
 ]
 import { pendingNotificationsQueue } from './queues/pending-notifications.queue'
 import { comprasgovScrapingQueue } from './queues/comprasgov-scraping.queue'
@@ -41,6 +43,7 @@ import { documentExpiryQueue } from './queues/document-expiry.queue'
 import { fornecedorEnrichmentQueue } from './queues/fornecedor-enrichment.queue'
 import { arpScrapingQueue } from './queues/comprasgov-arp.queue'
 import { legadoScrapingQueue } from './queues/comprasgov-legado.queue'
+import { hotAlertsQueue } from './queues/hot-alerts.queue'
 import { startBot } from './telegram/bot'
 
 async function setupRepeatableJobs() {
@@ -163,6 +166,28 @@ async function setupRepeatableJobs() {
     },
   )
   logger.info('Legacy pregoes scraping job scheduled (every 24h)')
+
+  // Schedule hot-daily alert (7h BRT = 10h UTC)
+  await hotAlertsQueue.add(
+    'hot-daily',
+    {},
+    {
+      repeat: { pattern: '0 10 * * *' },
+      jobId: 'hot-daily-repeat',
+    },
+  )
+  logger.info('Hot daily alerts job scheduled (daily at 7h BRT)')
+
+  // Schedule urgency check every hour
+  await hotAlertsQueue.add(
+    'urgency-check',
+    {},
+    {
+      repeat: { every: 60 * 60 * 1000 },
+      jobId: 'urgency-check-repeat',
+    },
+  )
+  logger.info('Urgency check job scheduled (every 1h)')
 
   // Trigger immediate scrape on startup (last 30 days for comprehensive coverage)
   const thirtyDaysAgo = new Date()
