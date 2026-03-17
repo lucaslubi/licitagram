@@ -48,7 +48,7 @@ async function processCompetitionAnalysis(job: Job<CompetitionAnalysisJobData>) 
   } else {
     // Full mode: get all CNPJs with >= 3 participations
     const { data, error } = await supabase.rpc('get_all_competitor_cnpjs_with_min_participations', {
-      min_count: 3,
+      p_min_participations: 3,
     })
 
     // Fallback: if RPC doesn't exist, do a raw query

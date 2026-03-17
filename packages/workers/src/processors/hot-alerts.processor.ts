@@ -30,20 +30,36 @@ async function calculateCompetitionScore(
   if (!tenderUf || companyCnaeDivisions.length === 0) return null
 
   // Find competitors who operate in the same CNAE AND UF
-  // Uses the find_competitors_by_cnae_uf RPC (GIN ? operator not expressible via Supabase JS)
-  const { data: stats, error } = await supabase.rpc('find_competitors_by_cnae_uf', {
-    p_cnae_divisions: companyCnaeDivisions,
-    p_uf: tenderUf,
-  })
+  // RPC accepts one CNAE division at a time, so query each and merge
+  const allStats: Record<string, unknown>[] = []
+  const seenCnpjs = new Set<string>()
 
-  if (error) {
-    logger.warn({ error, tenderUf, companyCnaeDivisions }, 'Failed to query competitor stats')
-    return null
+  for (const div of companyCnaeDivisions) {
+    const { data: stats, error } = await supabase.rpc('find_competitors_by_cnae_uf', {
+      p_cnae_divisao: div,
+      p_uf: tenderUf,
+      p_limit: 20,
+    })
+
+    if (error) {
+      logger.warn({ error, tenderUf, cnaeDivisao: div }, 'Failed to query competitor stats')
+      continue
+    }
+
+    if (stats) {
+      for (const s of stats as Record<string, unknown>[]) {
+        const cnpj = s.cnpj as string
+        if (!seenCnpjs.has(cnpj)) {
+          seenCnpjs.add(cnpj)
+          allStats.push(s)
+        }
+      }
+    }
   }
 
-  if (!stats || stats.length === 0) return null
+  if (allStats.length === 0) return null
 
-  const competitors = stats
+  const competitors = allStats
 
   // Factor 1: Competition density (30%)
   const n = competitors.length
@@ -55,38 +71,35 @@ async function calculateCompetitionScore(
   else densityScore = 20
 
   // Factor 2: Competitor strength (30%)
+  // win_rate is stored as 0-100 percentage in competitor_stats
   const avgWinRate = competitors.reduce((s: number, c: Record<string, unknown>) => s + Number(c.win_rate || 0), 0) / Math.max(n, 1)
   let strengthScore: number
-  if (avgWinRate < 0.2) strengthScore = 90
-  else if (avgWinRate < 0.4) strengthScore = 70
-  else if (avgWinRate < 0.6) strengthScore = 50
-  else if (avgWinRate < 0.8) strengthScore = 30
+  if (avgWinRate < 20) strengthScore = 90
+  else if (avgWinRate < 40) strengthScore = 70
+  else if (avgWinRate < 60) strengthScore = 50
+  else if (avgWinRate < 80) strengthScore = 30
   else strengthScore = 10
 
   // Factor 3: Geographic advantage (20%)
-  const geoWinRates = competitors.map((c: Record<string, unknown>) => {
-    const pByUf = (c.participations_by_uf as Record<string, number>) || {}
-    const wByUf = (c.wins_by_uf as Record<string, number>) || {}
-    const p = pByUf[tenderUf] || 0
-    const w = wByUf[tenderUf] || 0
-    return p > 0 ? w / p : 0
-  })
-  const avgGeoWinRate = geoWinRates.reduce((s: number, r: number) => s + r, 0) / Math.max(geoWinRates.length, 1)
+  // Since we already filtered by UF in the RPC, all competitors operate in this UF
+  // Use their overall win_rate as proxy for geo competitiveness
+  const avgGeoWinRate = avgWinRate / 100 // normalize to 0-1
   // Low competitor win rate in this UF = high geo advantage
   const geoScore = Math.round(100 - avgGeoWinRate * 100)
 
   // Factor 4: Discount pattern (20%)
+  // desconto_medio is stored as percentage (0-100) in competitor_stats
   const discounts = competitors
-    .map((c: Record<string, unknown>) => Number(c.avg_discount_pct || 0))
+    .map((c: Record<string, unknown>) => Number(c.desconto_medio || 0))
     .filter((d: number) => d > 0)
   const avgDiscount = discounts.length > 0
     ? discounts.reduce((s: number, d: number) => s + d, 0) / discounts.length
     : 0
   let discountScore: number
-  if (avgDiscount < 0.05) discountScore = 90
-  else if (avgDiscount < 0.10) discountScore = 75
-  else if (avgDiscount < 0.15) discountScore = 60
-  else if (avgDiscount < 0.20) discountScore = 45
+  if (avgDiscount < 5) discountScore = 90
+  else if (avgDiscount < 10) discountScore = 75
+  else if (avgDiscount < 15) discountScore = 60
+  else if (avgDiscount < 20) discountScore = 45
   else discountScore = 30
 
   const score = Math.round(
@@ -101,8 +114,8 @@ async function calculateCompetitionScore(
     .sort((a: Record<string, unknown>, b: Record<string, unknown>) => Number(b.win_rate || 0) - Number(a.win_rate || 0))
     .slice(0, 3)
     .map((c: Record<string, unknown>) => ({
-      nome: (c.nome as string) || 'N/I',
-      winRate: Math.round(Number(c.win_rate || 0) * 100),
+      nome: (c.razao_social as string) || (c.nome as string) || 'N/I',
+      winRate: Math.round(Number(c.win_rate || 0)),
       porte: (c.porte as string) || 'N/I',
     }))
 
