@@ -1,7 +1,7 @@
 # Hot Alerts System — Design Spec
 
 **Date:** 2026-03-17
-**Status:** Draft
+**Status:** Reviewed
 
 ## Overview
 
@@ -46,19 +46,21 @@ New file: `packages/workers/src/processors/hot-alerts.processor.ts`
 
 For each company with an active user (telegram_chat_id not null):
 
-1. Query matches created in last 24h with `score >= 80` and `match_source IN ('ai', 'ai_triage', 'semantic')`
+1. Query matches created in last 24h with `score >= 80` and `match_source IN ('ai', 'ai_triage', 'semantic')` — keyword matches are excluded because they have unreliable scores (not AI-verified)
 2. Order by score DESC, take top 10
-3. Set `is_hot = true`, `hot_at = now()`
-4. Reset `is_hot = false` for matches where `hot_at < now() - 48h`
-5. For each hot match: dispatch Telegram alert with new 🔥 template
-6. Include valor_estimado in bold, action buttons (Interesse / Ver no App / Declinar)
+3. **Only for matches not already hot** (`is_hot = false`): set `is_hot = true`, `hot_at = now()`. Matches already marked hot from a previous run are skipped — no re-alert for the same match.
+4. (Hot expiry runs in the hourly `urgency-check` job — see Job 2 step 2b)
+5. **Deduplication with normal notifications:** Before sending, check `notified_at`. If the match was already notified by the standard `pending-notifications.processor`, skip the hot alert Telegram send (the match is still marked `is_hot` for map/pipeline display, just no duplicate message). If not yet notified, send the hot alert and set `notified_at = now()` so the standard processor skips it later.
+6. For each eligible hot match: dispatch Telegram alert with new 🔥 template
+7. Include valor_estimado in bold, action buttons (Interesse / Ver no App / Declinar)
 
 ### Job 2: `urgency-check` — runs every hour
 
 For each company with an active user:
 
-1. Query matches with `status IN ('new', 'notified', 'viewed', 'interested')` (not dismissed/won/lost)
+1. Query matches with `status IN ('new', 'notified', 'viewed', 'interested')` and `match_source IN ('ai', 'ai_triage', 'semantic')` (consistent with hot-daily — no keyword-only matches)
 2. Filter where `data_encerramento` is within next 48h and `urgency_48h_sent = false`, OR within next 24h and `urgency_24h_sent = false`
+2b. Also run `is_hot` expiry: reset `is_hot = false` for matches where `hot_at < now() - 48h` (runs hourly here instead of only at 7h to avoid timing edge cases)
 3. Group by company
 4. Calculate `valor_total_perdido = SUM(valor_estimado)` of closing opportunities
 5. Dispatch urgency alert:
@@ -93,8 +95,7 @@ New formatters in `packages/workers/src/telegram/formatters.ts`.
 [orgao_nome] — [municipio]/[uf]
 Objeto: [objeto truncado 200 chars]
 
-✅ Aderência: [score]% ([top CNAE category from breakdown])
-📊 Concorrência: Em breve
+✅ Aderência: [score]% ([breakdown[0].reason — first item from breakdown JSONB array, sorted by score DESC])
 
 ┌─────────────────────────────────┐
 │ ░░ ANÁLISE ESTRATÉGICA BLOQUEADA│
@@ -112,7 +113,7 @@ Objeto: [objeto truncado 200 chars]
 │                                 │
 │ [📞 Agendar Ligação]           │
 │ ou                              │
-│ [⬆️ Upgrade Enterprise Plus]   │
+│ [⬆️ Upgrade Enterprise]   │
 └─────────────────────────────────┘
 
 💰 Esta oportunidade vale *R$ [valor_estimado]*
@@ -120,7 +121,7 @@ Objeto: [objeto truncado 200 chars]
 [Interesse] [Ver no App] [Declinar]
 ```
 
-**Enterprise Plus users:** The blocked section is replaced with real data:
+**Enterprise users:** The blocked section is replaced with real data:
 
 ```
 ┌─────────────────────────────────┐
@@ -132,10 +133,11 @@ Objeto: [objeto truncado 200 chars]
 └─────────────────────────────────┘
 ```
 
-- Concorrência field: shows "Em breve" (feature not yet implemented)
 - Valor in MarkdownV2 bold
 - Action buttons: inline keyboard with 3 buttons
-- Upsell buttons: URL buttons pointing to external scheduling link + plans page
+- Upsell buttons: URL buttons pointing to configurable URLs (env vars `UPSELL_SCHEDULING_URL` and `UPSELL_PLANS_URL`)
+- **Breakdown extraction:** The `breakdown` field is a JSONB array of `{category: string, score: number, reason: string}`. Sort by `score` DESC, take `breakdown[0].reason` for the aderência line. If breakdown is null/empty, use `"Match por IA"` as fallback.
+- **Plan detection:** The existing plans are `'trial', 'starter', 'professional', 'enterprise'` (defined in `plans` table and CHECK constraint on `subscriptions.plan`). The upsell block is shown to all plans except `'enterprise'`. For enterprise users, show the real strategic data. Query path: join `subscriptions` via `subscriptions.company_id = users.company_id` where `subscriptions.status = 'active'` to get the user's current plan. The worker will cache this per-company to avoid repeated queries during a batch run.
 
 ### 3.2 Urgency Alert 48h (`formatUrgencyAlert48h`)
 
@@ -174,19 +176,26 @@ Objeto: [objeto truncado 200 chars]
 ### 3.4 Telegram Callbacks — new
 
 ```typescript
-// Hot alert buttons
-'hot_interested_<matchId>'   → set status = 'interested', edit message
-'hot_view_<matchId>'         → reply with app link
-'hot_decline_<matchId>'      → set status = 'dismissed', edit message
+// Hot alert buttons — REUSE existing callback prefixes to avoid duplication
+// The existing bot.ts already handles match_interested_<matchId> and match_dismiss_<matchId>
+// Hot alerts use the SAME callbacks, just with the new message format:
+'match_interested_<matchId>' → set status = 'interested', edit message (existing handler)
+'Ver no App'                 → URL button (not callback), links directly to app opportunity page. No server round-trip needed.
+'match_dismiss_<matchId>'    → set status = 'dismissed', edit message (existing handler)
 
 // Urgency buttons
-'urgency_view_all'           → reply with pipeline link
-'urgency_interest_all_<ids>' → set all listed matches to 'interested'
+'urgency_view_all'              → reply with pipeline link (URL button, not callback)
+'urgency_interest_<batchToken>' → server-side lookup: store match IDs in Redis/memory
+                                  keyed by short token (8 chars) when building the message.
+                                  On callback, retrieve IDs from token, set all to 'interested'.
+                                  Token expires after 24h.
 
 // Upsell buttons (URL type, not callback)
-'Agendar Ligação'            → URL to scheduling page
-'Upgrade Enterprise Plus'    → URL to plans page in app
+'Agendar Ligação'            → URL from env var UPSELL_SCHEDULING_URL
+'Upgrade Enterprise'    → URL from env var UPSELL_PLANS_URL
 ```
+
+**Note on Telegram callback_data 64-byte limit:** The `urgency_interest_all` button cannot embed multiple match IDs directly. Instead, when building the urgency message, the processor stores the list of match IDs in a short-lived key (Redis or in-memory Map) keyed by a random 8-char token. The callback data is just `urgency_interest_<token>` (well under 64 bytes). The handler retrieves the IDs from the token on click.
 
 ## 4. Map — Hot Marker Visualization
 
@@ -260,8 +269,12 @@ const sorted = matches.sort((a, b) => {
 ### Countdown helper
 
 ```typescript
-function timeUntil(date: Date): string {
-  const hours = differenceInHours(date, new Date())
+// All dates from DB (data_encerramento) are stored as TIMESTAMPTZ (UTC-aware).
+// The countdown is computed against the current time in BRT (America/Sao_Paulo)
+// using date-fns-tz or Intl.DateTimeFormat for display.
+function timeUntil(dataEncerramento: Date): string {
+  const now = new Date()
+  const hours = differenceInHours(dataEncerramento, now)
   if (hours < 1) return 'Encerra em menos de 1h'
   if (hours < 24) return `Encerra em ${hours}h`
   const days = Math.floor(hours / 24)
@@ -318,9 +331,22 @@ Tender ingested → Keyword match → AI Triage (score)
 - `apps/web/src/app/(dashboard)/pipeline/kanban-board.tsx` — Hot card styling + sorting + countdown
 - `apps/web/src/app/(dashboard)/pipeline/page.tsx` — Add `is_hot` + `data_encerramento` to query
 
-## 9. Out of Scope
+## 9. Configuration Constants
 
-- Competitor analysis (concorrência) — placeholder "Em breve"
+```env
+# Upsell URLs (set in worker .env)
+UPSELL_SCHEDULING_URL=https://calendly.com/licitagram/consultoria
+UPSELL_PLANS_URL=https://app.licitagram.com/plans
+
+# Hot alert thresholds (hardcoded, can be env vars later)
+HOT_MIN_SCORE=80
+HOT_TOP_N=10
+HOT_EXPIRY_HOURS=48
+```
+
+## 10. Out of Scope
+
+- Competitor analysis (concorrência) — removed from template entirely (no placeholder)
 - In-app notification center (bell icon)
 - Supabase Realtime for pipeline sync
 - WhatsApp hot alerts (can be added later using same formatters)
