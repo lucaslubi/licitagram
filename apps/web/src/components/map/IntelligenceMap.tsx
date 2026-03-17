@@ -455,7 +455,7 @@ export function IntelligenceMap({
               >
                 <div className="p-3 min-w-[220px]">
                   {selectedMatch.isHot && (
-                    <div className="mb-2 pb-2 border-b border-orange-200 bg-gradient-to-r from-orange-500 to-red-500 -m-3 mb-2 p-2 rounded-t">
+                    <div className="pb-2 border-b border-orange-200 bg-gradient-to-r from-orange-500 to-red-500 -m-3 mb-2 p-2 rounded-t">
                       <p className="text-xs font-bold text-white">🔥 SUPER QUENTE</p>
                     </div>
                   )}

@@ -50,13 +50,13 @@ async function getCompanyPlan(
 
   const { data } = await supabase
     .from('subscriptions')
-    .select('plan_slug')
+    .select('plan')
     .eq('company_id', companyId)
     .eq('status', 'active')
     .limit(1)
     .single()
 
-  const plan = data?.plan_slug || 'free'
+  const plan = data?.plan || 'trial'
   cache.set(companyId, plan)
   return plan
 }
@@ -133,11 +133,12 @@ async function handleHotDaily() {
         }
       }
 
-      // Mark as notified
+      // Mark as notified (only if still 'new' to avoid overwriting user actions)
       await supabase
         .from('matches')
         .update({ status: 'notified', notified_at: new Date().toISOString() })
         .eq('id', match.id)
+        .eq('status', 'new')
     }
   }
 
@@ -179,13 +180,13 @@ async function handleUrgencyCheck() {
       .from('matches')
       .select(`
         id, score, urgency_48h_sent, urgency_24h_sent,
-        tenders!inner(id, objeto, orgao_nome, uf, municipio, valor_estimado, modalidade_nome, data_encerramento, numero, ano, modalidade_id)
+        tenders!inner(id, objeto, orgao_nome, uf, municipio, valor_estimado, modalidade_nome, data_encerramento, numero, ano_compra, modalidade_id)
       `)
       .eq('company_id', companyId)
       .in('status', ACTIVE_STATUSES)
       .in('match_source', AI_SOURCES)
       .not('tenders.modalidade_id', 'in', `(${EXCLUDED_MODALIDADES.join(',')})`)
-      .gte('tenders.data_encerramento', today)
+      .gte('tenders.data_encerramento', now.toISOString())
       .lte('tenders.data_encerramento', in48h)
 
     if (!matches || matches.length === 0) continue
@@ -226,7 +227,7 @@ async function handleUrgencyCheck() {
           modalidade: (t.modalidade_nome as string) || '',
           dataEncerramento: (t.data_encerramento as string) || '',
           numero: (t.numero as string) || '',
-          ano: (t.ano as string) || '',
+          ano: (t.ano_compra as string) || '',
         }
       })
 

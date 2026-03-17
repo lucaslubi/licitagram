@@ -28,7 +28,7 @@ const notificationWorker = new Worker<NotificationJobData>(
         .from('matches')
         .select(`
           id, score, breakdown, ai_justificativa,
-          tenders (objeto, orgao_nome, uf, municipio, valor_estimado, modalidade_nome, data_encerramento, numero, ano, pncp_id)
+          tenders (objeto, orgao_nome, uf, municipio, valor_estimado, modalidade_nome, data_encerramento, numero, ano_compra, pncp_id)
         `)
         .eq('id', matchId)
         .single()
@@ -55,7 +55,7 @@ const notificationWorker = new Worker<NotificationJobData>(
           modalidade_nome: tender?.modalidade_nome as string | null,
           data_encerramento: tender?.data_encerramento as string | null,
           numero: tender?.numero as string | null,
-          ano: tender?.ano as string | null,
+          ano: tender?.ano_compra as string | null,
           pncp_id: tender?.pncp_id as string | null,
         },
       })
