@@ -69,29 +69,18 @@ export async function POST(request: NextRequest) {
     cnaes.push(...(company.cnaes_secundarios as string[]))
   }
 
-  // Build competitor top UFs from participations_by_uf and wins_by_uf
-  const participationsByUf = (competitor.participations_by_uf as Record<string, number>) || {}
-  const winsByUf = (competitor.wins_by_uf as Record<string, number>) || {}
-  const topUfs = Object.entries(participationsByUf)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 5)
-    .map(([uf, count]) => ({
-      uf,
-      count,
-      winRate: count > 0 ? Math.round(((winsByUf[uf] || 0) / count) * 100) : 0,
-    }))
+  // Build competitor top UFs from ufs_atuacao
+  const ufsAtuacao = (competitor.ufs_atuacao as Record<string, boolean>) || {}
+  const topUfs = Object.keys(ufsAtuacao).slice(0, 5)
 
   // Build top modalidades
-  const modalidades = (competitor.modalidades as Record<string, number>) || {}
-  const topModalidades = Object.entries(modalidades)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 5)
-    .map(([name]) => name)
+  const modalidades = (competitor.modalidades as Record<string, boolean>) || {}
+  const topModalidades = Object.keys(modalidades).slice(0, 5)
 
-  const winRate = Math.round(Number(competitor.win_rate || 0) * 100)
-  const avgDiscount = Number(competitor.avg_discount_pct || 0)
+  const winRate = Math.round(Number(competitor.win_rate || 0))
+  const avgDiscount = Number(competitor.desconto_medio || 0)
   const companyName = (company.nome_fantasia || company.razao_social || '') as string
-  const competitorName = (competitor.nome || competitorCnpj) as string
+  const competitorName = (competitor.razao_social || competitorCnpj) as string
   const competitorPorte = (competitor.porte || 'N/I') as string
 
   // Generate AI insight using Gemini
@@ -108,10 +97,12 @@ Analise o perfil deste concorrente comparado à empresa do cliente e gere uma an
 
 **Concorrente:** ${competitorName}
 - Win rate: ${winRate}%
-- Participações: ${competitor.total_participations || 0}
+- Participações: ${competitor.total_participacoes || 0}
+- Vitórias: ${competitor.total_vitorias || 0}
 - Porte: ${competitorPorte}
-- Desconto médio: ${(avgDiscount * 100).toFixed(1)}%
-- Principais UFs: ${topUfs.map(u => `${u.uf} (${u.count} participações, ${u.winRate}% win rate)`).join(', ')}
+- Desconto médio: ${avgDiscount.toFixed(1)}%
+- Valor total ganho: R$ ${Number(competitor.valor_total_ganho || 0).toLocaleString('pt-BR')}
+- Principais UFs: ${topUfs.join(', ') || 'N/I'}
 - Modalidades: ${topModalidades.join(', ') || 'N/I'}
 
 Responda em JSON:

@@ -35,11 +35,11 @@ export default async function CompetitorsPage({
   // Get competitor stats for watchlist items
   const watchlistCnpjs = (watchlist || []).map((w) => w.competitor_cnpj)
   let watchlistStats: Record<string, {
-    total_participations: number; total_wins: number; win_rate: number
-    avg_valor_proposta: number; avg_discount_pct: number
-    participations_by_uf: Record<string, number>; wins_by_uf: Record<string, number>
-    porte: string | null; cnae_nome: string | null; uf_sede: string | null; municipio_sede: string | null
-    last_participation_at: string | null
+    total_participacoes: number; total_vitorias: number; win_rate: number
+    valor_total_ganho: number; desconto_medio: number
+    ufs_atuacao: Record<string, boolean>
+    porte: string | null; cnae_divisao: string | null; uf: string | null
+    ultima_participacao: string | null
     overlapCount?: number
   }> = {}
 
@@ -52,18 +52,16 @@ export default async function CompetitorsPage({
     if (stats) {
       for (const s of stats) {
         watchlistStats[s.cnpj] = {
-          total_participations: s.total_participations,
-          total_wins: s.total_wins,
+          total_participacoes: s.total_participacoes,
+          total_vitorias: s.total_vitorias,
           win_rate: Number(s.win_rate),
-          avg_valor_proposta: Number(s.avg_valor_proposta || 0),
-          avg_discount_pct: Number(s.avg_discount_pct || 0),
-          participations_by_uf: (s.participations_by_uf as Record<string, number>) || {},
-          wins_by_uf: (s.wins_by_uf as Record<string, number>) || {},
+          valor_total_ganho: Number(s.valor_total_ganho || 0),
+          desconto_medio: Number(s.desconto_medio || 0),
+          ufs_atuacao: (s.ufs_atuacao as Record<string, boolean>) || {},
           porte: s.porte,
-          cnae_nome: null, // TODO: join from competitors table if needed
-          uf_sede: s.uf_sede,
-          municipio_sede: s.municipio_sede,
-          last_participation_at: s.last_participation_at,
+          cnae_divisao: s.cnae_divisao,
+          uf: s.uf,
+          ultima_participacao: s.ultima_participacao,
         }
       }
     }
@@ -80,16 +78,17 @@ export default async function CompetitorsPage({
         for (const s of rawStats) {
           if (!watchlistStats[s.cnpj]) {
             watchlistStats[s.cnpj] = {
-              total_participations: 0, total_wins: 0, win_rate: 0,
-              avg_valor_proposta: 0, avg_discount_pct: 0,
-              participations_by_uf: {}, wins_by_uf: {},
-              porte: s.porte, cnae_nome: s.cnae_nome,
-              uf_sede: s.uf_fornecedor, municipio_sede: s.municipio_fornecedor,
-              last_participation_at: null,
+              total_participacoes: 0, total_vitorias: 0, win_rate: 0,
+              valor_total_ganho: 0, desconto_medio: 0,
+              ufs_atuacao: {},
+              porte: s.porte, cnae_divisao: s.cnae_nome,
+              uf: s.uf_fornecedor,
+              ultima_participacao: null,
             }
           }
-          watchlistStats[s.cnpj].total_participations++
-          if (s.situacao?.toLowerCase().includes('homologad')) watchlistStats[s.cnpj].total_wins++
+          watchlistStats[s.cnpj].total_participacoes++
+          if (s.situacao?.toLowerCase().includes('homologad')) watchlistStats[s.cnpj].total_vitorias++
+          if (s.uf_fornecedor) watchlistStats[s.cnpj].ufs_atuacao[s.uf_fornecedor] = true
         }
       }
     }
@@ -112,17 +111,17 @@ export default async function CompetitorsPage({
   for (const cnpj of watchlistCnpjs) {
     const stats = watchlistStats[cnpj]
     if (!stats) continue
-    const pByUf = stats.participations_by_uf || {}
-    const overlapUfs = activeUfs.filter((uf) => pByUf[uf] > 0)
+    const ufsAtua = stats.ufs_atuacao || {}
+    const overlapUfs = activeUfs.filter((uf) => ufsAtua[uf])
     stats.overlapCount = overlapUfs.length
   }
 
   // Search results
   let searchResults: Array<{
     cnpj: string; nome: string; participacoes: number; vitorias: number
-    porte?: string; cnae_nome?: string; uf?: string; municipio?: string
-    win_rate?: number; avg_valor_proposta?: number; avg_discount_pct?: number
-    participations_by_uf?: Record<string, number>; last_participation_at?: string | null
+    porte?: string; cnae_divisao?: string; uf?: string; municipio?: string
+    win_rate?: number; valor_total_ganho?: number; desconto_medio?: number
+    ufs_atuacao?: Record<string, boolean>; ultima_participacao?: string | null
     hasStats?: boolean
   }> = []
 
@@ -143,7 +142,7 @@ export default async function CompetitorsPage({
     if (competitors) {
       const grouped: Record<string, {
         nome: string; participacoes: number; vitorias: number
-        porte?: string; cnae_nome?: string; uf?: string; municipio?: string
+        porte?: string; cnae_divisao?: string; uf?: string; municipio?: string
       }> = {}
       for (const c of competitors) {
         if (!grouped[c.cnpj]) {
@@ -153,7 +152,7 @@ export default async function CompetitorsPage({
         const isWinner = c.situacao && typeof c.situacao === 'string' && c.situacao.toLowerCase().includes('homologad')
         if (isWinner) grouped[c.cnpj].vitorias++
         if (c.porte && !grouped[c.cnpj].porte) grouped[c.cnpj].porte = c.porte
-        if (c.cnae_nome && !grouped[c.cnpj].cnae_nome) grouped[c.cnpj].cnae_nome = c.cnae_nome
+        if (c.cnae_nome && !grouped[c.cnpj].cnae_divisao) grouped[c.cnpj].cnae_divisao = c.cnae_nome
         if (c.uf_fornecedor && !grouped[c.cnpj].uf) grouped[c.cnpj].uf = c.uf_fornecedor
         if (c.municipio_fornecedor && !grouped[c.cnpj].municipio) grouped[c.cnpj].municipio = c.municipio_fornecedor
       }
@@ -164,10 +163,10 @@ export default async function CompetitorsPage({
       // Enrich search results with competitor_stats data
       const searchCnpjs = basicResults.map((r) => r.cnpj)
       let searchStatsMap: Record<string, {
-        win_rate: number; avg_valor_proposta: number; avg_discount_pct: number
-        participations_by_uf: Record<string, number>; last_participation_at: string | null
-        total_participations: number; total_wins: number
-        porte: string | null; uf_sede: string | null; municipio_sede: string | null
+        win_rate: number; valor_total_ganho: number; desconto_medio: number
+        ufs_atuacao: Record<string, boolean>; ultima_participacao: string | null
+        total_participacoes: number; total_vitorias: number
+        porte: string | null; uf: string | null; cnae_divisao: string | null
       }> = {}
 
       if (searchCnpjs.length > 0) {
@@ -180,15 +179,15 @@ export default async function CompetitorsPage({
           for (const s of sStats) {
             searchStatsMap[s.cnpj] = {
               win_rate: Number(s.win_rate),
-              avg_valor_proposta: Number(s.avg_valor_proposta || 0),
-              avg_discount_pct: Number(s.avg_discount_pct || 0),
-              participations_by_uf: (s.participations_by_uf as Record<string, number>) || {},
-              last_participation_at: s.last_participation_at,
-              total_participations: s.total_participations,
-              total_wins: s.total_wins,
+              valor_total_ganho: Number(s.valor_total_ganho || 0),
+              desconto_medio: Number(s.desconto_medio || 0),
+              ufs_atuacao: (s.ufs_atuacao as Record<string, boolean>) || {},
+              ultima_participacao: s.ultima_participacao,
+              total_participacoes: s.total_participacoes,
+              total_vitorias: s.total_vitorias,
               porte: s.porte,
-              uf_sede: s.uf_sede,
-              municipio_sede: s.municipio_sede,
+              uf: s.uf,
+              cnae_divisao: s.cnae_divisao,
             }
           }
         }
@@ -199,16 +198,17 @@ export default async function CompetitorsPage({
         if (enriched) {
           return {
             ...r,
-            participacoes: enriched.total_participations,
-            vitorias: enriched.total_wins,
+            participacoes: enriched.total_participacoes,
+            vitorias: enriched.total_vitorias,
             win_rate: enriched.win_rate,
-            avg_valor_proposta: enriched.avg_valor_proposta,
-            avg_discount_pct: enriched.avg_discount_pct,
-            participations_by_uf: enriched.participations_by_uf,
-            last_participation_at: enriched.last_participation_at,
+            valor_total_ganho: enriched.valor_total_ganho,
+            desconto_medio: enriched.desconto_medio,
+            ufs_atuacao: enriched.ufs_atuacao,
+            ultima_participacao: enriched.ultima_participacao,
             porte: enriched.porte || r.porte,
-            uf: enriched.uf_sede || r.uf,
-            municipio: enriched.municipio_sede || r.municipio,
+            cnae_divisao: enriched.cnae_divisao || undefined,
+            uf: enriched.uf || r.uf,
+            municipio: r.municipio,
             hasStats: true,
           }
         }
@@ -251,13 +251,13 @@ export default async function CompetitorsPage({
     const { data } = await supabase
       .from('competitor_stats')
       .select('*')
-      .order('total_participations', { ascending: false })
+      .order('total_participacoes', { ascending: false })
       .limit(50)
 
     // Filter to competitors who operate in same CNAE divisions
     marketCompetitors = (data || []).filter((s) => {
-      const byCnae = (s.participations_by_cnae as Record<string, number>) || {}
-      return companyCnaeDivisions.some((d) => byCnae[d] > 0)
+      const cnaeDivisao = (s.cnae_divisao as string) || ''
+      return companyCnaeDivisions.includes(cnaeDivisao)
     }).slice(0, 10)
   }
 
@@ -266,23 +266,23 @@ export default async function CompetitorsPage({
   const modalidadeAgg: Record<string, { totalDiscount: number; totalParticipants: number; count: number }> = {}
 
   for (const mc of marketCompetitors) {
-    const pByUf = (mc.participations_by_uf as Record<string, number>) || {}
+    const ufsAtua = (mc.ufs_atuacao as Record<string, boolean>) || {}
     const winRate = Number(mc.win_rate || 0)
-    const discount = Number(mc.avg_discount_pct || 0)
-    const mods = (mc.modalidades as Record<string, number>) || {}
+    const discount = Number(mc.desconto_medio || 0)
+    const mods = (mc.modalidades as Record<string, boolean>) || {}
 
-    for (const [uf, cnt] of Object.entries(pByUf)) {
+    for (const uf of Object.keys(ufsAtua)) {
       if (!ufCompetitionMap[uf]) ufCompetitionMap[uf] = { competitors: 0, totalWinRate: 0, totalDiscount: 0 }
       ufCompetitionMap[uf].competitors++
       ufCompetitionMap[uf].totalWinRate += winRate
       ufCompetitionMap[uf].totalDiscount += discount
     }
 
-    for (const [modId, cnt] of Object.entries(mods)) {
-      if (!modalidadeAgg[modId]) modalidadeAgg[modId] = { totalDiscount: 0, totalParticipants: 0, count: 0 }
-      modalidadeAgg[modId].totalDiscount += discount
-      modalidadeAgg[modId].totalParticipants += cnt
-      modalidadeAgg[modId].count++
+    for (const modName of Object.keys(mods)) {
+      if (!modalidadeAgg[modName]) modalidadeAgg[modName] = { totalDiscount: 0, totalParticipants: 0, count: 0 }
+      modalidadeAgg[modName].totalDiscount += discount
+      modalidadeAgg[modName].totalParticipants += Number(mc.total_participacoes || 0)
+      modalidadeAgg[modName].count++
     }
   }
 
@@ -291,14 +291,12 @@ export default async function CompetitorsPage({
   if (tab === 'panorama') {
     const ufCnaeCounts: Record<string, number> = {}
     for (const mc of marketCompetitors) {
-      const pByUf = (mc.participations_by_uf as Record<string, number>) || {}
-      const pByCnae = (mc.participations_by_cnae as Record<string, number>) || {}
-      for (const uf of Object.keys(pByUf)) {
-        for (const cnaeDiv of Object.keys(pByCnae)) {
-          if (companyCnaeDivisions.includes(cnaeDiv)) {
-            const key = `${uf}|${cnaeDiv}`
-            ufCnaeCounts[key] = (ufCnaeCounts[key] || 0) + 1
-          }
+      const ufsAtua = (mc.ufs_atuacao as Record<string, boolean>) || {}
+      const cnaeDiv = (mc.cnae_divisao as string) || ''
+      if (cnaeDiv && companyCnaeDivisions.includes(cnaeDiv)) {
+        for (const uf of Object.keys(ufsAtua)) {
+          const key = `${uf}|${cnaeDiv}`
+          ufCnaeCounts[key] = (ufCnaeCounts[key] || 0) + 1
         }
       }
     }
@@ -309,24 +307,6 @@ export default async function CompetitorsPage({
       }
     }
     opportunityWindows.sort((a, b) => a.competitorCount - b.competitorCount)
-  }
-
-  // Modalidade ID to name mapping
-  const MODALIDADE_NAMES: Record<string, string> = {
-    '1': 'Pregão Eletrônico',
-    '2': 'Pregão Presencial',
-    '3': 'Concorrência',
-    '4': 'Tomada de Preços',
-    '5': 'Convite',
-    '6': 'Concurso',
-    '7': 'Leilão',
-    '8': 'Dispensa',
-    '9': 'Inexigibilidade',
-    '10': 'Diálogo Competitivo',
-    '11': 'Credenciamento',
-    '12': 'Pré-qualificação',
-    '13': 'Manifestação de Interesse',
-    '14': 'Chamada Pública',
   }
 
   // Top competitors from the same tenders
@@ -423,26 +403,23 @@ export default async function CompetitorsPage({
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {watchlist.map((w) => {
                   const stats = watchlistStats[w.competitor_cnpj] || {
-                    total_participations: 0, total_wins: 0, win_rate: 0,
-                    avg_valor_proposta: 0, avg_discount_pct: 0,
-                    participations_by_uf: {}, wins_by_uf: {},
-                    porte: null, cnae_nome: null, uf_sede: null, municipio_sede: null,
-                    last_participation_at: null, overlapCount: 0,
+                    total_participacoes: 0, total_vitorias: 0, win_rate: 0,
+                    valor_total_ganho: 0, desconto_medio: 0,
+                    ufs_atuacao: {},
+                    porte: null, cnae_divisao: null, uf: null,
+                    ultima_participacao: null, overlapCount: 0,
                   }
-                  const winRatePct = Math.round(stats.win_rate * 100)
+                  const winRatePct = Math.round(stats.win_rate)
                   const winRateColor = winRatePct >= 60 ? 'text-green-600' : winRatePct >= 30 ? 'text-yellow-600' : 'text-red-600'
 
-                  // Top 5 UFs by participation count
-                  const topUfs = Object.entries(stats.participations_by_uf || {})
-                    .sort(([, a], [, b]) => b - a)
-                    .slice(0, 5)
-                  const maxUfCount = topUfs.length > 0 ? topUfs[0][1] : 1
+                  // UFs where this competitor operates
+                  const ufsList = Object.keys(stats.ufs_atuacao || {}).slice(0, 5)
 
-                  // Activity trend based on last_participation_at
+                  // Activity trend based on ultima_participacao
                   let activityLabel = 'Inativo'
                   let activityVariant: 'default' | 'secondary' | 'destructive' = 'destructive'
-                  if (stats.last_participation_at) {
-                    const daysSince = Math.floor((Date.now() - new Date(stats.last_participation_at).getTime()) / (1000 * 60 * 60 * 24))
+                  if (stats.ultima_participacao) {
+                    const daysSince = Math.floor((Date.now() - new Date(stats.ultima_participacao).getTime()) / (1000 * 60 * 60 * 24))
                     if (daysSince <= 30) { activityLabel = 'Ativo'; activityVariant = 'default' }
                     else if (daysSince <= 90) { activityLabel = 'Moderado'; activityVariant = 'secondary' }
                   }
@@ -454,8 +431,8 @@ export default async function CompetitorsPage({
                           <div className="min-w-0">
                             <CardTitle className="text-sm font-semibold truncate">{w.competitor_nome || formatCnpj(w.competitor_cnpj)}</CardTitle>
                             <p className="text-xs text-muted-foreground font-mono mt-0.5">{formatCnpj(w.competitor_cnpj)}</p>
-                            {stats.cnae_nome && (
-                              <p className="text-xs text-gray-400 mt-0.5 truncate">{stats.cnae_nome}</p>
+                            {stats.cnae_divisao && (
+                              <p className="text-xs text-gray-400 mt-0.5 truncate">CNAE Div. {stats.cnae_divisao}</p>
                             )}
                           </div>
                           <DeleteWatchlistButton watchlistId={w.id} />
@@ -466,8 +443,8 @@ export default async function CompetitorsPage({
                         <div className="flex flex-wrap gap-1.5">
                           <Badge variant={activityVariant} className="text-xs">{activityLabel}</Badge>
                           {stats.porte && <Badge variant="outline" className="text-xs">{stats.porte}</Badge>}
-                          {stats.municipio_sede && stats.uf_sede && (
-                            <Badge variant="outline" className="text-xs">{stats.municipio_sede}/{stats.uf_sede}</Badge>
+                          {stats.uf && (
+                            <Badge variant="outline" className="text-xs">{stats.uf}</Badge>
                           )}
                         </div>
 
@@ -478,41 +455,34 @@ export default async function CompetitorsPage({
                             <p className="text-xs text-muted-foreground">Win Rate</p>
                           </div>
                           <div>
-                            <p className="text-lg font-bold">{stats.total_participations}</p>
+                            <p className="text-lg font-bold">{stats.total_participacoes}</p>
                             <p className="text-xs text-muted-foreground">Part.</p>
                           </div>
                           <div>
-                            <p className="text-lg font-bold">{stats.total_wins}</p>
+                            <p className="text-lg font-bold">{stats.total_vitorias}</p>
                             <p className="text-xs text-muted-foreground">Vit.</p>
                           </div>
                         </div>
 
-                        {/* Ticket medio */}
-                        {stats.avg_valor_proposta > 0 && (
+                        {/* Valor total ganho */}
+                        {stats.valor_total_ganho > 0 && (
                           <div className="text-sm">
-                            <span className="text-muted-foreground">Ticket medio: </span>
+                            <span className="text-muted-foreground">Valor total ganho: </span>
                             <span className="font-medium">
-                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(stats.avg_valor_proposta)}
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(stats.valor_total_ganho)}
                             </span>
                           </div>
                         )}
 
-                        {/* Top 5 UFs as horizontal bars */}
-                        {topUfs.length > 0 && (
+                        {/* UFs de atuacao */}
+                        {ufsList.length > 0 && (
                           <div className="space-y-1">
-                            <p className="text-xs text-muted-foreground font-medium">Top UFs</p>
-                            {topUfs.map(([uf, count]) => (
-                              <div key={uf} className="flex items-center gap-2 text-xs">
-                                <span className="w-6 text-right font-mono">{uf}</span>
-                                <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
-                                  <div
-                                    className="h-full bg-brand rounded-full"
-                                    style={{ width: `${Math.round((count / maxUfCount) * 100)}%` }}
-                                  />
-                                </div>
-                                <span className="w-6 text-right text-muted-foreground">{count}</span>
-                              </div>
-                            ))}
+                            <p className="text-xs text-muted-foreground font-medium">UFs de Atuacao</p>
+                            <div className="flex flex-wrap gap-1">
+                              {ufsList.map((uf) => (
+                                <Badge key={uf} variant="outline" className="text-xs font-mono">{uf}</Badge>
+                              ))}
+                            </div>
                           </div>
                         )}
 
@@ -628,22 +598,22 @@ export default async function CompetitorsPage({
                       {marketCompetitors.map((mc, i) => (
                         <tr key={mc.cnpj as string} className="border-b transition-colors hover:bg-muted/50">
                           <td className="p-4 font-bold">{i + 1}</td>
-                          <td className="p-4 text-sm font-medium">{(mc.nome as string) || '-'}</td>
-                          <td className="p-4 text-center">{mc.total_participations as number}</td>
+                          <td className="p-4 text-sm font-medium">{(mc.razao_social as string) || '-'}</td>
+                          <td className="p-4 text-center">{mc.total_participacoes as number}</td>
                           <td className="p-4 text-center">
-                            <Badge variant={(mc.total_wins as number) > 0 ? 'default' : 'secondary'}>
-                              {mc.total_wins as number}
+                            <Badge variant={(mc.total_vitorias as number) > 0 ? 'default' : 'secondary'}>
+                              {mc.total_vitorias as number}
                             </Badge>
                           </td>
                           <td className="p-4 text-center text-sm">
-                            {`${Math.round(Number(mc.win_rate || 0) * 100)}%`}
+                            {`${Math.round(Number(mc.win_rate || 0))}%`}
                           </td>
                           <td className="p-4 text-sm hidden md:table-cell">
                             {mc.porte ? (
                               <Badge variant="outline" className="text-xs">{mc.porte as string}</Badge>
                             ) : '-'}
                           </td>
-                          <td className="p-4 text-sm text-gray-400 hidden md:table-cell">{(mc.uf_sede as string) || '-'}</td>
+                          <td className="p-4 text-sm text-gray-400 hidden md:table-cell">{(mc.uf as string) || '-'}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -686,8 +656,8 @@ export default async function CompetitorsPage({
                                 )}
                               </td>
                               <td className="p-4 text-center">{data.competitors}</td>
-                              <td className="p-4 text-center text-sm">{`${Math.round(avgWinRate * 100)}%`}</td>
-                              <td className="p-4 text-center text-sm">{`${(avgDiscount * 100).toFixed(1)}%`}</td>
+                              <td className="p-4 text-center text-sm">{`${Math.round(avgWinRate)}%`}</td>
+                              <td className="p-4 text-center text-sm">{`${avgDiscount.toFixed(1)}%`}</td>
                             </tr>
                           )
                         })}
@@ -722,8 +692,8 @@ export default async function CompetitorsPage({
                           const avgParticipants = data.count > 0 ? Math.round(data.totalParticipants / data.count) : 0
                           return (
                             <tr key={modId} className="border-b transition-colors hover:bg-muted/50">
-                              <td className="p-4 text-sm font-medium">{MODALIDADE_NAMES[modId] || `Modalidade ${modId}`}</td>
-                              <td className="p-4 text-center text-sm">{`${(avgDiscount * 100).toFixed(1)}%`}</td>
+                              <td className="p-4 text-sm font-medium">{modId}</td>
+                              <td className="p-4 text-center text-sm">{`${avgDiscount.toFixed(1)}%`}</td>
                               <td className="p-4 text-center text-sm">{avgParticipants}</td>
                             </tr>
                           )
@@ -853,14 +823,11 @@ export default async function CompetitorsPage({
                         {watchlist.map((w) => {
                           const stats = watchlistStats[w.competitor_cnpj]
                           if (!stats) return null
-                          const winRatePct = Math.round(stats.win_rate * 100)
+                          const winRatePct = Math.round(stats.win_rate)
                           const winRateColor = winRatePct >= 60 ? 'text-green-600' : winRatePct >= 30 ? 'text-yellow-600' : 'text-red-600'
-                          const discountPct = (stats.avg_discount_pct * 100).toFixed(1)
+                          const discountPct = stats.desconto_medio.toFixed(1)
 
-                          const topUfs = Object.entries(stats.participations_by_uf || {})
-                            .sort(([, a], [, b]) => b - a)
-                            .slice(0, 5)
-                          const maxUfCount = topUfs.length > 0 ? topUfs[0][1] : 1
+                          const ufsList = Object.keys(stats.ufs_atuacao || {}).slice(0, 5)
 
                           // Strengths/weaknesses based on stats
                           const strengths: string[] = []
@@ -869,14 +836,14 @@ export default async function CompetitorsPage({
                           if (winRatePct >= 50) strengths.push(`Win rate alto (${winRatePct}%)`)
                           else weaknesses.push(`Win rate baixo (${winRatePct}%)`)
 
-                          if (stats.total_participations >= 50) strengths.push('Experiencia ampla em licitacoes')
-                          else if (stats.total_participations < 10) weaknesses.push('Pouca experiencia em licitacoes')
+                          if (stats.total_participacoes >= 50) strengths.push('Experiencia ampla em licitacoes')
+                          else if (stats.total_participacoes < 10) weaknesses.push('Pouca experiencia em licitacoes')
 
-                          if (Object.keys(stats.participations_by_uf || {}).length >= 5) strengths.push('Presenca geografica diversificada')
+                          if (Object.keys(stats.ufs_atuacao || {}).length >= 5) strengths.push('Presenca geografica diversificada')
                           else weaknesses.push('Presenca geografica limitada')
 
-                          if (stats.avg_discount_pct > 0.15) strengths.push('Pricing agressivo')
-                          else if (stats.avg_discount_pct < 0.05 && stats.avg_discount_pct > 0) weaknesses.push('Desconto conservador')
+                          if (stats.desconto_medio > 15) strengths.push('Pricing agressivo')
+                          else if (stats.desconto_medio < 5 && stats.desconto_medio > 0) weaknesses.push('Desconto conservador')
 
                           return (
                             <div key={w.id} className="border rounded-lg p-4 space-y-3">
@@ -885,8 +852,8 @@ export default async function CompetitorsPage({
                                 <p className="text-xs text-muted-foreground font-mono">{formatCnpj(w.competitor_cnpj)}</p>
                                 <div className="flex flex-wrap gap-1 mt-1">
                                   {stats.porte && <Badge variant="outline" className="text-xs">{stats.porte}</Badge>}
-                                  {stats.municipio_sede && stats.uf_sede && (
-                                    <Badge variant="outline" className="text-xs">{stats.municipio_sede}/{stats.uf_sede}</Badge>
+                                  {stats.uf && (
+                                    <Badge variant="outline" className="text-xs">{stats.uf}</Badge>
                                   )}
                                 </div>
                               </div>
@@ -898,16 +865,16 @@ export default async function CompetitorsPage({
                                   <p className="text-xs text-muted-foreground">Win Rate</p>
                                 </div>
                                 <div className="bg-gray-50 rounded p-2">
-                                  <p className="text-lg font-bold">{stats.total_participations}</p>
+                                  <p className="text-lg font-bold">{stats.total_participacoes}</p>
                                   <p className="text-xs text-muted-foreground">Participacoes</p>
                                 </div>
                                 <div className="bg-gray-50 rounded p-2">
                                   <p className="text-sm font-bold">
-                                    {stats.avg_valor_proposta > 0
-                                      ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(stats.avg_valor_proposta)
+                                    {stats.valor_total_ganho > 0
+                                      ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(stats.valor_total_ganho)
                                       : 'N/D'}
                                   </p>
-                                  <p className="text-xs text-muted-foreground">Ticket Medio</p>
+                                  <p className="text-xs text-muted-foreground">Valor Total Ganho</p>
                                 </div>
                                 <div className="bg-gray-50 rounded p-2">
                                   <p className="text-sm font-bold">{discountPct}%</p>
@@ -916,21 +883,14 @@ export default async function CompetitorsPage({
                               </div>
 
                               {/* Geographic presence */}
-                              {topUfs.length > 0 && (
+                              {ufsList.length > 0 && (
                                 <div className="space-y-1">
                                   <p className="text-xs text-muted-foreground font-medium">Presenca Geografica</p>
-                                  {topUfs.map(([uf, count]) => (
-                                    <div key={uf} className="flex items-center gap-2 text-xs">
-                                      <span className="w-6 text-right font-mono">{uf}</span>
-                                      <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
-                                        <div
-                                          className="h-full bg-brand rounded-full"
-                                          style={{ width: `${Math.round((count / maxUfCount) * 100)}%` }}
-                                        />
-                                      </div>
-                                      <span className="w-6 text-right text-muted-foreground">{count}</span>
-                                    </div>
-                                  ))}
+                                  <div className="flex flex-wrap gap-1">
+                                    {ufsList.map((uf) => (
+                                      <Badge key={uf} variant="outline" className="text-xs font-mono">{uf}</Badge>
+                                    ))}
+                                  </div>
                                 </div>
                               )}
 
@@ -981,7 +941,7 @@ export default async function CompetitorsPage({
                               {watchlist.map((w) => {
                                 const stats = watchlistStats[w.competitor_cnpj]
                                 if (!stats) return null
-                                const winRatePct = Math.round(stats.win_rate * 100)
+                                const winRatePct = Math.round(stats.win_rate)
                                 const winRateColor = winRatePct >= 60 ? 'text-green-600' : winRatePct >= 30 ? 'text-yellow-600' : 'text-red-600'
                                 return (
                                   <tr key={w.id} className="border-b transition-colors hover:bg-muted/50">
@@ -989,18 +949,18 @@ export default async function CompetitorsPage({
                                       {w.competitor_nome || formatCnpj(w.competitor_cnpj)}
                                     </td>
                                     <td className={`p-3 text-center font-bold ${winRateColor}`}>{winRatePct}%</td>
-                                    <td className="p-3 text-center">{stats.total_participations}</td>
-                                    <td className="p-3 text-center">{stats.total_wins}</td>
+                                    <td className="p-3 text-center">{stats.total_participacoes}</td>
+                                    <td className="p-3 text-center">{stats.total_vitorias}</td>
                                     <td className="p-3 text-center text-sm hidden md:table-cell">
-                                      {stats.avg_valor_proposta > 0
-                                        ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(stats.avg_valor_proposta)
+                                      {stats.valor_total_ganho > 0
+                                        ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(stats.valor_total_ganho)
                                         : '-'}
                                     </td>
                                     <td className="p-3 text-center text-sm hidden md:table-cell">
-                                      {`${(stats.avg_discount_pct * 100).toFixed(1)}%`}
+                                      {`${stats.desconto_medio.toFixed(1)}%`}
                                     </td>
                                     <td className="p-3 text-center text-sm hidden lg:table-cell">
-                                      {Object.keys(stats.participations_by_uf || {}).length}
+                                      {Object.keys(stats.ufs_atuacao || {}).length}
                                     </td>
                                   </tr>
                                 )
@@ -1045,19 +1005,18 @@ export default async function CompetitorsPage({
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {searchResults.map((c) => {
                   const winRatePct = c.hasStats && c.win_rate != null
-                    ? Math.round(c.win_rate * 100)
+                    ? Math.round(c.win_rate)
                     : c.participacoes > 0 ? Math.round((c.vitorias / c.participacoes) * 100) : 0
                   const winRateColor = winRatePct >= 60 ? 'text-green-600' : winRatePct >= 30 ? 'text-yellow-600' : 'text-red-600'
 
-                  const topUfs = c.hasStats && c.participations_by_uf
-                    ? Object.entries(c.participations_by_uf).sort(([, a], [, b]) => b - a).slice(0, 3)
+                  const ufsList = c.hasStats && c.ufs_atuacao
+                    ? Object.keys(c.ufs_atuacao).slice(0, 5)
                     : []
-                  const maxUfCount = topUfs.length > 0 ? topUfs[0][1] : 1
 
                   let activityLabel = 'Inativo'
                   let activityVariant: 'default' | 'secondary' | 'destructive' = 'destructive'
-                  if (c.last_participation_at) {
-                    const daysSince = Math.floor((Date.now() - new Date(c.last_participation_at).getTime()) / (1000 * 60 * 60 * 24))
+                  if (c.ultima_participacao) {
+                    const daysSince = Math.floor((Date.now() - new Date(c.ultima_participacao).getTime()) / (1000 * 60 * 60 * 24))
                     if (daysSince <= 30) { activityLabel = 'Ativo'; activityVariant = 'default' }
                     else if (daysSince <= 90) { activityLabel = 'Moderado'; activityVariant = 'secondary' }
                   }
@@ -1068,8 +1027,8 @@ export default async function CompetitorsPage({
                         <div className="min-w-0">
                           <CardTitle className="text-sm font-semibold truncate">{c.nome || formatCnpj(c.cnpj)}</CardTitle>
                           <p className="text-xs text-muted-foreground font-mono mt-0.5">{formatCnpj(c.cnpj)}</p>
-                          {c.cnae_nome && (
-                            <p className="text-xs text-gray-400 mt-0.5 truncate">{c.cnae_nome}</p>
+                          {c.cnae_divisao && (
+                            <p className="text-xs text-gray-400 mt-0.5 truncate">CNAE Div. {c.cnae_divisao}</p>
                           )}
                         </div>
                       </CardHeader>
@@ -1102,37 +1061,30 @@ export default async function CompetitorsPage({
                           </div>
                         </div>
 
-                        {/* Ticket medio (only if stats available) */}
-                        {c.hasStats && c.avg_valor_proposta != null && c.avg_valor_proposta > 0 && (
+                        {/* Valor total ganho (only if stats available) */}
+                        {c.hasStats && c.valor_total_ganho != null && c.valor_total_ganho > 0 && (
                           <div className="text-sm">
-                            <span className="text-muted-foreground">Ticket medio: </span>
+                            <span className="text-muted-foreground">Valor total ganho: </span>
                             <span className="font-medium">
-                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(c.avg_valor_proposta)}
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(c.valor_total_ganho)}
                             </span>
-                            {c.avg_discount_pct != null && c.avg_discount_pct > 0 && (
+                            {c.desconto_medio != null && c.desconto_medio > 0 && (
                               <span className="text-xs text-muted-foreground ml-2">
-                                (desconto {(c.avg_discount_pct * 100).toFixed(1)}%)
+                                (desconto {c.desconto_medio.toFixed(1)}%)
                               </span>
                             )}
                           </div>
                         )}
 
-                        {/* Top UFs (only if stats available) */}
-                        {topUfs.length > 0 && (
+                        {/* UFs de atuacao (only if stats available) */}
+                        {ufsList.length > 0 && (
                           <div className="space-y-1">
-                            <p className="text-xs text-muted-foreground font-medium">Top UFs</p>
-                            {topUfs.map(([uf, count]) => (
-                              <div key={uf} className="flex items-center gap-2 text-xs">
-                                <span className="w-6 text-right font-mono">{uf}</span>
-                                <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
-                                  <div
-                                    className="h-full bg-brand rounded-full"
-                                    style={{ width: `${Math.round((count / maxUfCount) * 100)}%` }}
-                                  />
-                                </div>
-                                <span className="w-6 text-right text-muted-foreground">{count}</span>
-                              </div>
-                            ))}
+                            <p className="text-xs text-muted-foreground font-medium">UFs de Atuacao</p>
+                            <div className="flex flex-wrap gap-1">
+                              {ufsList.map((uf) => (
+                                <Badge key={uf} variant="outline" className="text-xs font-mono">{uf}</Badge>
+                              ))}
+                            </div>
                           </div>
                         )}
 
