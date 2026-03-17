@@ -13,32 +13,34 @@ import { matchingWorker } from './processors/matching.processor'
 import { notificationWorker } from './processors/notification.processor'
 import { pendingNotificationsWorker } from './processors/pending-notifications.processor'
 import { comprasgovScrapingWorker } from './processors/comprasgov-scraping.processor'
-import { becSpScrapingWorker } from './processors/bec-sp-scraping.processor'
+// BEC-SP scraper DISABLED — BEC migrated to compras.sp.gov.br; old ASP.NET pages no longer work.
+// SP procurement data flows through PNCP (national portal) with uf='SP' filter.
+// import { becSpScrapingWorker } from './processors/bec-sp-scraping.processor'
 import { resultsScrapingWorker } from './processors/results-scraping.processor'
 import { documentExpiryWorker } from './processors/document-expiry.processor'
 import { fornecedorEnrichmentWorker } from './processors/fornecedor-enrichment.processor'
 import { arpScrapingWorker } from './processors/comprasgov-arp.processor'
 import { legadoScrapingWorker } from './processors/comprasgov-legado.processor'
-import { mgScrapingWorker } from './processors/compras-mg.processor'
+// Portal MG scraper DISABLED — compras.mg.gov.br has WAF blocking non-browser requests.
+// MG procurement data flows through PNCP (national portal) with uf='MG' filter.
+// import { mgScrapingWorker } from './processors/compras-mg.processor'
 import { aiTriageWorker } from './processors/ai-triage.processor'
 import { semanticMatchingWorker } from './processors/semantic-matching.processor'
 
 const allWorkers = [
   scrapingWorker, extractionWorker, matchingWorker, notificationWorker,
-  pendingNotificationsWorker, comprasgovScrapingWorker, becSpScrapingWorker,
+  pendingNotificationsWorker, comprasgovScrapingWorker,
   resultsScrapingWorker, documentExpiryWorker, fornecedorEnrichmentWorker,
-  arpScrapingWorker, legadoScrapingWorker, mgScrapingWorker, aiTriageWorker,
+  arpScrapingWorker, legadoScrapingWorker, aiTriageWorker,
   semanticMatchingWorker,
 ]
 import { pendingNotificationsQueue } from './queues/pending-notifications.queue'
 import { comprasgovScrapingQueue } from './queues/comprasgov-scraping.queue'
-import { becSpScrapingQueue } from './queues/bec-sp-scraping.queue'
 import { resultsScrapingQueue } from './queues/results-scraping.queue'
 import { documentExpiryQueue } from './queues/document-expiry.queue'
 import { fornecedorEnrichmentQueue } from './queues/fornecedor-enrichment.queue'
 import { arpScrapingQueue } from './queues/comprasgov-arp.queue'
 import { legadoScrapingQueue } from './queues/comprasgov-legado.queue'
-import { mgScrapingQueue } from './queues/compras-mg.queue'
 import { startBot } from './telegram/bot'
 
 async function setupRepeatableJobs() {
@@ -84,18 +86,28 @@ async function setupRepeatableJobs() {
   )
   logger.info('dadosabertos.compras.gov.br scraping job scheduled (every 4h)')
 
-  // Schedule BEC SP scraping every 4 hours (3 tipos)
-  for (const tipo of ['pregao', 'dispensa', 'oferta_compra'] as const) {
-    await becSpScrapingQueue.add(
-      `bec-sp-${tipo}`,
-      { tipo },
-      {
-        repeat: { every: 4 * 60 * 60 * 1000 },
-        jobId: `bec-sp-${tipo}-repeat`,
-      },
-    )
+  // Schedule PNCP scraping for SP and MG specifically (every 6h)
+  // BEC-SP and Portal MG scrapers are broken (site migrated / WAF blocks).
+  // Instead, we use PNCP's native UF filter to ensure comprehensive coverage.
+  for (const uf of ['SP', 'MG']) {
+    for (const modalidadeId of ALL_SCRAPING_MODALITIES) {
+      await scrapingQueue.add(
+        `scrape-uf-${uf}-mod-${modalidadeId}`,
+        {
+          modalidadeId,
+          dataInicial: today,
+          dataFinal: today,
+          pagina: 1,
+          uf,
+        },
+        {
+          repeat: { every: 6 * 60 * 60 * 1000 },
+          jobId: `scrape-uf-${uf}-mod-${modalidadeId}-repeat`,
+        },
+      )
+    }
   }
-  logger.info('BEC SP scraping jobs scheduled (every 4h)')
+  logger.info('PNCP SP+MG UF-specific scraping jobs scheduled (every 6h)')
 
   // Schedule PNCP results scraping (competitive intelligence) every 24 hours
   await resultsScrapingQueue.add(
@@ -152,17 +164,6 @@ async function setupRepeatableJobs() {
   )
   logger.info('Legacy pregoes scraping job scheduled (every 24h)')
 
-  // Schedule Portal MG scraping every 6 hours
-  await mgScrapingQueue.add(
-    'mg-scrape',
-    { tipo: 'all' },
-    {
-      repeat: { every: 6 * 60 * 60 * 1000 },
-      jobId: 'mg-scrape-repeat',
-    },
-  )
-  logger.info('Portal MG scraping job scheduled (every 6h)')
-
   // Trigger immediate scrape on startup (last 30 days for comprehensive coverage)
   const thirtyDaysAgo = new Date()
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
@@ -186,11 +187,22 @@ async function setupRepeatableJobs() {
   await comprasgovScrapingQueue.add('comprasgov-initial', { pagina: 1 })
   logger.info('Initial dadosabertos.compras.gov.br scraping job queued')
 
-  // Trigger immediate BEC SP scrape
-  for (const tipo of ['pregao', 'dispensa', 'oferta_compra'] as const) {
-    await becSpScrapingQueue.add(`bec-sp-initial-${tipo}`, { tipo })
+  // Trigger immediate PNCP SP+MG scrape (last 30 days)
+  for (const uf of ['SP', 'MG']) {
+    for (const modalidadeId of ALL_SCRAPING_MODALITIES) {
+      await scrapingQueue.add(
+        `scrape-initial-uf-${uf}-mod-${modalidadeId}`,
+        {
+          modalidadeId,
+          dataInicial: startDate,
+          dataFinal: today,
+          pagina: 1,
+          uf,
+        },
+      )
+    }
   }
-  logger.info('Initial BEC SP scraping jobs queued')
+  logger.info('Initial PNCP SP+MG UF-specific scraping jobs queued (last 30 days)')
 
   // Trigger immediate ARP and legacy scrape
   await arpScrapingQueue.add('arp-initial', { pagina: 1 })
@@ -198,10 +210,6 @@ async function setupRepeatableJobs() {
 
   await legadoScrapingQueue.add('legado-initial', { pagina: 1 })
   logger.info('Initial legacy pregoes scraping job queued')
-
-  // Trigger immediate Portal MG scrape
-  await mgScrapingQueue.add('mg-initial', { tipo: 'all' })
-  logger.info('Initial Portal MG scraping job queued')
 
   // Re-queue extraction for tenders stuck in 'new' status
   const { data: pendingTenders } = await supabase
