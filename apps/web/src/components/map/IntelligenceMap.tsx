@@ -239,7 +239,12 @@ export function IntelligenceMap({
   const selectedUfData = selectedUf ? ufDataMap.get(selectedUf) : null
   const selectedUfMarkers = useMemo(() => {
     if (!selectedUf) return []
-    return filteredMarkers.filter((m) => m.uf === selectedUf)
+    const ufMatches = filteredMarkers.filter((m) => m.uf === selectedUf)
+    // Hot matches first, then by score descending
+    return ufMatches.sort((a, b) => {
+      if (a.isHot !== b.isHot) return a.isHot ? -1 : 1
+      return b.score - a.score
+    })
   }, [selectedUf, filteredMarkers])
 
   // Stats for the selected UF based on filtered markers (not original data)
@@ -249,7 +254,8 @@ export function IntelligenceMap({
     const totalValue = selectedUfMarkers.reduce((s, m) => s + (m.valor || 0), 0)
     const avgScore = Math.round(selectedUfMarkers.reduce((s, m) => s + m.score, 0) / count)
     const maxScore = Math.max(...selectedUfMarkers.map((m) => m.score))
-    return { count, totalValue, avgScore, maxScore }
+    const hotCount = selectedUfMarkers.filter((m) => m.isHot).length
+    return { count, totalValue, avgScore, maxScore, hotCount }
   }, [selectedUfMarkers])
 
   // Choropleth fill layer style
@@ -667,12 +673,18 @@ export function IntelligenceMap({
                       </span>
                     </p>
                   </div>
-                  <div className="bg-gray-50 rounded-lg p-2.5">
-                    <p className="text-xs text-gray-500">Maior Score</p>
+                  <div className={`rounded-lg p-2.5 ${selectedUfFilteredStats.hotCount > 0 ? 'bg-orange-50 border border-orange-200' : 'bg-gray-50'}`}>
+                    <p className={`text-xs ${selectedUfFilteredStats.hotCount > 0 ? 'text-orange-600' : 'text-gray-500'}`}>
+                      {selectedUfFilteredStats.hotCount > 0 ? '🔥 Super Quentes' : 'Maior Score'}
+                    </p>
                     <p className="text-lg font-bold">
-                      <span className={selectedUfFilteredStats.maxScore >= 70 ? 'text-emerald-600' : selectedUfFilteredStats.maxScore >= 50 ? 'text-amber-600' : 'text-red-500'}>
-                        {selectedUfFilteredStats.maxScore}
-                      </span>
+                      {selectedUfFilteredStats.hotCount > 0 ? (
+                        <span className="text-orange-600">{selectedUfFilteredStats.hotCount}</span>
+                      ) : (
+                        <span className={selectedUfFilteredStats.maxScore >= 70 ? 'text-emerald-600' : selectedUfFilteredStats.maxScore >= 50 ? 'text-amber-600' : 'text-red-500'}>
+                          {selectedUfFilteredStats.maxScore}
+                        </span>
+                      )}
                     </p>
                   </div>
                 </div>
@@ -689,27 +701,45 @@ export function IntelligenceMap({
                   <Link
                     key={m.matchId}
                     href={`/opportunities/${m.matchId}`}
-                    className="block p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                    className={`block p-3 rounded-lg transition-colors ${
+                      m.isHot
+                        ? 'bg-orange-50 border border-orange-200 hover:bg-orange-100 ring-1 ring-orange-300/50'
+                        : 'bg-gray-50 hover:bg-gray-100'
+                    }`}
                     onMouseEnter={() => setSelectedMatch(m)}
                   >
+                    {m.isHot && (
+                      <div className="flex items-center gap-1 mb-1.5">
+                        <span className="text-[10px] font-bold text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded-full">
+                          🔥 SUPER QUENTE
+                        </span>
+                      </div>
+                    )}
                     <div className="flex items-start gap-2">
                       <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
                         <span
                           className={`inline-flex items-center justify-center w-9 h-9 rounded-full text-xs font-bold text-white ${
-                            m.matchSource === 'ai' || m.matchSource === 'ai_triage' || m.matchSource === 'semantic' ? 'ring-2 ring-blue-400' : ''
+                            m.isHot
+                              ? 'ring-2 ring-orange-400'
+                              : m.matchSource === 'ai' || m.matchSource === 'ai_triage' || m.matchSource === 'semantic' ? 'ring-2 ring-blue-400' : ''
                           }`}
-                          style={{ backgroundColor: getMatchColor(m.score) }}
+                          style={{
+                            background: m.isHot
+                              ? 'linear-gradient(135deg, #f97316, #ef4444)'
+                              : getMatchColor(m.score),
+                          }}
                         >
-                          {m.score}
+                          {m.isHot ? '🔥' : m.score}
                         </span>
                         <span className={`text-[8px] font-medium ${
+                          m.isHot ? 'text-orange-600' :
                           m.matchSource === 'ai' || m.matchSource === 'ai_triage' || m.matchSource === 'semantic' ? 'text-blue-600' : 'text-gray-400'
                         }`}>
-                          {m.matchSource === 'ai' || m.matchSource === 'ai_triage' || m.matchSource === 'semantic' ? 'IA' : 'est.'}
+                          {m.isHot ? `${m.score}` : m.matchSource === 'ai' || m.matchSource === 'ai_triage' || m.matchSource === 'semantic' ? 'IA' : 'est.'}
                         </span>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-gray-900 leading-snug line-clamp-2">
+                        <p className={`text-xs font-medium leading-snug line-clamp-2 ${m.isHot ? 'text-orange-900' : 'text-gray-900'}`}>
                           {m.objeto}
                         </p>
                         <p className="text-[10px] text-gray-500 mt-1 truncate">{m.orgao}</p>
@@ -718,8 +748,10 @@ export function IntelligenceMap({
                             <span className="text-[10px] text-blue-500">{m.municipio}</span>
                           )}
                           {m.valor && (
-                            <span className="text-[10px] font-medium text-emerald-600">
-                              {formatCompactBRL(m.valor)}
+                            <span className={`text-[10px] font-medium ${m.isHot ? 'text-orange-700 font-bold' : 'text-emerald-600'}`}>
+                              {m.isHot
+                                ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(m.valor)
+                                : formatCompactBRL(m.valor)}
                             </span>
                           )}
                           {m.modalidade && (
