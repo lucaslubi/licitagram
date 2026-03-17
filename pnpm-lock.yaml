@@ -168,6 +168,9 @@ importers:
 
   packages/workers:
     dependencies:
+      '@google/generative-ai':
+        specifier: ^0.24.1
+        version: 0.24.1
       '@licitagram/shared':
         specifier: workspace:*
         version: link:../shared
