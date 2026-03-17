@@ -26,7 +26,7 @@ export default async function MapPage() {
   const { data: matches } = await supabase
     .from('matches')
     .select(`
-      id, score, status, recomendacao, match_source,
+      id, score, status, recomendacao, match_source, is_hot,
       tenders!inner (
         id, objeto, orgao_nome, uf, municipio, valor_estimado,
         modalidade_nome, modalidade_id, data_abertura, data_encerramento,
@@ -79,6 +79,7 @@ export default async function MapPage() {
         recomendacao: match.recomendacao as string | null,
         lat: coords.lat,
         lng: coords.lng,
+        isHot: (match as unknown as Record<string, unknown>).is_hot === true,
       })
     }
 

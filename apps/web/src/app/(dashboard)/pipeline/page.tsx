@@ -24,7 +24,7 @@ export default async function PipelinePage() {
   const { data: matches } = await supabase
     .from('matches')
     .select(
-      'id, score, status, tenders!inner(objeto, orgao_nome, uf, valor_estimado, data_abertura, data_encerramento, modalidade_id)',
+      'id, score, status, is_hot, tenders!inner(objeto, orgao_nome, uf, valor_estimado, data_abertura, data_encerramento, modalidade_id)',
     )
     .eq('company_id', profile.company_id)
     .in('status', COLUMN_KEYS)
@@ -39,6 +39,7 @@ export default async function PipelinePage() {
       id: m.id,
       score: m.score,
       status: m.status,
+      isHot: (m as unknown as Record<string, unknown>).is_hot === true,
       tenders: tender
         ? {
             objeto: (tender.objeto as string) || '',
@@ -46,6 +47,7 @@ export default async function PipelinePage() {
             uf: (tender.uf as string) || '',
             valor_estimado: (tender.valor_estimado as number) || null,
             data_abertura: (tender.data_abertura as string) || null,
+            data_encerramento: (tender.data_encerramento as string) || null,
           }
         : null,
     }

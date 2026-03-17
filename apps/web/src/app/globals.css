@@ -103,3 +103,8 @@
     text-wrap: balance;
   }
 }
+
+@keyframes pulse-hot {
+  0%, 100% { box-shadow: 0 0 8px 3px rgba(255, 165, 0, 0.5); }
+  50% { box-shadow: 0 0 22px 10px rgba(255, 165, 0, 0.85); }
+}

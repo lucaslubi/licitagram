@@ -87,6 +87,12 @@ export function IntelligenceMap({
       markers.sort((a, b) => b.score - a.score)
       result.push({ best: markers[0], count: markers.length, all: markers })
     }
+    // Sort: normal markers first, hot markers last (rendered on top via DOM order)
+    result.sort((a, b) => {
+      if (a.best.isHot && !b.best.isHot) return 1
+      if (!a.best.isHot && b.best.isHot) return -1
+      return 0
+    })
     return result
   }, [filteredMarkers])
 
@@ -379,6 +385,7 @@ export function IntelligenceMap({
             {/* Individual match markers — grouped by location */}
             {groupedMarkers.map(({ best: m, count, all }) => {
               const isAi = m.matchSource === 'ai' || m.matchSource === 'ai_triage' || m.matchSource === 'semantic'
+              const isHot = m.isHot
               return (
               <Marker
                 key={`match-${m.matchId}`}
@@ -392,17 +399,32 @@ export function IntelligenceMap({
                   setSelectedGroup(count > 1 ? all : null)
                 }}
               >
-                <div className="relative">
+                <div className="relative" style={isHot ? { zIndex: 50 } : undefined}>
+                  {isHot && (
+                    <span
+                      className="absolute left-1/2 -translate-x-1/2 text-base drop-shadow-lg pointer-events-none"
+                      style={{ top: -16, filter: 'drop-shadow(0 0 4px rgba(255,100,0,0.8))' }}
+                    >
+                      🔥
+                    </span>
+                  )}
                   <div
                     className={`flex items-center justify-center rounded-full cursor-pointer shadow-lg transition-transform hover:scale-125 hover:z-50 ${
-                      isAi ? 'border-2 border-blue-400/80' : 'border-2 border-white/50'
+                      isHot
+                        ? 'border-2 border-yellow-400'
+                        : isAi
+                          ? 'border-2 border-blue-400/80'
+                          : 'border-2 border-white/50'
                     }`}
                     style={{
-                      width: 32,
-                      height: 32,
-                      backgroundColor: getMatchColor(m.score),
+                      width: isHot ? 36 : 32,
+                      height: isHot ? 36 : 32,
+                      background: isHot
+                        ? 'linear-gradient(135deg, #f97316, #ef4444)'
+                        : getMatchColor(m.score),
+                      animation: isHot ? 'pulse-hot 1.5s ease-in-out infinite' : undefined,
                     }}
-                    title={`${m.objeto} — Score: ${m.score}${isAi ? ' (IA)' : ' (estimado)'}${count > 1 ? ` (+${count - 1} mais)` : ''}`}
+                    title={`${m.objeto} — Score: ${m.score}${isHot ? ' 🔥 SUPER QUENTE' : ''}${isAi ? ' (IA)' : ' (estimado)'}${count > 1 ? ` (+${count - 1} mais)` : ''}`}
                   >
                     <span className="text-white font-bold text-[11px] leading-none drop-shadow-sm">
                       {m.score}
@@ -432,6 +454,11 @@ export function IntelligenceMap({
                 maxWidth="300px"
               >
                 <div className="p-3 min-w-[220px]">
+                  {selectedMatch.isHot && (
+                    <div className="mb-2 pb-2 border-b border-orange-200 bg-gradient-to-r from-orange-500 to-red-500 -m-3 mb-2 p-2 rounded-t">
+                      <p className="text-xs font-bold text-white">🔥 SUPER QUENTE</p>
+                    </div>
+                  )}
                   {selectedGroup && selectedGroup.length > 1 && (
                     <div className="mb-2 pb-2 border-b border-gray-200">
                       <p className="text-xs font-semibold text-gray-700">
@@ -515,6 +542,10 @@ export function IntelligenceMap({
             <div className="flex items-center gap-1.5 mt-1.5">
               <div className="w-3 h-3 rounded-full border-2 border-blue-400 bg-gray-500" />
               <span className="text-[9px] text-gray-300">Verificado por IA</span>
+            </div>
+            <div className="flex items-center gap-1.5 mt-1">
+              <div className="w-3 h-3 rounded-full border-2 border-yellow-400" style={{ background: 'linear-gradient(135deg, #f97316, #ef4444)' }} />
+              <span className="text-[9px] text-gray-300">🔥 Super Quente</span>
             </div>
             <p className="text-[9px] text-gray-400 mt-1">
               {filteredMarkers.length} matches no mapa

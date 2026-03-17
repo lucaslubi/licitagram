@@ -20,12 +20,14 @@ interface Match {
   id: string
   score: number
   status: string
+  isHot: boolean
   tenders: {
     objeto: string
     orgao_nome: string
     uf: string
     valor_estimado: number | null
     data_abertura: string | null
+    data_encerramento: string | null
   } | null
 }
 
@@ -41,6 +43,21 @@ function formatCurrencyShort(val: number): string {
   if (val >= 1_000_000) return `R$ ${(val / 1_000_000).toFixed(1)}M`
   if (val >= 1_000) return `R$ ${(val / 1_000).toFixed(0)}K`
   return `R$ ${val.toFixed(0)}`
+}
+
+function formatCurrencyFull(val: number): string {
+  return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+function timeUntil(dateStr: string): { text: string; urgency: 'normal' | 'warning' | 'critical' } {
+  const target = new Date(dateStr)
+  const now = new Date()
+  const hours = Math.max(0, (target.getTime() - now.getTime()) / (1000 * 60 * 60))
+  if (hours < 1) return { text: 'Encerra em menos de 1h', urgency: 'critical' }
+  if (hours < 24) return { text: `Encerra em ${Math.floor(hours)}h`, urgency: 'critical' }
+  if (hours < 48) return { text: `Encerra em ${Math.floor(hours)}h`, urgency: 'warning' }
+  const days = Math.floor(hours / 24)
+  return { text: `Encerra em ${days} dia${days > 1 ? 's' : ''}`, urgency: 'normal' }
 }
 
 function DroppableColumn({
@@ -99,10 +116,22 @@ function DraggableCard({ match, isDragging }: { match: Match; isDragging: boolea
     : undefined
 
   const tender = match.tenders
-  const scoreColor =
-    match.score >= 70 ? 'bg-emerald-100 text-emerald-800' :
-    match.score >= 50 ? 'bg-amber-100 text-amber-800' :
-    'bg-red-100 text-red-800'
+  const isHot = match.isHot
+
+  const scoreColor = isHot
+    ? 'bg-orange-100 text-orange-800'
+    : match.score >= 70
+      ? 'bg-emerald-100 text-emerald-800'
+      : match.score >= 50
+        ? 'bg-amber-100 text-amber-800'
+        : 'bg-red-100 text-red-800'
+
+  const countdown = tender?.data_encerramento ? timeUntil(tender.data_encerramento) : null
+  const countdownColor = countdown?.urgency === 'critical'
+    ? 'text-red-600 font-semibold'
+    : countdown?.urgency === 'warning'
+      ? 'text-amber-600'
+      : 'text-gray-400'
 
   return (
     <div
@@ -112,7 +141,7 @@ function DraggableCard({ match, isDragging }: { match: Match; isDragging: boolea
       {...attributes}
       className={`bg-white rounded-lg border p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow ${
         isDragging ? 'opacity-50 shadow-lg' : ''
-      }`}
+      } ${isHot ? 'border-l-[3px] border-l-orange-500 bg-orange-50' : ''}`}
     >
       <div className="flex items-start justify-between mb-1.5">
         <a
@@ -123,33 +152,46 @@ function DraggableCard({ match, isDragging }: { match: Match; isDragging: boolea
           {truncateText(tender?.objeto || 'N/A', 70)}
         </a>
         <span className={`ml-1 shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold ${scoreColor}`}>
-          {match.score}
+          {isHot ? '🔥 ' : ''}{match.score}
         </span>
       </div>
       <p className="text-xs text-gray-400 truncate">{tender?.orgao_nome || ''}</p>
       <div className="flex justify-between mt-1.5 text-xs text-gray-400">
         <span>{tender?.uf || ''}</span>
-        <span>{tender?.valor_estimado ? formatCurrencyShort(tender.valor_estimado) : '-'}</span>
+        <span className={isHot ? 'font-bold text-gray-700' : ''}>
+          {tender?.valor_estimado
+            ? (isHot ? formatCurrencyFull(tender.valor_estimado) : formatCurrencyShort(tender.valor_estimado))
+            : '-'}
+        </span>
       </div>
+      {countdown && isHot && (
+        <div className={`mt-1.5 text-[10px] ${countdownColor}`}>
+          ⏰ {countdown.text}
+        </div>
+      )}
     </div>
   )
 }
 
 function CardOverlay({ match }: { match: Match }) {
   const tender = match.tenders
-  const scoreColor =
-    match.score >= 70 ? 'bg-emerald-100 text-emerald-800' :
-    match.score >= 50 ? 'bg-amber-100 text-amber-800' :
-    'bg-red-100 text-red-800'
+  const isHot = match.isHot
+  const scoreColor = isHot
+    ? 'bg-orange-100 text-orange-800'
+    : match.score >= 70
+      ? 'bg-emerald-100 text-emerald-800'
+      : match.score >= 50
+        ? 'bg-amber-100 text-amber-800'
+        : 'bg-red-100 text-red-800'
 
   return (
-    <div className="bg-white rounded-lg border-2 border-brand p-3 shadow-xl w-[240px] rotate-2">
+    <div className={`bg-white rounded-lg border-2 p-3 shadow-xl w-[240px] rotate-2 ${isHot ? 'border-orange-500' : 'border-brand'}`}>
       <div className="flex items-start justify-between mb-1.5">
         <p className="text-xs font-medium text-gray-900 line-clamp-2 flex-1">
           {truncateText(tender?.objeto || 'N/A', 70)}
         </p>
         <span className={`ml-1 shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold ${scoreColor}`}>
-          {match.score}
+          {isHot ? '🔥 ' : ''}{match.score}
         </span>
       </div>
       <p className="text-xs text-gray-400 truncate">{tender?.orgao_nome || ''}</p>
@@ -175,7 +217,13 @@ export function KanbanBoard({ initialMatches }: { initialMatches: Match[] }) {
 
   const grouped: Record<string, Match[]> = {}
   for (const col of COLUMNS) {
-    grouped[col.key] = matches.filter((m) => m.status === col.key)
+    grouped[col.key] = matches
+      .filter((m) => m.status === col.key)
+      .sort((a, b) => {
+        if (a.isHot && !b.isHot) return -1
+        if (!a.isHot && b.isHot) return 1
+        return b.score - a.score
+      })
   }
 
   const activeMatch = activeId ? matches.find((m) => m.id === activeId) : null

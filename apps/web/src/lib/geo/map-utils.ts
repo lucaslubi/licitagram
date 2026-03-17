@@ -13,6 +13,7 @@ export interface MatchMarker {
   recomendacao: string | null
   lat: number
   lng: number
+  isHot: boolean
 }
 
 /** Dados agregados por UF */
