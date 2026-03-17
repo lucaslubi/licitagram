@@ -2,7 +2,7 @@ import { Worker } from 'bullmq'
 import { connection } from '../queues/connection'
 import { type NotificationJobData } from '../queues/notification.queue'
 import { bot } from '../telegram/bot'
-import { formatMatchAlert } from '../telegram/formatters'
+import { formatMatchAlert, formatHotAlert, formatUrgencyAlert48h, formatUrgencyAlert24h } from '../telegram/formatters'
 import { sendMatchAlert as sendWhatsAppAlert, isConnected as isWhatsAppConnected } from '../whatsapp/client'
 import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
@@ -15,10 +15,79 @@ const MIN_NOTIFICATION_SCORE = 50
 const notificationWorker = new Worker<NotificationJobData>(
   'notification',
   async (job) => {
-    // Handle urgency/hot notification types (processed elsewhere or future expansion)
-    if ('type' in job.data && (job.data.type === 'urgency_48h' || job.data.type === 'urgency_24h' || job.data.type === 'hot')) {
-      // TODO: handle hot/urgency notification rendering
-      logger.info({ type: job.data.type }, 'Hot/urgency notification type not yet rendered, skipping')
+    // ─── Hot Alert ──────────────────────────────────────────────────────
+    if ('type' in job.data && job.data.type === 'hot') {
+      const { matchId, telegramChatId, rank, plan } = job.data
+
+      if (!bot) {
+        logger.warn({ matchId }, 'Hot alert: bot not initialized, skipping')
+        return
+      }
+
+      const { data: match } = await supabase
+        .from('matches')
+        .select(`
+          id, score, breakdown, ai_justificativa,
+          tenders (objeto, orgao_nome, uf, municipio, valor_estimado, modalidade_nome, data_encerramento, numero, ano, pncp_id)
+        `)
+        .eq('id', matchId)
+        .single()
+
+      if (!match) {
+        logger.warn({ matchId }, 'Hot alert: match not found')
+        return
+      }
+
+      const tender = (match.tenders as unknown) as Record<string, unknown>
+      const { text, keyboard } = formatHotAlert({
+        matchId: match.id,
+        rank,
+        score: match.score,
+        breakdown: (match.breakdown as Array<{ category: string; score: number; reason: string }>) || [],
+        justificativa: match.ai_justificativa || '',
+        plan,
+        tender: {
+          objeto: (tender?.objeto as string) || '',
+          orgao_nome: (tender?.orgao_nome as string) || '',
+          uf: (tender?.uf as string) || '',
+          municipio: (tender?.municipio as string) || '',
+          valor_estimado: tender?.valor_estimado as number | null,
+          modalidade_nome: tender?.modalidade_nome as string | null,
+          data_encerramento: tender?.data_encerramento as string | null,
+          numero: tender?.numero as string | null,
+          ano: tender?.ano as string | null,
+          pncp_id: tender?.pncp_id as string | null,
+        },
+      })
+
+      await bot.api.sendMessage(telegramChatId, text, {
+        parse_mode: 'HTML',
+        reply_markup: keyboard,
+      })
+
+      logger.info({ matchId, telegramChatId, rank }, 'Hot alert sent')
+      return
+    }
+
+    // ─── Urgency Alerts (48h / 24h) ─────────────────────────────────────
+    if ('type' in job.data && (job.data.type === 'urgency_48h' || job.data.type === 'urgency_24h')) {
+      const { telegramChatId, matches, totalValor, type } = job.data
+
+      if (!bot) {
+        logger.warn({ type }, 'Urgency alert: bot not initialized, skipping')
+        return
+      }
+
+      const { text, keyboard } = type === 'urgency_48h'
+        ? formatUrgencyAlert48h(matches, totalValor)
+        : formatUrgencyAlert24h(matches, totalValor)
+
+      await bot.api.sendMessage(telegramChatId, text, {
+        parse_mode: 'HTML',
+        reply_markup: keyboard,
+      })
+
+      logger.info({ telegramChatId, type, matchCount: matches.length }, 'Urgency alert sent')
       return
     }
 
