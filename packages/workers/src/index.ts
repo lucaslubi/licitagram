@@ -167,16 +167,16 @@ async function setupRepeatableJobs() {
   )
   logger.info('Legacy pregoes scraping job scheduled (every 24h)')
 
-  // Schedule hot-daily alert (7h BRT = 10h UTC)
+  // Schedule hot alerts scan every 3 hours — surfaces best opportunities ASAP
   await hotAlertsQueue.add(
     'hot-daily',
     {},
     {
-      repeat: { pattern: '0 10 * * *' },
-      jobId: 'hot-daily-repeat',
+      repeat: { every: 3 * 60 * 60 * 1000 },
+      jobId: 'hot-scan-3h-repeat',
     },
   )
-  logger.info('Hot daily alerts job scheduled (daily at 7h BRT)')
+  logger.info('Hot alerts scan scheduled (every 3h)')
 
   // Schedule urgency check every hour
   await hotAlertsQueue.add(

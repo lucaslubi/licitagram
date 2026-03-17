@@ -72,13 +72,13 @@ async function handleHotDaily() {
   }
 
   const today = new Date().toISOString().split('T')[0]
-  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
   const planCache = new Map<string, string>()
   let totalMarked = 0
   let totalEnqueued = 0
 
   for (const [companyId, users] of companyUsers) {
-    // Query matches from last 24h with score >= 80, AI sources only, non-expired
+    // Query ALL matches with score >= 80, AI sources only, still open (not expired)
+    // No created_at filter — we want to surface the best opportunities regardless of when they were matched
     const { data: matches } = await supabase
       .from('matches')
       .select(`
@@ -87,7 +87,7 @@ async function handleHotDaily() {
       `)
       .eq('company_id', companyId)
       .gte('score', HOT_SCORE_THRESHOLD)
-      .gte('created_at', yesterday)
+      .in('status', ACTIVE_STATUSES)
       .in('match_source', AI_SOURCES)
       .not('tenders.modalidade_id', 'in', `(${EXCLUDED_MODALIDADES.join(',')})`)
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
@@ -111,8 +111,9 @@ async function handleHotDaily() {
         totalMarked++
       }
 
-      // Skip Telegram send if already notified (dedup with normal notifications)
-      if (match.notified_at) continue
+      // Skip Telegram send only if this match was already sent as hot (avoid re-alerting)
+      // Matches that received standard notifications still get the hot alert — it's a premium notification
+      if (match.is_hot) continue
 
       // Enqueue hot notification for each user
       for (const user of users) {
@@ -149,19 +150,27 @@ async function handleHotDaily() {
 async function handleUrgencyCheck() {
   logger.info('Running urgency-check job...')
 
-  // Step 1: Expire stale hot markers (older than 48h)
-  const expired48h = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
-  const { data: expiredRows, error: expireErr } = await supabase
+  // Step 1: Expire hot markers for matches whose tenders already closed
+  const nowISO = new Date().toISOString()
+  const { data: hotMatches } = await supabase
     .from('matches')
-    .update({ is_hot: false })
+    .select('id, tenders!inner(data_encerramento)')
     .eq('is_hot', true)
-    .lt('hot_at', expired48h)
-    .select('id')
+    .lt('tenders.data_encerramento', nowISO)
 
-  const expiredCount = expireErr ? 0 : (expiredRows?.length ?? 0)
+  const expiredIds = (hotMatches || []).map((m) => m.id)
+  let expiredCount = 0
+  if (expiredIds.length > 0) {
+    const { data: expiredRows } = await supabase
+      .from('matches')
+      .update({ is_hot: false })
+      .in('id', expiredIds)
+      .select('id')
+    expiredCount = expiredRows?.length ?? 0
+  }
 
-  if (expiredCount && expiredCount > 0) {
-    logger.info({ expiredCount }, 'Expired stale hot markers')
+  if (expiredCount > 0) {
+    logger.info({ expiredCount }, 'Expired hot markers (tender closed)')
   }
 
   // Step 2: Find users + companies
