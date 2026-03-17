@@ -35,37 +35,95 @@ export default async function CompetitorsPage({
   // Get competitor stats for watchlist items
   const watchlistCnpjs = (watchlist || []).map((w) => w.competitor_cnpj)
   let watchlistStats: Record<string, {
-    participacoes: number; vitorias: number; valorMedio: number
-    porte?: string; cnae_nome?: string; uf?: string; municipio?: string
+    total_participations: number; total_wins: number; win_rate: number
+    avg_valor_proposta: number; avg_discount_pct: number
+    participations_by_uf: Record<string, number>; wins_by_uf: Record<string, number>
+    porte: string | null; cnae_nome: string | null; uf_sede: string | null; municipio_sede: string | null
+    last_participation_at: string | null
+    overlapCount?: number
   }> = {}
 
   if (watchlistCnpjs.length > 0) {
     const { data: stats } = await supabase
-      .from('competitors')
-      .select('cnpj, situacao, valor_proposta, porte, cnae_nome, uf_fornecedor, municipio_fornecedor')
+      .from('competitor_stats')
+      .select('*')
       .in('cnpj', watchlistCnpjs)
 
     if (stats) {
       for (const s of stats) {
-        if (!watchlistStats[s.cnpj]) {
-          watchlistStats[s.cnpj] = { participacoes: 0, vitorias: 0, valorMedio: 0 }
+        watchlistStats[s.cnpj] = {
+          total_participations: s.total_participations,
+          total_wins: s.total_wins,
+          win_rate: Number(s.win_rate),
+          avg_valor_proposta: Number(s.avg_valor_proposta || 0),
+          avg_discount_pct: Number(s.avg_discount_pct || 0),
+          participations_by_uf: (s.participations_by_uf as Record<string, number>) || {},
+          wins_by_uf: (s.wins_by_uf as Record<string, number>) || {},
+          porte: s.porte,
+          cnae_nome: null, // TODO: join from competitors table if needed
+          uf_sede: s.uf_sede,
+          municipio_sede: s.municipio_sede,
+          last_participation_at: s.last_participation_at,
         }
-        watchlistStats[s.cnpj].participacoes++
-        const isWinner = s.situacao && typeof s.situacao === 'string' && s.situacao.toLowerCase().includes('homologad')
-        if (isWinner) watchlistStats[s.cnpj].vitorias++
-        // Capture enrichment data from the first record that has it
-        if (s.porte && !watchlistStats[s.cnpj].porte) watchlistStats[s.cnpj].porte = s.porte
-        if (s.cnae_nome && !watchlistStats[s.cnpj].cnae_nome) watchlistStats[s.cnpj].cnae_nome = s.cnae_nome
-        if (s.uf_fornecedor && !watchlistStats[s.cnpj].uf) watchlistStats[s.cnpj].uf = s.uf_fornecedor
-        if (s.municipio_fornecedor && !watchlistStats[s.cnpj].municipio) watchlistStats[s.cnpj].municipio = s.municipio_fornecedor
       }
     }
+
+    // Fallback for CNPJs not yet in competitor_stats (< 3 participations)
+    const missingCnpjs = watchlistCnpjs.filter((c) => !watchlistStats[c])
+    if (missingCnpjs.length > 0) {
+      const { data: rawStats } = await supabase
+        .from('competitors')
+        .select('cnpj, situacao, valor_proposta, porte, cnae_nome, uf_fornecedor, municipio_fornecedor')
+        .in('cnpj', missingCnpjs)
+
+      if (rawStats) {
+        for (const s of rawStats) {
+          if (!watchlistStats[s.cnpj]) {
+            watchlistStats[s.cnpj] = {
+              total_participations: 0, total_wins: 0, win_rate: 0,
+              avg_valor_proposta: 0, avg_discount_pct: 0,
+              participations_by_uf: {}, wins_by_uf: {},
+              porte: s.porte, cnae_nome: s.cnae_nome,
+              uf_sede: s.uf_fornecedor, municipio_sede: s.municipio_fornecedor,
+              last_participation_at: null,
+            }
+          }
+          watchlistStats[s.cnpj].total_participations++
+          if (s.situacao?.toLowerCase().includes('homologad')) watchlistStats[s.cnpj].total_wins++
+        }
+      }
+    }
+  }
+
+  // Calculate overlap: open tenders where this competitor likely competes
+  // Uses the same CNAE divisions + UFs from the user's active matches
+  const { data: activeMatches } = await supabase
+    .from('matches')
+    .select('tenders!inner(uf)')
+    .eq('company_id', profile?.company_id || '')
+    .in('status', ['new', 'notified', 'viewed', 'interested'])
+
+  const activeUfs = [...new Set((activeMatches || []).map((m) => {
+    const t = m.tenders as unknown as Record<string, unknown>
+    return t.uf as string
+  }).filter(Boolean))]
+
+  // For each watchlist competitor, check overlap with user's active UFs
+  for (const cnpj of watchlistCnpjs) {
+    const stats = watchlistStats[cnpj]
+    if (!stats) continue
+    const pByUf = stats.participations_by_uf || {}
+    const overlapUfs = activeUfs.filter((uf) => pByUf[uf] > 0)
+    stats.overlapCount = overlapUfs.length
   }
 
   // Search results
   let searchResults: Array<{
     cnpj: string; nome: string; participacoes: number; vitorias: number
     porte?: string; cnae_nome?: string; uf?: string; municipio?: string
+    win_rate?: number; avg_valor_proposta?: number; avg_discount_pct?: number
+    participations_by_uf?: Record<string, number>; last_participation_at?: string | null
+    hasStats?: boolean
   }> = []
 
   if (searchQuery && tab === 'buscar') {
@@ -99,10 +157,176 @@ export default async function CompetitorsPage({
         if (c.uf_fornecedor && !grouped[c.cnpj].uf) grouped[c.cnpj].uf = c.uf_fornecedor
         if (c.municipio_fornecedor && !grouped[c.cnpj].municipio) grouped[c.cnpj].municipio = c.municipio_fornecedor
       }
-      searchResults = Object.entries(grouped).map(([cnpj, data]) => ({ cnpj, ...data }))
+      const basicResults = Object.entries(grouped).map(([cnpj, data]) => ({ cnpj, ...data }))
         .sort((a, b) => b.participacoes - a.participacoes)
         .slice(0, 20)
+
+      // Enrich search results with competitor_stats data
+      const searchCnpjs = basicResults.map((r) => r.cnpj)
+      let searchStatsMap: Record<string, {
+        win_rate: number; avg_valor_proposta: number; avg_discount_pct: number
+        participations_by_uf: Record<string, number>; last_participation_at: string | null
+        total_participations: number; total_wins: number
+        porte: string | null; uf_sede: string | null; municipio_sede: string | null
+      }> = {}
+
+      if (searchCnpjs.length > 0) {
+        const { data: sStats } = await supabase
+          .from('competitor_stats')
+          .select('*')
+          .in('cnpj', searchCnpjs)
+
+        if (sStats) {
+          for (const s of sStats) {
+            searchStatsMap[s.cnpj] = {
+              win_rate: Number(s.win_rate),
+              avg_valor_proposta: Number(s.avg_valor_proposta || 0),
+              avg_discount_pct: Number(s.avg_discount_pct || 0),
+              participations_by_uf: (s.participations_by_uf as Record<string, number>) || {},
+              last_participation_at: s.last_participation_at,
+              total_participations: s.total_participations,
+              total_wins: s.total_wins,
+              porte: s.porte,
+              uf_sede: s.uf_sede,
+              municipio_sede: s.municipio_sede,
+            }
+          }
+        }
+      }
+
+      searchResults = basicResults.map((r) => {
+        const enriched = searchStatsMap[r.cnpj]
+        if (enriched) {
+          return {
+            ...r,
+            participacoes: enriched.total_participations,
+            vitorias: enriched.total_wins,
+            win_rate: enriched.win_rate,
+            avg_valor_proposta: enriched.avg_valor_proposta,
+            avg_discount_pct: enriched.avg_discount_pct,
+            participations_by_uf: enriched.participations_by_uf,
+            last_participation_at: enriched.last_participation_at,
+            porte: enriched.porte || r.porte,
+            uf: enriched.uf_sede || r.uf,
+            municipio: enriched.municipio_sede || r.municipio,
+            hasStats: true,
+          }
+        }
+        return { ...r, hasStats: false }
+      })
     }
+  }
+
+  // Enterprise gating
+  const { data: subscription } = await supabase
+    .from('subscriptions')
+    .select('plan')
+    .eq('company_id', profile?.company_id || '')
+    .eq('status', 'active')
+    .limit(1)
+    .single()
+
+  const userPlan = subscription?.plan || 'trial'
+  const isEnterprise = userPlan === 'enterprise'
+
+  // Get company CNAE for market analysis (panorama tab)
+  const { data: company } = await supabase
+    .from('companies')
+    .select('cnae_principal, cnaes_secundarios')
+    .eq('id', profile?.company_id || '')
+    .single()
+
+  const companyCnaeDivisions: string[] = []
+  if (company?.cnae_principal) companyCnaeDivisions.push(company.cnae_principal.substring(0, 2))
+  if (company?.cnaes_secundarios) {
+    for (const c of company.cnaes_secundarios as string[]) {
+      const div = c.substring(0, 2)
+      if (!companyCnaeDivisions.includes(div)) companyCnaeDivisions.push(div)
+    }
+  }
+
+  // Fetch top competitors in user's CNAE (market panorama)
+  let marketCompetitors: Array<Record<string, unknown>> = []
+  if (companyCnaeDivisions.length > 0 && tab === 'panorama') {
+    const { data } = await supabase
+      .from('competitor_stats')
+      .select('*')
+      .order('total_participations', { ascending: false })
+      .limit(50)
+
+    // Filter to competitors who operate in same CNAE divisions
+    marketCompetitors = (data || []).filter((s) => {
+      const byCnae = (s.participations_by_cnae as Record<string, number>) || {}
+      return companyCnaeDivisions.some((d) => byCnae[d] > 0)
+    }).slice(0, 10)
+  }
+
+  // Derive panorama analytics from market competitors
+  const ufCompetitionMap: Record<string, { competitors: number; totalWinRate: number; totalDiscount: number }> = {}
+  const modalidadeAgg: Record<string, { totalDiscount: number; totalParticipants: number; count: number }> = {}
+
+  for (const mc of marketCompetitors) {
+    const pByUf = (mc.participations_by_uf as Record<string, number>) || {}
+    const winRate = Number(mc.win_rate || 0)
+    const discount = Number(mc.avg_discount_pct || 0)
+    const mods = (mc.modalidades as Record<string, number>) || {}
+
+    for (const [uf, cnt] of Object.entries(pByUf)) {
+      if (!ufCompetitionMap[uf]) ufCompetitionMap[uf] = { competitors: 0, totalWinRate: 0, totalDiscount: 0 }
+      ufCompetitionMap[uf].competitors++
+      ufCompetitionMap[uf].totalWinRate += winRate
+      ufCompetitionMap[uf].totalDiscount += discount
+    }
+
+    for (const [modId, cnt] of Object.entries(mods)) {
+      if (!modalidadeAgg[modId]) modalidadeAgg[modId] = { totalDiscount: 0, totalParticipants: 0, count: 0 }
+      modalidadeAgg[modId].totalDiscount += discount
+      modalidadeAgg[modId].totalParticipants += cnt
+      modalidadeAgg[modId].count++
+    }
+  }
+
+  // Find opportunity windows: UF+CNAE combos with few competitors
+  const opportunityWindows: Array<{ uf: string; cnaeDiv: string; competitorCount: number }> = []
+  if (tab === 'panorama') {
+    const ufCnaeCounts: Record<string, number> = {}
+    for (const mc of marketCompetitors) {
+      const pByUf = (mc.participations_by_uf as Record<string, number>) || {}
+      const pByCnae = (mc.participations_by_cnae as Record<string, number>) || {}
+      for (const uf of Object.keys(pByUf)) {
+        for (const cnaeDiv of Object.keys(pByCnae)) {
+          if (companyCnaeDivisions.includes(cnaeDiv)) {
+            const key = `${uf}|${cnaeDiv}`
+            ufCnaeCounts[key] = (ufCnaeCounts[key] || 0) + 1
+          }
+        }
+      }
+    }
+    for (const [key, count] of Object.entries(ufCnaeCounts)) {
+      if (count <= 3) {
+        const [uf, cnaeDiv] = key.split('|')
+        opportunityWindows.push({ uf, cnaeDiv, competitorCount: count })
+      }
+    }
+    opportunityWindows.sort((a, b) => a.competitorCount - b.competitorCount)
+  }
+
+  // Modalidade ID to name mapping
+  const MODALIDADE_NAMES: Record<string, string> = {
+    '1': 'Pregão Eletrônico',
+    '2': 'Pregão Presencial',
+    '3': 'Concorrência',
+    '4': 'Tomada de Preços',
+    '5': 'Convite',
+    '6': 'Concurso',
+    '7': 'Leilão',
+    '8': 'Dispensa',
+    '9': 'Inexigibilidade',
+    '10': 'Diálogo Competitivo',
+    '11': 'Credenciamento',
+    '12': 'Pré-qualificação',
+    '13': 'Manifestação de Interesse',
+    '14': 'Chamada Pública',
   }
 
   // Top competitors from the same tenders
@@ -160,6 +384,8 @@ export default async function CompetitorsPage({
         {[
           { key: 'watchlist', label: 'Watchlist' },
           { key: 'ranking', label: 'Ranking' },
+          { key: 'panorama', label: 'Panorama' },
+          { key: 'comparativa', label: 'Comparativa' },
           { key: 'buscar', label: 'Buscar' },
         ].map((t) => (
           <Link
@@ -185,69 +411,129 @@ export default async function CompetitorsPage({
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Sua Watchlist ({watchlist?.length || 0})</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {(!watchlist || watchlist.length === 0) ? (
-                <p className="text-center text-gray-400 py-6">Nenhum concorrente na watchlist. Adicione acima.</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full caption-bottom text-sm">
-                    <thead className="[&_tr]:border-b">
-                      <tr className="border-b transition-colors hover:bg-muted/50">
-                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground hidden sm:table-cell">CNPJ</th>
-                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Nome</th>
-                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground hidden md:table-cell">Porte</th>
-                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground hidden lg:table-cell">Local</th>
-                        <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Part.</th>
-                        <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Vit.</th>
-                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground hidden lg:table-cell">Notas</th>
-                        <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody className="[&_tr:last-child]:border-0">
-                      {watchlist.map((w) => {
-                        const stats = watchlistStats[w.competitor_cnpj] || { participacoes: 0, vitorias: 0 }
-                        return (
-                          <tr key={w.id} className="border-b transition-colors hover:bg-muted/50">
-                            <td className="p-4 text-sm font-mono hidden sm:table-cell">{formatCnpj(w.competitor_cnpj)}</td>
-                            <td className="p-4 text-sm font-medium">
-                              {w.competitor_nome || '-'}
-                              {stats.cnae_nome && (
-                                <span className="block text-xs text-gray-400 mt-0.5">{stats.cnae_nome}</span>
-                              )}
-                            </td>
-                            <td className="p-4 text-sm hidden md:table-cell">
-                              {stats.porte ? (
-                                <Badge variant="outline" className="text-xs">{stats.porte}</Badge>
-                              ) : '-'}
-                            </td>
-                            <td className="p-4 text-sm text-gray-400 hidden lg:table-cell">
-                              {stats.municipio && stats.uf
-                                ? `${stats.municipio}/${stats.uf}`
-                                : stats.uf || '-'}
-                            </td>
-                            <td className="p-4 text-center">{stats.participacoes}</td>
-                            <td className="p-4 text-center">
-                              <Badge variant={stats.vitorias > 0 ? 'default' : 'secondary'}>
-                                {stats.vitorias}
-                              </Badge>
-                            </td>
-                            <td className="p-4 text-sm text-gray-400 hidden lg:table-cell">{w.notes || '-'}</td>
-                            <td className="p-4 text-center">
-                              <DeleteWatchlistButton watchlistId={w.id} />
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <div>
+            <h2 className="text-lg font-semibold mb-3">Sua Watchlist ({watchlist?.length || 0})</h2>
+            {(!watchlist || watchlist.length === 0) ? (
+              <Card>
+                <CardContent>
+                  <p className="text-center text-gray-400 py-6">Nenhum concorrente na watchlist. Adicione acima.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {watchlist.map((w) => {
+                  const stats = watchlistStats[w.competitor_cnpj] || {
+                    total_participations: 0, total_wins: 0, win_rate: 0,
+                    avg_valor_proposta: 0, avg_discount_pct: 0,
+                    participations_by_uf: {}, wins_by_uf: {},
+                    porte: null, cnae_nome: null, uf_sede: null, municipio_sede: null,
+                    last_participation_at: null, overlapCount: 0,
+                  }
+                  const winRatePct = Math.round(stats.win_rate * 100)
+                  const winRateColor = winRatePct >= 60 ? 'text-green-600' : winRatePct >= 30 ? 'text-yellow-600' : 'text-red-600'
+
+                  // Top 5 UFs by participation count
+                  const topUfs = Object.entries(stats.participations_by_uf || {})
+                    .sort(([, a], [, b]) => b - a)
+                    .slice(0, 5)
+                  const maxUfCount = topUfs.length > 0 ? topUfs[0][1] : 1
+
+                  // Activity trend based on last_participation_at
+                  let activityLabel = 'Inativo'
+                  let activityVariant: 'default' | 'secondary' | 'destructive' = 'destructive'
+                  if (stats.last_participation_at) {
+                    const daysSince = Math.floor((Date.now() - new Date(stats.last_participation_at).getTime()) / (1000 * 60 * 60 * 24))
+                    if (daysSince <= 30) { activityLabel = 'Ativo'; activityVariant = 'default' }
+                    else if (daysSince <= 90) { activityLabel = 'Moderado'; activityVariant = 'secondary' }
+                  }
+
+                  return (
+                    <Card key={w.id}>
+                      <CardHeader className="pb-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <CardTitle className="text-sm font-semibold truncate">{w.competitor_nome || formatCnpj(w.competitor_cnpj)}</CardTitle>
+                            <p className="text-xs text-muted-foreground font-mono mt-0.5">{formatCnpj(w.competitor_cnpj)}</p>
+                            {stats.cnae_nome && (
+                              <p className="text-xs text-gray-400 mt-0.5 truncate">{stats.cnae_nome}</p>
+                            )}
+                          </div>
+                          <DeleteWatchlistButton watchlistId={w.id} />
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {/* Activity + porte + location badges */}
+                        <div className="flex flex-wrap gap-1.5">
+                          <Badge variant={activityVariant} className="text-xs">{activityLabel}</Badge>
+                          {stats.porte && <Badge variant="outline" className="text-xs">{stats.porte}</Badge>}
+                          {stats.municipio_sede && stats.uf_sede && (
+                            <Badge variant="outline" className="text-xs">{stats.municipio_sede}/{stats.uf_sede}</Badge>
+                          )}
+                        </div>
+
+                        {/* Key stats row */}
+                        <div className="grid grid-cols-3 gap-2 text-center">
+                          <div>
+                            <p className={`text-lg font-bold ${winRateColor}`}>{winRatePct}%</p>
+                            <p className="text-xs text-muted-foreground">Win Rate</p>
+                          </div>
+                          <div>
+                            <p className="text-lg font-bold">{stats.total_participations}</p>
+                            <p className="text-xs text-muted-foreground">Part.</p>
+                          </div>
+                          <div>
+                            <p className="text-lg font-bold">{stats.total_wins}</p>
+                            <p className="text-xs text-muted-foreground">Vit.</p>
+                          </div>
+                        </div>
+
+                        {/* Ticket medio */}
+                        {stats.avg_valor_proposta > 0 && (
+                          <div className="text-sm">
+                            <span className="text-muted-foreground">Ticket medio: </span>
+                            <span className="font-medium">
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(stats.avg_valor_proposta)}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Top 5 UFs as horizontal bars */}
+                        {topUfs.length > 0 && (
+                          <div className="space-y-1">
+                            <p className="text-xs text-muted-foreground font-medium">Top UFs</p>
+                            {topUfs.map(([uf, count]) => (
+                              <div key={uf} className="flex items-center gap-2 text-xs">
+                                <span className="w-6 text-right font-mono">{uf}</span>
+                                <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full bg-brand rounded-full"
+                                    style={{ width: `${Math.round((count / maxUfCount) * 100)}%` }}
+                                  />
+                                </div>
+                                <span className="w-6 text-right text-muted-foreground">{count}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Overlap alert */}
+                        {(stats.overlapCount || 0) > 0 && (
+                          <div className="text-xs font-medium text-amber-600 bg-amber-50 rounded-md px-2 py-1.5">
+                            Competindo com voce em {stats.overlapCount} UF{stats.overlapCount !== 1 ? 's' : ''}
+                          </div>
+                        )}
+
+                        {/* Notes */}
+                        {w.notes && (
+                          <p className="text-xs text-gray-400 italic">{w.notes}</p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -310,6 +596,428 @@ export default async function CompetitorsPage({
         </Card>
       )}
 
+      {tab === 'panorama' && (
+        <div className="space-y-4">
+          {/* Top 10 Competitors in CNAE */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Top 10 Concorrentes no Seu Segmento</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {marketCompetitors.length === 0 ? (
+                <p className="text-center text-gray-400 py-6">
+                  {companyCnaeDivisions.length === 0
+                    ? 'Configure o CNAE da sua empresa para ver o panorama de mercado.'
+                    : 'Dados insuficientes. O panorama será exibido quando houver dados materializados.'}
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full caption-bottom text-sm">
+                    <thead className="[&_tr]:border-b">
+                      <tr className="border-b transition-colors hover:bg-muted/50">
+                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground w-8">#</th>
+                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Nome</th>
+                        <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Part.</th>
+                        <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Vit.</th>
+                        <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Win Rate</th>
+                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground hidden md:table-cell">Porte</th>
+                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground hidden md:table-cell">UF</th>
+                      </tr>
+                    </thead>
+                    <tbody className="[&_tr:last-child]:border-0">
+                      {marketCompetitors.map((mc, i) => (
+                        <tr key={mc.cnpj as string} className="border-b transition-colors hover:bg-muted/50">
+                          <td className="p-4 font-bold">{i + 1}</td>
+                          <td className="p-4 text-sm font-medium">{(mc.nome as string) || '-'}</td>
+                          <td className="p-4 text-center">{mc.total_participations as number}</td>
+                          <td className="p-4 text-center">
+                            <Badge variant={(mc.total_wins as number) > 0 ? 'default' : 'secondary'}>
+                              {mc.total_wins as number}
+                            </Badge>
+                          </td>
+                          <td className="p-4 text-center text-sm">
+                            {`${Math.round(Number(mc.win_rate || 0) * 100)}%`}
+                          </td>
+                          <td className="p-4 text-sm hidden md:table-cell">
+                            {mc.porte ? (
+                              <Badge variant="outline" className="text-xs">{mc.porte as string}</Badge>
+                            ) : '-'}
+                          </td>
+                          <td className="p-4 text-sm text-gray-400 hidden md:table-cell">{(mc.uf_sede as string) || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Competition by State */}
+          {Object.keys(ufCompetitionMap).length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Competição por Estado</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full caption-bottom text-sm">
+                    <thead className="[&_tr]:border-b">
+                      <tr className="border-b transition-colors hover:bg-muted/50">
+                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">UF</th>
+                        <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Concorrentes</th>
+                        <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Win Rate Médio</th>
+                        <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Desconto Médio</th>
+                      </tr>
+                    </thead>
+                    <tbody className="[&_tr:last-child]:border-0">
+                      {Object.entries(ufCompetitionMap)
+                        .sort((a, b) => a[1].competitors - b[1].competitors)
+                        .map(([uf, data]) => {
+                          const avgWinRate = data.competitors > 0 ? data.totalWinRate / data.competitors : 0
+                          const avgDiscount = data.competitors > 0 ? data.totalDiscount / data.competitors : 0
+                          const isLowCompetition = data.competitors <= 3
+                          return (
+                            <tr key={uf} className={`border-b transition-colors hover:bg-muted/50 ${isLowCompetition ? 'bg-green-50' : ''}`}>
+                              <td className="p-4 text-sm font-medium">
+                                {uf}
+                                {isLowCompetition && (
+                                  <Badge variant="outline" className="ml-2 text-xs text-green-700 border-green-300">Baixa concorrência</Badge>
+                                )}
+                              </td>
+                              <td className="p-4 text-center">{data.competitors}</td>
+                              <td className="p-4 text-center text-sm">{`${Math.round(avgWinRate * 100)}%`}</td>
+                              <td className="p-4 text-center text-sm">{`${(avgDiscount * 100).toFixed(1)}%`}</td>
+                            </tr>
+                          )
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Desconto Médio por Modalidade */}
+          {Object.keys(modalidadeAgg).length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Desconto Médio por Modalidade</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full caption-bottom text-sm">
+                    <thead className="[&_tr]:border-b">
+                      <tr className="border-b transition-colors hover:bg-muted/50">
+                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Modalidade</th>
+                        <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Desconto Médio</th>
+                        <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Participantes Médios</th>
+                      </tr>
+                    </thead>
+                    <tbody className="[&_tr:last-child]:border-0">
+                      {Object.entries(modalidadeAgg)
+                        .sort((a, b) => b[1].totalParticipants - a[1].totalParticipants)
+                        .map(([modId, data]) => {
+                          const avgDiscount = data.count > 0 ? data.totalDiscount / data.count : 0
+                          const avgParticipants = data.count > 0 ? Math.round(data.totalParticipants / data.count) : 0
+                          return (
+                            <tr key={modId} className="border-b transition-colors hover:bg-muted/50">
+                              <td className="p-4 text-sm font-medium">{MODALIDADE_NAMES[modId] || `Modalidade ${modId}`}</td>
+                              <td className="p-4 text-center text-sm">{`${(avgDiscount * 100).toFixed(1)}%`}</td>
+                              <td className="p-4 text-center text-sm">{avgParticipants}</td>
+                            </tr>
+                          )
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Janelas de Oportunidade */}
+          {opportunityWindows.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Janelas de Oportunidade</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-500 mb-4">
+                  Combinações de UF e segmento CNAE com poucos concorrentes identificados.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {opportunityWindows.slice(0, 9).map((ow, i) => (
+                    <div key={i} className="border rounded-lg p-3 bg-green-50 border-green-200">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-semibold text-green-800">{ow.uf}</span>
+                        <Badge variant="outline" className="text-xs text-green-700 border-green-300">
+                          {ow.competitorCount === 1 ? '1 concorrente' : `${ow.competitorCount} concorrentes`}
+                        </Badge>
+                      </div>
+                      <div className="text-xs text-green-600">Divisão CNAE {ow.cnaeDiv}</div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {tab === 'comparativa' && (
+        <div className="space-y-4">
+          {!isEnterprise ? (
+            /* Non-enterprise: blurred preview with upsell CTA */
+            <Card>
+              <CardHeader>
+                <CardTitle>Analise Comparativa</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="relative">
+                  {/* Blurred preview */}
+                  <div className="filter blur-sm pointer-events-none select-none space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="border rounded-lg p-4 space-y-2">
+                        <p className="font-semibold text-sm">Empresa Exemplo A</p>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div><span className="text-gray-500">Win Rate:</span> 45%</div>
+                          <div><span className="text-gray-500">Part.:</span> 127</div>
+                          <div><span className="text-gray-500">Ticket:</span> R$ 85.000</div>
+                          <div><span className="text-gray-500">Desconto:</span> 12%</div>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-xs text-gray-500">Top UFs</p>
+                          <div className="h-3 bg-gray-200 rounded-full w-full" />
+                          <div className="h-3 bg-gray-200 rounded-full w-3/4" />
+                          <div className="h-3 bg-gray-200 rounded-full w-1/2" />
+                        </div>
+                      </div>
+                      <div className="border rounded-lg p-4 space-y-2">
+                        <p className="font-semibold text-sm">Empresa Exemplo B</p>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div><span className="text-gray-500">Win Rate:</span> 32%</div>
+                          <div><span className="text-gray-500">Part.:</span> 89</div>
+                          <div><span className="text-gray-500">Ticket:</span> R$ 62.000</div>
+                          <div><span className="text-gray-500">Desconto:</span> 18%</div>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-xs text-gray-500">Top UFs</p>
+                          <div className="h-3 bg-gray-200 rounded-full w-full" />
+                          <div className="h-3 bg-gray-200 rounded-full w-2/3" />
+                          <div className="h-3 bg-gray-200 rounded-full w-1/3" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Upsell overlay */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/70 rounded-lg">
+                    <div className="text-center space-y-3 max-w-sm">
+                      <div className="text-3xl">&#x1f512;</div>
+                      <h3 className="text-lg font-semibold">Recurso Enterprise</h3>
+                      <p className="text-sm text-gray-500">
+                        Compare concorrentes lado a lado com win rate, presenca geografica, pricing e pontos fortes/fracos.
+                      </p>
+                      <Link
+                        href="/settings/billing"
+                        className="inline-block px-6 py-2.5 bg-brand text-white rounded-md hover:bg-brand-dark text-sm font-medium"
+                      >
+                        Fazer Upgrade para Enterprise
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            /* Enterprise: full comparative analysis */
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Analise Comparativa</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {(!watchlist || watchlist.length < 2) ? (
+                    <p className="text-center text-gray-400 py-6">
+                      Adicione pelo menos 2 concorrentes na sua Watchlist para comparar.
+                    </p>
+                  ) : (
+                    <div className="space-y-6">
+                      {/* Selector hint */}
+                      <p className="text-sm text-gray-500">
+                        Comparando {watchlist.length} concorrentes da sua Watchlist lado a lado.
+                      </p>
+
+                      {/* Side-by-side comparison cards */}
+                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {watchlist.map((w) => {
+                          const stats = watchlistStats[w.competitor_cnpj]
+                          if (!stats) return null
+                          const winRatePct = Math.round(stats.win_rate * 100)
+                          const winRateColor = winRatePct >= 60 ? 'text-green-600' : winRatePct >= 30 ? 'text-yellow-600' : 'text-red-600'
+                          const discountPct = (stats.avg_discount_pct * 100).toFixed(1)
+
+                          const topUfs = Object.entries(stats.participations_by_uf || {})
+                            .sort(([, a], [, b]) => b - a)
+                            .slice(0, 5)
+                          const maxUfCount = topUfs.length > 0 ? topUfs[0][1] : 1
+
+                          // Strengths/weaknesses based on stats
+                          const strengths: string[] = []
+                          const weaknesses: string[] = []
+
+                          if (winRatePct >= 50) strengths.push(`Win rate alto (${winRatePct}%)`)
+                          else weaknesses.push(`Win rate baixo (${winRatePct}%)`)
+
+                          if (stats.total_participations >= 50) strengths.push('Experiencia ampla em licitacoes')
+                          else if (stats.total_participations < 10) weaknesses.push('Pouca experiencia em licitacoes')
+
+                          if (Object.keys(stats.participations_by_uf || {}).length >= 5) strengths.push('Presenca geografica diversificada')
+                          else weaknesses.push('Presenca geografica limitada')
+
+                          if (stats.avg_discount_pct > 0.15) strengths.push('Pricing agressivo')
+                          else if (stats.avg_discount_pct < 0.05 && stats.avg_discount_pct > 0) weaknesses.push('Desconto conservador')
+
+                          return (
+                            <div key={w.id} className="border rounded-lg p-4 space-y-3">
+                              <div>
+                                <p className="font-semibold text-sm truncate">{w.competitor_nome || formatCnpj(w.competitor_cnpj)}</p>
+                                <p className="text-xs text-muted-foreground font-mono">{formatCnpj(w.competitor_cnpj)}</p>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {stats.porte && <Badge variant="outline" className="text-xs">{stats.porte}</Badge>}
+                                  {stats.municipio_sede && stats.uf_sede && (
+                                    <Badge variant="outline" className="text-xs">{stats.municipio_sede}/{stats.uf_sede}</Badge>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Key metrics */}
+                              <div className="grid grid-cols-2 gap-2 text-center">
+                                <div className="bg-gray-50 rounded p-2">
+                                  <p className={`text-lg font-bold ${winRateColor}`}>{winRatePct}%</p>
+                                  <p className="text-xs text-muted-foreground">Win Rate</p>
+                                </div>
+                                <div className="bg-gray-50 rounded p-2">
+                                  <p className="text-lg font-bold">{stats.total_participations}</p>
+                                  <p className="text-xs text-muted-foreground">Participacoes</p>
+                                </div>
+                                <div className="bg-gray-50 rounded p-2">
+                                  <p className="text-sm font-bold">
+                                    {stats.avg_valor_proposta > 0
+                                      ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(stats.avg_valor_proposta)
+                                      : 'N/D'}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">Ticket Medio</p>
+                                </div>
+                                <div className="bg-gray-50 rounded p-2">
+                                  <p className="text-sm font-bold">{discountPct}%</p>
+                                  <p className="text-xs text-muted-foreground">Desconto Medio</p>
+                                </div>
+                              </div>
+
+                              {/* Geographic presence */}
+                              {topUfs.length > 0 && (
+                                <div className="space-y-1">
+                                  <p className="text-xs text-muted-foreground font-medium">Presenca Geografica</p>
+                                  {topUfs.map(([uf, count]) => (
+                                    <div key={uf} className="flex items-center gap-2 text-xs">
+                                      <span className="w-6 text-right font-mono">{uf}</span>
+                                      <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+                                        <div
+                                          className="h-full bg-brand rounded-full"
+                                          style={{ width: `${Math.round((count / maxUfCount) * 100)}%` }}
+                                        />
+                                      </div>
+                                      <span className="w-6 text-right text-muted-foreground">{count}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Strengths */}
+                              {strengths.length > 0 && (
+                                <div className="space-y-1">
+                                  <p className="text-xs font-medium text-green-700">Pontos Fortes</p>
+                                  {strengths.map((s, i) => (
+                                    <p key={i} className="text-xs text-green-600 flex items-start gap-1">
+                                      <span className="mt-0.5">+</span> {s}
+                                    </p>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Weaknesses */}
+                              {weaknesses.length > 0 && (
+                                <div className="space-y-1">
+                                  <p className="text-xs font-medium text-red-700">Pontos Fracos</p>
+                                  {weaknesses.map((w, i) => (
+                                    <p key={i} className="text-xs text-red-600 flex items-start gap-1">
+                                      <span className="mt-0.5">-</span> {w}
+                                    </p>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+
+                      {/* Summary comparison table */}
+                      {watchlist.length >= 2 && (
+                        <div className="overflow-x-auto">
+                          <table className="w-full caption-bottom text-sm">
+                            <thead className="[&_tr]:border-b">
+                              <tr className="border-b transition-colors">
+                                <th className="h-10 px-3 text-left align-middle font-medium text-muted-foreground">Concorrente</th>
+                                <th className="h-10 px-3 text-center align-middle font-medium text-muted-foreground">Win Rate</th>
+                                <th className="h-10 px-3 text-center align-middle font-medium text-muted-foreground">Part.</th>
+                                <th className="h-10 px-3 text-center align-middle font-medium text-muted-foreground">Vit.</th>
+                                <th className="h-10 px-3 text-center align-middle font-medium text-muted-foreground hidden md:table-cell">Ticket</th>
+                                <th className="h-10 px-3 text-center align-middle font-medium text-muted-foreground hidden md:table-cell">Desconto</th>
+                                <th className="h-10 px-3 text-center align-middle font-medium text-muted-foreground hidden lg:table-cell">UFs</th>
+                              </tr>
+                            </thead>
+                            <tbody className="[&_tr:last-child]:border-0">
+                              {watchlist.map((w) => {
+                                const stats = watchlistStats[w.competitor_cnpj]
+                                if (!stats) return null
+                                const winRatePct = Math.round(stats.win_rate * 100)
+                                const winRateColor = winRatePct >= 60 ? 'text-green-600' : winRatePct >= 30 ? 'text-yellow-600' : 'text-red-600'
+                                return (
+                                  <tr key={w.id} className="border-b transition-colors hover:bg-muted/50">
+                                    <td className="p-3 text-sm font-medium truncate max-w-[200px]">
+                                      {w.competitor_nome || formatCnpj(w.competitor_cnpj)}
+                                    </td>
+                                    <td className={`p-3 text-center font-bold ${winRateColor}`}>{winRatePct}%</td>
+                                    <td className="p-3 text-center">{stats.total_participations}</td>
+                                    <td className="p-3 text-center">{stats.total_wins}</td>
+                                    <td className="p-3 text-center text-sm hidden md:table-cell">
+                                      {stats.avg_valor_proposta > 0
+                                        ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(stats.avg_valor_proposta)
+                                        : '-'}
+                                    </td>
+                                    <td className="p-3 text-center text-sm hidden md:table-cell">
+                                      {`${(stats.avg_discount_pct * 100).toFixed(1)}%`}
+                                    </td>
+                                    <td className="p-3 text-center text-sm hidden lg:table-cell">
+                                      {Object.keys(stats.participations_by_uf || {}).length}
+                                    </td>
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </div>
+      )}
+
       {tab === 'buscar' && (
         <Card>
           <CardHeader>
@@ -334,50 +1042,107 @@ export default async function CompetitorsPage({
             </form>
 
             {searchResults.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full caption-bottom text-sm">
-                  <thead className="[&_tr]:border-b">
-                    <tr className="border-b transition-colors hover:bg-muted/50">
-                      <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground hidden sm:table-cell">CNPJ</th>
-                      <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Nome</th>
-                      <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground hidden md:table-cell">Porte</th>
-                      <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground hidden lg:table-cell">Local</th>
-                      <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Part.</th>
-                      <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Vit.</th>
-                      <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Taxa</th>
-                    </tr>
-                  </thead>
-                  <tbody className="[&_tr:last-child]:border-0">
-                    {searchResults.map((c) => (
-                      <tr key={c.cnpj} className="border-b transition-colors hover:bg-muted/50">
-                        <td className="p-4 text-sm font-mono hidden sm:table-cell">{formatCnpj(c.cnpj)}</td>
-                        <td className="p-4 text-sm font-medium">
-                          {c.nome || '-'}
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {searchResults.map((c) => {
+                  const winRatePct = c.hasStats && c.win_rate != null
+                    ? Math.round(c.win_rate * 100)
+                    : c.participacoes > 0 ? Math.round((c.vitorias / c.participacoes) * 100) : 0
+                  const winRateColor = winRatePct >= 60 ? 'text-green-600' : winRatePct >= 30 ? 'text-yellow-600' : 'text-red-600'
+
+                  const topUfs = c.hasStats && c.participations_by_uf
+                    ? Object.entries(c.participations_by_uf).sort(([, a], [, b]) => b - a).slice(0, 3)
+                    : []
+                  const maxUfCount = topUfs.length > 0 ? topUfs[0][1] : 1
+
+                  let activityLabel = 'Inativo'
+                  let activityVariant: 'default' | 'secondary' | 'destructive' = 'destructive'
+                  if (c.last_participation_at) {
+                    const daysSince = Math.floor((Date.now() - new Date(c.last_participation_at).getTime()) / (1000 * 60 * 60 * 24))
+                    if (daysSince <= 30) { activityLabel = 'Ativo'; activityVariant = 'default' }
+                    else if (daysSince <= 90) { activityLabel = 'Moderado'; activityVariant = 'secondary' }
+                  }
+
+                  return (
+                    <Card key={c.cnpj}>
+                      <CardHeader className="pb-2">
+                        <div className="min-w-0">
+                          <CardTitle className="text-sm font-semibold truncate">{c.nome || formatCnpj(c.cnpj)}</CardTitle>
+                          <p className="text-xs text-muted-foreground font-mono mt-0.5">{formatCnpj(c.cnpj)}</p>
                           {c.cnae_nome && (
-                            <span className="block text-xs text-gray-400 mt-0.5">{c.cnae_nome}</span>
+                            <p className="text-xs text-gray-400 mt-0.5 truncate">{c.cnae_nome}</p>
                           )}
-                        </td>
-                        <td className="p-4 text-sm hidden md:table-cell">
-                          {c.porte ? (
-                            <Badge variant="outline" className="text-xs">{c.porte}</Badge>
-                          ) : '-'}
-                        </td>
-                        <td className="p-4 text-sm text-gray-400 hidden lg:table-cell">
-                          {c.municipio && c.uf
-                            ? `${c.municipio}/${c.uf}`
-                            : c.uf || '-'}
-                        </td>
-                        <td className="p-4 text-center">{c.participacoes}</td>
-                        <td className="p-4 text-center">
-                          <Badge variant={c.vitorias > 0 ? 'default' : 'secondary'}>{c.vitorias}</Badge>
-                        </td>
-                        <td className="p-4 text-center text-sm">
-                          {c.participacoes > 0 ? `${Math.round((c.vitorias / c.participacoes) * 100)}%` : '-'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {/* Badges */}
+                        <div className="flex flex-wrap gap-1.5">
+                          {c.hasStats && <Badge variant={activityVariant} className="text-xs">{activityLabel}</Badge>}
+                          {c.porte && <Badge variant="outline" className="text-xs">{c.porte}</Badge>}
+                          {c.municipio && c.uf && (
+                            <Badge variant="outline" className="text-xs">{c.municipio}/{c.uf}</Badge>
+                          )}
+                          {!c.municipio && c.uf && (
+                            <Badge variant="outline" className="text-xs">{c.uf}</Badge>
+                          )}
+                        </div>
+
+                        {/* Key stats */}
+                        <div className="grid grid-cols-3 gap-2 text-center">
+                          <div>
+                            <p className={`text-lg font-bold ${winRateColor}`}>{winRatePct}%</p>
+                            <p className="text-xs text-muted-foreground">Win Rate</p>
+                          </div>
+                          <div>
+                            <p className="text-lg font-bold">{c.participacoes}</p>
+                            <p className="text-xs text-muted-foreground">Part.</p>
+                          </div>
+                          <div>
+                            <p className="text-lg font-bold">{c.vitorias}</p>
+                            <p className="text-xs text-muted-foreground">Vit.</p>
+                          </div>
+                        </div>
+
+                        {/* Ticket medio (only if stats available) */}
+                        {c.hasStats && c.avg_valor_proposta != null && c.avg_valor_proposta > 0 && (
+                          <div className="text-sm">
+                            <span className="text-muted-foreground">Ticket medio: </span>
+                            <span className="font-medium">
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(c.avg_valor_proposta)}
+                            </span>
+                            {c.avg_discount_pct != null && c.avg_discount_pct > 0 && (
+                              <span className="text-xs text-muted-foreground ml-2">
+                                (desconto {(c.avg_discount_pct * 100).toFixed(1)}%)
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Top UFs (only if stats available) */}
+                        {topUfs.length > 0 && (
+                          <div className="space-y-1">
+                            <p className="text-xs text-muted-foreground font-medium">Top UFs</p>
+                            {topUfs.map(([uf, count]) => (
+                              <div key={uf} className="flex items-center gap-2 text-xs">
+                                <span className="w-6 text-right font-mono">{uf}</span>
+                                <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full bg-brand rounded-full"
+                                    style={{ width: `${Math.round((count / maxUfCount) * 100)}%` }}
+                                  />
+                                </div>
+                                <span className="w-6 text-right text-muted-foreground">{count}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {!c.hasStats && (
+                          <p className="text-xs text-gray-400 italic">Dados detalhados indisponiveis (menos de 3 participacoes)</p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )
+                })}
               </div>
             ) : searchQuery ? (
               <p className="text-center text-gray-400 py-6">Nenhum resultado para &quot;{searchQuery}&quot;</p>

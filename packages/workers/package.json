@@ -12,6 +12,7 @@
     "backfill-embeddings": "tsx src/scripts/backfill-embeddings.ts"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@licitagram/shared": "workspace:*",
     "@supabase/supabase-js": "^2.47.0",
     "adm-zip": "^0.5.16",

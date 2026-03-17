@@ -11,6 +11,7 @@ import { HistoricalPrices } from './historical-prices'
 import { ScoreProvider, ScoreBadgeSlot, AnalysisSlot } from './score-header'
 import { getAuthAndProfile, getMatchDetail } from '@/lib/cache'
 import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
+import { createClient } from '@/lib/supabase/server'
 
 export default async function OpportunityDetailPage({
   params,
@@ -31,10 +32,41 @@ export default async function OpportunityDetailPage({
 
   const hasChatIa = user ? hasFeature(user, 'chat_ia') : false
   const hasComplianceChecker = user ? hasFeature(user, 'compliance_checker') : false
+  const isEnterprise = user?.plan?.slug === 'enterprise' || user?.isPlatformAdmin === true
 
   const companyId = auth.companyId
 
   const tender = match.tenders as unknown as TenderDetail
+
+  // ── Competition Analysis: fetch niche competitors ──
+  const tenderUf = tender?.uf as string | null
+  const supabase = await createClient()
+
+  // Fetch company CNAE divisions
+  const companyCnaeDivisions: string[] = []
+  if (companyId) {
+    const { data: company } = await supabase
+      .from('companies')
+      .select('cnae_principal, cnaes_secundarios')
+      .eq('id', companyId)
+      .single()
+    if (company?.cnae_principal) companyCnaeDivisions.push(company.cnae_principal.substring(0, 2))
+    if (company?.cnaes_secundarios) {
+      for (const c of company.cnaes_secundarios as string[]) {
+        const div = c.substring(0, 2)
+        if (!companyCnaeDivisions.includes(div)) companyCnaeDivisions.push(div)
+      }
+    }
+  }
+
+  let nicheCompetitors: Array<Record<string, unknown>> = []
+  if (tenderUf && companyCnaeDivisions.length > 0) {
+    const { data: stats } = await supabase.rpc('find_competitors_by_cnae_uf', {
+      p_cnae_divisions: companyCnaeDivisions,
+      p_uf: tenderUf,
+    })
+    nicheCompetitors = stats || []
+  }
   const breakdown = (match.breakdown as Array<{ category: string; score: number; reason: string }>) || []
   const requisitos = tender?.requisitos as Record<string, unknown> | null
   const riscos = (match.riscos as string[]) || []
@@ -172,6 +204,63 @@ export default async function OpportunityDetailPage({
           />
 
           <AnalysisSlot />
+
+          {/* Competition Analysis Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                Análise Competitiva
+                {match.competition_score != null && (
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${
+                    (match.competition_score as number) >= 75 ? 'bg-green-100 text-green-700' :
+                    (match.competition_score as number) >= 50 ? 'bg-yellow-100 text-yellow-700' :
+                    'bg-red-100 text-red-700'
+                  }`}>
+                    {match.competition_score as number}/100
+                  </span>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {/* Factor breakdown */}
+              {match.competition_score != null && (
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="bg-gray-50 rounded p-2">
+                    <div className="text-gray-500">Concorrentes no nicho</div>
+                    <div className="font-medium">{nicheCompetitors.length}</div>
+                  </div>
+                  <div className="bg-gray-50 rounded p-2">
+                    <div className="text-gray-500">Competitividade</div>
+                    <div className="font-medium">
+                      {(match.competition_score as number) >= 75 ? 'Baixa' : (match.competition_score as number) >= 50 ? 'Moderada' : 'Alta'}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Known competitors table (enterprise: names, others: count + lock) */}
+              {isEnterprise && nicheCompetitors.length > 0 ? (
+                <div className="space-y-1">
+                  <div className="text-xs text-gray-500 font-medium">Principais concorrentes:</div>
+                  {nicheCompetitors.slice(0, 5).map((c, i) => (
+                    <div key={i} className="flex items-center justify-between text-xs py-1 border-b last:border-0">
+                      <span className="font-medium">{(c.nome as string) || 'N/I'}</span>
+                      <span className="text-gray-500">
+                        Win rate {Math.round(Number(c.win_rate || 0) * 100)}% · {(c.porte as string) || 'N/I'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : nicheCompetitors.length > 0 ? (
+                <div className="text-xs text-gray-500">
+                  {nicheCompetitors.length} concorrentes identificados neste nicho.
+                  <span className="text-blue-600 ml-1">🔒 Nomes no plano Enterprise</span>
+                </div>
+              ) : (
+                <div className="text-xs text-gray-400">Sem dados competitivos para esta licitação.</div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Requirements */}
           {requisitos && (requisitos as Record<string, any>).requisitos && (

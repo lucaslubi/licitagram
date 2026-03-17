@@ -457,6 +457,7 @@ export async function getMatchDetail(matchId: string): Promise<Record<string, an
         .select(`
           id, company_id, tender_id, score, keyword_score, match_source,
           breakdown, ai_justificativa, riscos, acoes_necessarias, recomendacao,
+          competition_score,
           status, notified_at, created_at,
           tenders (
             id, pncp_id, objeto, resumo, requisitos,
