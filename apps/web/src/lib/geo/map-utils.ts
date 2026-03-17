@@ -14,6 +14,7 @@ export interface MatchMarker {
   lat: number
   lng: number
   isHot: boolean
+  competitionScore: number | null
 }
 
 /** Dados agregados por UF */

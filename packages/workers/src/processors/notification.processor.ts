@@ -17,7 +17,7 @@ const notificationWorker = new Worker<NotificationJobData>(
   async (job) => {
     // ─── Hot Alert ──────────────────────────────────────────────────────
     if ('type' in job.data && job.data.type === 'hot') {
-      const { matchId, telegramChatId, rank, plan } = job.data
+      const { matchId, telegramChatId, rank, plan, competitionScore, topCompetitors } = job.data
 
       if (!bot) {
         logger.warn({ matchId }, 'Hot alert: bot not initialized, skipping')
@@ -46,6 +46,8 @@ const notificationWorker = new Worker<NotificationJobData>(
         breakdown: (match.breakdown as Array<{ category: string; score: number; reason: string }>) || [],
         justificativa: match.ai_justificativa || '',
         plan,
+        competitionScore: competitionScore ?? 50,
+        topCompetitors: topCompetitors ?? [],
         tender: {
           objeto: (tender?.objeto as string) || '',
           orgao_nome: (tender?.orgao_nome as string) || '',

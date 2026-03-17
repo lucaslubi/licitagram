@@ -113,6 +113,8 @@ interface HotAlertData {
   breakdown: Array<{ category: string; score: number; reason: string }>
   justificativa: string
   plan: string
+  competitionScore: number
+  topCompetitors: Array<{ nome: string; winRate: number; porte: string }>
   tender: {
     objeto: string
     orgao_nome: string
@@ -128,7 +130,7 @@ interface HotAlertData {
 }
 
 export function formatHotAlert(data: HotAlertData): { text: string; keyboard: InlineKeyboard } {
-  const { matchId, rank, score, breakdown, justificativa, plan, tender } = data
+  const { matchId, rank, score, breakdown, justificativa, plan, competitionScore, topCompetitors, tender } = data
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://licitagram.com'
 
   // Extract top breakdown reason
@@ -139,7 +141,7 @@ export function formatHotAlert(data: HotAlertData): { text: string; keyboard: In
   const numero = tender.numero ? ` nº ${tender.numero}` : ''
   const ano = tender.ano ? `/${tender.ano}` : ''
 
-  let text = `🔥 <b>OPORTUNIDADE #${rank} — Score ${score}/100</b>\n\n`
+  let text = `🔥 <b>OPORTUNIDADE #${rank} — Score ${score} | Competitividade ${competitionScore}</b>\n\n`
   text += `${escapeHtml(modalidade)}${escapeHtml(numero)}${escapeHtml(ano)}\n`
   text += `${escapeHtml(tender.orgao_nome)} — ${escapeHtml(tender.municipio || '')}/${tender.uf}\n`
   text += `<b>Objeto:</b> ${escapeHtml(truncate(tender.objeto, 200))}\n\n`
@@ -168,6 +170,31 @@ export function formatHotAlert(data: HotAlertData): { text: string; keyboard: In
     text += `│ monta a estratégia de preço\n`
     text += `│ e acompanha até o resultado.\n`
     text += `└─────────────────────────────────┘\n\n`
+  }
+
+  // Competition analysis section
+  if (topCompetitors.length > 0) {
+    if (plan === 'enterprise') {
+      text += `📊 <b>Análise Competitiva:</b>\n`
+      text += `├ ${topCompetitors.length} concorrente${topCompetitors.length > 1 ? 's' : ''} neste nicho:\n`
+      for (const comp of topCompetitors) {
+        text += `│  • ${escapeHtml(truncate(comp.nome, 35))} (win rate ${comp.winRate}%)\n`
+      }
+      const avgWinRate = Math.round(topCompetitors.reduce((s, c) => s + c.winRate, 0) / topCompetitors.length)
+      text += `├ Win rate médio: ${avgWinRate}%\n`
+      if (competitionScore >= 75) {
+        text += `└ Baixa competição neste UF ✅\n\n`
+      } else if (competitionScore >= 50) {
+        text += `└ Competição moderada ⚠️\n\n`
+      } else {
+        text += `└ Mercado disputado 🔴\n\n`
+      }
+    } else {
+      text += `📊 <b>Análise Competitiva:</b>\n`
+      text += `├ ${topCompetitors.length} concorrente${topCompetitors.length > 1 ? 's' : ''} neste nicho\n`
+      text += `├ Competitividade: ${'█'.repeat(Math.round(competitionScore / 10))}${'░'.repeat(10 - Math.round(competitionScore / 10))} ${competitionScore}/100\n`
+      text += `└ 🔒 Nomes e detalhes no plano Enterprise\n\n`
+    }
   }
 
   if (tender.valor_estimado) {

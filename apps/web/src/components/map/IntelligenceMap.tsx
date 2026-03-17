@@ -735,13 +735,24 @@ export function IntelligenceMap({
                           m.isHot ? 'text-orange-600' :
                           m.matchSource === 'ai' || m.matchSource === 'ai_triage' || m.matchSource === 'semantic' ? 'text-blue-600' : 'text-gray-400'
                         }`}>
-                          {m.isHot ? `${m.score}` : m.matchSource === 'ai' || m.matchSource === 'ai_triage' || m.matchSource === 'semantic' ? 'IA' : 'est.'}
+                          {m.isHot && m.competitionScore != null ? `C:${m.competitionScore}` : m.matchSource === 'ai' || m.matchSource === 'ai_triage' || m.matchSource === 'semantic' ? 'IA' : 'est.'}
                         </span>
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className={`text-xs font-medium leading-snug line-clamp-2 ${m.isHot ? 'text-orange-900' : 'text-gray-900'}`}>
                           {m.objeto}
                         </p>
+                        {m.isHot && m.competitionScore != null && (
+                          <span className={`inline-block text-[9px] font-medium px-1.5 py-0.5 rounded-full mt-0.5 ${
+                            m.competitionScore >= 75 ? 'bg-green-100 text-green-700' :
+                            m.competitionScore >= 50 ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-red-100 text-red-700'
+                          }`}>
+                            {m.competitionScore >= 75 ? 'Baixa competicao' :
+                             m.competitionScore >= 50 ? 'Competicao moderada' :
+                             'Mercado disputado'}
+                          </span>
+                        )}
                         <p className="text-[10px] text-gray-500 mt-1 truncate">{m.orgao}</p>
                         <div className="flex items-center gap-2 mt-1">
                           {m.municipio && (

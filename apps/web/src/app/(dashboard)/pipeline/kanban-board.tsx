@@ -21,6 +21,7 @@ interface Match {
   score: number
   status: string
   isHot: boolean
+  competitionScore: number | null
   tenders: {
     objeto: string
     orgao_nome: string
@@ -167,6 +168,19 @@ function DraggableCard({ match, isDragging }: { match: Match; isDragging: boolea
       {countdown && isHot && (
         <div className={`mt-1.5 text-[10px] ${countdownColor}`}>
           ⏰ {countdown.text}
+        </div>
+      )}
+      {match.isHot && match.competitionScore != null && (
+        <div className="flex items-center gap-1 mt-1">
+          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+            match.competitionScore >= 75 ? 'bg-green-100 text-green-700' :
+            match.competitionScore >= 50 ? 'bg-yellow-100 text-yellow-700' :
+            'bg-red-100 text-red-700'
+          }`}>
+            {match.competitionScore >= 75 ? 'Baixa competição' :
+             match.competitionScore >= 50 ? 'Moderada' :
+             'Disputado'} ({match.competitionScore})
+          </span>
         </div>
       )}
     </div>
