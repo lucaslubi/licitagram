@@ -125,7 +125,7 @@ BEGIN
       ELSE NULL END
     ),
     -- participations_by_uf
-    (SELECT jsonb_object_agg(uf, cnt) FROM (
+    (SELECT COALESCE(jsonb_object_agg(uf, cnt), '{}') FROM (
       SELECT t2.uf, COUNT(*) as cnt FROM competitors c2
       JOIN tenders t2 ON c2.tender_id = t2.id
       WHERE c2.cnpj = c.cnpj AND t2.uf IS NOT NULL
@@ -141,14 +141,14 @@ BEGIN
     ) sub),
     -- participations_by_cnae (2-digit division, as text)
     (SELECT COALESCE(jsonb_object_agg(cnae_div, cnt), '{}') FROM (
-      SELECT LPAD(FLOOR(c2.cnae_codigo / 100)::TEXT, 2, '0') as cnae_div, COUNT(*) as cnt
+      SELECT LEFT(c2.cnae_codigo::TEXT, 2) as cnae_div, COUNT(*) as cnt
       FROM competitors c2
       WHERE c2.cnpj = c.cnpj AND c2.cnae_codigo IS NOT NULL
       GROUP BY cnae_div
     ) sub),
     -- wins_by_cnae
     (SELECT COALESCE(jsonb_object_agg(cnae_div, cnt), '{}') FROM (
-      SELECT LPAD(FLOOR(c2.cnae_codigo / 100)::TEXT, 2, '0') as cnae_div, COUNT(*) as cnt
+      SELECT LEFT(c2.cnae_codigo::TEXT, 2) as cnae_div, COUNT(*) as cnt
       FROM competitors c2
       WHERE c2.cnpj = c.cnpj AND c2.cnae_codigo IS NOT NULL
         AND LOWER(c2.situacao) LIKE '%homologad%'
@@ -164,13 +164,13 @@ BEGIN
     MAX(c.porte),
     MAX(c.uf_fornecedor),
     MAX(c.municipio_fornecedor),
-    MAX(t.data_encerramento),
+    MAX(c.created_at),  -- when we scraped the participation (not tender closing date, which can be in the future)
     now()
   FROM competitors c
   JOIN tenders t ON c.tender_id = t.id
   WHERE c.cnpj = ANY(p_cnpjs)
   GROUP BY c.cnpj
-  HAVING COUNT(*) >= 3
+  HAVING COUNT(*) >= 3  -- minimum 3 participations to avoid noise from one-off participants
   ON CONFLICT (cnpj) DO UPDATE SET
     nome = EXCLUDED.nome,
     total_participations = EXCLUDED.total_participations,
@@ -294,8 +294,8 @@ Select a competitor from the watchlist, then see:
 - **AI recommendation (enterprise only):** Gemini-generated strategic text based on the comparison data.
 
 **Plan gating:**
-- Trial/Starter/Professional: tabs 1, 2, 4 fully accessible. Tab 3 shows a preview with blurred data and upsell CTA.
-- Enterprise: full access to all tabs including AI insights.
+- **Trial/Starter/Professional:** Tabs 1 (Watchlist), 2 (Panorama), and 4 (Buscar) fully accessible with concrete data. Tab 3 (Análise Comparativa) shows a preview with blurred data and upsell CTA — enterprise only.
+- **Enterprise:** Full access to all 4 tabs, including Tab 3 with side-by-side comparisons and AI-generated strategic insights.
 
 ### 5.4 Tab 4: Buscar (enhanced)
 
@@ -432,6 +432,8 @@ ComprasGov Fornecedor API ──→ fornecedor-enrichment.processor
 
 ## 10. Migration Plan
 
+### 10.1 Database Migration
+
 ```sql
 -- 1. Create competitor_stats table with indexes and RLS
 -- (see Section 2.1 for full DDL)
@@ -440,8 +442,23 @@ ComprasGov Fornecedor API ──→ fornecedor-enrichment.processor
 ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS competition_score INTEGER
   CHECK (competition_score >= 0 AND competition_score <= 100);
 
--- 3. Create materialization RPC function
--- (see Section 3.1 for full function)
+-- 3. Add index on competitors.created_at for incremental materialization
+CREATE INDEX IF NOT EXISTS idx_competitors_created_at ON public.competitors (created_at);
 
--- 4. Backfill competitor_stats on first worker run (full mode)
+-- 4. Create materialization RPC function
+-- (see Section 3.1 for full function)
 ```
+
+### 10.2 Code Changes
+
+- **`hot-alerts.processor.ts`**: Change `HOT_SCORE_THRESHOLD` from 80 to 70. After fetching matches, calculate `competition_score` for each, then sort by `hot_score = score * 0.6 + competition_score * 0.4` in application code (Supabase JS cannot do computed column ordering). Select top 10 by `hot_score`.
+- **`results-scraping.processor.ts`**: At end of batch, enqueue a `competition-analysis` job to trigger materialization.
+- **New file**: `competition-analysis.processor.ts` — materialization worker.
+- **New file**: `competition-analysis.queue.ts` — BullMQ queue.
+- **`index.ts`**: Register new worker, add 12h repeatable fallback job, trigger full materialization on startup.
+- **`last_materialized_at` storage**: Stored as a Redis key `licitagram:competition-analysis:last-run` (simple, persistent, no new table needed).
+
+### 10.3 Backfill
+
+- On first worker run, `competition-analysis` runs in full mode (all CNPJs)
+- `competition_score` populated on next hot scan cycle (within 3h)
