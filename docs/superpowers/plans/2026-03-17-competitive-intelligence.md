@@ -153,6 +153,36 @@ BEGIN
   RETURN affected;
 END;
 $$ LANGUAGE plpgsql;
+
+-- RPC to find competitors by CNAE divisions AND UF (uses GIN ? operator, not expressible via Supabase JS)
+CREATE OR REPLACE FUNCTION find_competitors_by_cnae_uf(p_cnae_divisions TEXT[], p_uf TEXT)
+RETURNS SETOF competitor_stats AS $$
+BEGIN
+  RETURN QUERY
+    SELECT cs.*
+    FROM competitor_stats cs
+    WHERE cs.participations_by_uf ? p_uf
+      AND EXISTS (
+        SELECT 1 FROM unnest(p_cnae_divisions) d
+        WHERE cs.participations_by_cnae ? d
+      )
+    ORDER BY cs.total_participations DESC
+    LIMIT 50;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+-- RPC to get all CNPJs with minimum participations (for full materialization mode)
+CREATE OR REPLACE FUNCTION get_all_competitor_cnpjs_with_min_participations(min_count INTEGER)
+RETURNS TABLE(cnpj TEXT) AS $$
+BEGIN
+  RETURN QUERY
+    SELECT c.cnpj
+    FROM competitors c
+    WHERE c.cnpj IS NOT NULL
+    GROUP BY c.cnpj
+    HAVING COUNT(*) >= min_count;
+END;
+$$ LANGUAGE plpgsql STABLE;
 ```
 
 - [ ] **Step 2: Apply migration to Supabase**
@@ -406,10 +436,11 @@ At the end of `processResultsJob`, after the logger.info on line 73 (before the 
 
   // Trigger incremental competition analysis after new results are scraped
   if (totalResults > 0) {
+    const ts = Date.now()
     await competitionAnalysisQueue.add(
-      `post-results-analysis-${Date.now()}`,
+      `post-results-analysis-${ts}`,
       { mode: 'incremental' },
-      { jobId: `post-results-analysis-${Date.now()}` },
+      { jobId: `post-results-analysis-${ts}` },
     )
     logger.info('Enqueued competition analysis after results scraping')
   }
@@ -459,16 +490,17 @@ async function calculateCompetitionScore(
   if (!tenderUf || companyCnaeDivisions.length === 0) return null
 
   // Find competitors who operate in the same CNAE AND UF
-  // Using the ? operator on JSONB (GIN-indexed)
-  const { data: stats } = await supabase
-    .from('competitor_stats')
-    .select('cnpj, nome, win_rate, avg_discount_pct, participations_by_uf, wins_by_uf, porte')
-    .or(companyCnaeDivisions.map((d) => `participations_by_cnae.cs.{"${d}":1}`).join(','))
-    .not('participations_by_uf->>' + tenderUf, 'is', null)
-    .limit(50)
+  // Uses the find_competitors_by_cnae_uf RPC (GIN ? operator not expressible via Supabase JS)
+  const { data: stats, error } = await supabase.rpc('find_competitors_by_cnae_uf', {
+    p_cnae_divisions: companyCnaeDivisions,
+    p_uf: tenderUf,
+  })
 
-  // Fallback: simpler query if the above doesn't work with Supabase JS
-  // The implementation may need to use .rpc() or raw filter
+  if (error) {
+    logger.warn({ error, tenderUf, companyCnaeDivisions }, 'Failed to query competitor stats')
+    return null
+  }
+
   if (!stats || stats.length === 0) return null
 
   const competitors = stats
@@ -761,7 +793,44 @@ After the existing enterprise/upsell block (before the valor line ~173), add com
 
 - [ ] **Step 3: Update notification processor to pass competition data**
 
-In `packages/workers/src/processors/notification.processor.ts`, find the hot alert handler. It should already extract `competitionScore` and `topCompetitors` from `job.data` and pass them to `formatHotAlert`. Add these to the data destructuring and the formatter call.
+In `packages/workers/src/processors/notification.processor.ts`, line 20, change the destructuring from:
+
+```typescript
+      const { matchId, telegramChatId, rank, plan } = job.data
+```
+
+to:
+
+```typescript
+      const { matchId, telegramChatId, rank, plan, competitionScore, topCompetitors } = job.data
+```
+
+Then in the `formatHotAlert` call (line 42-61), add the two new fields after `plan`:
+
+```typescript
+      const { text, keyboard } = formatHotAlert({
+        matchId: match.id,
+        rank,
+        score: match.score,
+        breakdown: (match.breakdown as Array<{ category: string; score: number; reason: string }>) || [],
+        justificativa: match.ai_justificativa || '',
+        plan,
+        competitionScore: competitionScore ?? 50,
+        topCompetitors: topCompetitors ?? [],
+        tender: {
+          objeto: (tender?.objeto as string) || '',
+          orgao_nome: (tender?.orgao_nome as string) || '',
+          uf: (tender?.uf as string) || '',
+          municipio: (tender?.municipio as string) || '',
+          valor_estimado: tender?.valor_estimado as number | null,
+          modalidade_nome: tender?.modalidade_nome as string | null,
+          data_encerramento: tender?.data_encerramento as string | null,
+          numero: tender?.numero as string | null,
+          ano: tender?.ano_compra as string | null,
+          pncp_id: tender?.pncp_id as string | null,
+        },
+      })
+```
 
 - [ ] **Step 4: Verify TypeScript compiles**
 
@@ -952,7 +1021,7 @@ q.add('hot-daily', {}, { jobId: 'hot-manual-' + Date.now() }).then(() => { conso
 
 ---
 
-## Chunk 3: Competitors Page Redesign (Tasks 9-12)
+## Chunk 3: Competitors Page + Opportunity Detail + AI (Tasks 9-14)
 
 ### Task 9: Watchlist Tab — Rich Cards from competitor_stats
 
@@ -1025,13 +1094,42 @@ Replace the existing watchlistStats computation (lines 42-60) that queries raw `
   }
 ```
 
-- [ ] **Step 2: Render rich watchlist cards**
+- [ ] **Step 2: Fetch overlap count for each watchlist competitor**
+
+For each watchlist competitor, count open tenders where they historically participate in the same CNAE/UF as the user's active matches:
+
+```typescript
+  // Calculate overlap: open tenders where this competitor likely competes
+  // Uses the same CNAE divisions + UFs from the user's active matches
+  const { data: activeMatches } = await supabase
+    .from('matches')
+    .select('tenders!inner(uf)')
+    .eq('company_id', profile?.company_id || '')
+    .in('status', ['new', 'notified', 'viewed', 'interested'])
+
+  const activeUfs = [...new Set((activeMatches || []).map((m) => {
+    const t = m.tenders as unknown as Record<string, unknown>
+    return t.uf as string
+  }).filter(Boolean))]
+
+  // For each watchlist competitor, check overlap with user's active UFs
+  for (const cnpj of watchlistCnpjs) {
+    const stats = watchlistStats[cnpj]
+    if (!stats) continue
+    const pByUf = stats.participations_by_uf || {}
+    const overlapUfs = activeUfs.filter((uf) => pByUf[uf] > 0)
+    stats.overlapCount = overlapUfs.length
+  }
+```
+
+- [ ] **Step 3: Render rich watchlist cards**
 
 Replace the existing watchlist card rendering with rich cards that show:
-- Win rate as bold percentage with color coding
-- Geographic presence (top 5 UFs as colored bars)
-- Activity trend badge
-- Ticket médio formatted
+- Win rate as bold percentage with color coding (green >= 60%, yellow >= 30%, red < 30%)
+- Geographic presence (top 5 UFs as horizontal bars with participation count)
+- Activity trend badge: "Ativo" (last 30d), "Moderado" (last 90d), "Inativo" (>90d) — based on `last_participation_at`
+- Ticket médio formatted as BRL
+- Overlap alert: "⚠️ Competindo com você em X UFs" when `overlapCount > 0`
 
 The exact JSX will follow the existing Card/Badge component patterns used in the page.
 
@@ -1095,8 +1193,9 @@ In the page server component, add a query for the user's company CNAE and market
 
 Add the "panorama" tab panel with:
 - Top 10 table (Posição, Nome, Participações, Vitórias, Win Rate, Porte, UF)
-- Competition by state summary
-- Opportunity windows highlight cards
+- Competition by state summary (for each UF where user has matches: number of competitors, avg win rate, avg discount — UFs with LOW competition highlighted green as "Janela de oportunidade")
+- Desconto médio por modalidade table: aggregate `modalidades` and `avg_discount_pct` across market competitors. Columns: Modalidade | Desconto Médio | Participantes Médios. Use the modalidade names from a lookup or fallback to IDs.
+- Janelas de oportunidade cards: UF+CNAE combos where few competitors exist
 
 - [ ] **Step 3: Commit**
 
@@ -1148,7 +1247,254 @@ git commit -m "feat: add enterprise-gated Analise Comparativa tab and enhanced s
 
 ---
 
-### Task 12: Final Push + Deploy
+### Task 12: Opportunity Detail Page — Competition Section
+
+**Files:**
+- Modify: `apps/web/src/app/(dashboard)/opportunities/[id]/page.tsx`
+
+- [ ] **Step 1: Fetch competition data for the match**
+
+Add `competition_score` to the existing match Supabase select query. Also fetch competitor stats for the tender's niche:
+
+```typescript
+  // Fetch competitors in this tender's niche for the competition section
+  const tenderUf = tender?.uf as string | null
+  const companyCnaeDivisions: string[] = []
+  if (company?.cnae_principal) companyCnaeDivisions.push(company.cnae_principal.substring(0, 2))
+  if (company?.cnaes_secundarios) {
+    for (const c of company.cnaes_secundarios) {
+      const div = c.substring(0, 2)
+      if (!companyCnaeDivisions.includes(div)) companyCnaeDivisions.push(div)
+    }
+  }
+
+  let nicheCompetitors: Array<Record<string, unknown>> = []
+  if (tenderUf && companyCnaeDivisions.length > 0) {
+    const { data: stats } = await supabase.rpc('find_competitors_by_cnae_uf', {
+      p_cnae_divisions: companyCnaeDivisions,
+      p_uf: tenderUf,
+    })
+    nicheCompetitors = stats || []
+  }
+```
+
+- [ ] **Step 2: Render competition section**
+
+After the match score/breakdown section, add a "Análise Competitiva" section:
+
+```typescript
+{/* Competition Analysis Section */}
+<div className="bg-white rounded-lg border p-4 space-y-3">
+  <h3 className="text-sm font-semibold flex items-center gap-2">
+    📊 Análise Competitiva
+    {match.competition_score != null && (
+      <span className={`text-xs px-2 py-0.5 rounded-full ${
+        match.competition_score >= 75 ? 'bg-green-100 text-green-700' :
+        match.competition_score >= 50 ? 'bg-yellow-100 text-yellow-700' :
+        'bg-red-100 text-red-700'
+      }`}>
+        {match.competition_score}/100
+      </span>
+    )}
+  </h3>
+
+  {/* Factor breakdown */}
+  {match.competition_score != null && (
+    <div className="grid grid-cols-2 gap-2 text-xs">
+      <div className="bg-gray-50 rounded p-2">
+        <div className="text-gray-500">Concorrentes no nicho</div>
+        <div className="font-medium">{nicheCompetitors.length}</div>
+      </div>
+      <div className="bg-gray-50 rounded p-2">
+        <div className="text-gray-500">Competitividade</div>
+        <div className="font-medium">{match.competition_score >= 75 ? 'Baixa' : match.competition_score >= 50 ? 'Moderada' : 'Alta'}</div>
+      </div>
+    </div>
+  )}
+
+  {/* Known competitors table (enterprise: names, others: count + bar chart) */}
+  {isEnterprise && nicheCompetitors.length > 0 ? (
+    <div className="space-y-1">
+      <div className="text-xs text-gray-500 font-medium">Principais concorrentes:</div>
+      {nicheCompetitors.slice(0, 5).map((c, i) => (
+        <div key={i} className="flex items-center justify-between text-xs py-1 border-b last:border-0">
+          <span className="font-medium">{(c.nome as string) || 'N/I'}</span>
+          <span className="text-gray-500">Win rate {Math.round(Number(c.win_rate || 0) * 100)}% · {c.porte || 'N/I'}</span>
+        </div>
+      ))}
+    </div>
+  ) : nicheCompetitors.length > 0 ? (
+    <div className="text-xs text-gray-500">
+      {nicheCompetitors.length} concorrentes identificados neste nicho.
+      <span className="text-blue-600 ml-1">🔒 Nomes no plano Enterprise</span>
+    </div>
+  ) : (
+    <div className="text-xs text-gray-400">Sem dados competitivos para esta licitação.</div>
+  )}
+</div>
+```
+
+- [ ] **Step 3: Verify TypeScript compiles**
+
+Run: `npx tsc --noEmit -p apps/web/tsconfig.json`
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add apps/web/src/app/\(dashboard\)/opportunities/\[id\]/page.tsx
+git commit -m "feat: add competition analysis section to opportunity detail page"
+```
+
+---
+
+### Task 13: AI Strategic Analysis (Enterprise)
+
+**Files:**
+- Create: `packages/workers/src/lib/ai-competitor-analysis.ts`
+- Modify: `apps/web/src/app/(dashboard)/competitors/page.tsx` (consume AI insights in Comparativa tab)
+
+- [ ] **Step 1: Create AI analysis utility**
+
+Create `packages/workers/src/lib/ai-competitor-analysis.ts`:
+
+```typescript
+import { GoogleGenerativeAI } from '@google/generative-ai'
+import { logger } from './logger'
+
+const genai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
+
+interface CompetitorProfile {
+  nome: string
+  winRate: number
+  totalParticipations: number
+  topUfs: Array<{ uf: string; count: number; winRate: number }>
+  avgDiscount: number
+  porte: string
+  topModalidades: string[]
+}
+
+interface CompanyProfile {
+  nome: string
+  cnaes: string[]
+  uf: string
+}
+
+export async function generateCompetitiveInsight(
+  company: CompanyProfile,
+  competitor: CompetitorProfile,
+): Promise<string | null> {
+  try {
+    const model = genai.getGenerativeModel({ model: 'gemini-2.0-flash' })
+
+    const prompt = `Você é um consultor estratégico de licitações públicas no Brasil.
+
+Analise o perfil deste concorrente comparado à empresa do cliente e gere uma análise estratégica concisa (máx 200 palavras).
+
+**Empresa do cliente:** ${company.nome}
+- CNAEs: ${company.cnaes.join(', ')}
+- UF: ${company.uf}
+
+**Concorrente:** ${competitor.nome}
+- Win rate: ${competitor.winRate}%
+- Participações: ${competitor.totalParticipations}
+- Porte: ${competitor.porte}
+- Desconto médio: ${(competitor.avgDiscount * 100).toFixed(1)}%
+- Principais UFs: ${competitor.topUfs.map(u => `${u.uf} (${u.count} participações, ${u.winRate}% win rate)`).join(', ')}
+- Modalidades: ${competitor.topModalidades.join(', ')}
+
+Responda em JSON:
+{
+  "pontos_fortes": ["lista de até 3 pontos fortes do concorrente"],
+  "pontos_fracos": ["lista de até 3 pontos fracos/oportunidades"],
+  "estrategia": "recomendação de 1-2 frases de como competir contra este concorrente"
+}`
+
+    const result = await model.generateContent(prompt)
+    return result.response.text()
+  } catch (err) {
+    logger.warn({ err, competitor: competitor.nome }, 'Failed to generate AI competitive insight')
+    return null
+  }
+}
+```
+
+- [ ] **Step 2: Add AI insight to Análise Comparativa tab**
+
+In `apps/web/src/app/(dashboard)/competitors/page.tsx`, for enterprise users on the Comparativa tab, when a competitor is selected:
+- Call a Next.js API route that invokes `generateCompetitiveInsight`
+- Display the returned `pontos_fortes`, `pontos_fracos`, and `estrategia` in styled cards
+- Cache results in Supabase for 7 days (key: `company_id + competitor_cnpj`)
+
+Create `apps/web/src/app/api/competitors/analyze/route.ts`:
+
+```typescript
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
+import { NextResponse } from 'next/server'
+import { GoogleGenerativeAI } from '@google/generative-ai'
+
+const genai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
+
+export async function POST(request: Request) {
+  const supabase = createRouteHandlerClient({ cookies })
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // Verify enterprise plan
+  const { data: profile } = await supabase
+    .from('users')
+    .select('company_id')
+    .eq('id', user.id)
+    .single()
+
+  const { data: sub } = await supabase
+    .from('subscriptions')
+    .select('plan')
+    .eq('company_id', profile?.company_id || '')
+    .eq('status', 'active')
+    .single()
+
+  if (sub?.plan !== 'enterprise') {
+    return NextResponse.json({ error: 'Enterprise plan required' }, { status: 403 })
+  }
+
+  const { competitorCnpj } = await request.json()
+
+  // Check cache (7 days)
+  const cacheKey = `ai_analysis_${profile?.company_id}_${competitorCnpj}`
+  // TODO: implement cache check in a simple key-value table or use competitor_stats.updated_at
+
+  // Fetch competitor stats
+  const { data: competitor } = await supabase
+    .from('competitor_stats')
+    .select('*')
+    .eq('cnpj', competitorCnpj)
+    .single()
+
+  if (!competitor) return NextResponse.json({ error: 'Competitor not found' }, { status: 404 })
+
+  // Generate insight using Gemini
+  const model = genai.getGenerativeModel({ model: 'gemini-2.0-flash' })
+  // ... (use prompt from Step 1 adapted for the API route context)
+
+  return NextResponse.json({ insight: '...' })
+}
+```
+
+- [ ] **Step 3: Verify TypeScript compiles**
+
+Run: `npx tsc --noEmit -p apps/web/tsconfig.json && npx tsc --noEmit -p packages/workers/tsconfig.json`
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add packages/workers/src/lib/ai-competitor-analysis.ts apps/web/src/app/api/competitors/analyze/route.ts apps/web/src/app/\(dashboard\)/competitors/page.tsx
+git commit -m "feat: add AI strategic analysis for enterprise competitor comparison"
+```
+
+---
+
+### Task 14: Final Push + Deploy
 
 - [ ] **Step 1: Push all frontend changes**
 
@@ -1159,15 +1505,18 @@ git push origin main
 - [ ] **Step 2: Deploy workers (if not already updated)**
 
 ```bash
-ssh root@187.77.241.93 "cd /opt/licitagram && git pull origin main && pnpm --filter workers build && pm2 restart worker-main"
+ssh root@187.77.241.93 "cd /opt/licitagram && git pull origin main && pnpm install --frozen-lockfile && pnpm --filter workers build && pm2 restart worker-main"
 ```
 
 - [ ] **Step 3: Verify end-to-end**
 
-1. Check `/competitors` page — watchlist shows rich cards
-2. Check `/competitors?tab=panorama` — market overview visible
-3. Check map sidebar — hot matches show competition tag
-4. Check pipeline — hot cards show competition badge
-5. Check Telegram — hot alert includes competition analysis section
+1. Check `/competitors` page — watchlist shows rich cards with overlap alerts
+2. Check `/competitors?tab=panorama` — top 10 table, competition by state, desconto por modalidade
+3. Check `/competitors?tab=comparativa` — blurred for non-enterprise, full for enterprise
+4. Check `/opportunities/[id]` — competition analysis section visible
+5. Check map sidebar — hot matches show competition tag
+6. Check pipeline — hot cards show competition badge
+7. Check Telegram — hot alert includes competition analysis section
+8. Enterprise: AI competitive insights load on Comparativa tab
 
 ---
