@@ -61,11 +61,24 @@ export default async function OpportunityDetailPage({
 
   let nicheCompetitors: Array<Record<string, unknown>> = []
   if (tenderUf && companyCnaeDivisions.length > 0) {
-    const { data: stats } = await supabase.rpc('find_competitors_by_cnae_uf', {
-      p_cnae_divisions: companyCnaeDivisions,
-      p_uf: tenderUf,
-    })
-    nicheCompetitors = stats || []
+    // Query for each CNAE division and merge results
+    const allResults: Array<Record<string, unknown>> = []
+    for (const cnaeDiv of companyCnaeDivisions.slice(0, 3)) {
+      const { data: stats } = await supabase.rpc('find_competitors_by_cnae_uf', {
+        p_cnae_divisao: cnaeDiv,
+        p_uf: tenderUf,
+        p_limit: 10,
+      })
+      if (stats) allResults.push(...stats)
+    }
+    // Deduplicate by cnpj
+    const seen = new Set<string>()
+    nicheCompetitors = allResults.filter((s) => {
+      const cnpj = s.cnpj as string
+      if (seen.has(cnpj)) return false
+      seen.add(cnpj)
+      return true
+    }).slice(0, 10)
   }
   const breakdown = (match.breakdown as Array<{ category: string; score: number; reason: string }>) || []
   const requisitos = tender?.requisitos as Record<string, unknown> | null
@@ -244,9 +257,9 @@ export default async function OpportunityDetailPage({
                   <div className="text-xs text-gray-500 font-medium">Principais concorrentes:</div>
                   {nicheCompetitors.slice(0, 5).map((c, i) => (
                     <div key={i} className="flex items-center justify-between text-xs py-1 border-b last:border-0">
-                      <span className="font-medium">{(c.nome as string) || 'N/I'}</span>
+                      <span className="font-medium">{(c.razao_social as string) || 'N/I'}</span>
                       <span className="text-gray-500">
-                        Win rate {Math.round(Number(c.win_rate || 0) * 100)}% · {(c.porte as string) || 'N/I'}
+                        Win rate {Math.round(Number(c.win_rate || 0))}% · {(c.porte as string) || 'N/I'}
                       </span>
                     </div>
                   ))}
