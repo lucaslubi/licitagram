@@ -4,6 +4,7 @@ import type { ResultsScrapingJobData } from '../queues/results-scraping.queue'
 import { fetchTenderResults } from '../scrapers/pncp-results-client'
 import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
+import { competitionAnalysisQueue } from '../queues/competition-analysis.queue'
 
 const BATCH_SIZE = 20
 
@@ -71,6 +72,17 @@ async function processResultsJob(job: Job<ResultsScrapingJobData>) {
     { batch, tendersProcessed: tenders.length, competitorsFound: totalResults },
     'Results scraping batch completed',
   )
+
+  // Trigger incremental competition analysis after new results are scraped
+  if (totalResults > 0) {
+    const ts = Date.now()
+    await competitionAnalysisQueue.add(
+      `post-results-analysis-${ts}`,
+      { mode: 'incremental' },
+      { jobId: `post-results-analysis-${ts}` },
+    )
+    logger.info('Enqueued competition analysis after results scraping')
+  }
 }
 
 export const resultsScrapingWorker = new Worker<ResultsScrapingJobData>(

@@ -8,8 +8,106 @@ import { logger } from '../lib/logger'
 const AI_SOURCES = ['ai', 'ai_triage', 'semantic']
 const EXCLUDED_MODALIDADES = [9, 14]
 const ACTIVE_STATUSES = ['new', 'notified', 'viewed', 'interested']
-const HOT_SCORE_THRESHOLD = 80
+const HOT_SCORE_THRESHOLD = 70
 const HOT_TOP_N = 10
+const HOT_SCORE_RELEVANCE_WEIGHT = 0.6
+const HOT_SCORE_COMPETITION_WEIGHT = 0.4
+
+interface CompetitorInfo {
+  nome: string
+  winRate: number
+  porte: string
+}
+
+/**
+ * Calculate competition_score for a match based on competitor_stats.
+ * Returns { score, topCompetitors } or null if no data.
+ */
+async function calculateCompetitionScore(
+  tenderUf: string | null,
+  companyCnaeDivisions: string[],
+): Promise<{ score: number; topCompetitors: CompetitorInfo[] } | null> {
+  if (!tenderUf || companyCnaeDivisions.length === 0) return null
+
+  // Find competitors who operate in the same CNAE AND UF
+  // Uses the find_competitors_by_cnae_uf RPC (GIN ? operator not expressible via Supabase JS)
+  const { data: stats, error } = await supabase.rpc('find_competitors_by_cnae_uf', {
+    p_cnae_divisions: companyCnaeDivisions,
+    p_uf: tenderUf,
+  })
+
+  if (error) {
+    logger.warn({ error, tenderUf, companyCnaeDivisions }, 'Failed to query competitor stats')
+    return null
+  }
+
+  if (!stats || stats.length === 0) return null
+
+  const competitors = stats
+
+  // Factor 1: Competition density (30%)
+  const n = competitors.length
+  let densityScore: number
+  if (n === 0) densityScore = 100
+  else if (n <= 3) densityScore = 80
+  else if (n <= 7) densityScore = 60
+  else if (n <= 15) densityScore = 40
+  else densityScore = 20
+
+  // Factor 2: Competitor strength (30%)
+  const avgWinRate = competitors.reduce((s: number, c: Record<string, unknown>) => s + Number(c.win_rate || 0), 0) / Math.max(n, 1)
+  let strengthScore: number
+  if (avgWinRate < 0.2) strengthScore = 90
+  else if (avgWinRate < 0.4) strengthScore = 70
+  else if (avgWinRate < 0.6) strengthScore = 50
+  else if (avgWinRate < 0.8) strengthScore = 30
+  else strengthScore = 10
+
+  // Factor 3: Geographic advantage (20%)
+  const geoWinRates = competitors.map((c: Record<string, unknown>) => {
+    const pByUf = (c.participations_by_uf as Record<string, number>) || {}
+    const wByUf = (c.wins_by_uf as Record<string, number>) || {}
+    const p = pByUf[tenderUf] || 0
+    const w = wByUf[tenderUf] || 0
+    return p > 0 ? w / p : 0
+  })
+  const avgGeoWinRate = geoWinRates.reduce((s: number, r: number) => s + r, 0) / Math.max(geoWinRates.length, 1)
+  // Low competitor win rate in this UF = high geo advantage
+  const geoScore = Math.round(100 - avgGeoWinRate * 100)
+
+  // Factor 4: Discount pattern (20%)
+  const discounts = competitors
+    .map((c: Record<string, unknown>) => Number(c.avg_discount_pct || 0))
+    .filter((d: number) => d > 0)
+  const avgDiscount = discounts.length > 0
+    ? discounts.reduce((s: number, d: number) => s + d, 0) / discounts.length
+    : 0
+  let discountScore: number
+  if (avgDiscount < 0.05) discountScore = 90
+  else if (avgDiscount < 0.10) discountScore = 75
+  else if (avgDiscount < 0.15) discountScore = 60
+  else if (avgDiscount < 0.20) discountScore = 45
+  else discountScore = 30
+
+  const score = Math.round(
+    densityScore * 0.30 +
+    strengthScore * 0.30 +
+    geoScore * 0.20 +
+    discountScore * 0.20,
+  )
+
+  // Top 3 competitors by win rate for display
+  const topCompetitors: CompetitorInfo[] = competitors
+    .sort((a: Record<string, unknown>, b: Record<string, unknown>) => Number(b.win_rate || 0) - Number(a.win_rate || 0))
+    .slice(0, 3)
+    .map((c: Record<string, unknown>) => ({
+      nome: (c.nome as string) || 'N/I',
+      winRate: Math.round(Number(c.win_rate || 0) * 100),
+      porte: (c.porte as string) || 'N/I',
+    }))
+
+  return { score: Math.min(100, Math.max(0, score)), topCompetitors }
+}
 
 /**
  * Fetch users with Telegram enabled, grouped by company_id.
@@ -83,7 +181,7 @@ async function handleHotDaily() {
       .from('matches')
       .select(`
         id, score, notified_at, is_hot,
-        tenders!inner(data_encerramento, modalidade_id)
+        tenders!inner(data_encerramento, modalidade_id, uf)
       `)
       .eq('company_id', companyId)
       .gte('score', HOT_SCORE_THRESHOLD)
@@ -98,8 +196,63 @@ async function handleHotDaily() {
 
     const plan = await getCompanyPlan(companyId, planCache)
 
-    for (let i = 0; i < matches.length; i++) {
-      const match = matches[i]
+    // Get company CNAE divisions for competition analysis
+    const { data: company } = await supabase
+      .from('companies')
+      .select('cnae_principal, cnaes_secundarios')
+      .eq('id', companyId)
+      .single()
+
+    const cnaeDivisions: string[] = []
+    if (company?.cnae_principal) {
+      cnaeDivisions.push(company.cnae_principal.substring(0, 2))
+    }
+    if (company?.cnaes_secundarios) {
+      for (const c of company.cnaes_secundarios) {
+        const div = c.substring(0, 2)
+        if (!cnaeDivisions.includes(div)) cnaeDivisions.push(div)
+      }
+    }
+
+    // Calculate competition_score for each match and compute hot_score
+    const scoredMatches: Array<{
+      match: typeof matches[0]
+      hotScore: number
+      competitionScore: number
+      topCompetitors: CompetitorInfo[]
+    }> = []
+
+    for (const match of matches) {
+      const tender = match.tenders as unknown as Record<string, unknown>
+      const tenderUf = tender.uf as string | null
+
+      let competitionScore = 50 // default neutral
+      let topCompetitors: CompetitorInfo[] = []
+
+      const result = await calculateCompetitionScore(tenderUf, cnaeDivisions)
+      if (result) {
+        competitionScore = result.score
+        topCompetitors = result.topCompetitors
+      }
+
+      // Save competition_score to DB
+      await supabase
+        .from('matches')
+        .update({ competition_score: competitionScore })
+        .eq('id', match.id)
+
+      const hotScore = match.score * HOT_SCORE_RELEVANCE_WEIGHT +
+        competitionScore * HOT_SCORE_COMPETITION_WEIGHT
+
+      scoredMatches.push({ match, hotScore, competitionScore, topCompetitors })
+    }
+
+    // Sort by hot_score descending and take top N
+    scoredMatches.sort((a, b) => b.hotScore - a.hotScore)
+    const topMatches = scoredMatches.slice(0, HOT_TOP_N)
+
+    for (let i = 0; i < topMatches.length; i++) {
+      const { match, competitionScore, topCompetitors } = topMatches[i]
       const rank = i + 1
 
       // Mark as hot if not already
@@ -111,8 +264,7 @@ async function handleHotDaily() {
         totalMarked++
       }
 
-      // Skip Telegram send only if this match was already sent as hot (avoid re-alerting)
-      // Matches that received standard notifications still get the hot alert — it's a premium notification
+      // Skip Telegram send only if this match was already sent as hot
       if (match.is_hot) continue
 
       // Enqueue hot notification for each user
@@ -126,6 +278,8 @@ async function handleHotDaily() {
               type: 'hot' as const,
               rank,
               plan,
+              competitionScore,
+              topCompetitors,
             },
           )
           totalEnqueued++
@@ -134,7 +288,7 @@ async function handleHotDaily() {
         }
       }
 
-      // Mark as notified (only if still 'new' to avoid overwriting user actions)
+      // Mark as notified (only if still 'new')
       await supabase
         .from('matches')
         .update({ status: 'notified', notified_at: new Date().toISOString() })

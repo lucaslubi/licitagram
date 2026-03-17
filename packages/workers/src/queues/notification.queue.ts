@@ -17,7 +17,7 @@ export interface UrgencyMatchItem {
 
 export type NotificationJobData =
   | { matchId: string; telegramChatId?: number; whatsappNumber?: string }
-  | { matchId: string; telegramChatId: number; type: 'hot'; rank: number; plan: string }
+  | { matchId: string; telegramChatId: number; type: 'hot'; rank: number; plan: string; competitionScore: number; topCompetitors: Array<{ nome: string; winRate: number; porte: string }> }
   | { telegramChatId: number; type: 'urgency_48h'; matches: UrgencyMatchItem[]; totalValor: number }
   | { telegramChatId: number; type: 'urgency_24h'; matches: UrgencyMatchItem[]; totalValor: number }
 
