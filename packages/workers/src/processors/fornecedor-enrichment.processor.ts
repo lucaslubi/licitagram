@@ -3,6 +3,7 @@ import { connection } from '../queues/connection'
 import type { FornecedorEnrichmentJobData } from '../queues/fornecedor-enrichment.queue'
 import { fetchFornecedor } from '../scrapers/comprasgov-client'
 import { competitionAnalysisQueue } from '../queues/competition-analysis.queue'
+import { contactEnrichmentQueue } from '../queues/contact-enrichment.queue'
 import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
 
@@ -94,8 +95,16 @@ async function processFornecedorEnrichment(job: Job<FornecedorEnrichmentJobData>
         { jobId: `post-enrichment-${ts}` },
       )
       logger.info({ totalEnriched }, 'Enqueued competition analysis after fornecedor enrichment')
+
+      // Also enrich contacts (email/telefone) from BrasilAPI
+      await contactEnrichmentQueue.add(
+        `post-enrichment-contacts-${ts}`,
+        { batch: 0 },
+        { jobId: `post-enrichment-contacts-${ts}` },
+      )
+      logger.info('Enqueued contact enrichment after fornecedor enrichment')
     } catch (err) {
-      logger.warn({ err }, 'Failed to enqueue post-enrichment competition analysis')
+      logger.warn({ err }, 'Failed to enqueue post-enrichment jobs')
     }
   }
 

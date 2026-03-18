@@ -28,6 +28,7 @@ import { aiTriageWorker } from './processors/ai-triage.processor'
 import { semanticMatchingWorker } from './processors/semantic-matching.processor'
 import { hotAlertsWorker } from './processors/hot-alerts.processor'
 import { competitionAnalysisWorker } from './processors/competition-analysis.processor'
+import { contactEnrichmentWorker } from './processors/contact-enrichment.processor'
 
 const allWorkers = [
   scrapingWorker, extractionWorker, matchingWorker, notificationWorker,
@@ -37,6 +38,7 @@ const allWorkers = [
   semanticMatchingWorker,
   hotAlertsWorker,
   competitionAnalysisWorker,
+  contactEnrichmentWorker,
 ]
 import { pendingNotificationsQueue } from './queues/pending-notifications.queue'
 import { comprasgovScrapingQueue } from './queues/comprasgov-scraping.queue'
