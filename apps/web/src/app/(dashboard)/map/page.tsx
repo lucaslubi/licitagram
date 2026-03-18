@@ -39,6 +39,7 @@ export default async function MapPage() {
     .not('tenders.modalidade_id', 'in', '(9,14)')
     .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
     .order('score', { ascending: false })
+    .limit(500)
 
   // Resolve coordenadas de todos os municípios em batch
   const municipioItems = (matches || [])

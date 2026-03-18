@@ -105,7 +105,7 @@ export default async function DashboardPage() {
       .gte('score', minScore)
       .not('tenders.modalidade_id', 'in', '(9,14)')
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
-      .limit(10000),
+      .limit(1000),
 
     // Top 5 matches for "Melhores Oportunidades" (AI-verified, open tenders)
     supabase
@@ -150,7 +150,7 @@ export default async function DashboardPage() {
       .gte('score', minScore)
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
       .not('tenders.modalidade_id', 'in', '(9,14)')
-      .limit(10000),
+      .limit(1000),
 
     // Company documents for health check
     supabase
