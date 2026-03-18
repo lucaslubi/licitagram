@@ -9,6 +9,7 @@ const ADMIN_NAV = [
   { href: '/admin/plans', label: 'Planos', section: 'plans' },
   { href: '/admin/users', label: 'Usuarios', section: 'users' },
   { href: '/admin/financial', label: 'Financeiro', section: 'financial' },
+  { href: '/admin/prospects', label: 'Prospectos', section: 'dashboard' },
   { href: '/admin/admins', label: 'Admins', section: 'admins' },
   { href: '/admin/audit', label: 'Audit Log', section: 'audit' },
 ]
