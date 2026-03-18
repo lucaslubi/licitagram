@@ -107,6 +107,8 @@ export const resultsScrapingWorker = new Worker<ResultsScrapingJobData>(
   {
     connection,
     concurrency: 1,
+    stalledInterval: 300_000,
+    lockDuration: 300_000,
   },
 )
 

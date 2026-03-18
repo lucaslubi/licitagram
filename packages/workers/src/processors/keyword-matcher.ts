@@ -379,7 +379,7 @@ async function upsertMatchAndNotify(
 // Uses PHRASE-LEVEL matching (not individual tokens) to prevent false positives.
 // When tender has CNAE classification, REQUIRES CNAE overlap (hard gate).
 
-export async function runKeywordMatching(tenderId: string): Promise<Map<string, string[]>> {
+export async function runKeywordMatching(tenderId: string, excludeCompanyIds?: Set<string>): Promise<Map<string, string[]>> {
   // Returns Map<companyId, matchId[]> of NEW keyword matches created
   // 1. Fetch tender
   const { data: tender } = await supabase
@@ -423,13 +423,23 @@ export async function runKeywordMatching(tenderId: string): Promise<Map<string, 
   const resumoTokens = tender.resumo ? tokenize(tender.resumo as string) : []
   const tenderTokens = new Set([...objetoTokens, ...resumoTokens])
 
-  // 4. Fetch ALL companies
-  const { data: companies } = await supabase
+  // 4. Fetch ALL companies (semantic pipeline handles profiled ones — skip them if provided)
+  const { data: allCompanies } = await supabase
     .from('companies')
     .select('id, cnae_principal, cnaes_secundarios, palavras_chave, descricao_servicos, capacidades')
 
-  if (!companies || companies.length === 0) {
+  if (!allCompanies || allCompanies.length === 0) {
     logger.info('No companies found, skipping keyword matching')
+    return new Map()
+  }
+
+  // Exclude companies already handled by semantic matching pipeline
+  const companies = excludeCompanyIds && excludeCompanyIds.size > 0
+    ? allCompanies.filter((c) => !excludeCompanyIds.has(c.id))
+    : allCompanies
+
+  if (companies.length === 0) {
+    logger.info('All companies handled by semantic pipeline, skipping keyword matching')
     return new Map()
   }
 

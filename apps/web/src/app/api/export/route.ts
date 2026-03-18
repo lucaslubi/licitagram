@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
 import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { AI_VERIFIED_SOURCES } from '@/lib/cache'
 
 export async function GET(request: NextRequest) {
   // Auth + plan check
@@ -55,6 +56,7 @@ export async function GET(request: NextRequest) {
         )
       `)
       .eq('company_id', profile.company_id)
+      .in('match_source', [...AI_VERIFIED_SOURCES])
       .gte('score', scoreMin || 45)
       .not('tenders.modalidade_id', 'in', '(9,14)')
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })

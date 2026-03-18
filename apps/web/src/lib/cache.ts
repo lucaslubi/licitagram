@@ -503,18 +503,30 @@ export async function getDashboardStats(companyId: string | null): Promise<Dashb
       const now = new Date()
       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
 
+      const today = new Date().toISOString().split('T')[0]
+
       // Run all count queries in parallel
       const [totalResult, recentResult, matchResult, highScoreResult] = await Promise.all([
         supabase.from('tenders').select('id', { count: 'exact', head: true }),
         supabase.from('tenders').select('id', { count: 'exact', head: true })
           .gte('data_publicacao', sevenDaysAgo),
         companyId
-          ? supabase.from('matches').select('id', { count: 'exact', head: true })
+          ? supabase.from('matches')
+              .select('id, tenders!inner(data_encerramento, modalidade_id)', { count: 'exact', head: true })
               .eq('company_id', companyId)
+              .in('match_source', [...AI_VERIFIED_SOURCES])
+              .gte('score', MIN_DISPLAY_SCORE)
+              .not('tenders.modalidade_id', 'in', '(9,14)')
+              .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
           : Promise.resolve({ count: 0 }),
         companyId
-          ? supabase.from('matches').select('id', { count: 'exact', head: true })
-              .eq('company_id', companyId).gte('score', 70)
+          ? supabase.from('matches')
+              .select('id, tenders!inner(data_encerramento, modalidade_id)', { count: 'exact', head: true })
+              .eq('company_id', companyId)
+              .in('match_source', [...AI_VERIFIED_SOURCES])
+              .gte('score', 70)
+              .not('tenders.modalidade_id', 'in', '(9,14)')
+              .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
           : Promise.resolve({ count: 0 }),
       ])
 

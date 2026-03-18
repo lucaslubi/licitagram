@@ -2,6 +2,7 @@ import { Worker, type Job } from 'bullmq'
 import { connection } from '../queues/connection'
 import type { FornecedorEnrichmentJobData } from '../queues/fornecedor-enrichment.queue'
 import { fetchFornecedor } from '../scrapers/comprasgov-client'
+import { competitionAnalysisQueue } from '../queues/competition-analysis.queue'
 import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
 
@@ -82,6 +83,22 @@ async function processFornecedorEnrichment(job: Job<FornecedorEnrichmentJobData>
     await job.updateProgress(currentBatch)
   }
 
+  // Immediately re-materialize competitor_stats so enriched CNAE/UF data
+  // appears in competitive intelligence pages without waiting for the 12h cycle
+  if (totalEnriched > 0) {
+    try {
+      const ts = Date.now()
+      await competitionAnalysisQueue.add(
+        `post-enrichment-${ts}`,
+        { mode: 'incremental' },
+        { jobId: `post-enrichment-${ts}` },
+      )
+      logger.info({ totalEnriched }, 'Enqueued competition analysis after fornecedor enrichment')
+    } catch (err) {
+      logger.warn({ err }, 'Failed to enqueue post-enrichment competition analysis')
+    }
+  }
+
   logger.info(
     { totalEnriched },
     'Fornecedor enrichment completed',
@@ -94,6 +111,8 @@ export const fornecedorEnrichmentWorker = new Worker<FornecedorEnrichmentJobData
   {
     connection,
     concurrency: 1,
+    stalledInterval: 300_000,
+    lockDuration: 300_000,
   },
 )
 

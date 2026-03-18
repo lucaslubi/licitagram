@@ -505,6 +505,22 @@ async function main() {
     logger.info('Semantic matching disabled — set JINA_API_KEY or OPENAI_API_KEY to enable')
   }
 
+  // ─── Memory pressure monitoring ─────────────────────────────────────────────
+  // When heap exceeds 400 MB, pause all workers for 10 s to let GC reclaim memory.
+  const HEAP_LIMIT = 400 * 1024 * 1024 // 400 MB
+  setInterval(async () => {
+    const { heapUsed } = process.memoryUsage()
+    if (heapUsed > HEAP_LIMIT) {
+      logger.warn({ heapUsedMB: Math.round(heapUsed / 1024 / 1024) }, 'Memory pressure — pausing all workers for 10 s')
+      await Promise.allSettled(allWorkers.map((w) => w.pause()))
+      // Force garbage collection if exposed
+      if (global.gc) global.gc()
+      await new Promise((r) => setTimeout(r, 10_000))
+      await Promise.allSettled(allWorkers.map((w) => w.resume()))
+      logger.info({ heapUsedMB: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) }, 'Workers resumed after memory pressure pause')
+    }
+  }, 30_000) // Check every 30 s
+
   logger.info('All workers running. CNAE-first + semantic matching engine active. Press Ctrl+C to stop.')
 }
 
@@ -540,8 +556,15 @@ function scheduleMonthlyReset() {
 async function gracefulShutdown(signal: string) {
   logger.info({ signal }, 'Graceful shutdown starting...')
   try {
+    // Give workers 15 s to finish active jobs before force-exiting
+    const timeout = setTimeout(() => {
+      logger.warn('Shutdown timed out after 15 s — force exiting')
+      process.exit(1)
+    }, 15_000)
+    timeout.unref()
     await Promise.allSettled(allWorkers.map((w) => w.close()))
-    logger.info('All workers closed')
+    clearTimeout(timeout)
+    logger.info('All workers closed cleanly')
   } catch (err) {
     logger.error({ err }, 'Error during worker shutdown')
   }

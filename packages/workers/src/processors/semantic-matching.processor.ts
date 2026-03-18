@@ -24,9 +24,10 @@ const semanticMatchingWorker = new Worker<SemanticMatchingJobData>(
   },
   {
     connection,
-    concurrency: 2,
+    concurrency: 1,
     limiter: { max: 5, duration: 60_000 },
     stalledInterval: 600_000, // 10 min stall timeout (embedding can be slow)
+    lockDuration: 300_000, // 5 min lock
   },
 )
 

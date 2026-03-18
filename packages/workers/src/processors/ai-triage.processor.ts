@@ -395,7 +395,7 @@ const aiTriageWorker = new Worker<AiTriageJobData>(
   },
   {
     connection,
-    concurrency: 3, // 3 companies can be triaged in parallel
+    concurrency: 2, // 2 companies can be triaged in parallel (reduced from 3 for memory)
     limiter: { max: 10, duration: 60_000 }, // Max 10 jobs per minute
     stalledInterval: 300_000, // 5 min stall timeout
   },

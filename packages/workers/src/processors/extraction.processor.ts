@@ -2,6 +2,7 @@ import { Worker } from 'bullmq'
 import { connection } from '../queues/connection'
 import { type ExtractionJobData } from '../queues/extraction.queue'
 import { aiTriageQueue } from '../queues/ai-triage.queue'
+import { semanticMatchingQueue } from '../queues/semantic-matching.queue'
 import { extractTextFromPDF } from '../scrapers/pdf-extractor'
 import { runKeywordMatching } from './keyword-matcher'
 import { classifyTenderCNAEs } from '../ai/cnae-classifier'
@@ -148,25 +149,54 @@ const extractionWorker = new Worker<ExtractionJobData>(
       logger.warn({ tenderId, err }, 'CNAE classification failed (will retry in sweep)')
     }
 
-    // 5. Embed tender for semantic matching (non-blocking)
+    // 5. Embed tender for semantic matching FIRST (primary pipeline)
+    let tenderEmbedded = false
     if (process.env.JINA_API_KEY || process.env.OPENAI_API_KEY) {
       try {
         const { embedTender } = await import('./company-profiler')
         await embedTender(tenderId)
+        tenderEmbedded = true
       } catch (err) {
         logger.warn({ tenderId, err }, 'Tender embedding failed (will retry in sweep)')
       }
     }
 
-    // 6. Run CNAE-first keyword matching
+    // 6. Semantic matching as PRIMARY pipeline for profiled companies
+    //    Enqueue semantic matching for all companies with profile_embedding.
+    //    Keyword matching (step 7) only handles companies WITHOUT embeddings.
+    const profiledCompanyIds = new Set<string>()
+    if (tenderEmbedded) {
+      try {
+        const { data: profiled } = await supabase
+          .from('companies')
+          .select('id')
+          .not('embedding', 'is', null)
+
+        if (profiled && profiled.length > 0) {
+          for (const c of profiled) {
+            profiledCompanyIds.add(c.id)
+            await semanticMatchingQueue.add(
+              `post-extract-${c.id}-${tenderId}`,
+              { companyId: c.id },
+              { jobId: `post-extract-${c.id}-${tenderId}` },
+            )
+          }
+          logger.info({ tenderId, count: profiled.length }, 'Enqueued semantic matching for profiled companies')
+        }
+      } catch (err) {
+        logger.warn({ tenderId, err }, 'Failed to enqueue semantic matching (falling back to keyword)')
+      }
+    }
+
+    // 7. Keyword matching as FALLBACK for companies without profile_embedding
     let newMatchesByCompany = new Map<string, string[]>()
     try {
-      newMatchesByCompany = await runKeywordMatching(tenderId)
+      newMatchesByCompany = await runKeywordMatching(tenderId, profiledCompanyIds)
     } catch (err) {
       logger.warn({ tenderId, err }, 'Keyword matching failed')
     }
 
-    // 7. Enqueue AI triage for new keyword matches (background, non-blocking)
+    // 8. Enqueue AI triage for new keyword matches (background, non-blocking)
     for (const [companyId, matchIds] of newMatchesByCompany) {
       try {
         await aiTriageQueue.add(
@@ -188,9 +218,10 @@ const extractionWorker = new Worker<ExtractionJobData>(
   },
   {
     connection,
-    concurrency: 2,
+    concurrency: 1,
     limiter: { max: 10, duration: 60_000 },
     stalledInterval: 180_000,
+    lockDuration: 300_000, // 5 min lock — fail job if processor hangs
   },
 )
 

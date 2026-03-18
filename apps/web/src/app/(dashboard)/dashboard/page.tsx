@@ -119,22 +119,26 @@ export default async function DashboardPage() {
       .order('score', { ascending: false })
       .limit(5),
 
-    // Matches this month (AI-verified only)
+    // Matches this month (AI-verified only, open tenders, no non-competitive modalities)
     supabase
       .from('matches')
-      .select('id', { count: 'exact', head: true })
+      .select('id, tenders!inner(data_encerramento, modalidade_id)', { count: 'exact', head: true })
       .eq('company_id', companyId)
       .in('match_source', [...AI_VERIFIED_SOURCES])
       .gte('score', minScore)
-      .gte('created_at', thirtyDaysAgo.toISOString()),
+      .gte('created_at', thirtyDaysAgo.toISOString())
+      .not('tenders.modalidade_id', 'in', '(9,14)')
+      .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' }),
 
-    // Interested/applied matches (AI-verified only)
+    // Interested/applied matches (AI-verified only, open tenders, no non-competitive)
     supabase
       .from('matches')
-      .select('id', { count: 'exact', head: true })
+      .select('id, tenders!inner(data_encerramento, modalidade_id)', { count: 'exact', head: true })
       .eq('company_id', companyId)
       .in('match_source', [...AI_VERIFIED_SOURCES])
-      .in('status', ['interested', 'applied']),
+      .in('status', ['interested', 'applied'])
+      .not('tenders.modalidade_id', 'in', '(9,14)')
+      .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' }),
 
     // Matches with tender details for Valor em Análise, Top UFs, Top Modalidades
     // Use explicit .limit(10000) to override PostgREST max_rows=1000 default
