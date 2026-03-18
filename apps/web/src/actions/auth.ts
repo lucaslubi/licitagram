@@ -17,7 +17,7 @@ export async function signIn(formData: FormData) {
   }
 
   revalidatePath('/', 'layout')
-  redirect('/dashboard')
+  redirect('/map')
 }
 
 export async function signUp(formData: FormData) {
@@ -49,7 +49,7 @@ export async function signUp(formData: FormData) {
 
   // If email confirmation is disabled in Supabase, user is already logged in
   revalidatePath('/', 'layout')
-  redirect('/dashboard')
+  redirect('/map')
 }
 
 export async function signInWithGoogle() {

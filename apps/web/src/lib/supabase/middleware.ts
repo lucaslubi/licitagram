@@ -20,6 +20,7 @@ const FEATURE_GATED_ROUTES: Record<string, PlanFeatureKey> = {
  * Users without active sub are redirected to /billing?expired=1.
  */
 const SUBSCRIPTION_REQUIRED_ROUTES = [
+  '/map',
   '/dashboard',
   '/opportunities',
   '/pipeline',
@@ -100,7 +101,7 @@ export async function updateSession(request: NextRequest) {
   if (pathname.startsWith('/admin')) {
     if (!planCtx?.isPlatformAdmin) {
       const url = request.nextUrl.clone()
-      url.pathname = '/dashboard'
+      url.pathname = '/map'
       return NextResponse.redirect(url)
     }
     return supabaseResponse

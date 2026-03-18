@@ -17,7 +17,7 @@ export async function GET(request: Request) {
     const supabase = await createClient()
     const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
     if (!exchangeError) {
-      return NextResponse.redirect(`${origin}/dashboard`)
+      return NextResponse.redirect(`${origin}/map`)
     }
     console.error('[Auth Callback] Exchange error:', exchangeError.message)
     // Common case: link expired or already used

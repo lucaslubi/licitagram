@@ -108,7 +108,7 @@ export async function requireAuth(): Promise<UserWithPlan> {
 export async function requirePlatformAdmin(): Promise<UserWithPlan> {
   const user = await getUserWithPlan()
   if (!user) redirect('/login')
-  if (!user.isPlatformAdmin) redirect('/dashboard')
+  if (!user.isPlatformAdmin) redirect('/map')
   return user
 }
 
