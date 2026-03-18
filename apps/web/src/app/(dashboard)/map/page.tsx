@@ -21,33 +21,35 @@ export default async function MapPage() {
 
   const companyId = profile.company_id
 
-  // Use RPC function for fast server-side join (avoids PostgREST timeout)
-  const { data: rpcData } = await supabase.rpc('get_map_matches', {
-    p_company_id: companyId,
-    p_limit: 300,
-  })
+  // Read pre-computed map cache (populated by worker every 3h — instant, no JOINs)
+  const { data: cacheData } = await supabase
+    .from('map_cache')
+    .select('*')
+    .eq('company_id', companyId)
+    .order('score', { ascending: false })
+    .limit(500)
 
-  // Transform RPC result into the shape the rest of the page expects
-  const matches = (rpcData || []).map((r: Record<string, unknown>) => ({
+  // Transform cache rows into the shape the rest of the page expects
+  const matches = (cacheData || []).map((r) => ({
     id: r.match_id as string,
     score: r.score as number,
-    status: r.status as string,
-    recomendacao: r.recomendacao as string | null,
-    match_source: r.match_source as string,
+    status: 'new' as string,
+    recomendacao: null as string | null,
+    match_source: (r.match_source || 'ai_triage') as string,
     is_hot: r.is_hot as boolean,
-    competition_score: r.competition_score as number | null,
+    competition_score: null as number | null,
     tenders: {
       id: r.tender_id as string,
-      objeto: r.objeto as string,
-      orgao_nome: r.orgao_nome as string,
-      uf: r.uf as string,
+      objeto: (r.objeto || '') as string,
+      orgao_nome: (r.orgao_nome || '') as string,
+      uf: (r.uf || '') as string,
       municipio: r.municipio as string | null,
       valor_estimado: r.valor_estimado as number | null,
       modalidade_nome: r.modalidade_nome as string | null,
-      modalidade_id: r.modalidade_id as number,
+      modalidade_id: 0 as number,
       data_abertura: r.data_abertura as string | null,
       data_encerramento: r.data_encerramento as string | null,
-      status: r.tender_status as string,
+      status: 'active' as string,
       cnae_classificados: null,
     },
   }))
