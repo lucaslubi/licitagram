@@ -5,6 +5,7 @@ import { fetchTenderResults } from '../scrapers/pncp-results-client'
 import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
 import { competitionAnalysisQueue } from '../queues/competition-analysis.queue'
+import { fornecedorEnrichmentQueue } from '../queues/fornecedor-enrichment.queue'
 
 const BATCH_SIZE = 20
 
@@ -89,6 +90,14 @@ async function processResultsJob(job: Job<ResultsScrapingJobData>) {
       { jobId: `post-results-analysis-${ts}` },
     )
     logger.info('Enqueued competition analysis after results scraping')
+
+    // Also trigger fornecedor enrichment for the new competitors
+    await fornecedorEnrichmentQueue.add(
+      `post-results-enrichment-${ts}`,
+      { batch: 0 },
+      { jobId: `post-results-enrichment-${ts}` },
+    )
+    logger.info('Enqueued fornecedor enrichment after results scraping')
   }
 }
 

@@ -13,66 +13,78 @@ const BATCH_SIZE = 30
  * to the competitors table for better competitive intelligence.
  */
 async function processFornecedorEnrichment(job: Job<FornecedorEnrichmentJobData>) {
-  const { batch } = job.data
+  let currentBatch = job.data.batch ?? 0
+  let totalEnriched = 0
+  const MAX_BATCHES = 100 // Safety limit
 
-  // Find competitors with CNPJ that haven't been enriched yet
-  const { data: competitors } = await supabase
-    .from('competitors')
-    .select('cnpj')
-    .not('cnpj', 'is', null)
-    .is('cnae_codigo', null) // Not yet enriched
-    .order('created_at', { ascending: false })
-    .range(batch * BATCH_SIZE, (batch + 1) * BATCH_SIZE - 1)
+  for (let iteration = 0; iteration < MAX_BATCHES; iteration++) {
+    // Find competitors with CNPJ that haven't been enriched yet
+    const { data: competitors } = await supabase
+      .from('competitors')
+      .select('cnpj')
+      .not('cnpj', 'is', null)
+      .is('cnae_codigo', null) // Not yet enriched
+      .order('created_at', { ascending: false })
+      .range(0, BATCH_SIZE - 1) // Always fetch first batch of unenriched
 
-  if (!competitors || competitors.length === 0) {
-    logger.info({ batch }, 'No more competitors to enrich with fornecedor data')
-    return
-  }
-
-  // Get unique CNPJs to avoid duplicate API calls
-  const uniqueCnpjs = [...new Set(competitors.map((c) => c.cnpj).filter(Boolean))]
-  let enriched = 0
-
-  for (const cnpj of uniqueCnpjs) {
-    try {
-      const fornecedor = await fetchFornecedor(cnpj)
-      if (!fornecedor) continue
-
-      // Update all competitors with this CNPJ
-      const { error } = await supabase
-        .from('competitors')
-        .update({
-          cnae_codigo: fornecedor.codigoCnae,
-          cnae_nome: fornecedor.nomeCnae,
-          porte: fornecedor.porteEmpresaNome,
-          natureza_juridica: fornecedor.naturezaJuridicaNome,
-          uf_fornecedor: fornecedor.ufSigla,
-          municipio_fornecedor: fornecedor.nomeMunicipio,
-        })
-        .eq('cnpj', cnpj)
-
-      if (error) {
-        // If columns don't exist yet, log and continue
-        if (error.code === '42703') {
-          logger.warn({ cnpj }, 'Competitors table missing enrichment columns — run migration')
-          return // Stop processing, migration needed
-        }
-        logger.error({ error, cnpj }, 'Error enriching competitor')
-        continue
-      }
-
-      enriched++
-
-      // Rate limit — respect API limits
-      await new Promise((r) => setTimeout(r, 1200))
-    } catch (err) {
-      logger.error({ cnpj, err }, 'Error fetching fornecedor data')
+    if (!competitors || competitors.length === 0) {
+      logger.info({ totalEnriched }, 'All competitors enriched with fornecedor data')
+      break
     }
+
+    // Get unique CNPJs to avoid duplicate API calls
+    const uniqueCnpjs = [...new Set(competitors.map((c) => c.cnpj).filter(Boolean))]
+
+    for (const cnpj of uniqueCnpjs) {
+      try {
+        const fornecedor = await fetchFornecedor(cnpj)
+        if (!fornecedor) {
+          // Mark as enriched with empty data to avoid re-processing
+          await supabase
+            .from('competitors')
+            .update({ cnae_codigo: 0 })
+            .eq('cnpj', cnpj)
+          continue
+        }
+
+        // Update all competitors with this CNPJ
+        const { error } = await supabase
+          .from('competitors')
+          .update({
+            cnae_codigo: fornecedor.codigoCnae,
+            cnae_nome: fornecedor.nomeCnae,
+            porte: fornecedor.porteEmpresaNome,
+            natureza_juridica: fornecedor.naturezaJuridicaNome,
+            uf_fornecedor: fornecedor.ufSigla,
+            municipio_fornecedor: fornecedor.nomeMunicipio,
+          })
+          .eq('cnpj', cnpj)
+
+        if (error) {
+          if (error.code === '42703') {
+            logger.warn({ cnpj }, 'Competitors table missing enrichment columns — run migration')
+            return
+          }
+          logger.error({ error, cnpj }, 'Error enriching competitor')
+          continue
+        }
+
+        totalEnriched++
+
+        // Rate limit — respect API limits
+        await new Promise((r) => setTimeout(r, 1200))
+      } catch (err) {
+        logger.error({ cnpj, err }, 'Error fetching fornecedor data')
+      }
+    }
+
+    currentBatch++
+    await job.updateProgress(currentBatch)
   }
 
   logger.info(
-    { batch, uniqueCnpjs: uniqueCnpjs.length, enriched },
-    'Fornecedor enrichment batch completed',
+    { totalEnriched },
+    'Fornecedor enrichment completed',
   )
 }
 

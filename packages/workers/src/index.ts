@@ -137,16 +137,16 @@ async function setupRepeatableJobs() {
   )
   logger.info('Document expiry check scheduled (weekly)')
 
-  // Schedule fornecedor enrichment every 48 hours (enrich competitors with CNAE, porte, etc.)
+  // Schedule fornecedor enrichment every 24 hours (enrich competitors with CNAE, porte, etc.)
   await fornecedorEnrichmentQueue.add(
     'fornecedor-enrich',
     { batch: 0 },
     {
-      repeat: { every: 48 * 60 * 60 * 1000 },
+      repeat: { every: 24 * 60 * 60 * 1000 },
       jobId: 'fornecedor-enrichment-repeat',
     },
   )
-  logger.info('Fornecedor enrichment job scheduled (every 48h)')
+  logger.info('Fornecedor enrichment job scheduled (every 24h)')
 
   // Schedule ARP (Atas de Registro de Preço) scraping every 12 hours
   await arpScrapingQueue.add(
