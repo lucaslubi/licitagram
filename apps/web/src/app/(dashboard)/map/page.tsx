@@ -4,7 +4,7 @@ import { IntelligenceMap } from '@/components/map/IntelligenceMap'
 import { UF_CENTERS } from '@/lib/geo/uf-centers'
 import { calculateUfOpportunityScore, type UfMapData, type MatchMarker } from '@/lib/geo/map-utils'
 import { batchGetMunicipalityCoords } from '@/lib/geo/municipalities'
-import { MIN_DISPLAY_SCORE, AI_VERIFIED_SOURCES } from '@/lib/cache'
+// MIN_DISPLAY_SCORE and AI_VERIFIED_SOURCES now handled inside get_map_matches RPC
 
 export default async function MapPage() {
   const supabase = await createClient()
@@ -21,58 +21,36 @@ export default async function MapPage() {
 
   const companyId = profile.company_id
 
-  // Map shows only AI-verified matches (score >= 40, source ai/ai_triage)
-  // Split into 2 queries to avoid inner join timeout with 28K+ matches:
-  // 1. Fetch top matches (fast — no join)
-  // 2. Fetch their tenders in batch (fast — by IDs)
-  const today = new Date().toISOString().split('T')[0]
-  const { data: rawMatches } = await supabase
-    .from('matches')
-    .select('id, score, status, recomendacao, match_source, is_hot, competition_score, tender_id')
-    .eq('company_id', companyId)
-    .in('match_source', [...AI_VERIFIED_SOURCES])
-    .gte('score', MIN_DISPLAY_SCORE)
-    .order('score', { ascending: false })
-    .limit(200)
+  // Use RPC function for fast server-side join (avoids PostgREST timeout)
+  const { data: rpcData } = await supabase.rpc('get_map_matches', {
+    p_company_id: companyId,
+    p_limit: 300,
+  })
 
-  // Batch-fetch tenders for these matches (chunks of 50 to avoid timeout)
-  const tenderIds = [...new Set((rawMatches || []).map((m) => m.tender_id).filter(Boolean))]
-  const tenderMap = new Map<string, Record<string, unknown>>()
-
-  if (tenderIds.length > 0) {
-    const CHUNK = 50
-    const chunks = []
-    for (let i = 0; i < tenderIds.length; i += CHUNK) {
-      chunks.push(tenderIds.slice(i, i + CHUNK))
-    }
-    // Fetch all chunks in parallel
-    const results = await Promise.all(
-      chunks.map((chunk) =>
-        supabase
-          .from('tenders')
-          .select('id, objeto, orgao_nome, uf, municipio, valor_estimado, modalidade_nome, modalidade_id, data_abertura, data_encerramento, status, cnae_classificados')
-          .in('id', chunk)
-      )
-    )
-    for (const { data: tenders } of results) {
-      for (const t of tenders || []) {
-        tenderMap.set(t.id, t as Record<string, unknown>)
-      }
-    }
-  }
-
-  // Join in-memory and apply tender filters (modalidade, expiry)
-  const matches = (rawMatches || [])
-    .map((m) => {
-      const t = tenderMap.get(m.tender_id)
-      if (!t) return null
-      // Filter: exclude non-competitive modalidades
-      if (t.modalidade_id === 9 || t.modalidade_id === 14) return null
-      // Filter: exclude expired tenders
-      if (t.data_encerramento && (t.data_encerramento as string) < today) return null
-      return { ...m, tenders: t }
-    })
-    .filter((m): m is NonNullable<typeof m> => m !== null)
+  // Transform RPC result into the shape the rest of the page expects
+  const matches = (rpcData || []).map((r: Record<string, unknown>) => ({
+    id: r.match_id as string,
+    score: r.score as number,
+    status: r.status as string,
+    recomendacao: r.recomendacao as string | null,
+    match_source: r.match_source as string,
+    is_hot: r.is_hot as boolean,
+    competition_score: r.competition_score as number | null,
+    tenders: {
+      id: r.tender_id as string,
+      objeto: r.objeto as string,
+      orgao_nome: r.orgao_nome as string,
+      uf: r.uf as string,
+      municipio: r.municipio as string | null,
+      valor_estimado: r.valor_estimado as number | null,
+      modalidade_nome: r.modalidade_nome as string | null,
+      modalidade_id: r.modalidade_id as number,
+      data_abertura: r.data_abertura as string | null,
+      data_encerramento: r.data_encerramento as string | null,
+      status: r.tender_status as string,
+      cnae_classificados: null,
+    },
+  }))
 
   // Resolve coordenadas de todos os municípios em batch
   const municipioItems = (matches || [])
