@@ -8,10 +8,17 @@ import { logger } from '../lib/logger'
 const AI_SOURCES = ['ai', 'ai_triage', 'semantic']
 const EXCLUDED_MODALIDADES = [9, 14]
 const ACTIVE_STATUSES = ['new', 'notified', 'viewed', 'interested']
-const HOT_SCORE_THRESHOLD = 70
-const HOT_TOP_N = 10
-const HOT_SCORE_RELEVANCE_WEIGHT = 0.6
-const HOT_SCORE_COMPETITION_WEIGHT = 0.4
+
+// ─── Tuned thresholds for quality hot alerts ─────────────────────────────
+// Only matches with relevance_score >= 75 can be considered hot.
+// The company must genuinely match 75%+ of the tender characteristics.
+const HOT_RELEVANCE_MIN = 75
+const HOT_TOP_N = 25
+// Final hot_score weights: 70% relevance (the match quality is king) + 30% competition
+const HOT_SCORE_RELEVANCE_WEIGHT = 0.7
+const HOT_SCORE_COMPETITION_WEIGHT = 0.3
+// Only mark as hot if the final weighted hot_score reaches this threshold
+const HOT_FINAL_THRESHOLD = 75
 
 interface CompetitorInfo {
   nome: string
@@ -30,7 +37,6 @@ async function calculateCompetitionScore(
   if (!tenderUf || companyCnaeDivisions.length === 0) return null
 
   // Find competitors who operate in the same CNAE AND UF
-  // RPC accepts one CNAE division at a time, so query each and merge
   const allStats: Record<string, unknown>[] = []
   const seenCnpjs = new Set<string>()
 
@@ -71,7 +77,6 @@ async function calculateCompetitionScore(
   else densityScore = 20
 
   // Factor 2: Competitor strength (30%)
-  // win_rate is stored as 0-100 percentage in competitor_stats
   const avgWinRate = competitors.reduce((s: number, c: Record<string, unknown>) => s + Number(c.win_rate || 0), 0) / Math.max(n, 1)
   let strengthScore: number
   if (avgWinRate < 20) strengthScore = 90
@@ -81,14 +86,10 @@ async function calculateCompetitionScore(
   else strengthScore = 10
 
   // Factor 3: Geographic advantage (20%)
-  // Since we already filtered by UF in the RPC, all competitors operate in this UF
-  // Use their overall win_rate as proxy for geo competitiveness
-  const avgGeoWinRate = avgWinRate / 100 // normalize to 0-1
-  // Low competitor win rate in this UF = high geo advantage
+  const avgGeoWinRate = avgWinRate / 100
   const geoScore = Math.round(100 - avgGeoWinRate * 100)
 
   // Factor 4: Discount pattern (20%)
-  // desconto_medio is stored as percentage (0-100) in competitor_stats
   const discounts = competitors
     .map((c: Record<string, unknown>) => Number(c.desconto_medio || 0))
     .filter((d: number) => d > 0)
@@ -123,24 +124,23 @@ async function calculateCompetitionScore(
 }
 
 /**
- * Fetch users with Telegram enabled, grouped by company_id.
+ * Fetch ALL companies with their users (Telegram or not).
+ * Hot marking happens for ALL companies.
+ * Telegram notifications only for users with telegram_chat_id.
  */
-async function getTelegramUsersByCompany(): Promise<
-  Map<string, Array<{ id: string; telegram_chat_id: number }>>
+async function getCompaniesWithUsers(): Promise<
+  Map<string, Array<{ id: string; telegram_chat_id: number | null }>>
 > {
   const { data: users } = await supabase
     .from('users')
     .select('id, company_id, telegram_chat_id, notification_preferences')
     .not('company_id', 'is', null)
-    .not('telegram_chat_id', 'is', null)
 
   if (!users || users.length === 0) return new Map()
 
-  const grouped = new Map<string, Array<{ id: string; telegram_chat_id: number }>>()
+  const grouped = new Map<string, Array<{ id: string; telegram_chat_id: number | null }>>()
   for (const u of users) {
-    const prefs = (u.notification_preferences as Record<string, boolean>) || {}
-    if (prefs.telegram === false) continue
-    if (!u.company_id || !u.telegram_chat_id) continue
+    if (!u.company_id) continue
 
     const list = grouped.get(u.company_id) || []
     list.push({ id: u.id, telegram_chat_id: u.telegram_chat_id })
@@ -151,7 +151,6 @@ async function getTelegramUsersByCompany(): Promise<
 
 /**
  * Get active subscription plan slug for a company.
- * Results are cached in the provided Map for the duration of the batch.
  */
 async function getCompanyPlan(
   companyId: string,
@@ -176,9 +175,10 @@ async function getCompanyPlan(
 async function handleHotDaily() {
   logger.info('Running hot-daily job...')
 
-  const companyUsers = await getTelegramUsersByCompany()
+  // Process ALL companies (not just those with Telegram)
+  const companyUsers = await getCompaniesWithUsers()
   if (companyUsers.size === 0) {
-    logger.info('No Telegram users found for hot-daily')
+    logger.info('No companies found for hot-daily')
     return
   }
 
@@ -188,8 +188,8 @@ async function handleHotDaily() {
   let totalEnqueued = 0
 
   for (const [companyId, users] of companyUsers) {
-    // Query ALL matches with score >= 80, AI sources only, still open (not expired)
-    // No created_at filter — we want to surface the best opportunities regardless of when they were matched
+    // Query matches with relevance score >= HOT_RELEVANCE_MIN (75)
+    // Only AI-verified sources — the match must genuinely fit the company
     const { data: matches } = await supabase
       .from('matches')
       .select(`
@@ -197,13 +197,13 @@ async function handleHotDaily() {
         tenders!inner(data_encerramento, modalidade_id, uf)
       `)
       .eq('company_id', companyId)
-      .gte('score', HOT_SCORE_THRESHOLD)
+      .gte('score', HOT_RELEVANCE_MIN)
       .in('status', ACTIVE_STATUSES)
       .in('match_source', AI_SOURCES)
       .not('tenders.modalidade_id', 'in', `(${EXCLUDED_MODALIDADES.join(',')})`)
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
       .order('score', { ascending: false })
-      .limit(HOT_TOP_N)
+      .limit(50) // Fetch more candidates, filter by hot_score after
 
     if (!matches || matches.length === 0) continue
 
@@ -254,22 +254,34 @@ async function handleHotDaily() {
         .update({ competition_score: competitionScore })
         .eq('id', match.id)
 
-      const hotScore = match.score * HOT_SCORE_RELEVANCE_WEIGHT +
-        competitionScore * HOT_SCORE_COMPETITION_WEIGHT
+      // hot_score = 70% relevance + 30% competition
+      const hotScore = Math.round(
+        match.score * HOT_SCORE_RELEVANCE_WEIGHT +
+        competitionScore * HOT_SCORE_COMPETITION_WEIGHT,
+      )
 
-      scoredMatches.push({ match, hotScore, competitionScore, topCompetitors })
+      // Only consider if hot_score reaches the final threshold (75)
+      if (hotScore >= HOT_FINAL_THRESHOLD) {
+        scoredMatches.push({ match, hotScore, competitionScore, topCompetitors })
+      }
     }
+
+    if (scoredMatches.length === 0) continue
 
     // Sort by hot_score descending and take top N
     scoredMatches.sort((a, b) => b.hotScore - a.hotScore)
     const topMatches = scoredMatches.slice(0, HOT_TOP_N)
 
-    for (let i = 0; i < topMatches.length; i++) {
-      const { match, competitionScore, topCompetitors } = topMatches[i]
-      const rank = i + 1
+    // Separate users with and without Telegram
+    const telegramUsers = users.filter((u) => u.telegram_chat_id != null)
 
-      // Mark as hot if not already
-      if (!match.is_hot) {
+    for (let i = 0; i < topMatches.length; i++) {
+      const { match, hotScore, competitionScore, topCompetitors } = topMatches[i]
+      const rank = i + 1
+      const wasAlreadyHot = match.is_hot
+
+      // ALWAYS mark as hot in DB (for web app display, regardless of Telegram)
+      if (!wasAlreadyHot) {
         await supabase
           .from('matches')
           .update({ is_hot: true, hot_at: new Date().toISOString() })
@@ -277,17 +289,17 @@ async function handleHotDaily() {
         totalMarked++
       }
 
-      // Skip Telegram send only if this match was already sent as hot
-      if (match.is_hot) continue
+      // Send Telegram notification only for NEW hots (not already sent)
+      if (wasAlreadyHot) continue
+      if (telegramUsers.length === 0) continue
 
-      // Enqueue hot notification for each user
-      for (const user of users) {
+      for (const user of telegramUsers) {
         try {
           await notificationQueue.add(
             `hot-${companyId}-${match.id}-${user.id}`,
             {
               matchId: match.id,
-              telegramChatId: user.telegram_chat_id,
+              telegramChatId: user.telegram_chat_id!,
               type: 'hot' as const,
               rank,
               plan,
@@ -307,6 +319,13 @@ async function handleHotDaily() {
         .update({ status: 'notified', notified_at: new Date().toISOString() })
         .eq('id', match.id)
         .eq('status', 'new')
+    }
+
+    if (scoredMatches.length > 0) {
+      logger.info(
+        { companyId: companyId.slice(0, 8), candidates: matches.length, qualified: scoredMatches.length, marked: topMatches.filter((m) => !m.match.is_hot).length },
+        'Hot scan for company',
+      )
     }
   }
 
@@ -340,17 +359,20 @@ async function handleUrgencyCheck() {
     logger.info({ expiredCount }, 'Expired hot markers (tender closed)')
   }
 
-  // Step 2: Find users + companies
-  const companyUsers = await getTelegramUsersByCompany()
+  // Step 2: Find users + companies (only those with Telegram for urgency alerts)
+  const companyUsers = await getCompaniesWithUsers()
   if (companyUsers.size === 0) return
 
   const now = new Date()
   const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString()
   const in48h = new Date(now.getTime() + 48 * 60 * 60 * 1000).toISOString()
-  const today = now.toISOString().split('T')[0]
   let totalUrgencySent = 0
 
   for (const [companyId, users] of companyUsers) {
+    // Only send urgency alerts to users with Telegram
+    const telegramUsers = users.filter((u) => u.telegram_chat_id != null)
+    if (telegramUsers.length === 0) continue
+
     // Query matches with active status, AI sources, closing within 48h
     const { data: matches } = await supabase
       .from('matches')
@@ -361,6 +383,7 @@ async function handleUrgencyCheck() {
       .eq('company_id', companyId)
       .in('status', ACTIVE_STATUSES)
       .in('match_source', AI_SOURCES)
+      .gte('score', HOT_RELEVANCE_MIN) // Only urgency for high-quality matches
       .not('tenders.modalidade_id', 'in', `(${EXCLUDED_MODALIDADES.join(',')})`)
       .gte('tenders.data_encerramento', now.toISOString())
       .lte('tenders.data_encerramento', in48h)
@@ -409,13 +432,13 @@ async function handleUrgencyCheck() {
 
       const totalValor = matchItems.reduce((sum, m) => sum + m.valor, 0)
 
-      // Enqueue grouped urgency alert for each user
-      for (const user of users) {
+      // Enqueue grouped urgency alert for each Telegram user
+      for (const user of telegramUsers) {
         try {
           await notificationQueue.add(
             `${tierType}-${companyId}-${user.id}-${Date.now()}`,
             {
-              telegramChatId: user.telegram_chat_id,
+              telegramChatId: user.telegram_chat_id!,
               type: tierType,
               matches: matchItems,
               totalValor,

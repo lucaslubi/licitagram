@@ -172,16 +172,16 @@ async function setupRepeatableJobs() {
   )
   logger.info('Legacy pregoes scraping job scheduled (every 24h)')
 
-  // Schedule hot alerts scan every 3 hours — surfaces best opportunities ASAP
+  // Schedule hot alerts scan every 1 hour — surfaces best opportunities fast
   await hotAlertsQueue.add(
     'hot-daily',
     {},
     {
-      repeat: { every: 3 * 60 * 60 * 1000 },
-      jobId: 'hot-scan-3h-repeat',
+      repeat: { every: 60 * 60 * 1000 },
+      jobId: 'hot-scan-1h-repeat',
     },
   )
-  logger.info('Hot alerts scan scheduled (every 3h)')
+  logger.info('Hot alerts scan scheduled (every 1h)')
 
   // Schedule urgency check every hour
   await hotAlertsQueue.add(
@@ -509,7 +509,7 @@ async function main() {
 
   // ─── Memory pressure monitoring ─────────────────────────────────────────────
   // When heap exceeds 400 MB, pause all workers for 10 s to let GC reclaim memory.
-  const HEAP_LIMIT = 400 * 1024 * 1024 // 400 MB
+  const HEAP_LIMIT = 800 * 1024 * 1024 // 800 MB (VPS has 7.8 GB RAM)
   setInterval(async () => {
     const { heapUsed } = process.memoryUsage()
     if (heapUsed > HEAP_LIMIT) {

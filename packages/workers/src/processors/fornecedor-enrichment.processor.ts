@@ -7,7 +7,8 @@ import { contactEnrichmentQueue } from '../queues/contact-enrichment.queue'
 import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
 
-const BATCH_SIZE = 30
+const BATCH_SIZE = 50
+const PARALLEL = 3 // Process 3 CNPJs concurrently
 
 /**
  * Enriches competitor records with fornecedor data from dadosabertos API.
@@ -17,7 +18,7 @@ const BATCH_SIZE = 30
 async function processFornecedorEnrichment(job: Job<FornecedorEnrichmentJobData>) {
   let currentBatch = job.data.batch ?? 0
   let totalEnriched = 0
-  const MAX_BATCHES = 100 // Safety limit
+  const MAX_BATCHES = 200 // Safety limit
 
   for (let iteration = 0; iteration < MAX_BATCHES; iteration++) {
     // Find competitors with CNPJ that haven't been enriched yet
@@ -37,51 +38,62 @@ async function processFornecedorEnrichment(job: Job<FornecedorEnrichmentJobData>
     // Get unique CNPJs to avoid duplicate API calls
     const uniqueCnpjs = [...new Set(competitors.map((c) => c.cnpj).filter(Boolean))]
 
-    for (const cnpj of uniqueCnpjs) {
-      try {
-        const fornecedor = await fetchFornecedor(cnpj)
-        if (!fornecedor) {
-          // Mark as enriched with empty data to avoid re-processing
-          await supabase
-            .from('competitors')
-            .update({ cnae_codigo: 0 })
-            .eq('cnpj', cnpj)
-          continue
-        }
+    // Process CNPJs in parallel chunks
+    for (let i = 0; i < uniqueCnpjs.length; i += PARALLEL) {
+      const chunk = uniqueCnpjs.slice(i, i + PARALLEL)
 
-        // Update all competitors with this CNPJ
-        const { error } = await supabase
-          .from('competitors')
-          .update({
-            cnae_codigo: fornecedor.codigoCnae,
-            cnae_nome: fornecedor.nomeCnae,
-            porte: fornecedor.porteEmpresaNome,
-            natureza_juridica: fornecedor.naturezaJuridicaNome,
-            uf_fornecedor: fornecedor.ufSigla,
-            municipio_fornecedor: fornecedor.nomeMunicipio,
-          })
-          .eq('cnpj', cnpj)
+      await Promise.allSettled(
+        chunk.map(async (cnpj) => {
+          try {
+            const fornecedor = await fetchFornecedor(cnpj)
+            if (!fornecedor) {
+              // Mark as enriched with empty data to avoid re-processing
+              await supabase
+                .from('competitors')
+                .update({ cnae_codigo: 0 })
+                .eq('cnpj', cnpj)
+              return
+            }
 
-        if (error) {
-          if (error.code === '42703') {
-            logger.warn({ cnpj }, 'Competitors table missing enrichment columns — run migration')
-            return
+            // Update all competitors with this CNPJ
+            const { error } = await supabase
+              .from('competitors')
+              .update({
+                cnae_codigo: fornecedor.codigoCnae,
+                cnae_nome: fornecedor.nomeCnae,
+                porte: fornecedor.porteEmpresaNome,
+                natureza_juridica: fornecedor.naturezaJuridicaNome,
+                uf_fornecedor: fornecedor.ufSigla,
+                municipio_fornecedor: fornecedor.nomeMunicipio,
+              })
+              .eq('cnpj', cnpj)
+
+            if (error) {
+              if (error.code === '42703') {
+                logger.warn({ cnpj }, 'Competitors table missing enrichment columns — run migration')
+                return
+              }
+              logger.error({ error, cnpj }, 'Error enriching competitor')
+              return
+            }
+
+            totalEnriched++
+          } catch (err) {
+            logger.error({ cnpj, err }, 'Error fetching fornecedor data')
           }
-          logger.error({ error, cnpj }, 'Error enriching competitor')
-          continue
-        }
+        }),
+      )
 
-        totalEnriched++
-
-        // Rate limit — respect API limits
-        await new Promise((r) => setTimeout(r, 1200))
-      } catch (err) {
-        logger.error({ cnpj, err }, 'Error fetching fornecedor data')
-      }
+      // Rate limit between parallel chunks — respect API limits
+      await new Promise((r) => setTimeout(r, 500))
     }
 
     currentBatch++
     await job.updateProgress(currentBatch)
+
+    if (iteration % 10 === 0) {
+      logger.info({ iteration, totalEnriched }, 'Fornecedor enrichment progress')
+    }
   }
 
   // Immediately re-materialize competitor_stats so enriched CNAE/UF data
@@ -120,8 +132,8 @@ export const fornecedorEnrichmentWorker = new Worker<FornecedorEnrichmentJobData
   {
     connection,
     concurrency: 1,
-    stalledInterval: 300_000,
-    lockDuration: 300_000,
+    stalledInterval: 600_000,
+    lockDuration: 600_000,
   },
 )
 

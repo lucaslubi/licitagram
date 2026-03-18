@@ -4,8 +4,9 @@ import type { ContactEnrichmentJobData } from '../queues/contact-enrichment.queu
 import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
 
-const BATCH_SIZE = 50
-const MAX_BATCHES = 200 // Safety: max 10k per run
+const BATCH_SIZE = 100
+const MAX_BATCHES = 200 // Safety: max 20k per run
+const PARALLEL = 5 // 5 concurrent BrasilAPI calls
 
 interface BrasilAPICNPJ {
   email: string | null
@@ -63,43 +64,50 @@ async function processContactEnrichment(job: Job<ContactEnrichmentJobData>) {
       break
     }
 
-    for (const row of rows) {
-      try {
-        const data = await fetchBrasilAPI(row.cnpj)
+    // Process in parallel chunks
+    for (let i = 0; i < rows.length; i += PARALLEL) {
+      const chunk = rows.slice(i, i + PARALLEL)
 
-        if (!data) {
-          await supabase.from('competitor_stats').update({ email: '' }).eq('cnpj', row.cnpj)
-          totalProcessed++
-          continue
-        }
+      await Promise.allSettled(
+        chunk.map(async (row) => {
+          try {
+            const data = await fetchBrasilAPI(row.cnpj)
 
-        const email = data.email && data.email.trim() && data.email !== '0' ? data.email.trim().toLowerCase() : ''
-        const telefone = formatPhone(data.ddd_telefone_1) || formatPhone(data.ddd_telefone_2) || ''
+            if (!data) {
+              await supabase.from('competitor_stats').update({ email: '' }).eq('cnpj', row.cnpj)
+              totalProcessed++
+              return
+            }
 
-        await supabase
-          .from('competitor_stats')
-          .update({
-            email,
-            telefone,
-            municipio: data.municipio || null,
-            natureza_juridica: data.natureza_juridica || null,
-          })
-          .eq('cnpj', row.cnpj)
+            const email = data.email && data.email.trim() && data.email !== '0' ? data.email.trim().toLowerCase() : ''
+            const telefone = formatPhone(data.ddd_telefone_1) || formatPhone(data.ddd_telefone_2) || ''
 
-        if (email || telefone) totalEnriched++
-        totalProcessed++
+            await supabase
+              .from('competitor_stats')
+              .update({
+                email,
+                telefone,
+                municipio: data.municipio || null,
+                natureza_juridica: data.natureza_juridica || null,
+              })
+              .eq('cnpj', row.cnpj)
 
-        // Rate limit: ~3 req/s
-        await new Promise((r) => setTimeout(r, 350))
-      } catch (err) {
-        logger.error({ cnpj: row.cnpj, err }, 'Contact enrichment error')
-        // Mark as processed to avoid infinite retries
-        await supabase.from('competitor_stats').update({ email: '' }).eq('cnpj', row.cnpj)
-        totalProcessed++
-      }
+            if (email || telefone) totalEnriched++
+            totalProcessed++
+          } catch (err) {
+            logger.error({ cnpj: row.cnpj, err }, 'Contact enrichment error')
+            // Mark as processed to avoid infinite retries
+            await supabase.from('competitor_stats').update({ email: '' }).eq('cnpj', row.cnpj)
+            totalProcessed++
+          }
+        }),
+      )
+
+      // Brief pause between parallel chunks
+      await new Promise((r) => setTimeout(r, 200))
     }
 
-    if (batch % 10 === 0) {
+    if (batch % 5 === 0) {
       logger.info({ batch, totalEnriched, totalProcessed }, 'Contact enrichment progress')
       await job.updateProgress(batch)
     }

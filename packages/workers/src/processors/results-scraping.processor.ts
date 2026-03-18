@@ -7,8 +7,9 @@ import { logger } from '../lib/logger'
 import { competitionAnalysisQueue } from '../queues/competition-analysis.queue'
 import { fornecedorEnrichmentQueue } from '../queues/fornecedor-enrichment.queue'
 
-const BATCH_SIZE = 50
-const MAX_BATCHES = 500 // Safety: max 25k tenders per run
+const BATCH_SIZE = 100
+const MAX_BATCHES = 500 // Safety: max 50k tenders per run
+const PARALLEL_TENDERS = 5 // Process 5 tenders concurrently
 
 async function processResultsJob(job: Job<ResultsScrapingJobData>) {
   const startBatch = job.data.batch || 0
@@ -20,6 +21,7 @@ async function processResultsJob(job: Job<ResultsScrapingJobData>) {
 
   for (let batch = startBatch; batch < startBatch + MAX_BATCHES; batch++) {
     // Find tenders that have been analyzed from PNCP or dadosabertos
+    // Use LEFT JOIN approach: only fetch tenders WITHOUT competitors
     const { data: tenders } = await supabase
       .from('tenders')
       .select('id, pncp_id')
@@ -34,53 +36,74 @@ async function processResultsJob(job: Job<ResultsScrapingJobData>) {
       break
     }
 
+    // Batch-check which tenders already have competitors (single query instead of N queries)
+    const tenderIds = tenders.map((t) => t.id)
+    const { data: existingCompetitors } = await supabase
+      .from('competitors')
+      .select('tender_id')
+      .in('tender_id', tenderIds)
+
+    const tendersWithCompetitors = new Set((existingCompetitors || []).map((c) => c.tender_id))
+    const tendersToProcess = tenders.filter((t) => !tendersWithCompetitors.has(t.id))
+
+    totalSkipped += tenders.length - tendersToProcess.length
+
+    if (tendersToProcess.length === 0) {
+      totalTendersProcessed += tenders.length
+      consecutiveEmpty++
+      if (consecutiveEmpty >= 10) {
+        logger.info({ batch, consecutiveEmpty }, 'Stopping early — no new results in recent batches')
+        break
+      }
+      continue
+    }
+
     let batchResults = 0
 
-    for (const tender of tenders) {
-      try {
-        // Check if we already have competitors for this tender
-        const { count } = await supabase
-          .from('competitors')
-          .select('id', { count: 'exact', head: true })
-          .eq('tender_id', tender.id)
+    // Process tenders in parallel chunks of PARALLEL_TENDERS
+    for (let i = 0; i < tendersToProcess.length; i += PARALLEL_TENDERS) {
+      const chunk = tendersToProcess.slice(i, i + PARALLEL_TENDERS)
 
-        if (count && count > 0) {
-          totalSkipped++
-          continue
-        }
+      const results = await Promise.allSettled(
+        chunk.map(async (tender) => {
+          const competitorResults = await fetchTenderResults(tender.pncp_id!)
+          if (competitorResults.length === 0) return 0
 
-        const results = await fetchTenderResults(tender.pncp_id!)
+          // Insert competitors
+          const rows = competitorResults.map((r) => {
+            let situacao = r.situacao
+            if (r.vencedor && situacao.toLowerCase() === 'informado') {
+              situacao = 'Homologado'
+            }
+            return {
+              tender_id: tender.id,
+              cnpj: r.cnpj,
+              nome: r.nome,
+              valor_proposta: r.valor_proposta ?? r.valor_final,
+              situacao,
+            }
+          })
 
-        if (results.length === 0) continue
-
-        // Insert competitors
-        const rows = results.map((r) => {
-          let situacao = r.situacao
-          if (r.vencedor && situacao.toLowerCase() === 'informado') {
-            situacao = 'Homologado'
+          const { error } = await supabase.from('competitors').insert(rows)
+          if (error) {
+            logger.error({ error, tenderId: tender.id }, 'Error inserting competitors')
+            return 0
           }
-          return {
-            tender_id: tender.id,
-            cnpj: r.cnpj,
-            nome: r.nome,
-            valor_proposta: r.valor_proposta ?? r.valor_final,
-            situacao,
-          }
-        })
 
-        const { error } = await supabase.from('competitors').insert(rows)
-        if (error) {
-          logger.error({ error, tenderId: tender.id }, 'Error inserting competitors')
-          continue
+          return competitorResults.length
+        }),
+      )
+
+      for (const result of results) {
+        if (result.status === 'fulfilled') {
+          batchResults += result.value
+        } else {
+          logger.error({ err: result.reason }, 'Error processing tender results')
         }
-
-        batchResults += results.length
-
-        // Rate limit
-        await new Promise((r) => setTimeout(r, 800))
-      } catch (err) {
-        logger.error({ tenderId: tender.id, err }, 'Error fetching results for tender')
       }
+
+      // Brief pause between parallel chunks to respect API
+      await new Promise((r) => setTimeout(r, 300))
     }
 
     totalResults += batchResults
@@ -89,8 +112,7 @@ async function processResultsJob(job: Job<ResultsScrapingJobData>) {
     // Track consecutive empty batches to stop early
     if (batchResults === 0) {
       consecutiveEmpty++
-      // If 5 consecutive batches with no new results, likely all done
-      if (consecutiveEmpty >= 5) {
+      if (consecutiveEmpty >= 10) {
         logger.info({ batch, consecutiveEmpty }, 'Stopping early — no new results in recent batches')
         break
       }
@@ -98,8 +120,8 @@ async function processResultsJob(job: Job<ResultsScrapingJobData>) {
       consecutiveEmpty = 0
     }
 
-    // Log progress every 5 batches
-    if (batch % 5 === 0) {
+    // Log progress every 3 batches
+    if (batch % 3 === 0) {
       logger.info(
         { batch, totalResults, totalTendersProcessed, totalSkipped },
         'Results scraping progress',
@@ -138,8 +160,8 @@ export const resultsScrapingWorker = new Worker<ResultsScrapingJobData>(
   {
     connection,
     concurrency: 1,
-    stalledInterval: 300_000,
-    lockDuration: 300_000,
+    stalledInterval: 600_000, // 10 min — long-running job
+    lockDuration: 600_000,
   },
 )
 
