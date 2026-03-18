@@ -43,15 +43,22 @@ async function processResultsJob(job: Job<ResultsScrapingJobData>) {
 
       if (results.length === 0) continue
 
-      // Insert competitors
-      const rows = results.map((r) => ({
-        tender_id: tender.id,
-        cnpj: r.cnpj,
-        nome: r.nome,
-        valor_proposta: r.valor_proposta,
-        situacao: r.situacao,
-        vencedor: r.vencedor,
-      }))
+      // Insert competitors. Map PNCP status to what materialize_competitor_stats expects:
+      // The RPC checks situacao ILIKE '%homologad%' to detect winners
+      const rows = results.map((r) => {
+        // PNCP uses "Informado" for winning results — normalize to "Homologado"
+        let situacao = r.situacao
+        if (r.vencedor && situacao.toLowerCase() === 'informado') {
+          situacao = 'Homologado'
+        }
+        return {
+          tender_id: tender.id,
+          cnpj: r.cnpj,
+          nome: r.nome,
+          valor_proposta: r.valor_proposta ?? r.valor_final,
+          situacao,
+        }
+      })
 
       const { error } = await supabase.from('competitors').insert(rows)
       if (error) {
