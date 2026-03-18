@@ -186,6 +186,8 @@ export default async function AdminProspectsPage({
                 <a href={sortUrl('razao_social')} className="hover:text-gray-900">Razao Social{sortIcon('razao_social')}</a>
               </th>
               <th className="text-left px-3 py-3 font-medium text-gray-500 hidden sm:table-cell">CNPJ</th>
+              <th className="text-left px-3 py-3 font-medium text-gray-500 hidden md:table-cell">Email</th>
+              <th className="text-left px-3 py-3 font-medium text-gray-500 hidden md:table-cell">Telefone</th>
               <th className="text-left px-3 py-3 font-medium text-gray-500 hidden lg:table-cell">Porte</th>
               <th className="text-left px-3 py-3 font-medium text-gray-500 hidden lg:table-cell">UF</th>
               <th className="text-left px-3 py-3 font-medium text-gray-500 hidden xl:table-cell">CNAE</th>
@@ -224,6 +226,16 @@ export default async function AdminProspectsPage({
                     {c.razao_social || '—'}
                   </td>
                   <td className="px-3 py-2.5 text-gray-600 font-mono text-xs hidden sm:table-cell">{c.cnpj}</td>
+                  <td className="px-3 py-2.5 hidden md:table-cell max-w-[180px] truncate" title={c.email || ''}>
+                    {c.email ? (
+                      <a href={`mailto:${c.email}`} className="text-blue-600 hover:underline text-xs">{c.email}</a>
+                    ) : (
+                      <span className="text-gray-300 text-xs">—</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5 text-gray-600 text-xs hidden md:table-cell">
+                    {c.telefone || <span className="text-gray-300">—</span>}
+                  </td>
                   <td className="px-3 py-2.5 hidden lg:table-cell">
                     {c.porte ? (
                       <Badge variant="outline" className="text-[10px]">{c.porte}</Badge>
@@ -276,7 +288,7 @@ export default async function AdminProspectsPage({
             })}
             {(!competitors || competitors.length === 0) && (
               <tr>
-                <td colSpan={13} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={15} className="px-4 py-8 text-center text-gray-500">
                   Nenhum concorrente encontrado.
                 </td>
               </tr>

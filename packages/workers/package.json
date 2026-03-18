@@ -9,7 +9,8 @@
     "type-check": "tsc --noEmit",
     "lint": "eslint src/ --ext .ts",
     "recover-matches": "tsx src/scripts/recover-matches.ts",
-    "backfill-embeddings": "tsx src/scripts/backfill-embeddings.ts"
+    "backfill-embeddings": "tsx src/scripts/backfill-embeddings.ts",
+    "enrich-contacts": "tsx src/scripts/enrich-contacts.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
