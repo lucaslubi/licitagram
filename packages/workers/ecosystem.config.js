@@ -13,13 +13,18 @@
  *   - listen_timeout: 10s max startup time
  *   - max_restarts: 20 restarts within restart_delay window
  */
+const path = require('path')
+// Root of monorepo — where .env lives
+const ROOT = path.resolve(__dirname, '../..')
+const WORKERS = __dirname
+
 module.exports = {
   apps: [
     // ─── All-in-one entrypoint (current default) ──────────────────────────
     {
       name: 'worker-all',
-      script: 'dist/index.js',
-      cwd: __dirname,
+      script: path.join(WORKERS, 'dist/index.js'),
+      cwd: ROOT,
       node_args: '--max-old-space-size=1024 --expose-gc',
       env: {
         NODE_ENV: 'production',
@@ -44,8 +49,8 @@ module.exports = {
     // ─── Scraping pool (I/O-bound: PNCP, comprasgov, BrasilAPI) ──────────
     {
       name: 'worker-scraping',
-      script: 'dist/worker-scraping.js',
-      cwd: __dirname,
+      script: path.join(WORKERS, 'dist/worker-scraping.js'),
+      cwd: ROOT,
       node_args: '--max-old-space-size=1024 --expose-gc',
       env: {
         NODE_ENV: 'production',
@@ -66,8 +71,8 @@ module.exports = {
     // ─── Matching pool (CPU + AI: triage, semantic, hot alerts) ───────────
     {
       name: 'worker-matching',
-      script: 'dist/worker-matching.js',
-      cwd: __dirname,
+      script: path.join(WORKERS, 'dist/worker-matching.js'),
+      cwd: ROOT,
       node_args: '--max-old-space-size=1024 --expose-gc',
       env: {
         NODE_ENV: 'production',
@@ -87,8 +92,8 @@ module.exports = {
     // ─── Queue metrics exporter (lightweight, always on) ──────────────────
     {
       name: 'queue-metrics',
-      script: 'dist/scripts/queue-metrics.js',
-      cwd: __dirname,
+      script: path.join(WORKERS, 'dist/scripts/queue-metrics.js'),
+      cwd: ROOT,
       node_args: '--max-old-space-size=256',
       env: {
         NODE_ENV: 'production',
