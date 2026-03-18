@@ -33,20 +33,28 @@ export default async function MapPage() {
     .in('match_source', [...AI_VERIFIED_SOURCES])
     .gte('score', MIN_DISPLAY_SCORE)
     .order('score', { ascending: false })
-    .limit(500)
+    .limit(200)
 
-  // Batch-fetch tenders for these matches
+  // Batch-fetch tenders for these matches (chunks of 50 to avoid timeout)
   const tenderIds = [...new Set((rawMatches || []).map((m) => m.tender_id).filter(Boolean))]
   const tenderMap = new Map<string, Record<string, unknown>>()
 
   if (tenderIds.length > 0) {
-    // Fetch in chunks of 200 to avoid URL length limits
-    for (let i = 0; i < tenderIds.length; i += 200) {
-      const chunk = tenderIds.slice(i, i + 200)
-      const { data: tenders } = await supabase
-        .from('tenders')
-        .select('id, objeto, orgao_nome, uf, municipio, valor_estimado, modalidade_nome, modalidade_id, data_abertura, data_encerramento, status, cnae_classificados')
-        .in('id', chunk)
+    const CHUNK = 50
+    const chunks = []
+    for (let i = 0; i < tenderIds.length; i += CHUNK) {
+      chunks.push(tenderIds.slice(i, i + CHUNK))
+    }
+    // Fetch all chunks in parallel
+    const results = await Promise.all(
+      chunks.map((chunk) =>
+        supabase
+          .from('tenders')
+          .select('id, objeto, orgao_nome, uf, municipio, valor_estimado, modalidade_nome, modalidade_id, data_abertura, data_encerramento, status, cnae_classificados')
+          .in('id', chunk)
+      )
+    )
+    for (const { data: tenders } of results) {
       for (const t of tenders || []) {
         tenderMap.set(t.id, t as Record<string, unknown>)
       }
