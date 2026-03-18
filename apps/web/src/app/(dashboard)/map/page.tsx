@@ -22,24 +22,49 @@ export default async function MapPage() {
   const companyId = profile.company_id
 
   // Map shows only AI-verified matches (score >= 40, source ai/ai_triage)
+  // Split into 2 queries to avoid inner join timeout with 28K+ matches:
+  // 1. Fetch top matches (fast — no join)
+  // 2. Fetch their tenders in batch (fast — by IDs)
   const today = new Date().toISOString().split('T')[0]
-  const { data: matches } = await supabase
+  const { data: rawMatches } = await supabase
     .from('matches')
-    .select(`
-      id, score, status, recomendacao, match_source, is_hot, competition_score,
-      tenders!inner (
-        id, objeto, orgao_nome, uf, municipio, valor_estimado,
-        modalidade_nome, modalidade_id, data_abertura, data_encerramento,
-        status, cnae_classificados
-      )
-    `)
+    .select('id, score, status, recomendacao, match_source, is_hot, competition_score, tender_id')
     .eq('company_id', companyId)
     .in('match_source', [...AI_VERIFIED_SOURCES])
     .gte('score', MIN_DISPLAY_SCORE)
-    .not('tenders.modalidade_id', 'in', '(9,14)')
-    .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
     .order('score', { ascending: false })
     .limit(500)
+
+  // Batch-fetch tenders for these matches
+  const tenderIds = [...new Set((rawMatches || []).map((m) => m.tender_id).filter(Boolean))]
+  const tenderMap = new Map<string, Record<string, unknown>>()
+
+  if (tenderIds.length > 0) {
+    // Fetch in chunks of 200 to avoid URL length limits
+    for (let i = 0; i < tenderIds.length; i += 200) {
+      const chunk = tenderIds.slice(i, i + 200)
+      const { data: tenders } = await supabase
+        .from('tenders')
+        .select('id, objeto, orgao_nome, uf, municipio, valor_estimado, modalidade_nome, modalidade_id, data_abertura, data_encerramento, status, cnae_classificados')
+        .in('id', chunk)
+      for (const t of tenders || []) {
+        tenderMap.set(t.id, t as Record<string, unknown>)
+      }
+    }
+  }
+
+  // Join in-memory and apply tender filters (modalidade, expiry)
+  const matches = (rawMatches || [])
+    .map((m) => {
+      const t = tenderMap.get(m.tender_id)
+      if (!t) return null
+      // Filter: exclude non-competitive modalidades
+      if (t.modalidade_id === 9 || t.modalidade_id === 14) return null
+      // Filter: exclude expired tenders
+      if (t.data_encerramento && (t.data_encerramento as string) < today) return null
+      return { ...m, tenders: t }
+    })
+    .filter((m): m is NonNullable<typeof m> => m !== null)
 
   // Resolve coordenadas de todos os municípios em batch
   const municipioItems = (matches || [])
