@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 interface NavItem {
   href: string
   label: string
+  separator?: boolean
 }
 
 interface DashboardSidebarProps {
@@ -98,24 +99,28 @@ export function DashboardSidebar({
         {navItems.map((item) => {
           const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              title={collapsed ? item.label : undefined}
-              className={`flex items-center ${
-                collapsed ? 'justify-center px-2 py-2.5' : 'px-3 py-2.5'
-              } rounded-lg text-[13px] font-medium transition-all duration-150 ${
-                isActive
-                  ? 'bg-gray-800 text-white'
-                  : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-              }`}
-            >
-              {collapsed ? (
-                <span className="text-[13px] font-bold">{getInitial(item.label)}</span>
-              ) : (
-                item.label
+            <div key={item.href}>
+              {item.separator && (
+                <div className="mx-1 my-2 h-px bg-gray-800" />
               )}
-            </Link>
+              <Link
+                href={item.href}
+                title={collapsed ? item.label : undefined}
+                className={`flex items-center ${
+                  collapsed ? 'justify-center px-2 py-2.5' : 'px-3 py-2.5'
+                } rounded-lg text-[13px] font-medium transition-all duration-150 ${
+                  isActive
+                    ? 'bg-gray-800 text-white'
+                    : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                }`}
+              >
+                {collapsed ? (
+                  <span className="text-[13px] font-bold">{getInitial(item.label)}</span>
+                ) : (
+                  item.label
+                )}
+              </Link>
+            </div>
           )
         })}
 
