@@ -50,9 +50,23 @@ async function fetchWithRetry(url: string, retries = 3): Promise<Response> {
 }
 
 /**
+ * Check if a tender has results published via the PNCP consulta API.
+ */
+async function tenderHasResults(cnpj: string, ano: string, sequencial: string): Promise<boolean> {
+  const url = `https://pncp.gov.br/api/consulta/v1/orgaos/${cnpj}/compras/${ano}/${sequencial}`
+  try {
+    const response = await fetchWithRetry(url)
+    if (!response.ok) return false
+    const data = (await response.json()) as Record<string, unknown>
+    return data.existeResultado === true
+  } catch {
+    return false
+  }
+}
+
+/**
  * Fetch results/proposals for a tender from PNCP.
- * Results are per-item, so we iterate through item numbers (1, 2, 3...)
- * until we get a 404.
+ * First checks if the tender has results, then fetches per-item results.
  * pncp_id format: "cnpj-ano-sequencial" e.g. "12345678000190-2025-42"
  */
 export async function fetchTenderResults(pncpId: string): Promise<CompetitorResult[]> {
@@ -64,22 +78,57 @@ export async function fetchTenderResults(pncpId: string): Promise<CompetitorResu
   const ano = parts[1]
   const sequencial = parts.slice(2).join('-')
 
+  // First, check if this tender has published results
+  const hasResults = await tenderHasResults(cnpj, ano, sequencial)
+  if (!hasResults) return []
+
   const allResults: CompetitorResult[] = []
   const seenCnpjs = new Set<string>()
+  let consecutiveEmpty = 0
 
-  // Iterate through items (1, 2, 3, ...) up to a max of 50
-  for (let itemNum = 1; itemNum <= 50; itemNum++) {
+  // Iterate through items (1, 2, 3, ...) up to a max of 30
+  for (let itemNum = 1; itemNum <= 30; itemNum++) {
     const url = `${PNCP_API_URL}/orgaos/${cnpj}/compras/${ano}/${sequencial}/itens/${itemNum}/resultados`
 
     try {
       const response = await fetchWithRetry(url)
-      if (response.status === 404) {
-        // No more items — stop iteration
-        break
+
+      // 404 = item doesn't exist, stop
+      if (response.status === 404) break
+
+      // 204 = no content (item exists but no results yet), count as empty
+      if (response.status === 204 || !response.ok) {
+        consecutiveEmpty++
+        if (consecutiveEmpty >= 3) break // Stop after 3 consecutive empties
+        continue
       }
 
-      const json = await response.json()
+      const text = await response.text()
+      if (!text || text.trim() === '') {
+        consecutiveEmpty++
+        if (consecutiveEmpty >= 3) break
+        continue
+      }
+
+      let json: unknown
+      try {
+        json = JSON.parse(text)
+      } catch {
+        consecutiveEmpty++
+        if (consecutiveEmpty >= 3) break
+        continue
+      }
+
       const items: PNCPResultado[] = Array.isArray(json) ? json : []
+
+      if (items.length === 0) {
+        consecutiveEmpty++
+        if (consecutiveEmpty >= 3) break
+        continue
+      }
+
+      // Reset counter when we find results
+      consecutiveEmpty = 0
 
       for (const item of items) {
         const fornecedorCnpj = (item.niFornecedor || '').replace(/\D/g, '')
@@ -101,7 +150,8 @@ export async function fetchTenderResults(pncpId: string): Promise<CompetitorResu
       }
     } catch (error) {
       logger.warn({ pncpId, itemNum, error }, 'Failed to fetch PNCP item results')
-      // Continue to next item — don't break on error
+      consecutiveEmpty++
+      if (consecutiveEmpty >= 3) break
     }
   }
 
