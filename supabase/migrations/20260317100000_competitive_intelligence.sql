@@ -1,29 +1,29 @@
+-- Competitive intelligence: competitor_stats materialized view + helper RPCs
+-- NOTE: This migration reflects the PRODUCTION schema (Portuguese column names).
+
 -- competitor_stats table
 CREATE TABLE IF NOT EXISTS public.competitor_stats (
   cnpj TEXT PRIMARY KEY,
-  nome TEXT,
-  total_participations INTEGER DEFAULT 0,
-  total_wins INTEGER DEFAULT 0,
-  win_rate NUMERIC(5,4) DEFAULT 0,
-  avg_valor_proposta NUMERIC(15,2),
-  avg_discount_pct NUMERIC(5,4),
-  participations_by_uf JSONB DEFAULT '{}',
-  wins_by_uf JSONB DEFAULT '{}',
-  participations_by_cnae JSONB DEFAULT '{}',
-  wins_by_cnae JSONB DEFAULT '{}',
-  modalidades JSONB DEFAULT '{}',
+  razao_social TEXT,
   porte TEXT,
-  uf_sede TEXT,
-  municipio_sede TEXT,
-  last_participation_at TIMESTAMPTZ,
+  cnae_divisao TEXT,
+  uf TEXT,
+  total_participacoes INTEGER DEFAULT 0,
+  total_vitorias INTEGER DEFAULT 0,
+  win_rate NUMERIC(5,4) DEFAULT 0,
+  valor_total_ganho NUMERIC(15,2) DEFAULT 0,
+  desconto_medio NUMERIC(5,4) DEFAULT 0,
+  modalidades JSONB DEFAULT '{}',
+  ufs_atuacao JSONB DEFAULT '{}',
+  orgaos_frequentes JSONB DEFAULT '{}',
+  ultima_participacao TIMESTAMPTZ,
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_competitor_stats_uf ON competitor_stats (uf_sede);
+CREATE INDEX IF NOT EXISTS idx_competitor_stats_uf ON competitor_stats (uf);
 CREATE INDEX IF NOT EXISTS idx_competitor_stats_porte ON competitor_stats (porte);
-CREATE INDEX IF NOT EXISTS idx_competitor_stats_wins ON competitor_stats (total_wins DESC);
-CREATE INDEX IF NOT EXISTS idx_competitor_stats_cnae_gin ON competitor_stats USING GIN (participations_by_cnae);
-CREATE INDEX IF NOT EXISTS idx_competitor_stats_uf_gin ON competitor_stats USING GIN (participations_by_uf);
+CREATE INDEX IF NOT EXISTS idx_competitor_stats_participacoes ON competitor_stats (total_participacoes DESC);
+CREATE INDEX IF NOT EXISTS idx_competitor_stats_ufs_gin ON competitor_stats USING GIN (ufs_atuacao);
 
 ALTER TABLE public.competitor_stats ENABLE ROW LEVEL SECURITY;
 CREATE POLICY competitor_stats_select_authenticated ON public.competitor_stats
@@ -36,7 +36,7 @@ ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS competition_score INTEGER
 -- Index for incremental materialization
 CREATE INDEX IF NOT EXISTS idx_competitors_created_at ON public.competitors (created_at);
 
--- RPC function for materialization
+-- RPC function for materialization (HAVING >= 1 so stats appear immediately)
 CREATE OR REPLACE FUNCTION materialize_competitor_stats(p_cnpjs TEXT[])
 RETURNS INTEGER AS $$
 DECLARE
@@ -48,80 +48,66 @@ BEGIN
 
   WITH upserted AS (
     INSERT INTO competitor_stats (
-      cnpj, nome, total_participations, total_wins, win_rate,
-      avg_valor_proposta, avg_discount_pct,
-      participations_by_uf, wins_by_uf,
-      participations_by_cnae, wins_by_cnae,
-      modalidades, porte, uf_sede, municipio_sede,
-      last_participation_at, updated_at
+      cnpj, razao_social, porte, cnae_divisao, uf,
+      total_participacoes, total_vitorias, win_rate,
+      valor_total_ganho, desconto_medio,
+      modalidades, ufs_atuacao, orgaos_frequentes,
+      ultima_participacao, updated_at
     )
     SELECT
       c.cnpj,
       MAX(c.nome),
+      MAX(c.porte),
+      MAX(LEFT(c.cnae_codigo::TEXT, 2)),
+      MAX(c.uf_fornecedor),
       COUNT(*),
       COUNT(*) FILTER (WHERE LOWER(c.situacao) LIKE '%homologad%'),
       CASE WHEN COUNT(*) > 0
         THEN COUNT(*) FILTER (WHERE LOWER(c.situacao) LIKE '%homologad%')::NUMERIC / COUNT(*)
         ELSE 0 END,
-      AVG(c.valor_proposta),
+      COALESCE(SUM(c.valor_proposta) FILTER (WHERE LOWER(c.situacao) LIKE '%homologad%'), 0),
       AVG(
         CASE WHEN t.valor_estimado > 0 AND c.valor_proposta > 0 AND c.valor_proposta <= t.valor_estimado
         THEN (t.valor_estimado - c.valor_proposta) / t.valor_estimado
         ELSE NULL END
       ),
-      (SELECT COALESCE(jsonb_object_agg(uf, cnt), '{}') FROM (
-        SELECT t2.uf, COUNT(*) as cnt FROM competitors c2
-        JOIN tenders t2 ON c2.tender_id = t2.id
-        WHERE c2.cnpj = c.cnpj AND t2.uf IS NOT NULL GROUP BY t2.uf
-      ) sub),
-      (SELECT COALESCE(jsonb_object_agg(uf, cnt), '{}') FROM (
-        SELECT t2.uf, COUNT(*) as cnt FROM competitors c2
-        JOIN tenders t2 ON c2.tender_id = t2.id
-        WHERE c2.cnpj = c.cnpj AND t2.uf IS NOT NULL AND LOWER(c2.situacao) LIKE '%homologad%'
-        GROUP BY t2.uf
-      ) sub),
-      (SELECT COALESCE(jsonb_object_agg(cnae_div, cnt), '{}') FROM (
-        SELECT LEFT(c2.cnae_codigo::TEXT, 2) as cnae_div, COUNT(*) as cnt
-        FROM competitors c2
-        WHERE c2.cnpj = c.cnpj AND c2.cnae_codigo IS NOT NULL GROUP BY cnae_div
-      ) sub),
-      (SELECT COALESCE(jsonb_object_agg(cnae_div, cnt), '{}') FROM (
-        SELECT LEFT(c2.cnae_codigo::TEXT, 2) as cnae_div, COUNT(*) as cnt
-        FROM competitors c2
-        WHERE c2.cnpj = c.cnpj AND c2.cnae_codigo IS NOT NULL AND LOWER(c2.situacao) LIKE '%homologad%'
-        GROUP BY cnae_div
-      ) sub),
-      (SELECT COALESCE(jsonb_object_agg(mod_id::TEXT, cnt), '{}') FROM (
-        SELECT t2.modalidade_id as mod_id, COUNT(*) as cnt
+      (SELECT COALESCE(jsonb_object_agg(mod_nome, true), '{}') FROM (
+        SELECT DISTINCT t2.modalidade_nome as mod_nome
         FROM competitors c2 JOIN tenders t2 ON c2.tender_id = t2.id
-        WHERE c2.cnpj = c.cnpj AND t2.modalidade_id IS NOT NULL GROUP BY t2.modalidade_id
+        WHERE c2.cnpj = c.cnpj AND t2.modalidade_nome IS NOT NULL
       ) sub),
-      MAX(c.porte),
-      MAX(c.uf_fornecedor),
-      MAX(c.municipio_fornecedor),
+      (SELECT COALESCE(jsonb_object_agg(uf_val, true), '{}') FROM (
+        SELECT DISTINCT t2.uf as uf_val FROM competitors c2
+        JOIN tenders t2 ON c2.tender_id = t2.id
+        WHERE c2.cnpj = c.cnpj AND t2.uf IS NOT NULL
+      ) sub),
+      (SELECT COALESCE(jsonb_object_agg(orgao, true), '{}') FROM (
+        SELECT DISTINCT t2.orgao as orgao FROM competitors c2
+        JOIN tenders t2 ON c2.tender_id = t2.id
+        WHERE c2.cnpj = c.cnpj AND t2.orgao IS NOT NULL
+        LIMIT 10
+      ) sub),
       MAX(c.created_at),
       now()
     FROM competitors c
     JOIN tenders t ON c.tender_id = t.id
     WHERE c.cnpj = ANY(p_cnpjs)
     GROUP BY c.cnpj
-    HAVING COUNT(*) >= 3
+    HAVING COUNT(*) >= 1
     ON CONFLICT (cnpj) DO UPDATE SET
-      nome = EXCLUDED.nome,
-      total_participations = EXCLUDED.total_participations,
-      total_wins = EXCLUDED.total_wins,
-      win_rate = EXCLUDED.win_rate,
-      avg_valor_proposta = EXCLUDED.avg_valor_proposta,
-      avg_discount_pct = EXCLUDED.avg_discount_pct,
-      participations_by_uf = EXCLUDED.participations_by_uf,
-      wins_by_uf = EXCLUDED.wins_by_uf,
-      participations_by_cnae = EXCLUDED.participations_by_cnae,
-      wins_by_cnae = EXCLUDED.wins_by_cnae,
-      modalidades = EXCLUDED.modalidades,
+      razao_social = EXCLUDED.razao_social,
       porte = EXCLUDED.porte,
-      uf_sede = EXCLUDED.uf_sede,
-      municipio_sede = EXCLUDED.municipio_sede,
-      last_participation_at = EXCLUDED.last_participation_at,
+      cnae_divisao = EXCLUDED.cnae_divisao,
+      uf = EXCLUDED.uf,
+      total_participacoes = EXCLUDED.total_participacoes,
+      total_vitorias = EXCLUDED.total_vitorias,
+      win_rate = EXCLUDED.win_rate,
+      valor_total_ganho = EXCLUDED.valor_total_ganho,
+      desconto_medio = EXCLUDED.desconto_medio,
+      modalidades = EXCLUDED.modalidades,
+      ufs_atuacao = EXCLUDED.ufs_atuacao,
+      orgaos_frequentes = EXCLUDED.orgaos_frequentes,
+      ultima_participacao = EXCLUDED.ultima_participacao,
       updated_at = now()
     RETURNING 1
   )
@@ -130,25 +116,23 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- RPC to find competitors by CNAE divisions AND UF (uses GIN ? operator, not expressible via Supabase JS)
-CREATE OR REPLACE FUNCTION find_competitors_by_cnae_uf(p_cnae_divisions TEXT[], p_uf TEXT)
+-- RPC to find competitors by single CNAE division AND UF
+-- Callers loop over CNAE divisions individually (hot-alerts, opportunity detail page)
+CREATE OR REPLACE FUNCTION find_competitors_by_cnae_uf(p_cnae_divisao TEXT, p_uf TEXT, p_limit INTEGER DEFAULT 50)
 RETURNS SETOF competitor_stats AS $$
 BEGIN
   RETURN QUERY
     SELECT cs.*
     FROM competitor_stats cs
-    WHERE cs.participations_by_uf ? p_uf
-      AND EXISTS (
-        SELECT 1 FROM unnest(p_cnae_divisions) d
-        WHERE cs.participations_by_cnae ? d
-      )
-    ORDER BY cs.total_participations DESC
-    LIMIT 50;
+    WHERE cs.ufs_atuacao ? p_uf
+      AND cs.cnae_divisao = p_cnae_divisao
+    ORDER BY cs.total_participacoes DESC
+    LIMIT p_limit;
 END;
 $$ LANGUAGE plpgsql STABLE;
 
 -- RPC to get all CNPJs with minimum participations (for full materialization mode)
-CREATE OR REPLACE FUNCTION get_all_competitor_cnpjs_with_min_participations(min_count INTEGER)
+CREATE OR REPLACE FUNCTION get_all_competitor_cnpjs_with_min_participations(p_min_participations INTEGER)
 RETURNS TABLE(cnpj TEXT) AS $$
 BEGIN
   RETURN QUERY
@@ -156,6 +140,6 @@ BEGIN
     FROM competitors c
     WHERE c.cnpj IS NOT NULL
     GROUP BY c.cnpj
-    HAVING COUNT(*) >= min_count;
+    HAVING COUNT(*) >= p_min_participations;
 END;
 $$ LANGUAGE plpgsql STABLE;
