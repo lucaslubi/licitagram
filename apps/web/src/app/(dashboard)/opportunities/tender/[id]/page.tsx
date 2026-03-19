@@ -110,9 +110,11 @@ export default async function TenderDetailPage({
             </div>
             <div>
               <p className="text-sm text-gray-500">Encerramento Propostas</p>
-              <p className="font-medium">
-                {tender.data_encerramento ? formatDate(tender.data_encerramento) : '-'}
-              </p>
+              {tender.data_encerramento ? (
+                <p className="font-medium">{formatDate(tender.data_encerramento)}</p>
+              ) : (
+                <p className="font-medium text-amber-600 text-sm">⚠️ Verificar no edital</p>
+              )}
             </div>
             <div>
               <p className="text-sm text-gray-500">Situação</p>

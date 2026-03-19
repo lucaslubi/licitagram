@@ -188,15 +188,19 @@ export default async function OpportunityDetailPage({
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-400">Data Encerramento</label>
-                  <p className={`text-sm font-medium ${
-                    tender?.data_encerramento && new Date(tender.data_encerramento as string) < new Date()
-                      ? 'text-red-600'
-                      : tender?.data_encerramento
-                        ? 'text-emerald-700'
-                        : ''
-                  }`}>
-                    {tender?.data_encerramento ? formatDate(tender.data_encerramento as string) : '-'}
-                  </p>
+                  {tender?.data_encerramento ? (
+                    <p className={`text-sm font-medium ${
+                      new Date(tender.data_encerramento as string) < new Date()
+                        ? 'text-red-600'
+                        : 'text-emerald-700'
+                    }`}>
+                      {formatDate(tender.data_encerramento as string)}
+                    </p>
+                  ) : (
+                    <p className="text-sm font-medium text-amber-600 flex items-center gap-1">
+                      ⚠️ Não informada — Pergunte ao consultor IA
+                    </p>
+                  )}
                 </div>
               </div>
               {Boolean(tender?.resumo) && (

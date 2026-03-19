@@ -115,10 +115,9 @@ const pendingNotificationsWorker = new Worker(
 
       // Find matches for this user's company that are 'new' (not yet notified)
       // ONLY notify AI-verified matches — keyword-only matches are unreliable
-      // Don't filter by modalidade — if AI scored it high, it's relevant
       const { data: pendingMatches } = await supabase
         .from('matches')
-        .select('id, score, match_source, tenders(data_encerramento)')
+        .select('id, score, match_source, tenders(data_encerramento, modalidade_id)')
         .eq('company_id', user.company_id)
         .eq('status', 'new')
         .gte('score', minScore)
@@ -129,8 +128,12 @@ const pendingNotificationsWorker = new Worker(
 
       if (!pendingMatches || pendingMatches.length === 0) continue
 
-      // Filter out expired tenders in code (since we removed !inner join)
+      // Filter out expired tenders AND non-competitive modalities in code
+      // Inexigibilidade (9) and Inaplicabilidade (14) are impossible to bid on
+      const EXCLUDED_MODS = new Set([9, 14])
       const validMatches = pendingMatches.filter((m: any) => {
+        const mod = m.tenders?.modalidade_id
+        if (mod && EXCLUDED_MODS.has(mod)) return false
         const enc = m.tenders?.data_encerramento
         if (!enc) return true // No deadline = still valid
         return enc >= today
@@ -165,6 +168,7 @@ const pendingNotificationsWorker = new Worker(
       for (const match of batch) {
         try {
           // Enqueue Telegram (independent queue)
+          // jobId prevents duplicate sends across pending-check cycles
           if (hasTelegram) {
             await notificationQueue.add(
               `tg-${user.id}-${match.id}`,
@@ -173,6 +177,7 @@ const pendingNotificationsWorker = new Worker(
                 telegramChatId: user.telegram_chat_id,
               },
               {
+                jobId: `tg-${user.id}-${match.id}`,
                 attempts: 3,
                 backoff: { type: 'exponential', delay: 3000 },
               },
@@ -180,6 +185,7 @@ const pendingNotificationsWorker = new Worker(
           }
 
           // Enqueue WhatsApp (independent queue — separate worker, no blocking)
+          // jobId prevents duplicate sends across pending-check cycles
           if (hasWhatsApp) {
             await whatsappQueue.add(
               `wa-${user.id}-${match.id}`,
@@ -188,6 +194,7 @@ const pendingNotificationsWorker = new Worker(
                 whatsappNumber: user.whatsapp_number,
               },
               {
+                jobId: `wa-${user.id}-${match.id}`,
                 attempts: 3,
                 backoff: { type: 'exponential', delay: 5000 },
               },

@@ -6,7 +6,8 @@ import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
 
 const AI_SOURCES = ['ai', 'ai_triage', 'semantic']
-const EXCLUDED_MODALIDADES = [9, 14]
+// Inexigibilidade (9), Credenciamento (12), Inaplicabilidade (14) — impossible to bid competitively
+const EXCLUDED_MODALIDADES = [9, 12, 14]
 const ACTIVE_STATUSES = ['new', 'notified', 'viewed', 'interested']
 
 // ─── Tuned thresholds for quality hot alerts ─────────────────────────────
