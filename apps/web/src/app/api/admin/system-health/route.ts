@@ -55,40 +55,55 @@ export async function GET() {
       supabase.from('matches').select('*', { count: 'exact', head: true }).gte('created_at', oneHourAgo),
     ])
 
-    // ─── 2. Match source breakdown ────────────────────────────────────
-    const { data: matchSources } = await supabase
-      .from('matches')
-      .select('match_source')
-      .limit(10000)
-
+    // ─── 2. Match source breakdown (use count queries per source) ─────
+    const MATCH_SOURCES = ['ai', 'ai_triage', 'semantic', 'keyword'] as const
+    const sourceCountResults = await Promise.all(
+      MATCH_SOURCES.map((src) =>
+        supabase
+          .from('matches')
+          .select('*', { count: 'exact', head: true })
+          .eq('match_source', src),
+      ),
+    )
     const sourceBreakdown: Record<string, number> = {}
-    for (const m of matchSources || []) {
-      sourceBreakdown[m.match_source] = (sourceBreakdown[m.match_source] || 0) + 1
+    for (let i = 0; i < MATCH_SOURCES.length; i++) {
+      const cnt = sourceCountResults[i].count || 0
+      if (cnt > 0) sourceBreakdown[MATCH_SOURCES[i]] = cnt
     }
 
-    // ─── 3. Subscription breakdown ────────────────────────────────────
-    const { data: subs } = await supabase
-      .from('subscriptions')
-      .select('plan, status')
-
+    // ─── 3. Subscription breakdown (use count queries per plan/status) ─
+    const PLANS = ['free', 'trial', 'pro', 'enterprise'] as const
+    const STATUSES = ['active', 'trialing', 'canceled', 'past_due'] as const
+    const [planCountResults, statusCountResults] = await Promise.all([
+      Promise.all(
+        PLANS.map((p) =>
+          supabase.from('subscriptions').select('*', { count: 'exact', head: true }).eq('plan', p),
+        ),
+      ),
+      Promise.all(
+        STATUSES.map((s) =>
+          supabase.from('subscriptions').select('*', { count: 'exact', head: true }).eq('status', s),
+        ),
+      ),
+    ])
     const planBreakdown: Record<string, number> = {}
+    for (let i = 0; i < PLANS.length; i++) {
+      const cnt = planCountResults[i].count || 0
+      if (cnt > 0) planBreakdown[PLANS[i]] = cnt
+    }
     const statusBreakdown: Record<string, number> = {}
-    for (const s of subs || []) {
-      planBreakdown[s.plan] = (planBreakdown[s.plan] || 0) + 1
-      statusBreakdown[s.status] = (statusBreakdown[s.status] || 0) + 1
+    for (let i = 0; i < STATUSES.length; i++) {
+      const cnt = statusCountResults[i].count || 0
+      if (cnt > 0) statusBreakdown[STATUSES[i]] = cnt
     }
 
-    // ─── 4. Notification channels ─────────────────────────────────────
-    const { data: usersWithChannels } = await supabase
-      .from('users')
-      .select('telegram_chat_id, whatsapp_number')
-
-    let telegramLinked = 0
-    let whatsappLinked = 0
-    for (const u of usersWithChannels || []) {
-      if (u.telegram_chat_id) telegramLinked++
-      if (u.whatsapp_number) whatsappLinked++
-    }
+    // ─── 4. Notification channels (count queries instead of loading rows) ─
+    const [{ count: telegramLinkedCount }, { count: whatsappLinkedCount }] = await Promise.all([
+      supabase.from('users').select('*', { count: 'exact', head: true }).not('telegram_chat_id', 'is', null),
+      supabase.from('users').select('*', { count: 'exact', head: true }).not('whatsapp_number', 'is', null),
+    ])
+    const telegramLinked = telegramLinkedCount || 0
+    const whatsappLinked = whatsappLinkedCount || 0
 
     // ─── 5. Pending matches (not notified) ────────────────────────────
     const { count: pendingNotifications } = await supabase

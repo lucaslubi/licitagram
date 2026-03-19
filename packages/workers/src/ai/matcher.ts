@@ -1,4 +1,4 @@
-import { matchResultSchema, type MatchResultInput } from '@licitagram/shared'
+import { matchResultSchema, type MatchResultInput, CNAE_GROUPS } from '@licitagram/shared'
 import { callLLM, parseJsonResponse } from './llm-client'
 import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
@@ -31,25 +31,6 @@ REGRAS CRITICAS:
 - Se ha QUALQUER CNAE (principal ou secundario) que cubra o objeto = score 70+
 
 Sempre responda com JSON valido, sem texto adicional.`
-
-// CNAE major group descriptions for AI context
-const CNAE_GROUPS: Record<string, string> = {
-  '62': 'Tecnologia da Informacao - desenvolvimento de software, consultoria em TI, suporte tecnico, processamento de dados',
-  '63': 'Servicos de informacao - portais, provedores de conteudo, processamento de dados',
-  '70': 'Consultoria em gestao empresarial, assessoria, planejamento estrategico',
-  '72': 'Pesquisa e desenvolvimento',
-  '82': 'Servicos administrativos, de escritorio e apoio empresarial',
-  '85': 'Educacao, treinamento, capacitacao',
-  '46': 'Comercio atacadista de equipamentos, maquinas, materiais',
-  '47': 'Comercio varejista',
-  '77': 'Aluguel de maquinas e equipamentos, objetos pessoais e domesticos',
-  '33': 'Manutencao e reparacao de maquinas e equipamentos',
-  '43': 'Servicos especializados para construcao',
-  '41': 'Construcao de edificios',
-  '42': 'Obras de infraestrutura',
-  '71': 'Servicos de engenharia, arquitetura, testes e analises tecnicas',
-  '73': 'Publicidade, pesquisa de mercado, design',
-}
 
 function cleanCompanyProfile(company: Record<string, unknown>): Record<string, unknown> {
   const relevant: Record<string, unknown> = {}

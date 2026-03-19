@@ -4,37 +4,13 @@ import { type AiTriageJobData } from '../queues/ai-triage.queue'
 import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
 import { invalidateMatchCaches } from '../lib/redis-cache'
+import { CNAE_GROUPS } from '@licitagram/shared'
 import OpenAI from 'openai'
 
 const deepseekClient = new OpenAI({
   apiKey: process.env.DEEPSEEK_API_KEY || '',
   baseURL: 'https://api.deepseek.com',
 })
-
-// ─── CNAE Group Descriptions ─────────────────────────────────────────────────
-
-const CNAE_GROUPS: Record<string, string> = {
-  '62': 'Tecnologia da Informacao - desenvolvimento de software, consultoria em TI, suporte tecnico',
-  '63': 'Servicos de informacao - portais, provedores de conteudo, processamento de dados',
-  '70': 'Consultoria em gestao empresarial, assessoria, planejamento estrategico',
-  '72': 'Pesquisa e desenvolvimento',
-  '82': 'Servicos administrativos, de escritorio e apoio empresarial',
-  '85': 'Educacao, treinamento, capacitacao',
-  '46': 'Comercio atacadista de equipamentos, maquinas, materiais',
-  '47': 'Comercio varejista',
-  '77': 'Aluguel de maquinas e equipamentos',
-  '33': 'Manutencao e reparacao de maquinas e equipamentos',
-  '43': 'Servicos especializados para construcao',
-  '41': 'Construcao de edificios',
-  '42': 'Obras de infraestrutura',
-  '71': 'Servicos de engenharia, arquitetura, testes e analises tecnicas',
-  '73': 'Publicidade, pesquisa de mercado, design',
-  '80': 'Vigilancia e seguranca',
-  '81': 'Limpeza, conservacao, manutencao predial, facilities',
-  '95': 'Reparacao e manutencao de equipamentos de informatica',
-  '26': 'Fabricacao de equipamentos de informatica e eletronicos',
-  '61': 'Telecomunicacoes, telefonia, internet',
-}
 
 // ─── Company Context Builder ─────────────────────────────────────────────────
 
@@ -278,7 +254,9 @@ LEMBRE: score 0-15 para objetos TOTALMENTE fora do escopo da empresa.`
   // Invalidate caches
   try {
     await invalidateMatchCaches(companyId)
-  } catch { /* non-critical */ }
+  } catch (err) {
+    logger.error({ companyId, err }, 'Failed to invalidate match caches after AI triage')
+  }
 
   return results
 }

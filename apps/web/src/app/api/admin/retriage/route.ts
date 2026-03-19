@@ -3,34 +3,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getUserWithPlan } from '@/lib/auth-helpers'
 import { invalidateCache } from '@/lib/redis'
 import OpenAI from 'openai'
+import { CNAE_GROUPS } from '@licitagram/shared'
 
 const deepseekClient = new OpenAI({
   apiKey: process.env.DEEPSEEK_API_KEY || '',
   baseURL: 'https://api.deepseek.com',
 })
-
-const CNAE_GROUPS: Record<string, string> = {
-  '62': 'Tecnologia da Informacao - desenvolvimento de software, consultoria em TI, suporte tecnico',
-  '63': 'Servicos de informacao - portais, provedores de conteudo, processamento de dados',
-  '70': 'Consultoria em gestao empresarial, assessoria, planejamento estrategico',
-  '72': 'Pesquisa e desenvolvimento',
-  '82': 'Servicos administrativos, de escritorio e apoio empresarial',
-  '85': 'Educacao, treinamento, capacitacao',
-  '46': 'Comercio atacadista de equipamentos, maquinas, materiais',
-  '47': 'Comercio varejista',
-  '77': 'Aluguel de maquinas e equipamentos',
-  '33': 'Manutencao e reparacao de maquinas e equipamentos',
-  '43': 'Servicos especializados para construcao',
-  '41': 'Construcao de edificios',
-  '42': 'Obras de infraestrutura',
-  '71': 'Servicos de engenharia, arquitetura, testes e analises tecnicas',
-  '73': 'Publicidade, pesquisa de mercado, design',
-  '80': 'Vigilancia e seguranca',
-  '81': 'Limpeza, conservacao, manutencao predial, facilities',
-  '95': 'Reparacao e manutencao de equipamentos de informatica',
-  '26': 'Fabricacao de equipamentos de informatica e eletronicos',
-  '61': 'Telecomunicacoes, telefonia, internet',
-}
 
 function buildCompanyContext(company: Record<string, unknown>): string {
   const parts: string[] = []

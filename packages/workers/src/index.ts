@@ -442,7 +442,10 @@ async function backfillComprasgovDocuments() {
       }
     } catch (err) {
       failed++
-      // Don't log every failure — PNCP might not have docs for every tender
+      // Log at warn level — PNCP might not have docs for every tender, but we still want visibility
+      if (failed <= 10) {
+        logger.warn({ tenderId: tender.id, err }, 'Comprasgov document fetch failed')
+      }
     }
   }
 

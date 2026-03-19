@@ -428,15 +428,17 @@ export async function runSemanticMatching(companyId: string): Promise<{
         { jobId: `semantic-triage-${companyId}-${Date.now()}` },
       )
       logger.info({ companyId, count: newMatchIds.length }, 'Enqueued semantic matches for AI triage')
-    } catch {
-      // Non-critical — matches are already created with semantic scores
+    } catch (err) {
+      logger.error({ companyId, err }, 'Failed to enqueue semantic matches for AI triage')
     }
   }
 
   // Invalidate caches
   try {
     await invalidateMatchCaches(companyId)
-  } catch { /* non-critical */ }
+  } catch (err) {
+    logger.error({ companyId, err }, 'Failed to invalidate match caches after semantic matching')
+  }
 
   // Trigger notifications for new matches (one job per match)
   for (const matchId of newMatchIds) {
@@ -446,7 +448,9 @@ export async function runSemanticMatching(companyId: string): Promise<{
         { matchId },
         { jobId: `semantic-notify-${matchId}` },
       )
-    } catch { /* non-critical */ }
+    } catch (err) {
+      logger.error({ matchId, err }, 'Failed to enqueue semantic notification job')
+    }
   }
 
   logger.info({ companyId, ...stats }, 'Semantic matching complete')

@@ -81,6 +81,22 @@ const pendingNotificationsWorker = new Worker(
     const currentHourUTC = now.getUTCHours()
     // Brazil is UTC-3, so 18h BRT = 21h UTC
     const isLateDay = currentHourUTC >= 21
+    const today = now.toISOString().split('T')[0]
+
+    // ── Batch sentToday count for ALL companies at once (avoids N+1) ──
+    // Supabase doesn't support GROUP BY in PostgREST, so we fetch a limited
+    // set of (company_id, notified_at) rows from today and aggregate in-memory.
+    const sentTodayByCompany = new Map<string, number>()
+    const { data: notifiedRows } = await supabase
+      .from('matches')
+      .select('company_id')
+      .in('company_id', companyIds)
+      .gte('notified_at', `${today}T00:00:00`)
+      .limit(5000)
+
+    for (const row of notifiedRows || []) {
+      sentTodayByCompany.set(row.company_id, (sentTodayByCompany.get(row.company_id) || 0) + 1)
+    }
 
     let totalEnqueued = 0
 
@@ -98,7 +114,6 @@ const pendingNotificationsWorker = new Worker(
       const minScore = user.min_score ?? 50
 
       // Find matches for this user's company that are 'new' (not yet notified)
-      const today = new Date().toISOString().split('T')[0]
       // ONLY notify AI-verified matches — keyword-only matches are unreliable
       // Don't filter by modalidade — if AI scored it high, it's relevant
       const { data: pendingMatches } = await supabase
@@ -123,14 +138,7 @@ const pendingNotificationsWorker = new Worker(
 
       if (validMatches.length === 0) continue
 
-      // Count how many were already sent today
-      const { count: sentToday } = await supabase
-        .from('matches')
-        .select('*', { count: 'exact', head: true })
-        .eq('company_id', user.company_id)
-        .gte('notified_at', `${today}T00:00:00`)
-
-      const alreadySent = sentToday || 0
+      const alreadySent = sentTodayByCompany.get(user.company_id) || 0
 
       // Determine batch size for this cycle
       let cycleBatch = batchSize
