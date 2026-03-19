@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL || 'http://localhost:8080'
-const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || ''
-const EVOLUTION_INSTANCE = process.env.EVOLUTION_INSTANCE || 'licitagram'
+function getEvolutionConfig() {
+  return {
+    url: process.env.EVOLUTION_API_URL || 'http://localhost:8080',
+    key: process.env.EVOLUTION_API_KEY || '',
+    instance: process.env.EVOLUTION_INSTANCE || 'licitagram',
+  }
+}
 
 async function requireAdmin() {
   const supabase = await createClient()
@@ -21,9 +25,10 @@ async function requireAdmin() {
 }
 
 async function evolutionFetch(method: string, path: string) {
-  const res = await fetch(`${EVOLUTION_API_URL}${path}`, {
+  const { url, key } = getEvolutionConfig()
+  const res = await fetch(`${url}${path}`, {
     method,
-    headers: { 'Content-Type': 'application/json', apikey: EVOLUTION_API_KEY },
+    headers: { 'Content-Type': 'application/json', apikey: key },
     cache: 'no-store',
   })
   if (!res.ok) {
@@ -41,12 +46,12 @@ export async function GET() {
     // Get connection state
     let state = 'unknown'
     try {
-      const stateRes = await evolutionFetch('GET', `/instance/connectionState/${EVOLUTION_INSTANCE}`)
+      const stateRes = await evolutionFetch('GET', `/instance/connectionState/${getEvolutionConfig().instance}`)
       state = stateRes?.instance?.state || 'unknown'
     } catch (fetchErr: any) {
       return NextResponse.json({
         state: 'error',
-        error: `Evolution API not reachable at ${EVOLUTION_API_URL}`,
+        error: `Evolution API not reachable at ${getEvolutionConfig().url}`,
         detail: fetchErr?.message || String(fetchErr),
       })
     }
@@ -55,7 +60,7 @@ export async function GET() {
     let qrBase64: string | null = null
     if (state !== 'open') {
       try {
-        const connectRes = await evolutionFetch('GET', `/instance/connect/${EVOLUTION_INSTANCE}`)
+        const connectRes = await evolutionFetch('GET', `/instance/connect/${getEvolutionConfig().instance}`)
         qrBase64 = connectRes?.base64 || null
       } catch {
         // Instance may not exist yet
@@ -78,12 +83,12 @@ export async function POST(req: NextRequest) {
     const { action } = await req.json()
 
     if (action === 'restart') {
-      await evolutionFetch('PUT', `/instance/restart/${EVOLUTION_INSTANCE}`)
+      await evolutionFetch('PUT', `/instance/restart/${getEvolutionConfig().instance}`)
       return NextResponse.json({ ok: true, message: 'Instance restarted' })
     }
 
     if (action === 'logout') {
-      await evolutionFetch('DELETE', `/instance/logout/${EVOLUTION_INSTANCE}`)
+      await evolutionFetch('DELETE', `/instance/logout/${getEvolutionConfig().instance}`)
       return NextResponse.json({ ok: true, message: 'Logged out' })
     }
 
