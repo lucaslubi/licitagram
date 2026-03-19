@@ -464,6 +464,7 @@ export function IntelligenceMap({
                 offset={15}
                 className="!p-0"
                 maxWidth="300px"
+                style={{ zIndex: 999 }}
               >
                 <div className="p-3 min-w-[220px]">
                   {selectedMatch.isHot && (
