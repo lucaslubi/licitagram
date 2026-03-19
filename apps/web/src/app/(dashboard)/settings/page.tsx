@@ -20,7 +20,7 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [settings, setSettings] = useState({
-    min_score: 10,
+    min_score: 80,
     telegram_chat_id: null as number | null,
     email: '',
     ufs_interesse: [] as string[],
@@ -29,6 +29,7 @@ export default function SettingsPage() {
   })
   const [newUf, setNewUf] = useState('')
   const [newKeyword, setNewKeyword] = useState('')
+  const [essentialKeywords, setEssentialKeywords] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     loadSettings()
@@ -124,24 +125,39 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label>Score Mínimo para Matches</Label>
+              <Label>Score Mínimo para Alertas</Label>
               <div className="flex items-center gap-4 mt-2">
                 <input
                   type="range"
-                  min="10"
+                  min="40"
                   max="100"
                   step="5"
                   value={settings.min_score}
                   onChange={(e) =>
                     setSettings({ ...settings, min_score: parseInt(e.target.value) })
                   }
-                  className="flex-1"
+                  className="flex-1 accent-brand"
                 />
-                <span className="text-lg font-bold w-12 text-center">{settings.min_score}%</span>
+                <span className={`text-lg font-bold w-12 text-center ${
+                  settings.min_score >= 80 ? 'text-emerald-600' : settings.min_score >= 60 ? 'text-amber-600' : 'text-red-500'
+                }`}>{settings.min_score}%</span>
               </div>
-              <p className="text-xs text-gray-400 mt-1">
-                Este valor define o filtro padrão na aba Matches e o mínimo para alertas no Telegram.
-                Quanto menor, mais oportunidades você verá.
+              <div className="flex justify-between text-[10px] text-gray-400 mt-0.5 px-1">
+                <span>+ Volume</span>
+                <span>+ Precisão</span>
+              </div>
+              <p className={`text-xs mt-2 px-2 py-1.5 rounded ${
+                settings.min_score >= 80
+                  ? 'bg-emerald-50 text-emerald-700'
+                  : settings.min_score >= 60
+                  ? 'bg-amber-50 text-amber-700'
+                  : 'bg-red-50 text-red-700'
+              }`}>
+                {settings.min_score >= 80
+                  ? '✅ Recomendado — só oportunidades com alta compatibilidade'
+                  : settings.min_score >= 60
+                  ? '⚠️ Volume moderado — inclui oportunidades que precisam avaliação'
+                  : '🔴 Volume alto — muitas oportunidades de baixa relevância'}
               </p>
             </div>
 
@@ -301,6 +317,7 @@ export default function SettingsPage() {
 
             <div>
               <Label>Palavras-chave</Label>
+              <p className="text-xs text-gray-400 mb-1">Clique na tag para alternar entre <strong className="text-brand">essencial</strong> e desejável</p>
               <div className="flex gap-2 mt-1">
                 <Input
                   value={newKeyword}
@@ -310,6 +327,7 @@ export default function SettingsPage() {
                     if (e.key === 'Enter') {
                       e.preventDefault()
                       addTag('palavras_chave_filtro', newKeyword)
+                      setEssentialKeywords(prev => new Set([...prev, newKeyword.trim().toUpperCase()]))
                       setNewKeyword('')
                     }
                   }}
@@ -318,6 +336,7 @@ export default function SettingsPage() {
                   variant="outline"
                   onClick={() => {
                     addTag('palavras_chave_filtro', newKeyword)
+                    setEssentialKeywords(prev => new Set([...prev, newKeyword.trim().toUpperCase()]))
                     setNewKeyword('')
                   }}
                 >
@@ -326,18 +345,46 @@ export default function SettingsPage() {
               </div>
               {settings.palavras_chave_filtro.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-2">
-                  {settings.palavras_chave_filtro.map((kw, i) => (
-                    <Badge
-                      key={i}
-                      variant="secondary"
-                      className="cursor-pointer"
-                      onClick={() => removeTag('palavras_chave_filtro', i)}
-                    >
-                      {kw} ×
-                    </Badge>
-                  ))}
+                  {settings.palavras_chave_filtro.map((kw, i) => {
+                    const isEssential = essentialKeywords.has(kw)
+                    return (
+                      <div key={i} className="flex items-center gap-0.5">
+                        <Badge
+                          variant="secondary"
+                          className={`cursor-pointer transition-all ${
+                            isEssential
+                              ? 'bg-brand/10 text-brand border border-brand/30 font-semibold'
+                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }`}
+                          onClick={() => {
+                            setEssentialKeywords(prev => {
+                              const next = new Set(prev)
+                              if (next.has(kw)) next.delete(kw)
+                              else next.add(kw)
+                              return next
+                            })
+                          }}
+                        >
+                          {isEssential ? '⭐ ' : ''}{kw}
+                        </Badge>
+                        <button
+                          onClick={() => {
+                            removeTag('palavras_chave_filtro', i)
+                            setEssentialKeywords(prev => { const n = new Set(prev); n.delete(kw); return n })
+                          }}
+                          className="text-gray-400 hover:text-red-500 text-xs ml-0.5"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
+              <div className="flex items-center gap-4 mt-2 text-[10px] text-gray-400">
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-brand inline-block" /> Essencial — peso maior no score</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gray-300 inline-block" /> Desejável — peso normal</span>
+              </div>
             </div>
           </CardContent>
         </Card>
