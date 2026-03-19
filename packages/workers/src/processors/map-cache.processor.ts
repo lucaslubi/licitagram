@@ -58,7 +58,7 @@ async function refreshMapCache() {
         `)
         .eq('company_id', company.id)
         .in('match_source', ['ai', 'ai_triage', 'semantic', 'keyword'])
-        .gte('score', 30)
+        .gte('score', 60)
         .order('score', { ascending: false })
         .range(offset, offset + PAGE - 1)
 
@@ -74,13 +74,16 @@ async function refreshMapCache() {
 
     if (allMatches.length === 0) continue
 
-    // Filter: must have valid UF, not expired
+    // Filter: valid UF, not expired, not inexigibilidade
+    const EXCLUDED_MODALIDADES = ['Inexigibilidade', 'Credenciamento']
     const validRows = allMatches
       .filter((m: any) => {
         const t = m.tenders
         if (!t || !t.uf) return false
         if (!VALID_UFS.has(t.uf)) return false
         if (t.data_encerramento && t.data_encerramento < today) return false
+        // Exclude non-competitive modalidades
+        if (t.modalidade_nome && EXCLUDED_MODALIDADES.includes(t.modalidade_nome)) return false
         return true
       })
       .map((m: any) => ({

@@ -21,9 +21,10 @@ export const COMPETITIVE_MODALITIES = [4, 5, 6, 7] as const
 /**
  * Modalities excluded from matching — no real competition:
  * 9 = Inexigibilidade (empresa já escolhida, sem competição)
+ * 12 = Credenciamento (cadastro, não competição direta)
  * 14 = Inaplicabilidade (sem processo licitatório)
  */
-export const NON_COMPETITIVE_MODALITIES = [9, 14] as const
+export const NON_COMPETITIVE_MODALITIES = [9, 12, 14] as const
 
 // All modalities worth scraping — full coverage of PNCP
 export const ALL_SCRAPING_MODALITIES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] as const
