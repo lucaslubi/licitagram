@@ -227,6 +227,22 @@ async function handleHotDaily() {
       }
     }
 
+    // Pre-fetch competitor data for all unique UFs in a batch to avoid N+1 queries
+    const uniqueUfs = new Set<string>()
+    for (const match of matches) {
+      const tender = match.tenders as unknown as Record<string, unknown>
+      const uf = tender.uf as string | null
+      if (uf) uniqueUfs.add(uf)
+    }
+
+    const competitionCache = new Map<string, { score: number; topCompetitors: CompetitorInfo[] }>()
+    for (const uf of uniqueUfs) {
+      const result = await calculateCompetitionScore(uf, cnaeDivisions)
+      if (result) {
+        competitionCache.set(uf, result)
+      }
+    }
+
     // Calculate competition_score for each match and compute hot_score
     const scoredMatches: Array<{
       match: typeof matches[0]
@@ -242,10 +258,10 @@ async function handleHotDaily() {
       let competitionScore = 50 // default neutral
       let topCompetitors: CompetitorInfo[] = []
 
-      const result = await calculateCompetitionScore(tenderUf, cnaeDivisions)
-      if (result) {
-        competitionScore = result.score
-        topCompetitors = result.topCompetitors
+      const cached = tenderUf ? competitionCache.get(tenderUf) : null
+      if (cached) {
+        competitionScore = cached.score
+        topCompetitors = cached.topCompetitors
       }
 
       // Save competition_score to DB

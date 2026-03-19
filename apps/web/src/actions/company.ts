@@ -238,17 +238,27 @@ export async function saveCompany(payload: CompanyPayload, existingId?: string) 
   }
 
   // ── Create trial subscription if company is new (no existing subscription) ──
+  // NOTE: Subscription is REQUIRED for the user to access matches/dashboard.
+  // Without it the company is orphaned. Retry up to 3 times before giving up.
   if (!existingId) {
-    try {
-      const serviceSupabase = getServiceSupabase()
-      const { data: existingSub } = await serviceSupabase
-        .from('subscriptions')
-        .select('id')
-        .eq('company_id', companyId)
-        .maybeSingle()
+    const serviceSupabase = getServiceSupabase()
+    const MAX_SUB_RETRIES = 3
+    let subscriptionCreated = false
 
-      if (!existingSub) {
-        await serviceSupabase.from('subscriptions').insert({
+    for (let attempt = 1; attempt <= MAX_SUB_RETRIES; attempt++) {
+      try {
+        const { data: existingSub } = await serviceSupabase
+          .from('subscriptions')
+          .select('id')
+          .eq('company_id', companyId)
+          .maybeSingle()
+
+        if (existingSub) {
+          subscriptionCreated = true
+          break
+        }
+
+        const { error: subInsertError } = await serviceSupabase.from('subscriptions').insert({
           company_id: companyId,
           plan: 'trial',
           plan_id: null,
@@ -257,10 +267,47 @@ export async function saveCompany(payload: CompanyPayload, existingId?: string) 
           expires_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
           matches_used_this_month: 0,
         })
-        console.log('[COMPANY] Created trial subscription for', companyId)
+
+        if (subInsertError) {
+          console.error(`[COMPANY] Subscription insert attempt ${attempt}/${MAX_SUB_RETRIES} failed:`, subInsertError.message)
+          if (attempt < MAX_SUB_RETRIES) {
+            await new Promise((r) => setTimeout(r, 500 * attempt))
+            continue
+          }
+        } else {
+          subscriptionCreated = true
+          console.log('[COMPANY] Created trial subscription for', companyId)
+          break
+        }
+      } catch (subErr) {
+        console.error(`[COMPANY] Subscription attempt ${attempt}/${MAX_SUB_RETRIES} threw:`, subErr)
+        if (attempt < MAX_SUB_RETRIES) {
+          await new Promise((r) => setTimeout(r, 500 * attempt))
+          continue
+        }
       }
-    } catch (subErr) {
-      console.error('[COMPANY] Failed to create trial subscription (non-critical):', subErr)
+    }
+
+    if (!subscriptionCreated) {
+      // Verify one final time — maybe a concurrent process created it
+      try {
+        const { data: verifySub } = await serviceSupabase
+          .from('subscriptions')
+          .select('id')
+          .eq('company_id', companyId)
+          .maybeSingle()
+
+        if (verifySub) {
+          subscriptionCreated = true
+          console.log('[COMPANY] Subscription found on post-retry verification for', companyId)
+        }
+      } catch {
+        // fall through to CRITICAL log
+      }
+    }
+
+    if (!subscriptionCreated) {
+      console.error(`[COMPANY] CRITICAL: Failed to create trial subscription for company ${companyId} after ${MAX_SUB_RETRIES} attempts. User will not be able to access matches.`)
     }
   }
 

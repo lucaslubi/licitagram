@@ -33,6 +33,24 @@ import { invalidateMatchCaches, incrementStat } from '../lib/redis-cache'
 import { CNAE_DIVISIONS, getCompanyDivisions, NON_COMPETITIVE_MODALITIES, getCompanySectors, detectSectorConflict, stemWord } from '@licitagram/shared'
 import { classifyTenderCNAEs } from '../ai/cnae-classifier'
 
+// ─── Companies Cache (avoid re-fetching for every tender) ────────────────
+
+let companiesCache: { id: string; cnae_principal: string | null; cnaes_secundarios: string[] | null; palavras_chave: string[] | null; descricao_servicos: string | null; capacidades: string[] | null }[] | null = null
+let companiesCacheAt = 0
+const COMPANIES_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+
+async function getCachedCompanies() {
+  if (companiesCache && Date.now() - companiesCacheAt < COMPANIES_CACHE_TTL) {
+    return companiesCache
+  }
+  const { data } = await supabase
+    .from('companies')
+    .select('id, cnae_principal, cnaes_secundarios, palavras_chave, descricao_servicos, capacidades')
+  companiesCache = data || []
+  companiesCacheAt = Date.now()
+  return companiesCache
+}
+
 // ─── Scoring Constants ────────────────────────────────────────────────────
 
 // Mode A: CNAE-gated scoring weights (tender HAS CNAE classification)
@@ -423,10 +441,8 @@ export async function runKeywordMatching(tenderId: string, excludeCompanyIds?: S
   const resumoTokens = tender.resumo ? tokenize(tender.resumo as string) : []
   const tenderTokens = new Set([...objetoTokens, ...resumoTokens])
 
-  // 4. Fetch ALL companies (semantic pipeline handles profiled ones — skip them if provided)
-  const { data: allCompanies } = await supabase
-    .from('companies')
-    .select('id, cnae_principal, cnaes_secundarios, palavras_chave, descricao_servicos, capacidades')
+  // 4. Fetch ALL companies (cached — refreshes every 5 min)
+  const allCompanies = await getCachedCompanies()
 
   if (!allCompanies || allCompanies.length === 0) {
     logger.info('No companies found, skipping keyword matching')
