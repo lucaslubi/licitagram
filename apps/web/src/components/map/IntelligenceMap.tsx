@@ -401,6 +401,7 @@ export function IntelligenceMap({
                 longitude={m.lng}
                 latitude={m.lat}
                 anchor="center"
+                style={{ zIndex: isHot ? 200 : m.score }}
                 onClick={(e: { originalEvent: MouseEvent }) => {
                   e.originalEvent.stopPropagation()
                   setSelectedMatch(m)
@@ -408,7 +409,7 @@ export function IntelligenceMap({
                   setSelectedGroup(count > 1 ? all : null)
                 }}
               >
-                <div className="relative" style={isHot ? { zIndex: 50 } : undefined}>
+                <div className="relative">
                   {isHot && (
                     <span
                       className="absolute left-1/2 -translate-x-1/2 text-base drop-shadow-lg pointer-events-none"
