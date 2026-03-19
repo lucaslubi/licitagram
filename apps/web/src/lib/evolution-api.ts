@@ -28,7 +28,7 @@ export async function sendVerificationCode(phone: string, code: string): Promise
       'apikey': key,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ number: phone, text }),
+    body: JSON.stringify({ number: phone, textMessage: { text } }),
     signal: AbortSignal.timeout(30_000),
   })
 
