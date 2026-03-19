@@ -61,7 +61,8 @@ async function loadWorkers(): Promise<Worker[]> {
     const { pendingNotificationsWorker } = await import('./processors/pending-notifications.processor')
     const { hotAlertsWorker } = await import('./processors/hot-alerts.processor')
     const { mapCacheWorker } = await import('./processors/map-cache.processor')
-    workers.push(pendingNotificationsWorker, hotAlertsWorker, mapCacheWorker)
+    const { pipelineHealthWorker } = await import('./processors/pipeline-health.processor')
+    workers.push(pendingNotificationsWorker, hotAlertsWorker, mapCacheWorker, pipelineHealthWorker)
   }
 
   if (selectedGroups.includes('telegram')) {
@@ -99,6 +100,7 @@ import { legadoScrapingQueue } from './queues/comprasgov-legado.queue'
 import { hotAlertsQueue } from './queues/hot-alerts.queue'
 import { competitionAnalysisQueue } from './queues/competition-analysis.queue'
 import { mapCacheQueue } from './queues/map-cache.queue'
+import { pipelineHealthQueue } from './queues/pipeline-health.queue'
 
 async function setupRepeatableJobs() {
   const today = formatDatePNCP(new Date())
@@ -275,6 +277,17 @@ async function setupRepeatableJobs() {
     },
   )
   logger.info('Map cache refresh scheduled (every 1h)')
+
+  // Schedule pipeline health check every 30 minutes
+  await pipelineHealthQueue.add(
+    'health-check',
+    {},
+    {
+      repeat: { every: 30 * 60 * 1000 },
+      jobId: 'pipeline-health-30m-repeat',
+    },
+  )
+  logger.info('Pipeline health check scheduled (every 30m)')
 
   // Trigger immediate map cache refresh on startup
   mapCacheQueue.add('refresh-map-startup', {}).catch((err) => {

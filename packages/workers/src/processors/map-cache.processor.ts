@@ -103,13 +103,15 @@ async function refreshMapCache() {
 
     if (validRows.length === 0) continue
 
-    // Delete old cache for this company
+    // Delete old cache for this company, then insert fresh
     await supabase.from('map_cache').delete().eq('company_id', company.id)
 
-    // Insert in batches
+    // Insert in batches using upsert to handle any race conditions
     for (let i = 0; i < validRows.length; i += BATCH_SIZE) {
       const batch = validRows.slice(i, i + BATCH_SIZE)
-      const { error: insertErr } = await supabase.from('map_cache').insert(batch)
+      const { error: insertErr } = await supabase
+        .from('map_cache')
+        .upsert(batch, { onConflict: 'company_id,match_id', ignoreDuplicates: true })
       if (insertErr) {
         logger.error({ error: insertErr, companyId: company.id, batch: i }, 'Map cache insert failed')
       } else {
