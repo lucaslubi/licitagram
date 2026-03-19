@@ -38,6 +38,7 @@ export async function sendWhatsAppText(number: string, text: string) {
   return evoFetch(`/message/sendText/${INSTANCE}`, {
     number,
     textMessage: { text },
+    options: { linkPreview: false },
   })
 }
 
@@ -122,17 +123,24 @@ export async function sendMatchAlert(
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://licitagram.com'
 
+  const isHot = match.score >= 80
+  const header = isHot
+    ? `🔥 *SUPER QUENTE* | Score: *${match.score}/100*`
+    : `${emoji} *NOVA OPORTUNIDADE* | Score: *${match.score}/100*`
+
   const text = [
-    `${emoji} *NOVA OPORTUNIDADE* | Score: *${match.score}/100*`,
+    header,
     `📌 ${rec}`,
     '',
-    `📋 ${tender.objeto.slice(0, 200)}`,
-    `🏛 ${tender.orgao_nome}`,
-    `📍 ${tender.uf} | ${tender.modalidade_nome || 'N/I'}`,
-    `💰 ${valor}`,
-    tender.data_abertura ? `⏰ Abertura: ${new Date(tender.data_abertura).toLocaleDateString('pt-BR')} ${prazoText}` : '',
+    `📋 *Objeto:* ${tender.objeto.slice(0, 300)}`,
     '',
-    `💬 ${match.justificativa?.slice(0, 200) || ''}`,
+    `🏛 *Orgao:* ${tender.orgao_nome}`,
+    `📍 *UF:* ${tender.uf}`,
+    `💰 *Valor:* ${valor}`,
+    tender.modalidade_nome ? `📑 *Modalidade:* ${tender.modalidade_nome}` : '',
+    tender.data_abertura ? `⏰ *Abertura:* ${new Date(tender.data_abertura).toLocaleDateString('pt-BR')} ${prazoText}` : '',
+    '',
+    match.justificativa ? `💬 *Parecer IA:* ${match.justificativa.slice(0, 250)}` : '',
     '',
     `🔗 Ver detalhes: ${appUrl}/opportunities/${matchId}`,
   ].filter(Boolean).join('\n')
