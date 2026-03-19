@@ -13,6 +13,13 @@ const supabase = createClient(
 // For now we query what we can from Supabase and Redis directly
 
 export async function GET() {
+  // Auth check — admin only
+  const { getUserWithPlan } = await import('@/lib/auth-helpers')
+  const user = await getUserWithPlan()
+  if (!user || !user.isPlatformAdmin) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
     const now = new Date()
     const today = now.toISOString().split('T')[0]
