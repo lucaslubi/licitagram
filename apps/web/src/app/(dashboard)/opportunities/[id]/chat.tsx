@@ -75,6 +75,7 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [extractingDocs, setExtractingDocs] = useState(false)
+  const [progressStep, setProgressStep] = useState(0)
   const [uploadingFile, setUploadingFile] = useState(false)
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([])
   const [dragOver, setDragOver] = useState(false)
@@ -103,6 +104,27 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
   useEffect(() => {
     if (!loading && started) inputRef.current?.focus()
   }, [loading, started])
+
+  // Progress messages during AI analysis
+  const PROGRESS_MESSAGES = [
+    'Conectando ao servidor de IA...',
+    'Baixando documentos do edital...',
+    'Extraindo texto dos PDFs...',
+    'Analisando requisitos técnicos...',
+    'Verificando critérios de habilitação...',
+    'Avaliando compatibilidade com sua empresa...',
+    'Identificando pontos de atenção...',
+    'Gerando análise estratégica...',
+    'Finalizando parecer...',
+  ]
+
+  useEffect(() => {
+    if (!loading) { setProgressStep(0); return }
+    const interval = setInterval(() => {
+      setProgressStep((prev) => Math.min(prev + 1, PROGRESS_MESSAGES.length - 1))
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [loading])
 
   const getUploadedDocsText = useCallback(() => {
     if (uploadedDocs.length === 0) return undefined
@@ -619,12 +641,17 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
         {fileInput}
 
         {extractingDocs && (
-          <div className="flex items-center gap-2 p-2.5 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800">
-            <svg className="w-4 h-4 animate-spin shrink-0" viewBox="0 0 24 24" fill="none">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-            <span>Baixando e lendo documentos do edital automaticamente...</span>
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
+            <div className="flex items-center gap-2 text-xs text-blue-800">
+              <svg className="w-4 h-4 animate-spin shrink-0" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              <span className="font-medium">{PROGRESS_MESSAGES[Math.min(progressStep, 2)]}</span>
+            </div>
+            <div className="w-full bg-blue-200 rounded-full h-1">
+              <div className="bg-blue-600 h-full rounded-full transition-all duration-1000" style={{ width: `${Math.min(((progressStep + 1) / 3) * 100, 90)}%` }} />
+            </div>
           </div>
         )}
 
@@ -665,13 +692,26 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
                 ) : msg.content ? (
                   <span className="whitespace-pre-wrap">{msg.content}</span>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 text-brand">
-                    <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                    <span className="text-xs text-gray-500">Analisando edital...</span>
-                  </span>
+                  <div className="w-full space-y-2">
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4 animate-spin text-brand shrink-0" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      <span className="text-xs text-gray-600 transition-all duration-300">
+                        {PROGRESS_MESSAGES[progressStep]}
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className="bg-gradient-to-r from-brand to-orange-400 h-full rounded-full transition-all duration-1000 ease-out"
+                        style={{ width: `${Math.min(((progressStep + 1) / PROGRESS_MESSAGES.length) * 100, 95)}%` }}
+                      />
+                    </div>
+                    <p className="text-[10px] text-gray-400">
+                      {progressStep < 3 ? 'Preparando análise...' : progressStep < 6 ? 'Processando documentos...' : 'Quase pronto...'}
+                    </p>
+                  </div>
                 )}
               </div>
             </div>
