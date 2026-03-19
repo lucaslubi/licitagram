@@ -43,8 +43,12 @@ export async function GET() {
     try {
       const stateRes = await evolutionFetch('GET', `/instance/connectionState/${EVOLUTION_INSTANCE}`)
       state = stateRes?.instance?.state || 'unknown'
-    } catch {
-      return NextResponse.json({ state: 'error', error: 'Evolution API not reachable' })
+    } catch (fetchErr: any) {
+      return NextResponse.json({
+        state: 'error',
+        error: `Evolution API not reachable at ${EVOLUTION_API_URL}`,
+        detail: fetchErr?.message || String(fetchErr),
+      })
     }
 
     // If not connected, get QR code
