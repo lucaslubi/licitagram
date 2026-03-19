@@ -87,11 +87,14 @@ export function IntelligenceMap({
       markers.sort((a, b) => b.score - a.score)
       result.push({ best: markers[0], count: markers.length, all: markers })
     }
-    // Sort: normal markers first, hot markers last (rendered on top via DOM order)
+    // Sort: low score first (bottom layer), high score last (top layer), hot on top
+    // DOM order = render order in Mapbox GL — last rendered = visually on top
     result.sort((a, b) => {
+      // Hot markers always on top
       if (a.best.isHot && !b.best.isHot) return 1
       if (!a.best.isHot && b.best.isHot) return -1
-      return 0
+      // Then by score ascending (low scores rendered first = behind)
+      return a.best.score - b.best.score
     })
     return result
   }, [filteredMarkers])
