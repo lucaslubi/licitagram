@@ -15,6 +15,7 @@ export interface MatchMarker {
   lng: number
   isHot: boolean
   competitionScore: number | null
+  dataEncerramento: string | null
 }
 
 /** Dados agregados por UF */

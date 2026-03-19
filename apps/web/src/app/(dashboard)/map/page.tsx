@@ -102,6 +102,7 @@ export default async function MapPage() {
         lng: coords.lng,
         isHot: (match as unknown as Record<string, unknown>).is_hot === true,
         competitionScore: (match as unknown as Record<string, unknown>).competition_score as number | null ?? null,
+        dataEncerramento: tender.data_encerramento as string | null,
       })
     }
 

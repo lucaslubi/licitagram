@@ -513,6 +513,14 @@ export function IntelligenceMap({
                         {match.modalidade && (
                           <span className="text-gray-400">{match.modalidade}</span>
                         )}
+                        {match.dataEncerramento ? (() => {
+                          const d = Math.ceil((new Date(match.dataEncerramento!).getTime() - Date.now()) / 86400000)
+                          return d <= 3 ? (
+                            <span className="text-red-600 font-medium">⏰ {d <= 0 ? 'HOJE' : `${d}d`}</span>
+                          ) : null
+                        })() : (
+                          <span className="text-amber-600">⚠️ Prazo</span>
+                        )}
                       </div>
                       <Link
                         href={`/opportunities/${match.matchId}`}
@@ -805,6 +813,14 @@ export function IntelligenceMap({
                           )}
                           {m.modalidade && (
                             <span className="text-[10px] text-gray-400">{m.modalidade}</span>
+                          )}
+                          {m.dataEncerramento ? (() => {
+                            const d = Math.ceil((new Date(m.dataEncerramento!).getTime() - Date.now()) / 86400000)
+                            return d <= 3 ? (
+                              <span className="text-[10px] text-red-600 font-medium">⏰ {d <= 0 ? 'HOJE' : `${d}d`}</span>
+                            ) : null
+                          })() : (
+                            <span className="text-[10px] text-amber-600">⚠️ Prazo</span>
                           )}
                         </div>
                       </div>
