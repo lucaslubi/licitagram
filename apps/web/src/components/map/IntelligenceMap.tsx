@@ -45,6 +45,7 @@ export function IntelligenceMap({
   const [selectedMatch, setSelectedMatch] = useState<MatchMarker | null>(null)
   const [selectedGroup, setSelectedGroup] = useState<MatchMarker[] | null>(null)
   const [scoreFilter, setScoreFilter] = useState(60)
+  const [minValor, setMinValor] = useState(0)
   const [regionFilter, setRegionFilter] = useState<Set<string>>(new Set(REGIONS))
 
   // Matches are pre-triaged by the background AI worker — use directly
@@ -68,9 +69,10 @@ export function IntelligenceMap({
     return matchMarkers.filter((m) => {
       if (m.score < scoreFilter) return false
       if (!regionUfs.has(m.uf)) return false
+      if (minValor > 0 && (m.valor || 0) < minValor) return false
       return true
     })
-  }, [matchMarkers, scoreFilter, regionFilter, ufData])
+  }, [matchMarkers, scoreFilter, minValor, regionFilter, ufData])
 
   // Group markers at the same coordinates to handle overlapping pins
   const groupedMarkers = useMemo(() => {
@@ -623,6 +625,37 @@ export function IntelligenceMap({
               <span>90</span>
               <span>100</span>
             </div>
+          </div>
+          <div className="mb-3">
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-medium text-gray-600">
+                Valor minimo: {minValor > 0 ? `R$ ${(minValor >= 1_000_000 ? (minValor / 1_000_000).toFixed(1) + 'M' : minValor >= 1_000 ? (minValor / 1_000).toFixed(0) + 'K' : minValor.toString())}` : 'Todos'}
+              </label>
+              {minValor > 0 && (
+                <button
+                  onClick={() => setMinValor(0)}
+                  className="text-[10px] text-brand hover:underline"
+                >
+                  Resetar
+                </button>
+              )}
+            </div>
+            <select
+              value={minValor}
+              onChange={(e) => setMinValor(Number(e.target.value))}
+              className="w-full text-xs border border-gray-200 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-brand"
+            >
+              <option value={0}>Todos os valores</option>
+              <option value={10000}>Acima de R$ 10K</option>
+              <option value={50000}>Acima de R$ 50K</option>
+              <option value={100000}>Acima de R$ 100K</option>
+              <option value={500000}>Acima de R$ 500K</option>
+              <option value={1000000}>Acima de R$ 1M</option>
+              <option value={5000000}>Acima de R$ 5M</option>
+              <option value={10000000}>Acima de R$ 10M</option>
+              <option value={50000000}>Acima de R$ 50M</option>
+              <option value={100000000}>Acima de R$ 100M</option>
+            </select>
           </div>
           <div>
             <label className="text-xs font-medium text-gray-600 mb-1 block">Regioes</label>
