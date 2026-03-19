@@ -278,16 +278,16 @@ async function setupRepeatableJobs() {
   )
   logger.info('Map cache refresh scheduled (every 1h)')
 
-  // Schedule pipeline health check every 30 minutes
+  // Schedule pipeline health check every 5 minutes (autonomous watchdog)
   await pipelineHealthQueue.add(
     'health-check',
     {},
     {
-      repeat: { every: 30 * 60 * 1000 },
-      jobId: 'pipeline-health-30m-repeat',
+      repeat: { every: 5 * 60 * 1000 },
+      jobId: 'pipeline-health-5m-repeat',
     },
   )
-  logger.info('Pipeline health check scheduled (every 30m)')
+  logger.info('Pipeline health watchdog scheduled (every 5m)')
 
   // Trigger immediate map cache refresh on startup
   mapCacheQueue.add('refresh-map-startup', {}).catch((err) => {
