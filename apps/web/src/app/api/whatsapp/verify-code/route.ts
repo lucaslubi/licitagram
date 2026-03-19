@@ -60,10 +60,14 @@ export async function POST(request: NextRequest) {
     .update({ verified: true })
     .eq('id', verification.id)
 
-  // Update user's whatsapp_number
+  // Update user's whatsapp fields
   await supabase
     .from('users')
-    .update({ whatsapp_number: verification.phone })
+    .update({
+      whatsapp_number: verification.phone,
+      whatsapp_verified: true,
+      whatsapp_verified_at: new Date().toISOString(),
+    })
     .eq('id', userCtx.userId)
 
   // Enable WhatsApp in notification preferences

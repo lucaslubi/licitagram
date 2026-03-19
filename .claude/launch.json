@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "web",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@licitagram/web", "dev"],
+      "runtimeExecutable": "/bin/sh",
+      "runtimeArgs": ["-c", "export PATH=/Users/lucasdelima/.nvm/versions/node/v20.19.6/bin:/opt/homebrew/bin:$PATH && pnpm --filter @licitagram/web dev"],
       "port": 3000,
       "autoPort": true
     },

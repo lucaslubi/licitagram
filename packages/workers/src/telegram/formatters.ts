@@ -286,3 +286,27 @@ export function formatUrgencyAlert24h(matches: UrgencyMatchData[], totalValor: n
   const keyboard = new InlineKeyboard().url('🔥 Ver oportunidades urgentes', `${appUrl}/pipeline`)
   return { text, keyboard }
 }
+
+export function formatNewMatchesDigest(matches: UrgencyMatchData[], totalValor: number): { text: string; keyboard: InlineKeyboard } {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://licitagram.com'
+
+  let text = `📋 <b>${matches.length} nova${matches.length > 1 ? 's' : ''} licitaç${matches.length > 1 ? 'ões' : 'ão'} encontrada${matches.length > 1 ? 's' : ''}!</b>\n\n`
+
+  for (let i = 0; i < Math.min(matches.length, 5); i++) {
+    const m = matches[i]
+    const obj = m.objeto.length > 80 ? m.objeto.slice(0, 77) + '...' : m.objeto
+
+    text += `${i + 1}. <b>Score ${m.score}</b> — ${escapeHtml(m.modalidade)}\n`
+    text += `   ${escapeHtml(obj)}\n`
+    text += `   ${escapeHtml(m.orgao)} — ${m.uf}\n`
+    if (m.valor > 0) text += `   Valor: <b>${escapeHtml(formatCurrency(m.valor))}</b>\n`
+    text += `\n`
+  }
+
+  if (matches.length > 5) text += `... e mais ${matches.length - 5} oportunidades\n\n`
+
+  if (totalValor > 0) text += `💰 Total: <b>${escapeHtml(formatCurrency(totalValor))}</b> em novas oportunidades\n`
+
+  const keyboard = new InlineKeyboard().url('📊 Ver todas no pipeline', `${appUrl}/pipeline`)
+  return { text, keyboard }
+}

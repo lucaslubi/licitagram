@@ -12,13 +12,13 @@ const ACTIVE_STATUSES = ['new', 'notified', 'viewed', 'interested']
 // ─── Tuned thresholds for quality hot alerts ─────────────────────────────
 // Only matches with relevance_score >= 75 can be considered hot.
 // The company must genuinely match 75%+ of the tender characteristics.
-const HOT_RELEVANCE_MIN = 75
-const HOT_TOP_N = 25
+const HOT_RELEVANCE_MIN = 65
+const HOT_TOP_N = 30
 // Final hot_score weights: 70% relevance (the match quality is king) + 30% competition
 const HOT_SCORE_RELEVANCE_WEIGHT = 0.7
 const HOT_SCORE_COMPETITION_WEIGHT = 0.3
 // Only mark as hot if the final weighted hot_score reaches this threshold
-const HOT_FINAL_THRESHOLD = 75
+const HOT_FINAL_THRESHOLD = 65
 
 interface CompetitorInfo {
   nome: string
@@ -463,6 +463,89 @@ async function handleUrgencyCheck() {
   logger.info({ totalUrgencySent }, 'urgency-check job complete')
 }
 
+// ─── Job 3: new-matches-digest ──────────────────────────────────────────
+async function handleNewMatchesDigest() {
+  logger.info('Running new-matches-digest job...')
+
+  const companyUsers = await getCompaniesWithUsers()
+  if (companyUsers.size === 0) return
+
+  // Look for matches created in last 3 hours that haven't been notified yet
+  const since = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString()
+  const today = new Date().toISOString().split('T')[0]
+  let totalSent = 0
+
+  for (const [companyId, users] of companyUsers) {
+    const telegramUsers = users.filter((u) => u.telegram_chat_id != null)
+    if (telegramUsers.length === 0) continue
+
+    // Find new matches (status='new', not yet notified, created recently)
+    const { data: matches } = await supabase
+      .from('matches')
+      .select(`
+        id, score, match_source,
+        tenders!inner(id, objeto, orgao_nome, uf, municipio, valor_estimado, modalidade_nome, data_encerramento, modalidade_id)
+      `)
+      .eq('company_id', companyId)
+      .eq('status', 'new')
+      .gte('score', 60) // Include good matches, not just hot
+      .in('match_source', AI_SOURCES)
+      .gte('created_at', since)
+      .not('tenders.modalidade_id', 'in', `(${EXCLUDED_MODALIDADES.join(',')})`)
+      .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
+      .order('score', { ascending: false })
+      .limit(10)
+
+    if (!matches || matches.length === 0) continue
+
+    const matchItems: UrgencyMatchItem[] = matches.map((m) => {
+      const t = m.tenders as unknown as Record<string, unknown>
+      return {
+        id: m.id,
+        score: m.score,
+        objeto: (t.objeto as string) || '',
+        orgao: (t.orgao_nome as string) || '',
+        uf: (t.uf as string) || '',
+        municipio: (t.municipio as string) || '',
+        valor: (t.valor_estimado as number) || 0,
+        modalidade: (t.modalidade_nome as string) || '',
+        dataEncerramento: (t.data_encerramento as string) || '',
+        numero: '',
+        ano: '',
+      }
+    })
+
+    const totalValor = matchItems.reduce((sum, m) => sum + m.valor, 0)
+
+    for (const user of telegramUsers) {
+      try {
+        await notificationQueue.add(
+          `new-matches-${companyId}-${user.id}-${Date.now()}`,
+          {
+            telegramChatId: user.telegram_chat_id!,
+            type: 'new_matches' as const,
+            matches: matchItems,
+            totalValor,
+          },
+        )
+        totalSent++
+      } catch (err) {
+        logger.debug({ companyId, err }, 'Failed to enqueue new-matches notification')
+      }
+    }
+
+    // Mark as notified so they don't get sent again
+    const matchIds = matches.map((m) => m.id)
+    await supabase
+      .from('matches')
+      .update({ status: 'notified', notified_at: new Date().toISOString() })
+      .in('id', matchIds)
+      .eq('status', 'new')
+  }
+
+  logger.info({ totalSent }, 'new-matches-digest job complete')
+}
+
 // ─── Worker ───────────────────────────────────────────────────────────────
 const hotAlertsWorker = new Worker(
   'hot-alerts',
@@ -473,6 +556,9 @@ const hotAlertsWorker = new Worker(
         break
       case 'urgency-check':
         await handleUrgencyCheck()
+        break
+      case 'new-matches-digest':
+        await handleNewMatchesDigest()
         break
       default:
         logger.warn({ jobName: job.name }, 'Unknown hot-alerts job name')

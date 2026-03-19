@@ -2,8 +2,7 @@ import { Worker } from 'bullmq'
 import { connection } from '../queues/connection'
 import { type NotificationJobData } from '../queues/notification.queue'
 import { bot } from '../telegram/bot'
-import { formatMatchAlert, formatHotAlert, formatUrgencyAlert48h, formatUrgencyAlert24h } from '../telegram/formatters'
-import { sendMatchAlert as sendWhatsAppAlert, isConnected as isWhatsAppConnected } from '../whatsapp/client'
+import { formatMatchAlert, formatHotAlert, formatUrgencyAlert48h, formatUrgencyAlert24h, formatNewMatchesDigest } from '../telegram/formatters'
 import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
 
@@ -28,7 +27,7 @@ const notificationWorker = new Worker<NotificationJobData>(
         .from('matches')
         .select(`
           id, score, breakdown, ai_justificativa,
-          tenders (objeto, orgao_nome, uf, municipio, valor_estimado, modalidade_nome, data_encerramento, numero, ano_compra, pncp_id)
+          tenders (objeto, orgao_nome, uf, municipio, valor_estimado, modalidade_nome, data_encerramento, numero_compra, ano_compra, pncp_id)
         `)
         .eq('id', matchId)
         .single()
@@ -56,7 +55,7 @@ const notificationWorker = new Worker<NotificationJobData>(
           valor_estimado: tender?.valor_estimado as number | null,
           modalidade_nome: tender?.modalidade_nome as string | null,
           data_encerramento: tender?.data_encerramento as string | null,
-          numero: tender?.numero as string | null,
+          numero: tender?.numero_compra as string | null,
           ano: tender?.ano_compra as string | null,
           pncp_id: tender?.pncp_id as string | null,
         },
@@ -93,15 +92,36 @@ const notificationWorker = new Worker<NotificationJobData>(
       return
     }
 
-    const { matchId, telegramChatId, whatsappNumber } = job.data
+    // ─── New Matches Digest ────────────────────────────────────────────
+    if ('type' in job.data && job.data.type === 'new_matches') {
+      const { telegramChatId, matches, totalValor } = job.data
 
-    if (!bot && !whatsappNumber) {
-      logger.warn({ matchId }, 'No notification channels available (bot not initialized, no whatsapp), skipping')
+      if (!bot) {
+        logger.warn('New matches digest: bot not initialized, skipping')
+        return
+      }
+
+      const { text, keyboard } = formatNewMatchesDigest(matches, totalValor)
+
+      await bot.api.sendMessage(telegramChatId, text, {
+        parse_mode: 'HTML',
+        reply_markup: keyboard,
+      })
+
+      logger.info({ telegramChatId, matchCount: matches.length }, 'New matches digest sent')
       return
     }
 
-    if (telegramChatId && !bot) {
-      logger.warn({ matchId, telegramChatId }, 'Telegram requested but bot not initialized')
+    const { matchId, telegramChatId } = job.data
+
+    if (!bot) {
+      logger.warn({ matchId }, 'Telegram bot not initialized, skipping')
+      return
+    }
+
+    if (!telegramChatId) {
+      logger.debug({ matchId }, 'No telegramChatId, skipping')
+      return
     }
 
     const { data: match } = await supabase
@@ -154,79 +174,42 @@ const notificationWorker = new Worker<NotificationJobData>(
       return
     }
 
-    // ── Send notifications (Telegram + WhatsApp in parallel) ──────────
-    const tenderInfo = {
-      objeto: tenderObjeto,
-      orgao_nome: (tender?.orgao_nome as string) || '',
-      uf: (tender?.uf as string) || '',
-      valor_estimado: tender?.valor_estimado as number | null,
-      data_abertura: tender?.data_abertura as string | null,
-      modalidade_nome: tender?.modalidade_nome as string | null,
-    }
+    // ── Send Telegram notification ──────────────────────────────────
+    const { text, keyboard } = formatMatchAlert({
+      matchId: match.id,
+      score: match.score,
+      breakdown: (match.breakdown as Array<{ category: string; score: number; reason: string }>) || [],
+      justificativa: match.ai_justificativa || '',
+      tender: {
+        objeto: tenderObjeto,
+        orgao_nome: (tender?.orgao_nome as string) || '',
+        uf: (tender?.uf as string) || '',
+        valor_estimado: tender?.valor_estimado as number | null,
+        data_abertura: tender?.data_abertura as string | null,
+        modalidade_nome: tender?.modalidade_nome as string | null,
+      },
+    })
 
-    const sendPromises: Promise<void>[] = []
-
-    // Telegram
-    if (telegramChatId && bot) {
-      const { text, keyboard } = formatMatchAlert({
-        matchId: match.id,
-        score: match.score,
-        breakdown: (match.breakdown as Array<{ category: string; score: number; reason: string }>) || [],
-        justificativa: match.ai_justificativa || '',
-        tender: tenderInfo,
+    try {
+      await bot.api.sendMessage(telegramChatId, text, {
+        parse_mode: 'HTML',
+        reply_markup: keyboard,
       })
-      sendPromises.push(
-        bot.api.sendMessage(telegramChatId, text, {
-          parse_mode: 'HTML',
-          reply_markup: keyboard,
-        }).then(() => {
-          logger.info({ matchId, telegramChatId }, 'Telegram notification sent')
-        }),
-      )
-    }
+      logger.info({ matchId, telegramChatId }, 'Telegram notification sent')
 
-    // WhatsApp
-    if (whatsappNumber) {
-      sendPromises.push(
-        (async () => {
-          const waConnected = await isWhatsAppConnected()
-          if (!waConnected) {
-            logger.warn({ matchId }, 'WhatsApp not connected, skipping')
-            return
-          }
-          await sendWhatsAppAlert(
-            whatsappNumber,
-            {
-              score: match.score,
-              justificativa: match.ai_justificativa || '',
-              recomendacao: undefined,
-            },
-            tenderInfo,
-            matchId,
-          )
-        })(),
-      )
-    }
-
-    const results = await Promise.allSettled(sendPromises)
-    const anySuccess = results.some((r) => r.status === 'fulfilled')
-
-    if (anySuccess) {
+      // Mark as notified
       const { error: updateErr } = await supabase
         .from('matches')
         .update({ status: 'notified', notified_at: new Date().toISOString() })
         .eq('id', matchId)
 
       if (updateErr) logger.error({ matchId, error: updateErr }, 'Failed to mark match as notified')
+    } catch (err) {
+      logger.error({ matchId, telegramChatId, err }, 'Telegram send failed')
+      throw err // Let BullMQ retry
     }
 
-    for (const r of results) {
-      if (r.status === 'rejected') {
-        logger.warn({ matchId, error: (r.reason as Error).message }, 'Notification channel failed')
-      }
-    }
-
-    logger.info({ matchId, score: match.score, channels: sendPromises.length }, 'Notification processing complete')
+    logger.info({ matchId, score: match.score, channels: 1 }, 'Notification processing complete')
   },
   {
     connection,

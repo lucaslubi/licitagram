@@ -58,10 +58,10 @@ async function setupMatchingJobs() {
     { repeat: { every: 60 * 60 * 1000 }, jobId: 'urgency-check-repeat' },
   )
 
-  // Competition analysis every 12h (fallback)
+  // Competition analysis every 3h
   await competitionAnalysisQueue.add(
     'materialize-stats', { mode: 'incremental' },
-    { repeat: { every: 12 * 60 * 60 * 1000 }, jobId: 'competition-analysis-12h-repeat' },
+    { repeat: { every: 3 * 60 * 60 * 1000 }, jobId: 'competition-analysis-3h-repeat' },
   )
 
   // Full materialization on startup

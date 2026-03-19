@@ -1,0 +1,198 @@
+<h2>Ícone no Mapa — Oportunidades Super Quentes 🔥</h2>
+<p class="subtitle">Qual estilo diferencia melhor as super quentes das normais?</p>
+
+<style>
+  .map-demo {
+    background: #1a1a2e;
+    border-radius: 12px;
+    padding: 40px;
+    position: relative;
+    min-height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 60px;
+    margin-bottom: 12px;
+  }
+
+  /* Normal markers for comparison */
+  .marker-normal {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: white;
+    position: relative;
+  }
+  .marker-green { background: #22c55e; }
+  .marker-yellow { background: #eab308; }
+  .marker-red { background: #ef4444; }
+
+  /* Option A: Pulsing glow + fire */
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 8px 3px rgba(255, 165, 0, 0.6); }
+    50% { box-shadow: 0 0 20px 8px rgba(255, 165, 0, 0.9); }
+  }
+  .marker-hot-a {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #f97316, #ef4444);
+    border: 2px solid #fbbf24;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: white;
+    animation: pulse-glow 1.5s ease-in-out infinite;
+    position: relative;
+  }
+  .marker-hot-a .fire {
+    position: absolute;
+    top: -14px;
+    font-size: 16px;
+    filter: drop-shadow(0 0 4px rgba(255, 100, 0, 0.8));
+  }
+
+  /* Option B: Larger diamond/star shape */
+  .marker-hot-b {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, #f59e0b, #f97316);
+    transform: rotate(45deg);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.5);
+  }
+  .marker-hot-b .score-text {
+    transform: rotate(-45deg);
+    font-size: 13px;
+    font-weight: 700;
+    color: white;
+  }
+  .marker-hot-b .star {
+    position: absolute;
+    top: -18px;
+    right: -12px;
+    transform: rotate(-45deg);
+    font-size: 18px;
+  }
+
+  /* Option C: Normal circle + fire badge + golden bg */
+  .marker-hot-c {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    border: 2px solid #fde68a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: #78350f;
+    position: relative;
+  }
+  .marker-hot-c .badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    font-size: 14px;
+    filter: drop-shadow(0 0 3px rgba(255, 100, 0, 0.6));
+  }
+
+  .marker-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .marker-label {
+    color: #94a3b8;
+    font-size: 11px;
+    text-align: center;
+  }
+
+  .vs-label {
+    color: #475569;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 1px;
+  }
+</style>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Borda Pulsante + 🔥</h3>
+      <p>Animação glow dourado que pulsa + ícone de fogo em cima. Chama atenção sem mudar o formato do pin.</p>
+      <div class="map-demo">
+        <div class="marker-group">
+          <div class="marker-green">72</div>
+          <div class="marker-label">Normal</div>
+        </div>
+        <div class="vs-label">vs</div>
+        <div class="marker-group">
+          <div class="marker-hot-a">
+            <span class="fire">🔥</span>
+            92
+          </div>
+          <div class="marker-label">Super Quente</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Pin Diamante Maior (48px)</h3>
+      <p>Formato diamante dourado, 50% maior que o normal. Destaque por tamanho e forma diferente.</p>
+      <div class="map-demo">
+        <div class="marker-group">
+          <div class="marker-green">72</div>
+          <div class="marker-label">Normal</div>
+        </div>
+        <div class="vs-label">vs</div>
+        <div class="marker-group">
+          <div class="marker-hot-b">
+            <span class="star">⭐</span>
+            <span class="score-text">92</span>
+          </div>
+          <div class="marker-label">Super Quente</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Círculo Dourado + Badge 🔥</h3>
+      <p>Mesmo tamanho, fundo dourado em vez de verde, com badge de fogo no canto. Sutil e limpo.</p>
+      <div class="map-demo">
+        <div class="marker-group">
+          <div class="marker-green">72</div>
+          <div class="marker-label">Normal</div>
+        </div>
+        <div class="vs-label">vs</div>
+        <div class="marker-group">
+          <div class="marker-hot-c">
+            <span class="badge">🔥</span>
+            92
+          </div>
+          <div class="marker-label">Super Quente</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

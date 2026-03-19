@@ -7,39 +7,87 @@ import { batchClassifyTenders } from './ai/cnae-classifier'
 import { formatDatePNCP, fetchDocumentos } from './scrapers/pncp-client'
 import { supabase } from './lib/supabase'
 import { ALL_SCRAPING_MODALITIES } from '@licitagram/shared'
-import { scrapingWorker } from './processors/scraping.processor'
-import { extractionWorker } from './processors/extraction.processor'
-import { matchingWorker } from './processors/matching.processor'
-import { notificationWorker } from './processors/notification.processor'
-import { pendingNotificationsWorker } from './processors/pending-notifications.processor'
-import { comprasgovScrapingWorker } from './processors/comprasgov-scraping.processor'
-// BEC-SP scraper DISABLED — BEC migrated to compras.sp.gov.br; old ASP.NET pages no longer work.
-// SP procurement data flows through PNCP (national portal) with uf='SP' filter.
-// import { becSpScrapingWorker } from './processors/bec-sp-scraping.processor'
-import { resultsScrapingWorker } from './processors/results-scraping.processor'
-import { documentExpiryWorker } from './processors/document-expiry.processor'
-import { fornecedorEnrichmentWorker } from './processors/fornecedor-enrichment.processor'
-import { arpScrapingWorker } from './processors/comprasgov-arp.processor'
-import { legadoScrapingWorker } from './processors/comprasgov-legado.processor'
-// Portal MG scraper DISABLED — compras.mg.gov.br has WAF blocking non-browser requests.
-// MG procurement data flows through PNCP (national portal) with uf='MG' filter.
-// import { mgScrapingWorker } from './processors/compras-mg.processor'
-import { aiTriageWorker } from './processors/ai-triage.processor'
-import { semanticMatchingWorker } from './processors/semantic-matching.processor'
-import { hotAlertsWorker } from './processors/hot-alerts.processor'
-import { competitionAnalysisWorker } from './processors/competition-analysis.processor'
-import { contactEnrichmentWorker } from './processors/contact-enrichment.processor'
+import type { Worker } from 'bullmq'
 
-const allWorkers = [
-  scrapingWorker, extractionWorker, matchingWorker, notificationWorker,
-  pendingNotificationsWorker, comprasgovScrapingWorker,
-  resultsScrapingWorker, documentExpiryWorker, fornecedorEnrichmentWorker,
-  arpScrapingWorker, legadoScrapingWorker, aiTriageWorker,
-  semanticMatchingWorker,
-  hotAlertsWorker,
-  competitionAnalysisWorker,
-  contactEnrichmentWorker,
-]
+// ─── Worker Groups ────────────────────────────────────────────────────────
+// Each group can run as a separate PM2 process for true parallelism.
+// Usage: node dist/index.js --queues scraping  (runs only scraping workers)
+//        node dist/index.js                    (runs ALL workers — backward compatible)
+
+// Parse --queues argument BEFORE imports to avoid instantiating unused workers
+const queuesArg = process.argv.find(a => a.startsWith('--queues='))?.split('=')[1]
+  || (process.argv.indexOf('--queues') >= 0 ? process.argv[process.argv.indexOf('--queues') + 1] : null)
+
+const ALL_GROUPS = ['scraping', 'extraction', 'matching', 'alerts', 'telegram', 'whatsapp', 'notification', 'analysis']
+const selectedGroups = queuesArg ? queuesArg.split(',').map(g => g.trim()) : ALL_GROUPS
+const isFullMode = !queuesArg
+
+// Lazy-load only the workers needed for this process (avoid instantiating unused BullMQ Workers)
+async function loadWorkers(): Promise<Worker[]> {
+  const workers: Worker[] = []
+
+  if (isFullMode || selectedGroups.includes('scraping')) {
+    const { scrapingWorker } = await import('./processors/scraping.processor')
+    const { comprasgovScrapingWorker } = await import('./processors/comprasgov-scraping.processor')
+    const { arpScrapingWorker } = await import('./processors/comprasgov-arp.processor')
+    const { legadoScrapingWorker } = await import('./processors/comprasgov-legado.processor')
+    const { resultsScrapingWorker } = await import('./processors/results-scraping.processor')
+    workers.push(scrapingWorker, comprasgovScrapingWorker, arpScrapingWorker, legadoScrapingWorker, resultsScrapingWorker)
+  }
+
+  if (isFullMode || selectedGroups.includes('extraction')) {
+    const { extractionWorker } = await import('./processors/extraction.processor')
+    workers.push(extractionWorker)
+  }
+
+  if (isFullMode || selectedGroups.includes('matching')) {
+    const { matchingWorker } = await import('./processors/matching.processor')
+    const { aiTriageWorker } = await import('./processors/ai-triage.processor')
+    const { semanticMatchingWorker } = await import('./processors/semantic-matching.processor')
+    workers.push(matchingWorker, aiTriageWorker, semanticMatchingWorker)
+  }
+
+  // Legacy 'notification' group loads everything (backward compatible)
+  if (isFullMode || selectedGroups.includes('notification')) {
+    const { notificationWorker } = await import('./processors/notification.processor')
+    const { pendingNotificationsWorker } = await import('./processors/pending-notifications.processor')
+    const { hotAlertsWorker } = await import('./processors/hot-alerts.processor')
+    const { whatsappNotificationWorker } = await import('./processors/whatsapp-notification.processor')
+    workers.push(notificationWorker, pendingNotificationsWorker, hotAlertsWorker, whatsappNotificationWorker)
+  }
+
+  // Split notification groups for parallel mode
+  if (selectedGroups.includes('alerts')) {
+    const { pendingNotificationsWorker } = await import('./processors/pending-notifications.processor')
+    const { hotAlertsWorker } = await import('./processors/hot-alerts.processor')
+    workers.push(pendingNotificationsWorker, hotAlertsWorker)
+  }
+
+  if (selectedGroups.includes('telegram')) {
+    const { notificationWorker } = await import('./processors/notification.processor')
+    workers.push(notificationWorker)
+  }
+
+  if (selectedGroups.includes('whatsapp')) {
+    const { whatsappNotificationWorker } = await import('./processors/whatsapp-notification.processor')
+    workers.push(whatsappNotificationWorker)
+  }
+
+  if (isFullMode || selectedGroups.includes('analysis')) {
+    const { competitionAnalysisWorker } = await import('./processors/competition-analysis.processor')
+    const { contactEnrichmentWorker } = await import('./processors/contact-enrichment.processor')
+    const { fornecedorEnrichmentWorker } = await import('./processors/fornecedor-enrichment.processor')
+    const { documentExpiryWorker } = await import('./processors/document-expiry.processor')
+    workers.push(competitionAnalysisWorker, contactEnrichmentWorker, fornecedorEnrichmentWorker, documentExpiryWorker)
+  }
+
+  return workers
+}
+
+logger.info({ groups: selectedGroups, fullMode: isFullMode }, 'Worker groups selected')
+
+// Will be populated in main()
+let allWorkers: Worker[] = []
 import { pendingNotificationsQueue } from './queues/pending-notifications.queue'
 import { comprasgovScrapingQueue } from './queues/comprasgov-scraping.queue'
 import { resultsScrapingQueue } from './queues/results-scraping.queue'
@@ -49,7 +97,6 @@ import { arpScrapingQueue } from './queues/comprasgov-arp.queue'
 import { legadoScrapingQueue } from './queues/comprasgov-legado.queue'
 import { hotAlertsQueue } from './queues/hot-alerts.queue'
 import { competitionAnalysisQueue } from './queues/competition-analysis.queue'
-import { startBot } from './telegram/bot'
 
 async function setupRepeatableJobs() {
   const today = formatDatePNCP(new Date())
@@ -172,16 +219,16 @@ async function setupRepeatableJobs() {
   )
   logger.info('Legacy pregoes scraping job scheduled (every 24h)')
 
-  // Schedule hot alerts scan every 1 hour — surfaces best opportunities fast
+  // Schedule hot alerts scan every 30 min — surfaces best opportunities fast
   await hotAlertsQueue.add(
     'hot-daily',
     {},
     {
-      repeat: { every: 60 * 60 * 1000 },
-      jobId: 'hot-scan-1h-repeat',
+      repeat: { every: 30 * 60 * 1000 },
+      jobId: 'hot-scan-30m-repeat',
     },
   )
-  logger.info('Hot alerts scan scheduled (every 1h)')
+  logger.info('Hot alerts scan scheduled (every 30m)')
 
   // Schedule urgency check every hour
   await hotAlertsQueue.add(
@@ -194,16 +241,27 @@ async function setupRepeatableJobs() {
   )
   logger.info('Urgency check job scheduled (every 1h)')
 
-  // Schedule competition analysis materialization every 12h (fallback — primary trigger is event-driven)
+  // Schedule new-matches digest every 3 hours — notifies users of freshly found matches
+  await hotAlertsQueue.add(
+    'new-matches-digest',
+    {},
+    {
+      repeat: { every: 3 * 60 * 60 * 1000 },
+      jobId: 'new-matches-digest-3h-repeat',
+    },
+  )
+  logger.info('New matches digest scheduled (every 3h)')
+
+  // Schedule competition analysis materialization every 3h
   await competitionAnalysisQueue.add(
     'materialize-stats',
     { mode: 'incremental' },
     {
-      repeat: { every: 12 * 60 * 60 * 1000 },
-      jobId: 'competition-analysis-12h-repeat',
+      repeat: { every: 3 * 60 * 60 * 1000 },
+      jobId: 'competition-analysis-3h-repeat',
     },
   )
-  logger.info('Competition analysis scheduled (every 12h fallback)')
+  logger.info('Competition analysis scheduled (every 3h)')
 
   // Trigger full materialization on startup (non-blocking)
   competitionAnalysisQueue.add('materialize-stats-startup', { mode: 'full' }).catch((err) => {
@@ -362,10 +420,26 @@ async function backfillComprasgovDocuments() {
 
 async function main() {
   logger.info('Licitagram workers starting...')
-  await setupRepeatableJobs()
-  await startBot()
 
-  // Listen for Redis pub/sub events from the web app
+  // Load only the workers needed for this process
+  allWorkers = await loadWorkers()
+  logger.info({ workerCount: allWorkers.length, groups: selectedGroups }, 'Workers loaded')
+
+  // Only the scraping group or full mode sets up repeatable jobs (avoid duplicates)
+  if (isFullMode || selectedGroups.includes('scraping')) {
+    await setupRepeatableJobs()
+  }
+
+  // Telegram bot polling — only ONE process should run the bot (avoid duplicate polling)
+  // In split mode: only 'telegram' group starts the bot
+  // In full/legacy mode: 'notification' group starts it
+  if (isFullMode || selectedGroups.includes('telegram') || (selectedGroups.includes('notification') && !selectedGroups.includes('alerts'))) {
+    const { startBot } = await import('./telegram/bot')
+    await startBot()
+  }
+
+  // Listen for Redis pub/sub events from the web app (only in full mode or matching group)
+  if (isFullMode || selectedGroups.includes('matching'))
   try {
     const IORedis = (await import('ioredis')).default
     const subscriber = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
@@ -448,36 +522,92 @@ async function main() {
     logger.warn({ err }, 'Failed to setup Redis event listener (non-critical)')
   }
 
-  // Schedule CNAE classification backfill every 15 minutes
-  // Now hybrid: ~80% resolve locally (instant), ~20% use Gemini fallback
-  // Much lower API consumption while maintaining accuracy
-  setInterval(async () => {
-    try {
-      await batchClassifyTenders(500)
-    } catch (err) {
-      logger.error({ err }, 'CNAE classification backfill failed')
+  // Background tasks only in full mode or specific groups
+  if (isFullMode || selectedGroups.includes('matching')) {
+    // Schedule CNAE classification backfill every 15 minutes
+    setInterval(async () => {
+      try {
+        await batchClassifyTenders(500)
+      } catch (err) {
+        logger.error({ err }, 'CNAE classification backfill failed')
+      }
+    }, 15 * 60 * 1000)
+
+    // Schedule CNAE-first keyword matching sweep every 4 hours
+    setInterval(async () => {
+      try {
+        await runKeywordMatchingSweep()
+      } catch (err) {
+        logger.error({ err }, 'Keyword matching sweep failed')
+      }
+    }, 4 * 60 * 60 * 1000)
+
+    // Schedule monthly match counter reset
+    scheduleMonthlyReset()
+
+    // Schedule AI triage sweep for keyword-only matches every 2 hours
+    // This catches tenders that were keyword-matched but never AI-triaged
+    // (e.g., tenders stuck in 'new' status that skipped extraction)
+    const runAiTriageSweep = async () => {
+      try {
+        const { data: companies } = await supabase
+          .from('companies')
+          .select('id')
+        if (!companies) return
+
+        const { Queue: Q } = await import('bullmq')
+        const { connection: conn } = await import('./queues/connection')
+        const triageQueue = new Q('ai-triage', { connection: conn })
+
+        let totalEnqueued = 0
+        for (const company of companies) {
+          // Find keyword matches that never got AI triaged
+          const { data: untriaged } = await supabase
+            .from('matches')
+            .select('id')
+            .eq('company_id', company.id)
+            .eq('match_source', 'keyword')
+            .gte('score', 30)
+            .limit(200)
+
+          if (!untriaged || untriaged.length === 0) continue
+
+          const CHUNK = 50
+          for (let i = 0; i < untriaged.length; i += CHUNK) {
+            const chunk = untriaged.slice(i, i + CHUNK).map(m => m.id)
+            await triageQueue.add(
+              `sweep-triage-${company.id}-${i}`,
+              { companyId: company.id, matchIds: chunk },
+              { jobId: `sweep-triage-${company.id}-${i}-${Date.now()}` },
+            )
+            totalEnqueued += chunk.length
+          }
+        }
+
+        if (totalEnqueued > 0) {
+          logger.info({ totalEnqueued }, 'AI triage sweep: enqueued keyword matches for upgrade')
+        }
+      } catch (err) {
+        logger.error({ err }, 'AI triage sweep failed')
+      }
     }
-  }, 15 * 60 * 1000)
 
-  // Schedule CNAE-first keyword matching sweep every 4 hours
-  setInterval(async () => {
-    try {
-      await runKeywordMatchingSweep()
-    } catch (err) {
-      logger.error({ err }, 'Keyword matching sweep failed')
-    }
-  }, 4 * 60 * 60 * 1000)
+    // Run once on startup (after 2 min delay to let other init finish)
+    setTimeout(runAiTriageSweep, 2 * 60 * 1000)
+    // Then every 2 hours
+    setInterval(runAiTriageSweep, 2 * 60 * 60 * 1000)
+    logger.info('AI triage sweep scheduled (every 2h — upgrades keyword matches)')
+  }
 
-  // Schedule monthly match counter reset (runs daily at 00:05, resets if past month boundary)
-  scheduleMonthlyReset()
-
-  // Backfill documents for comprasgov tenders (one-time, non-blocking)
-  backfillComprasgovDocuments().catch(err => {
-    logger.error({ err }, 'Comprasgov document backfill failed')
-  })
+  if (isFullMode || selectedGroups.includes('scraping')) {
+    // Backfill documents for comprasgov tenders (one-time, non-blocking)
+    backfillComprasgovDocuments().catch(err => {
+      logger.error({ err }, 'Comprasgov document backfill failed')
+    })
+  }
 
   // Semantic matching: embed tenders + profile companies + run sweep (non-blocking)
-  if (process.env.JINA_API_KEY || process.env.OPENAI_API_KEY) {
+  if ((isFullMode || selectedGroups.includes('matching')) && (process.env.JINA_API_KEY || process.env.OPENAI_API_KEY)) {
     // Initial batch: embed unembedded tenders and profile companies
     Promise.all([
       import('./processors/company-profiler').then(m => m.batchEmbedTenders(500)),
@@ -503,8 +633,6 @@ async function main() {
     }, 6 * 60 * 60 * 1000)
 
     logger.info('Semantic matching engine enabled (JINA/OpenAI embeddings)')
-  } else {
-    logger.info('Semantic matching disabled — set JINA_API_KEY or OPENAI_API_KEY to enable')
   }
 
   // ─── Memory pressure monitoring ─────────────────────────────────────────────
@@ -523,7 +651,7 @@ async function main() {
     }
   }, 30_000) // Check every 30 s
 
-  logger.info('All workers running. CNAE-first + semantic matching engine active. Press Ctrl+C to stop.')
+  logger.info({ groups: selectedGroups, workerCount: allWorkers.length }, 'Workers running. Press Ctrl+C to stop.')
 }
 
 /**
