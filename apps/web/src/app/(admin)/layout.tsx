@@ -12,6 +12,7 @@ const ADMIN_NAV = [
   { href: '/admin/prospects', label: 'Prospectos', section: 'dashboard' },
   { href: '/admin/admins', label: 'Admins', section: 'admins' },
   { href: '/admin/audit', label: 'Audit Log', section: 'audit' },
+  { href: '/admin/system', label: 'System Health', section: 'dashboard' },
 ]
 
 export default async function AdminLayout({
@@ -26,7 +27,7 @@ export default async function AdminLayout({
   ).map(({ href, label }) => ({ href, label }))
 
   return (
-    <div className="flex h-screen bg-gray-50 font-roboto">
+    <div className="flex h-screen bg-zinc-950 font-roboto">
       <AdminSidebar visibleItems={visibleItems} userEmail={user.email || ''} />
       <main className="flex-1 overflow-auto">
         <div className="pt-14 md:pt-0">

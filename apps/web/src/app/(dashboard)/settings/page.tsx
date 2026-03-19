@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { WhatsAppConnect } from '@/components/settings/WhatsAppConnect'
 
 const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -24,7 +25,7 @@ export default function SettingsPage() {
     email: '',
     ufs_interesse: [] as string[],
     palavras_chave_filtro: [] as string[],
-    notification_preferences: { telegram: true, email: false } as { telegram: boolean; email: boolean },
+    notification_preferences: { telegram: true, email: false, whatsapp: true } as { telegram: boolean; email: boolean; whatsapp: boolean },
   })
   const [newUf, setNewUf] = useState('')
   const [newKeyword, setNewKeyword] = useState('')
@@ -46,7 +47,7 @@ export default function SettingsPage() {
       .single()
 
     if (data) {
-      const prefs = (data.notification_preferences as { telegram?: boolean; email?: boolean }) || {}
+      const prefs = (data.notification_preferences as { telegram?: boolean; email?: boolean; whatsapp?: boolean }) || {}
       setSettings({
         min_score: data.min_score ?? 10,
         telegram_chat_id: data.telegram_chat_id,
@@ -54,8 +55,9 @@ export default function SettingsPage() {
         ufs_interesse: data.ufs_interesse || [],
         palavras_chave_filtro: data.palavras_chave_filtro || [],
         notification_preferences: {
-          telegram: prefs.telegram !== false, // default true
-          email: prefs.email === true, // default false
+          telegram: prefs.telegram !== false,
+          email: prefs.email === true,
+          whatsapp: prefs.whatsapp !== false,
         },
       })
     }
@@ -202,6 +204,29 @@ export default function SettingsPage() {
                   />
                 </label>
 
+                <label className="flex items-center justify-between p-3 border rounded-md cursor-pointer hover:bg-gray-100">
+                  <div className="flex items-center gap-3">
+                    <div>
+                      <p className="text-sm font-medium">WhatsApp</p>
+                      <p className="text-xs text-gray-400">Receber alertas via WhatsApp</p>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={settings.notification_preferences.whatsapp ?? false}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        notification_preferences: {
+                          ...settings.notification_preferences,
+                          whatsapp: e.target.checked,
+                        },
+                      })
+                    }
+                    className="h-5 w-5 rounded border-gray-200 text-brand focus:ring-brand"
+                  />
+                </label>
+
                 <label className="flex items-center justify-between p-3 border rounded-md cursor-not-allowed opacity-60">
                   <div className="flex items-center gap-3">
                     <div>
@@ -220,6 +245,9 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* WhatsApp */}
+        <WhatsAppConnect />
 
         {/* Filters */}
         <Card>
