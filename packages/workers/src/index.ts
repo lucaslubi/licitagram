@@ -60,7 +60,8 @@ async function loadWorkers(): Promise<Worker[]> {
   if (selectedGroups.includes('alerts')) {
     const { pendingNotificationsWorker } = await import('./processors/pending-notifications.processor')
     const { hotAlertsWorker } = await import('./processors/hot-alerts.processor')
-    workers.push(pendingNotificationsWorker, hotAlertsWorker)
+    const { mapCacheWorker } = await import('./processors/map-cache.processor')
+    workers.push(pendingNotificationsWorker, hotAlertsWorker, mapCacheWorker)
   }
 
   if (selectedGroups.includes('telegram')) {
@@ -97,6 +98,7 @@ import { arpScrapingQueue } from './queues/comprasgov-arp.queue'
 import { legadoScrapingQueue } from './queues/comprasgov-legado.queue'
 import { hotAlertsQueue } from './queues/hot-alerts.queue'
 import { competitionAnalysisQueue } from './queues/competition-analysis.queue'
+import { mapCacheQueue } from './queues/map-cache.queue'
 
 async function setupRepeatableJobs() {
   const today = formatDatePNCP(new Date())
@@ -262,6 +264,22 @@ async function setupRepeatableJobs() {
     },
   )
   logger.info('Competition analysis scheduled (every 3h)')
+
+  // Schedule map cache refresh every 1 hour
+  await mapCacheQueue.add(
+    'refresh-map',
+    {},
+    {
+      repeat: { every: 60 * 60 * 1000 },
+      jobId: 'map-cache-1h-repeat',
+    },
+  )
+  logger.info('Map cache refresh scheduled (every 1h)')
+
+  // Trigger immediate map cache refresh on startup
+  mapCacheQueue.add('refresh-map-startup', {}).catch((err) => {
+    logger.error({ err }, 'Failed to enqueue startup map cache refresh')
+  })
 
   // Trigger full materialization on startup (non-blocking)
   competitionAnalysisQueue.add('materialize-stats-startup', { mode: 'full' }).catch((err) => {

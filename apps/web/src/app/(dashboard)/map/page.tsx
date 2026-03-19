@@ -21,13 +21,20 @@ export default async function MapPage() {
 
   const companyId = profile.company_id
 
-  // Read pre-computed map cache (populated by worker every 3h — instant, no JOINs)
-  const { data: cacheData } = await supabase
-    .from('map_cache')
-    .select('*')
-    .eq('company_id', companyId)
-    .order('score', { ascending: false })
-    .limit(5000)
+  // Read pre-computed map cache (paginated — Supabase caps at 1000 rows per request)
+  const PAGE_SIZE = 1000
+  const cacheData: any[] = []
+  for (let offset = 0; offset < 10000; offset += PAGE_SIZE) {
+    const { data: page } = await supabase
+      .from('map_cache')
+      .select('*')
+      .eq('company_id', companyId)
+      .order('score', { ascending: false })
+      .range(offset, offset + PAGE_SIZE - 1)
+    if (!page || page.length === 0) break
+    cacheData.push(...page)
+    if (page.length < PAGE_SIZE) break
+  }
 
   // Transform cache rows into the shape the rest of the page expects
   const matches = (cacheData || []).map((r) => ({
