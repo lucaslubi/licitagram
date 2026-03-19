@@ -27,7 +27,7 @@ export default async function MapPage() {
     .select('*')
     .eq('company_id', companyId)
     .order('score', { ascending: false })
-    .limit(500)
+    .limit(5000)
 
   // Transform cache rows into the shape the rest of the page expects
   const matches = (cacheData || []).map((r) => ({
