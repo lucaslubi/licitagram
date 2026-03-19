@@ -51,7 +51,7 @@ const pendingNotificationsWorker = new Worker(
     // Query only columns guaranteed to exist; whatsapp_verified may not exist yet
     const { data: users, error: usersErr } = await supabase
       .from('users')
-      .select('id, company_id, telegram_chat_id, whatsapp_number, min_score, notification_preferences')
+      .select('id, company_id, telegram_chat_id, whatsapp_number, whatsapp_verified, min_score, notification_preferences')
       .not('company_id', 'is', null)
 
     if (usersErr) {
@@ -87,7 +87,7 @@ const pendingNotificationsWorker = new Worker(
     for (const user of users) {
       const prefs = (user.notification_preferences as Record<string, boolean>) || {}
       const hasTelegram = user.telegram_chat_id && prefs.telegram !== false
-      const hasWhatsApp = user.whatsapp_number && (user as any).whatsapp_verified && prefs.whatsapp !== false
+      const hasWhatsApp = user.whatsapp_number && user.whatsapp_verified && prefs.whatsapp !== false
 
       // Skip if no channel available
       if (!hasTelegram && !hasWhatsApp) continue
