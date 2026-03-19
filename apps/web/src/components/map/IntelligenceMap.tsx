@@ -44,7 +44,7 @@ export function IntelligenceMap({
   const [selectedUf, setSelectedUf] = useState<string | null>(null)
   const [selectedMatch, setSelectedMatch] = useState<MatchMarker | null>(null)
   const [selectedGroup, setSelectedGroup] = useState<MatchMarker[] | null>(null)
-  const [scoreFilter, setScoreFilter] = useState(0)
+  const [scoreFilter, setScoreFilter] = useState(60)
   const [regionFilter, setRegionFilter] = useState<Set<string>>(new Set(REGIONS))
 
   // Matches are pre-triaged by the background AI worker — use directly
@@ -598,18 +598,18 @@ export function IntelligenceMap({
               <label className="text-xs font-medium text-gray-600">
                 Score minimo: {scoreFilter > 0 ? scoreFilter : 'Todos'}
               </label>
-              {scoreFilter > 0 && (
+              {scoreFilter > 60 && (
                 <button
-                  onClick={() => setScoreFilter(0)}
+                  onClick={() => setScoreFilter(60)}
                   className="text-[10px] text-brand hover:underline"
                 >
-                  Limpar
+                  Resetar
                 </button>
               )}
             </div>
             <input
               type="range"
-              min={0}
+              min={60}
               max={100}
               step={5}
               value={scoreFilter}
@@ -617,10 +617,10 @@ export function IntelligenceMap({
               className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-brand"
             />
             <div className="flex justify-between text-[9px] text-gray-400 mt-0.5">
-              <span>0</span>
-              <span>25</span>
-              <span>50</span>
-              <span>75</span>
+              <span>60</span>
+              <span>70</span>
+              <span>80</span>
+              <span>90</span>
               <span>100</span>
             </div>
           </div>
