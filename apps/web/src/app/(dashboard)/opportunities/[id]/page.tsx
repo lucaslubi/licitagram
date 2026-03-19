@@ -213,12 +213,14 @@ export default async function OpportunityDetailPage({
           </Card>
 
           {/* ── AI Chat — Feature Principal (full width within main column) ── */}
-          <EditalChat
-            tenderId={(tender?.id as string) || id}
-            documentCount={documents.length}
-            documentUrls={documents.filter(d => d.url).map(d => ({ id: d.id, titulo: d.titulo, tipo: d.tipo, url: d.url }))}
-            hasAccess={hasChatIa}
-          />
+          <div id="edital-chat">
+            <EditalChat
+              tenderId={(tender?.id as string) || id}
+              documentCount={documents.length}
+              documentUrls={documents.filter(d => d.url).map(d => ({ id: d.id, titulo: d.titulo, tipo: d.tipo, url: d.url }))}
+              hasAccess={hasChatIa}
+            />
+          </div>
 
           <AnalysisSlot />
 
@@ -335,12 +337,24 @@ export default async function OpportunityDetailPage({
                               {doc.tipo}
                             </Badge>
                           )}
-                          <Badge
-                            variant={doc.status === 'done' ? 'default' : 'secondary'}
-                            className="text-xs"
-                          >
-                            {doc.status === 'done' ? 'Extraído' : doc.status === 'error' ? 'Erro' : 'Pendente'}
-                          </Badge>
+                          {doc.status === 'error' ? (
+                            <button
+                              onClick={() => {
+                                const chatEl = document.getElementById('edital-chat')
+                                if (chatEl) chatEl.scrollIntoView({ behavior: 'smooth' })
+                              }}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 hover:bg-amber-200 transition cursor-pointer"
+                            >
+                              🤖 Analisar com IA
+                            </button>
+                          ) : (
+                            <Badge
+                              variant={doc.status === 'done' ? 'default' : 'secondary'}
+                              className="text-xs"
+                            >
+                              {doc.status === 'done' ? 'Extraído' : 'Pendente'}
+                            </Badge>
+                          )}
                         </div>
                       </div>
                       <a
