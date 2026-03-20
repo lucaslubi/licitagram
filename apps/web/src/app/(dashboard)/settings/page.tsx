@@ -139,7 +139,7 @@ export default function SettingsPage() {
                   className="flex-1 accent-brand"
                 />
                 <span className={`text-lg font-bold w-12 text-center ${
-                  settings.min_score >= 80 ? 'text-emerald-600' : settings.min_score >= 60 ? 'text-amber-600' : 'text-red-500'
+                  settings.min_score >= 80 ? 'text-emerald-600' : settings.min_score >= 70 ? 'text-sky-600' : settings.min_score >= 60 ? 'text-amber-600' : 'text-red-500'
                 }`}>{settings.min_score}%</span>
               </div>
               <div className="flex justify-between text-[10px] text-gray-400 mt-0.5 px-1">
@@ -149,15 +149,19 @@ export default function SettingsPage() {
               <p className={`text-xs mt-2 px-2 py-1.5 rounded ${
                 settings.min_score >= 80
                   ? 'bg-emerald-50 text-emerald-700'
+                  : settings.min_score >= 70
+                  ? 'bg-sky-50 text-sky-700'
                   : settings.min_score >= 60
                   ? 'bg-amber-50 text-amber-700'
                   : 'bg-red-50 text-red-700'
               }`}>
                 {settings.min_score >= 80
                   ? '✅ Recomendado — só oportunidades com alta compatibilidade'
+                  : settings.min_score >= 70
+                  ? '🔍 Volume moderado — bom equilíbrio entre volume e precisão'
                   : settings.min_score >= 60
-                  ? '⚠️ Volume moderado — inclui oportunidades que precisam avaliação'
-                  : '🔴 Volume alto — muitas oportunidades de baixa relevância'}
+                  ? '⚠️ Volume alto — inclui oportunidades que precisam avaliação'
+                  : '🔴 Volume muito alto — muitas oportunidades de baixa relevância'}
               </p>
             </div>
 
