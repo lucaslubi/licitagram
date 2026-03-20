@@ -476,49 +476,70 @@ export default async function CompetitorsPage({
   let rankingSummary: { total_analyzed: number; direct_count: number; indirect_count: number; partner_count: number; avg_relevance: number; last_analyzed: string | null } | null = null
 
   if (profile?.company_id && tab === 'ranking') {
-    // Fetch AI-powered relevance data — ALL competitors (min_score 0, limit 50, excludes irrelevante in RPC)
-    const [{ data: relevantCompetitors }, { data: summaryData }] = await Promise.all([
-      supabase.rpc('get_relevant_competitors', {
-        p_company_id: profile.company_id,
-        p_min_score: 0,
-        p_limit: 50,
-      }),
-      supabase.rpc('get_competitor_summary', {
-        p_company_id: profile.company_id,
-      }),
-    ])
+    // Helper: race a promise against a timeout (prevents page from hanging)
+    const withTimeout = <T,>(promise: Promise<T>, ms: number): Promise<T | null> =>
+      Promise.race([
+        promise.then(r => r),
+        new Promise<null>(resolve => setTimeout(() => resolve(null), ms)),
+      ])
 
-    if (summaryData) {
-      const sd = Array.isArray(summaryData) ? summaryData[0] : summaryData
-      if (sd) {
-        rankingSummary = {
-          total_analyzed: (sd as any).total_analyzed ?? 0,
-          direct_count: (sd as any).direct_count ?? 0,
-          indirect_count: (sd as any).indirect_count ?? 0,
-          partner_count: (sd as any).partner_count ?? 0,
-          avg_relevance: (sd as any).avg_relevance ?? 0,
-          last_analyzed: (sd as any).last_analyzed ?? null,
+    // Fetch AI-powered relevance data with 5s timeout — ALL competitors
+    try {
+      const [rpcResult, summaryResult] = await Promise.all([
+        withTimeout(
+          supabase.rpc('get_relevant_competitors', {
+            p_company_id: profile.company_id,
+            p_min_score: 0,
+            p_limit: 50,
+          }),
+          5000,
+        ),
+        withTimeout(
+          supabase.rpc('get_competitor_summary', {
+            p_company_id: profile.company_id,
+          }),
+          5000,
+        ),
+      ])
+
+      const relevantCompetitors = rpcResult && 'data' in rpcResult ? (rpcResult as any).data : null
+      const summaryData = summaryResult && 'data' in summaryResult ? (summaryResult as any).data : null
+
+      if (summaryData) {
+        const sd = Array.isArray(summaryData) ? summaryData[0] : summaryData
+        if (sd) {
+          rankingSummary = {
+            total_analyzed: (sd as any).total_analyzed ?? 0,
+            direct_count: (sd as any).direct_count ?? 0,
+            indirect_count: (sd as any).indirect_count ?? 0,
+            partner_count: (sd as any).partner_count ?? 0,
+            avg_relevance: (sd as any).avg_relevance ?? 0,
+            last_analyzed: (sd as any).last_analyzed ?? null,
+          }
         }
       }
-    }
 
-    if (relevantCompetitors && relevantCompetitors.length > 0) {
-      rankingHasAiData = true
-      topCompetitors = relevantCompetitors.map((c: any) => ({
-        cnpj: c.competitor_cnpj,
-        nome: c.competitor_nome,
-        relevance_score: c.relevance_score,
-        relationship_type: c.relationship_type,
-        reason: c.reason,
-        shared_tender_count: c.shared_tender_count,
-        count: c.total_participacoes || 0,
-        wins: c.total_vitorias || 0,
-        win_rate: c.win_rate || 0,
-        porte: c.porte,
-        uf: c.uf,
-        segmento_ia: c.segmento_ia,
-        nivel_ameaca: c.nivel_ameaca,
-      }))
+      if (relevantCompetitors && relevantCompetitors.length > 0) {
+        rankingHasAiData = true
+        topCompetitors = relevantCompetitors.map((c: any) => ({
+          cnpj: c.competitor_cnpj,
+          nome: c.competitor_nome,
+          relevance_score: c.relevance_score,
+          relationship_type: c.relationship_type,
+          reason: c.reason,
+          shared_tender_count: c.shared_tender_count,
+          count: c.total_participacoes || 0,
+          wins: c.total_vitorias || 0,
+          win_rate: c.win_rate || 0,
+          porte: c.porte,
+          uf: c.uf,
+          segmento_ia: c.segmento_ia,
+          nivel_ameaca: c.nivel_ameaca,
+        }))
+      }
+    } catch (rpcErr) {
+      // RPC failed or timed out — continue with fallback
+      console.warn('Ranking RPCs failed/timed out, using fallback', rpcErr)
     }
 
     // Fallback: if no AI data yet, use frequency-based from ALL tenders (not just open ones)
@@ -756,12 +777,14 @@ export default async function CompetitorsPage({
         <div className="space-y-4">
           {/* AI Analysis Status Banner */}
           {!rankingHasAiData && topCompetitors.length > 0 && (
-            <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4">
-              <span className="inline-block w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
+              <svg className="w-5 h-5 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
               <div>
-                <p className="text-sm font-medium text-blue-800">Analise de IA em andamento...</p>
-                <p className="text-xs text-blue-600">
-                  Concorrentes sendo analisados por relevancia contextual. Enquanto isso, ranking por frequencia de co-participacao.
+                <p className="text-sm font-medium text-amber-800">Ranking por frequencia de co-participacao</p>
+                <p className="text-xs text-amber-600">
+                  A analise de IA sera aplicada automaticamente quando disponivel. Por enquanto, os concorrentes sao ordenados pela quantidade de licitacoes em comum.
                 </p>
               </div>
             </div>
