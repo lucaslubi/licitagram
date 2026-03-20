@@ -22,7 +22,7 @@ export default async function CompetitorsPage({
     .eq('id', user.id)
     .single()
 
-  const tab = params.tab || 'watchlist'
+  const tab = params.tab || 'mercado'
   const searchQuery = params.q || ''
 
   // Get watchlist
@@ -448,10 +448,10 @@ export default async function CompetitorsPage({
       {/* Tabs */}
       <div className="flex gap-2 mb-4 overflow-x-auto">
         {[
-          { key: 'watchlist', label: 'Watchlist' },
-          { key: 'ranking', label: 'Ranking' },
           { key: 'mercado', label: 'Mercado' },
           { key: 'panorama', label: 'Panorama' },
+          { key: 'ranking', label: 'Ranking' },
+          { key: 'watchlist', label: 'Watchlist' },
           { key: 'comparativa', label: 'Comparativa' },
           { key: 'buscar', label: 'Buscar' },
         ].map((t) => (
