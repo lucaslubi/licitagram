@@ -111,7 +111,6 @@ export async function updateClientSubscription(
 
   if (before) {
     // UPDATE existing subscription
-    fullUpdates.updated_at = now
     const result = await supabase
       .from('subscriptions')
       .update(fullUpdates)
