@@ -86,7 +86,8 @@ async function loadWorkers(): Promise<Worker[]> {
     const { documentExpiryWorker } = await import('./processors/document-expiry.processor')
     const { aiCompetitorClassifierWorker } = await import('./processors/ai-competitor-classifier.processor')
     const { proactiveSupplierScrapingWorker } = await import('./processors/proactive-supplier-scraping.processor')
-    workers.push(resultsScrapingWorker, competitionAnalysisWorker, contactEnrichmentWorker, fornecedorEnrichmentWorker, documentExpiryWorker, aiCompetitorClassifierWorker, proactiveSupplierScrapingWorker)
+    const { competitorRelevanceWorker } = await import('./processors/competitor-relevance.processor')
+    workers.push(resultsScrapingWorker, competitionAnalysisWorker, contactEnrichmentWorker, fornecedorEnrichmentWorker, documentExpiryWorker, aiCompetitorClassifierWorker, proactiveSupplierScrapingWorker, competitorRelevanceWorker)
   }
 
   if (isFullMode || selectedGroups.includes('analysis')) {
@@ -96,7 +97,8 @@ async function loadWorkers(): Promise<Worker[]> {
     const { documentExpiryWorker } = await import('./processors/document-expiry.processor')
     const { aiCompetitorClassifierWorker } = await import('./processors/ai-competitor-classifier.processor')
     const { proactiveSupplierScrapingWorker } = await import('./processors/proactive-supplier-scraping.processor')
-    workers.push(competitionAnalysisWorker, contactEnrichmentWorker, fornecedorEnrichmentWorker, documentExpiryWorker, aiCompetitorClassifierWorker, proactiveSupplierScrapingWorker)
+    const { competitorRelevanceWorker } = await import('./processors/competitor-relevance.processor')
+    workers.push(competitionAnalysisWorker, contactEnrichmentWorker, fornecedorEnrichmentWorker, documentExpiryWorker, aiCompetitorClassifierWorker, proactiveSupplierScrapingWorker, competitorRelevanceWorker)
   }
 
   return workers
@@ -120,6 +122,7 @@ import { pipelineHealthQueue } from './queues/pipeline-health.queue'
 import { outcomePromptQueue } from './queues/outcome-prompt.queue'
 import { aiCompetitorClassifierQueue } from './queues/ai-competitor-classifier.queue'
 import { proactiveSupplierScrapingQueue } from './queues/proactive-supplier-scraping.queue'
+import { competitorRelevanceQueue } from './queues/competitor-relevance.queue'
 
 async function setupRepeatableJobs() {
   const today = formatDatePNCP(new Date())
@@ -329,6 +332,17 @@ async function setupRepeatableJobs() {
     },
   )
   logger.info('Outcome prompt check scheduled (every 6h)')
+
+  // Schedule competitor relevance analysis every 4 hours (AI-powered contextual scoring)
+  await competitorRelevanceQueue.add(
+    'analyze-relevance',
+    {},
+    {
+      repeat: { every: 4 * 60 * 60 * 1000 },
+      jobId: 'competitor-relevance-4h-repeat',
+    },
+  )
+  logger.info('Competitor relevance analysis scheduled (every 4h)')
 
   // Schedule proactive supplier scraping every 4 hours (discovers competitors from PNCP publications)
   await proactiveSupplierScrapingQueue.add(
@@ -719,7 +733,11 @@ async function main() {
       'proactive-supplier-sweep', {},
       { repeat: { every: 4 * 60 * 60 * 1000 }, jobId: 'proactive-supplier-sweep-4h-enrichment' },
     )
-    logger.info('Enrichment repeatable jobs scheduled (results 6h, fornecedor 8h, stats 3h, docs weekly, AI classifier 2h, proactive suppliers 4h)')
+    await competitorRelevanceQueue.add(
+      'analyze-relevance', {},
+      { repeat: { every: 4 * 60 * 60 * 1000 }, jobId: 'competitor-relevance-4h-enrichment' },
+    )
+    logger.info('Enrichment repeatable jobs scheduled (results 6h, fornecedor 8h, stats 3h, docs weekly, AI classifier 2h, proactive suppliers 4h, relevance 4h)')
 
     // Trigger immediate full materialization + enrichment on startup
     competitionAnalysisQueue.add('materialize-full-startup', { mode: 'full' }).catch(err => {
@@ -737,7 +755,10 @@ async function main() {
     proactiveSupplierScrapingQueue.add('proactive-supplier-startup', {}).catch(err => {
       logger.error({ err }, 'Failed to enqueue startup proactive supplier scraping')
     })
-    logger.info('Enrichment startup jobs enqueued (full materialization + fornecedor + results + AI classifier + proactive suppliers)')
+    competitorRelevanceQueue.add('relevance-startup', {}).catch(err => {
+      logger.error({ err }, 'Failed to enqueue startup competitor relevance analysis')
+    })
+    logger.info('Enrichment startup jobs enqueued (full materialization + fornecedor + results + AI classifier + proactive suppliers + relevance)')
   }
 
   // Semantic matching: embed tenders + profile companies + run sweep (non-blocking)

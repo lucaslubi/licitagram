@@ -54,6 +54,7 @@ const QUEUE_CONFIG = [
   { name: 'document-expiry', critical: false, maxWaiting: 5 },
   { name: 'proactive-supplier-scraping', critical: false, maxWaiting: 100 },
   { name: 'ai-competitor-classifier', critical: false, maxWaiting: 50 },
+  { name: 'competitor-relevance', critical: false, maxWaiting: 20 },
   // Outcome tracking
   { name: 'outcome-prompt', critical: false, maxWaiting: 50 },
   // Scraping variants
@@ -88,6 +89,7 @@ const WORKER_MAP: Record<string, string> = {
   'document-expiry': 'worker-enrichment',
   'proactive-supplier-scraping': 'worker-enrichment',
   'ai-competitor-classifier': 'worker-enrichment',
+  'competitor-relevance': 'worker-enrichment',
 }
 
 // All PM2 processes we expect to be running
