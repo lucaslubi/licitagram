@@ -30,14 +30,31 @@ export function AiConsultant() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [userHasScrolled, setUserHasScrolled] = useState(false)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
+  const lastAssistantRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const { pageContext } = useConsultantContext()
 
-  // Scroll to bottom when messages change
+  // When user sends a message, scroll to show the start of the assistant reply
+  // During streaming, do NOT auto-scroll — let the user read from the top
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    if (!loading || userHasScrolled) return
+    // Scroll to the beginning of the last assistant message (not the end)
+    lastAssistantRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    // Only do this once when streaming starts
+  }, [loading]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset userHasScrolled when user sends a new message
+  useEffect(() => {
+    if (loading) setUserHasScrolled(false)
+  }, [loading])
+
+  // Detect manual user scroll during streaming
+  const handleScroll = useCallback(() => {
+    if (!loading) return
+    setUserHasScrolled(true)
+  }, [loading])
 
   // Focus input when panel opens
   useEffect(() => {
@@ -64,6 +81,11 @@ export function AiConsultant() {
 
       // Add empty assistant message for streaming
       setMessages((prev) => [...prev, { role: 'assistant', content: '' }])
+
+      // Scroll to show the user message + beginning of assistant response
+      setTimeout(() => {
+        lastAssistantRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 50)
 
       try {
         const response = await fetch('/api/consultant', {
@@ -212,7 +234,11 @@ export function AiConsultant() {
           </div>
 
           {/* Messages area */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50 min-h-0">
+          <div
+            ref={messagesContainerRef}
+            onScroll={handleScroll}
+            className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50 min-h-0"
+          >
             {messages.length === 0 && (
               <div className="text-center py-8 space-y-3">
                 <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto">
@@ -231,12 +257,17 @@ export function AiConsultant() {
 
             {messages.map((msg, i) => {
               const isUser = msg.role === 'user'
+              const isLastAssistant = !isUser && i === messages.length - 1
               const { cleanContent, pdfPayload } = isUser
                 ? { cleanContent: msg.content, pdfPayload: null }
                 : extractPdfMarker(msg.content)
 
               return (
-                <div key={i} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+                <div
+                  key={i}
+                  ref={isLastAssistant ? lastAssistantRef : undefined}
+                  className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
+                >
                   <div
                     className={`max-w-[85%] rounded-2xl text-sm leading-relaxed ${
                       isUser
@@ -272,7 +303,7 @@ export function AiConsultant() {
                 </div>
               )
             })}
-            <div ref={messagesEndRef} />
+            {/* Scroll anchor removed — we scroll to assistant message start, not end */}
           </div>
 
           {/* Suggested questions */}
