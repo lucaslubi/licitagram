@@ -32,29 +32,75 @@ const FAILED_JOB_MAX_AGE_MS = 12 * 60 * 60 * 1000 // 12 hours
 // Track consecutive failures per check for escalation
 const failureTracker = new Map<string, number>()
 
-// All monitored queues
+// All monitored queues — EVERY queue in the system
 const QUEUE_CONFIG = [
+  // Core pipeline (critical)
   { name: 'scraping', critical: true, maxWaiting: 500 },
   { name: 'extraction', critical: true, maxWaiting: 2000 },
   { name: 'matching', critical: true, maxWaiting: 5000 },
-  { name: 'ai-triage', critical: false, maxWaiting: 10000 },
-  { name: 'semantic-matching', critical: false, maxWaiting: 50000 },
   { name: 'notification', critical: true, maxWaiting: 200 },
   { name: 'notification-whatsapp', critical: true, maxWaiting: 200 },
   { name: 'pending-notifications', critical: true, maxWaiting: 10 },
   { name: 'hot-alerts', critical: true, maxWaiting: 10 },
+  { name: 'map-cache', critical: true, maxWaiting: 5 },
+  // AI / matching
+  { name: 'ai-triage', critical: false, maxWaiting: 10000 },
+  { name: 'semantic-matching', critical: false, maxWaiting: 50000 },
+  // Enrichment & intelligence
   { name: 'competition-analysis', critical: false, maxWaiting: 50 },
   { name: 'results-scraping', critical: false, maxWaiting: 500 },
   { name: 'fornecedor-enrichment', critical: false, maxWaiting: 50 },
   { name: 'contact-enrichment', critical: false, maxWaiting: 50 },
   { name: 'document-expiry', critical: false, maxWaiting: 5 },
-  { name: 'map-cache', critical: true, maxWaiting: 5 },
-  { name: 'pipeline-health', critical: false, maxWaiting: 5 },
+  { name: 'proactive-supplier-scraping', critical: false, maxWaiting: 100 },
+  { name: 'ai-competitor-classifier', critical: false, maxWaiting: 50 },
+  // Outcome tracking
+  { name: 'outcome-prompt', critical: false, maxWaiting: 50 },
+  // Scraping variants
   { name: 'comprasgov-scraping', critical: false, maxWaiting: 50 },
   { name: 'comprasgov-arp', critical: false, maxWaiting: 20 },
   { name: 'comprasgov-legado', critical: false, maxWaiting: 20 },
-  { name: 'proactive-supplier-scraping', critical: false, maxWaiting: 20 },
+  // Self
+  { name: 'pipeline-health', critical: false, maxWaiting: 5 },
 ] as const
+
+// Complete mapping: queue name → PM2 process name (for auto-restart)
+const WORKER_MAP: Record<string, string> = {
+  'scraping': 'worker-scraping',
+  'comprasgov-scraping': 'worker-scraping',
+  'comprasgov-arp': 'worker-scraping',
+  'comprasgov-legado': 'worker-scraping',
+  'extraction': 'worker-extraction',
+  'matching': 'worker-matching',
+  'ai-triage': 'worker-matching',
+  'semantic-matching': 'worker-matching',
+  'notification': 'worker-telegram',
+  'notification-whatsapp': 'worker-whatsapp',
+  'pending-notifications': 'worker-alerts',
+  'hot-alerts': 'worker-alerts',
+  'map-cache': 'worker-alerts',
+  'pipeline-health': 'worker-alerts',
+  'outcome-prompt': 'worker-alerts',
+  'competition-analysis': 'worker-enrichment',
+  'results-scraping': 'worker-enrichment',
+  'fornecedor-enrichment': 'worker-enrichment',
+  'contact-enrichment': 'worker-enrichment',
+  'document-expiry': 'worker-enrichment',
+  'proactive-supplier-scraping': 'worker-enrichment',
+  'ai-competitor-classifier': 'worker-enrichment',
+}
+
+// All PM2 processes we expect to be running
+const EXPECTED_PM2_PROCESSES = [
+  'worker-scraping',
+  'worker-extraction',
+  'worker-matching',
+  'worker-alerts',
+  'worker-telegram',
+  'worker-whatsapp',
+  'queue-metrics',
+  'worker-enrichment',
+]
 
 // ─── Recovery Actions ────────────────────────────────────────────────────────
 
@@ -211,26 +257,8 @@ async function checkQueueHealth(): Promise<{ issues: string[]; fixes: string[] }
           await alertAdmin(`Queue "${cfg.name}" has been stuck for 30+ minutes with ${waiting} waiting jobs and 0 active processors.`)
           clearFailure(`queue-stuck-${cfg.name}`)
         } else if (failCount >= 3) {
-          // Level 3: Restart worker
-          const workerMap: Record<string, string> = {
-            'scraping': 'worker-scraping',
-            'extraction': 'worker-extraction',
-            'matching': 'worker-matching',
-            'ai-triage': 'worker-matching',
-            'semantic-matching': 'worker-matching',
-            'notification': 'worker-telegram',
-            'notification-whatsapp': 'worker-whatsapp',
-            'pending-notifications': 'worker-alerts',
-            'hot-alerts': 'worker-alerts',
-            'map-cache': 'worker-alerts',
-            'competition-analysis': 'worker-enrichment',
-            'results-scraping': 'worker-enrichment',
-            'fornecedor-enrichment': 'worker-enrichment',
-            'contact-enrichment': 'worker-enrichment',
-            'document-expiry': 'worker-enrichment',
-            'proactive-supplier-scraping': 'worker-enrichment',
-          }
-          const workerName = workerMap[cfg.name]
+          // Level 3: Restart worker via centralized WORKER_MAP
+          const workerName = WORKER_MAP[cfg.name]
           if (workerName) {
             await restartWorker(workerName)
             fixes.push(`${cfg.name}: restarted ${workerName} (Level 3 escalation)`)
@@ -402,6 +430,160 @@ async function checkSupabaseConnectivity(): Promise<{ ok: boolean; latencyMs?: n
   }
 }
 
+// ─── PM2 Process Health ─────────────────────────────────────────────────────
+
+async function checkPM2Processes(): Promise<{ issues: string[]; fixes: string[] }> {
+  const issues: string[] = []
+  const fixes: string[] = []
+
+  try {
+    const { stdout } = await execAsync('pm2 jlist')
+    const processes = JSON.parse(stdout) as Array<{
+      name: string
+      pm2_env: { status: string; restart_time: number; pm_uptime: number }
+    }>
+
+    for (const expectedName of EXPECTED_PM2_PROCESSES) {
+      const proc = processes.find(p => p.name === expectedName)
+
+      if (!proc) {
+        issues.push(`PM2 process "${expectedName}" not found`)
+        const failCount = trackFailure(`pm2-missing-${expectedName}`)
+        if (failCount >= 2) {
+          await restartWorker(expectedName)
+          fixes.push(`Started missing process ${expectedName}`)
+          clearFailure(`pm2-missing-${expectedName}`)
+        }
+        continue
+      }
+
+      const status = proc.pm2_env.status
+      if (status !== 'online') {
+        issues.push(`PM2 "${expectedName}" status: ${status}`)
+        const failCount = trackFailure(`pm2-down-${expectedName}`)
+        // Immediately restart if stopped/errored
+        if (failCount >= 1) {
+          await restartWorker(expectedName)
+          fixes.push(`Restarted ${expectedName} (was ${status})`)
+          clearFailure(`pm2-down-${expectedName}`)
+        }
+        continue
+      }
+
+      // Check for crash loops: >20 restarts and uptime < 5 minutes
+      const uptime = Date.now() - proc.pm2_env.pm_uptime
+      const restarts = proc.pm2_env.restart_time
+      if (restarts > 20 && uptime < 5 * 60 * 1000) {
+        issues.push(`PM2 "${expectedName}" crash loop: ${restarts} restarts, uptime ${Math.round(uptime / 1000)}s`)
+        const failCount = trackFailure(`pm2-crashloop-${expectedName}`)
+        if (failCount >= 3) {
+          await alertAdmin(`Worker "${expectedName}" is in a crash loop: ${restarts} restarts in ${Math.round(uptime / 60000)}min. Manual intervention required.`)
+          clearFailure(`pm2-crashloop-${expectedName}`)
+        }
+      } else {
+        clearFailure(`pm2-down-${expectedName}`)
+        clearFailure(`pm2-missing-${expectedName}`)
+        clearFailure(`pm2-crashloop-${expectedName}`)
+      }
+    }
+  } catch (err) {
+    logger.warn({ err }, 'Could not check PM2 processes (may not be running under PM2)')
+  }
+
+  return { issues, fixes }
+}
+
+// ─── Enrichment Pipeline Health ─────────────────────────────────────────────
+
+async function checkEnrichmentPipeline(): Promise<{ issues: string[]; fixes: string[] }> {
+  const issues: string[] = []
+  const fixes: string[] = []
+
+  try {
+    // Check if competitor_stats is being refreshed (should be < 6h old)
+    const { data: latestStat } = await supabase
+      .from('competitor_stats')
+      .select('updated_at')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+
+    if (latestStat?.[0]?.updated_at) {
+      const age = Date.now() - new Date(latestStat[0].updated_at).getTime()
+      const ageHours = age / (60 * 60 * 1000)
+
+      if (ageHours > 6) {
+        const failCount = trackFailure('competitor-stats-stale')
+        issues.push(`competitor_stats stale (${ageHours.toFixed(1)}h old)`)
+
+        if (failCount >= 2) {
+          // Trigger competition-analysis manually
+          const competitionQueue = new Queue('competition-analysis', { connection })
+          await competitionQueue.add('health-trigger', {}, { jobId: `health-comp-${Date.now()}` })
+          fixes.push('Triggered competition-analysis refresh')
+          clearFailure('competitor-stats-stale')
+        }
+      } else {
+        clearFailure('competitor-stats-stale')
+      }
+    }
+
+    // Check if AI classifier is working (unclassified competitors)
+    const { count: unclassified } = await supabase
+      .from('competitor_stats')
+      .select('*', { count: 'exact', head: true })
+      .is('segmento_ia', null)
+
+    const { count: totalStats } = await supabase
+      .from('competitor_stats')
+      .select('*', { count: 'exact', head: true })
+
+    if (totalStats && unclassified && totalStats > 10) {
+      const classifiedPct = Math.round(((totalStats - unclassified) / totalStats) * 100)
+      if (classifiedPct < 30 && totalStats > 50) {
+        const failCount = trackFailure('ai-classifier-slow')
+        issues.push(`AI classifier: only ${classifiedPct}% classified (${unclassified} pending)`)
+
+        if (failCount >= 3) {
+          // Trigger AI classifier manually
+          const classifierQueue = new Queue('ai-competitor-classifier', { connection })
+          await classifierQueue.add('health-trigger', {}, { jobId: `health-ai-${Date.now()}` })
+          fixes.push('Triggered AI competitor classifier')
+          clearFailure('ai-classifier-slow')
+        }
+      } else {
+        clearFailure('ai-classifier-slow')
+      }
+    }
+
+    // Check proactive supplier scraping is producing results
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    const { count: recentCompetitors } = await supabase
+      .from('competitors')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', oneDayAgo)
+
+    if (!recentCompetitors || recentCompetitors === 0) {
+      const hour = new Date().getUTCHours()
+      if (hour >= 12) {
+        const failCount = trackFailure('no-competitors-today')
+        issues.push('No new competitors scraped in 24h')
+
+        if (failCount >= 2) {
+          await restartWorker('worker-enrichment')
+          fixes.push('Restarted worker-enrichment (no competitors in 24h)')
+          clearFailure('no-competitors-today')
+        }
+      }
+    } else {
+      clearFailure('no-competitors-today')
+    }
+  } catch (err) {
+    logger.warn({ err }, 'Error checking enrichment pipeline health')
+  }
+
+  return { issues, fixes }
+}
+
 // ─── Main Health Check ───────────────────────────────────────────────────────
 
 export const pipelineHealthWorker = new Worker(
@@ -445,10 +627,30 @@ export const pipelineHealthWorker = new Worker(
     allIssues.push(...flowResult.issues)
     allFixes.push(...flowResult.fixes)
 
-    // 5. Get summary stats
-    const { count: totalTenders } = await supabase.from('tenders').select('*', { count: 'exact', head: true })
-    const { count: totalMatches } = await supabase.from('matches').select('*', { count: 'exact', head: true })
-    const { count: mapCacheCount } = await supabase.from('map_cache').select('*', { count: 'exact', head: true })
+    // 5. PM2 process status (are all workers running?)
+    const pm2Result = await checkPM2Processes()
+    allIssues.push(...pm2Result.issues)
+    allFixes.push(...pm2Result.fixes)
+
+    // 6. Enrichment pipeline (competitor_stats, AI classifier, supplier scraping)
+    const enrichResult = await checkEnrichmentPipeline()
+    allIssues.push(...enrichResult.issues)
+    allFixes.push(...enrichResult.fixes)
+
+    // 7. Get summary stats
+    const [
+      { count: totalTenders },
+      { count: totalMatches },
+      { count: mapCacheCount },
+      { count: totalCompetitors },
+      { count: totalCompetitorStats },
+    ] = await Promise.all([
+      supabase.from('tenders').select('*', { count: 'exact', head: true }),
+      supabase.from('matches').select('*', { count: 'exact', head: true }),
+      supabase.from('map_cache').select('*', { count: 'exact', head: true }),
+      supabase.from('competitors').select('*', { count: 'exact', head: true }),
+      supabase.from('competitor_stats').select('*', { count: 'exact', head: true }),
+    ])
 
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
     const status = allIssues.length === 0 ? 'HEALTHY' : `${allIssues.length} ISSUES`
@@ -463,6 +665,8 @@ export const pipelineHealthWorker = new Worker(
         tenders: totalTenders,
         matches: totalMatches,
         mapCache: mapCacheCount,
+        competitors: totalCompetitors,
+        competitorStats: totalCompetitorStats,
       },
       issues: allIssues.length > 0 ? allIssues : ['none'],
       fixes: allFixes.length > 0 ? allFixes : ['none needed'],
