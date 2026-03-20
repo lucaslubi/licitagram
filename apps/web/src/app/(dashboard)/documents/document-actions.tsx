@@ -137,6 +137,7 @@ export function DocumentRow({
   documentTypes,
   daysLeft,
   statusBadge,
+  originBadge,
 }: {
   doc: {
     id: string
@@ -145,17 +146,19 @@ export function DocumentRow({
     numero: string | null
     validade: string | null
     computedStatus: string
+    arquivo_url?: string | null
   }
   documentTypes: Record<string, string>
   daysLeft: number | null
   statusBadge: React.ReactNode
+  originBadge?: React.ReactNode
 }) {
   const [editing, setEditing] = useState(false)
 
   if (editing) {
     return (
       <tr>
-        <td colSpan={6} className="p-2">
+        <td colSpan={7} className="p-2">
           <EditDocumentForm
             doc={doc}
             documentTypes={documentTypes}
@@ -166,13 +169,16 @@ export function DocumentRow({
     )
   }
 
+  // Clean description (remove [Auto] prefix for display)
+  const displayDesc = doc.descricao?.replace(/^\[Auto\]\s*/, '') || '-'
+
   return (
     <tr className="border-b transition-colors hover:bg-muted/50">
       <td className="p-4 text-sm font-medium">
         {documentTypes[doc.tipo] || doc.tipo}
       </td>
       <td className="p-4 text-sm text-gray-600 hidden sm:table-cell">
-        {doc.descricao || '-'}
+        <span className="line-clamp-2">{displayDesc}</span>
       </td>
       <td className="p-4 text-sm font-mono hidden md:table-cell">
         {doc.numero || '-'}
@@ -190,8 +196,19 @@ export function DocumentRow({
         )}
       </td>
       <td className="p-4">{statusBadge}</td>
+      <td className="p-4">{originBadge}</td>
       <td className="p-4">
         <div className="flex gap-2">
+          {doc.arquivo_url && (
+            <a
+              href={doc.arquivo_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-brand hover:text-brand/70 text-xs"
+            >
+              PDF
+            </a>
+          )}
           <button
             onClick={() => setEditing(true)}
             className="text-blue-500 hover:text-blue-700 text-xs"

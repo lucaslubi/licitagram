@@ -33,9 +33,9 @@ const CATEGORY_TO_DOC_TYPE: Record<string, string[]> = {
   habilitacao_juridica: ['contrato_social'],
   qualificacao_tecnica: ['atestado_capacidade', 'crea_cau'],
   qualificacao_economica: ['balanco'],
-  regularidade_fiscal: ['cnd_federal', 'cnd_estadual', 'cnd_municipal', 'fgts', 'trabalhista'],
+  regularidade_fiscal: ['cnd_federal', 'cnd_estadual', 'cnd_municipal', 'fgts', 'trabalhista', 'tcu'],
   regularidade_trabalhista: ['trabalhista'],
-  documentacao: ['sicaf', 'cnd_federal', 'cnd_estadual', 'cnd_municipal', 'fgts', 'trabalhista'],
+  documentacao: ['sicaf', 'cnd_federal', 'cnd_estadual', 'cnd_municipal', 'fgts', 'trabalhista', 'tcu'],
 }
 
 // Keyword-based matching for requirement descriptions
@@ -60,6 +60,10 @@ const KEYWORD_TO_DOC_TYPE: Record<string, string[]> = {
   'alvara': ['alvara'],
   'crea': ['crea_cau'],
   'cau': ['crea_cau'],
+  'tcu': ['tcu'],
+  'inidon': ['tcu'],
+  'impedid': ['tcu'],
+  'inabilitad': ['tcu'],
 }
 
 export function ComplianceChecker({
