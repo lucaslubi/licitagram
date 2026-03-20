@@ -42,11 +42,14 @@ export async function POST(req: NextRequest) {
     // Optional: check which certidões to fetch (default: all)
     const body = await req.json().catch(() => ({}))
     const tipos: string[] | undefined = body.tipos
+    const autoSolve: boolean = body.autoSolve !== false // default: true
 
     // Fetch certidões directly from government sources
+    // With autoSolve=true, will attempt to solve captchas via OCR/2Captcha
     const result = await consultarCertidoes(company.cnpj, {
       uf: company.uf || undefined,
       municipio: company.municipio || undefined,
+      autoSolve,
     })
 
     result.razao_social = company.razao_social

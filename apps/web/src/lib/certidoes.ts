@@ -6,12 +6,15 @@
  * AUTO (no captcha):
  * - TCU/CEIS/CNEP — Portal da Transparência JSON endpoint (sanctions check)
  *
- * GUIDED (has captcha — provides direct link with CNPJ):
- * - CNDT (TST) — reCAPTCHA
- * - CND Federal (Receita/PGFN) — hCaptcha
- * - CRF FGTS (Caixa) — captcha
+ * AUTO (captcha-solving via OCR/2Captcha):
+ * - CNDT (TST) — Custom image captcha → Tesseract.js OCR / 2Captcha
+ * - CND Federal (Receita/PGFN) — hCaptcha → 2Captcha
+ * - CRF FGTS (Caixa) — captcha → OCR / 2Captcha
  *
- * Zero cost, no third-party APIs.
+ * FALLBACK (manual links when auto fails):
+ * - Returns direct government URLs for manual consultation
+ *
+ * env: TWO_CAPTCHA_API_KEY (optional — enables hCaptcha solving)
  */
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -257,26 +260,59 @@ export function buildCNDEstadualManual(cnpj: string, uf?: string): CertidaoResul
 
 /**
  * Fetch certidões for a company.
- * - TCU/CEIS/CNEP: Automatic (no captcha)
- * - Others: Returns direct links for manual consultation
+ *
+ * Strategy:
+ * 1. TCU/CEIS/CNEP: Always automatic (no captcha)
+ * 2. CNDT, CND Federal, FGTS: Try auto (captcha-solving) first, fallback to manual
+ * 3. CND Estadual: Always manual (too many state variations)
+ *
+ * @param autoSolve - Whether to attempt captcha-solving (default: true)
  */
 export async function consultarCertidoes(
   cnpj: string,
-  options?: { uf?: string; municipio?: string },
+  options?: { uf?: string; municipio?: string; autoSolve?: boolean },
 ): Promise<ConsultaResult> {
   const cleanedCnpj = cleanCnpj(cnpj)
   const errors: string[] = []
+  const shouldAutoSolve = options?.autoSolve !== false
 
-  // Automatic: TCU/CEIS/CNEP check
+  // 1. Automatic: TCU/CEIS/CNEP check (always works)
   const tcu = await fetchTCU(cleanedCnpj)
   if (tcu.situacao === 'error') {
     errors.push(`${tcu.label}: ${tcu.detalhes}`)
   }
 
-  // Manual (captcha-protected): build guided links
-  const cndt = buildCNDTManual(cleanedCnpj)
-  const cndFederal = buildCNDFederalManual(cleanedCnpj)
-  const fgts = buildFGTSManual(cleanedCnpj)
+  // 2. Captcha-protected certidões: try auto, fallback to manual
+  let cndt: CertidaoResult
+  let cndFederal: CertidaoResult
+  let fgts: CertidaoResult
+
+  if (shouldAutoSolve) {
+    try {
+      const { consultarCertidoesAuto } = await import('./certidoes-auto')
+      const autoResult = await consultarCertidoesAuto(cleanedCnpj, options)
+
+      // Map auto results by tipo
+      const autoMap = new Map(autoResult.certidoes.map((c) => [c.tipo, c]))
+
+      cndt = autoMap.get('trabalhista') || buildCNDTManual(cleanedCnpj)
+      cndFederal = autoMap.get('cnd_federal') || buildCNDFederalManual(cleanedCnpj)
+      fgts = autoMap.get('fgts') || buildFGTSManual(cleanedCnpj)
+
+      errors.push(...autoResult.errors)
+    } catch (err) {
+      console.error('[certidoes] Auto-solve module error, falling back to manual:', err)
+      cndt = buildCNDTManual(cleanedCnpj)
+      cndFederal = buildCNDFederalManual(cleanedCnpj)
+      fgts = buildFGTSManual(cleanedCnpj)
+    }
+  } else {
+    cndt = buildCNDTManual(cleanedCnpj)
+    cndFederal = buildCNDFederalManual(cleanedCnpj)
+    fgts = buildFGTSManual(cleanedCnpj)
+  }
+
+  // 3. CND Estadual: always manual (too many state-specific forms)
   const cndEstadual = buildCNDEstadualManual(cleanedCnpj, options?.uf)
 
   const certidoes = [tcu, cndFederal, fgts, cndt, cndEstadual]
