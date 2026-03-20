@@ -85,17 +85,33 @@ export async function updateClientSubscription(
   const fullUpdates: Record<string, unknown> = { ...updates }
   let planSlug: string | null = null
   if (updates.plan_id) {
-    const { data: plan } = await supabase.from('plans').select('slug').eq('id', updates.plan_id).single()
+    const { data: plan } = await supabase
+      .from('plans')
+      .select('slug, features, max_matches_per_month')
+      .eq('id', updates.plan_id)
+      .single()
     if (plan) {
       fullUpdates.plan = plan.slug
       planSlug = plan.slug
     }
+
+    // When admin changes plan, auto-activate the subscription
+    // so the user immediately gets access to all features.
+    // Admin can still manually set status afterward if needed.
+    if (!updates.status) {
+      const currentStatus = before?.status
+      if (!currentStatus || !['active', 'trialing'].includes(currentStatus)) {
+        fullUpdates.status = 'active'
+      }
+    }
   }
 
   let error: { message: string } | null = null
+  const now = new Date().toISOString()
 
   if (before) {
     // UPDATE existing subscription
+    fullUpdates.updated_at = now
     const result = await supabase
       .from('subscriptions')
       .update(fullUpdates)
@@ -103,6 +119,9 @@ export async function updateClientSubscription(
     error = result.error
   } else {
     // INSERT new subscription (company had none — e.g. pre-trial clients)
+    const periodEnd = new Date()
+    periodEnd.setMonth(periodEnd.getMonth() + 1)
+
     const result = await supabase
       .from('subscriptions')
       .insert({
@@ -110,8 +129,11 @@ export async function updateClientSubscription(
         plan: planSlug || 'trial',
         plan_id: updates.plan_id || null,
         status: updates.status || 'active',
-        started_at: new Date().toISOString(),
+        started_at: now,
+        current_period_start: now,
+        current_period_end: periodEnd.toISOString(),
         matches_used_this_month: 0,
+        matches_reset_at: now,
       })
     error = result.error
   }
