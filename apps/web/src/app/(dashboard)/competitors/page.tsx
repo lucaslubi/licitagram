@@ -477,9 +477,9 @@ export default async function CompetitorsPage({
 
   if (profile?.company_id && tab === 'ranking') {
     // Helper: race a promise against a timeout (prevents page from hanging)
-    const withTimeout = <T,>(promise: Promise<T>, ms: number): Promise<T | null> =>
+    const withTimeout = <T,>(promise: PromiseLike<T>, ms: number): Promise<T | null> =>
       Promise.race([
-        promise.then(r => r),
+        Promise.resolve(promise),
         new Promise<null>(resolve => setTimeout(() => resolve(null), ms)),
       ])
 
@@ -491,13 +491,13 @@ export default async function CompetitorsPage({
             p_company_id: profile.company_id,
             p_min_score: 0,
             p_limit: 50,
-          }).then(r => r),
+          }),
           5000,
         ),
         withTimeout(
           supabase.rpc('get_competitor_summary', {
             p_company_id: profile.company_id,
-          }).then(r => r),
+          }),
           5000,
         ),
       ])
