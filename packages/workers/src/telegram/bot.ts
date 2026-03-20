@@ -523,6 +523,67 @@ if (bot) {
     // Future: implement pagination
   })
 
+  // Handle outcome reporting callbacks
+  bot.callbackQuery(/^outcome_(won|lost|skip)_(.+)$/, async (ctx) => {
+    const outcome = ctx.match[1] as 'won' | 'lost' | 'skip'
+    const matchId = ctx.match[2]
+
+    const outcomeMap: Record<string, string> = { won: 'won', lost: 'lost', skip: 'did_not_participate' }
+    const outcomeValue = outcomeMap[outcome]
+
+    const chatId = ctx.chat?.id?.toString()
+    const { data: user } = await supabase
+      .from('users')
+      .select('id, company_id')
+      .eq('telegram_chat_id', chatId)
+      .single()
+
+    if (!user) {
+      await ctx.answerCallbackQuery({ text: 'Usuário não encontrado' })
+      return
+    }
+
+    const { data: match } = await supabase
+      .from('matches')
+      .select('id, tender_id')
+      .eq('id', matchId)
+      .single()
+
+    if (!match) {
+      await ctx.answerCallbackQuery({ text: 'Licitação não encontrada' })
+      return
+    }
+
+    // Insert bid_outcome (upsert to handle duplicates)
+    await supabase
+      .from('bid_outcomes')
+      .upsert({
+        match_id: matchId,
+        company_id: user.company_id,
+        tender_id: match.tender_id,
+        outcome: outcomeValue,
+        reported_via: 'telegram',
+        reported_at: new Date().toISOString(),
+      }, { onConflict: 'match_id' })
+
+    // Update match status
+    await supabase
+      .from('matches')
+      .update({ status: outcomeValue === 'did_not_participate' ? 'dismissed' : outcomeValue })
+      .eq('id', matchId)
+
+    const responses: Record<string, string> = {
+      won: '🎉 Parabéns pela vitória! Resultado registrado.',
+      lost: '😔 Resultado registrado. Continue firme!',
+      skip: '👍 Registrado como não participou.',
+    }
+
+    await ctx.answerCallbackQuery({ text: responses[outcome] })
+    await ctx.editMessageReplyMarkup({ reply_markup: undefined })
+
+    logger.info({ matchId, outcome: outcomeValue, userId: user.id }, 'Outcome reported via Telegram')
+  })
+
   // Handle match action callbacks
   bot.callbackQuery(/^match_(interested|dismiss)_(.+)$/, async (ctx) => {
     const action = ctx.match[1]

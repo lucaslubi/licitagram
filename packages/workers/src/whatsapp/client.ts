@@ -153,3 +153,32 @@ export async function sendMatchAlert(
     throw err
   }
 }
+
+/** Envia prompt de resultado da licitação */
+export async function sendOutcomePrompt(
+  number: string,
+  tender: { objeto: string; orgao_nome: string },
+  matchId: string,
+  daysSinceClose: number,
+): Promise<void> {
+  const objeto = tender.objeto?.substring(0, 100) || 'Sem descrição'
+  const text = [
+    '📊 *Resultado da Licitação*',
+    '',
+    `A licitação encerrou há ${daysSinceClose} dia(s):`,
+    `📋 ${objeto}`,
+    `🏛️ ${tender.orgao_nome}`,
+    '',
+    'Como foi o resultado?',
+    '',
+    '1️⃣ Ganhamos! 🎉',
+    '2️⃣ Perdemos 😔',
+    '3️⃣ Não participamos',
+    '',
+    `_Responda com o número (1, 2 ou 3)_`,
+    `_[ref:${matchId}]_`,
+  ].join('\n')
+
+  await sendWhatsAppText(number, text)
+  logger.info({ matchId, number: number.slice(-4) }, 'WhatsApp outcome prompt sent')
+}

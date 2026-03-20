@@ -21,6 +21,7 @@ export type NotificationJobData =
   | { telegramChatId: number; type: 'urgency_48h'; matches: UrgencyMatchItem[]; totalValor: number }
   | { telegramChatId: number; type: 'urgency_24h'; matches: UrgencyMatchItem[]; totalValor: number }
   | { telegramChatId: number; type: 'new_matches'; matches: UrgencyMatchItem[]; totalValor: number }
+  | { matchId: string; telegramChatId: number; type: 'outcome_prompt'; tenderObjeto: string; tenderOrgao: string; daysSinceClose: number }
 
 export const notificationQueue = new Queue<NotificationJobData, unknown, string>('notification', {
   connection,

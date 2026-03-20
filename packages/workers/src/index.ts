@@ -18,7 +18,7 @@ import type { Worker } from 'bullmq'
 const queuesArg = process.argv.find(a => a.startsWith('--queues='))?.split('=')[1]
   || (process.argv.indexOf('--queues') >= 0 ? process.argv[process.argv.indexOf('--queues') + 1] : null)
 
-const ALL_GROUPS = ['scraping', 'extraction', 'matching', 'alerts', 'telegram', 'whatsapp', 'notification', 'analysis']
+const ALL_GROUPS = ['scraping', 'extraction', 'matching', 'alerts', 'telegram', 'whatsapp', 'enrichment', 'notification', 'analysis']
 const selectedGroups = queuesArg ? queuesArg.split(',').map(g => g.trim()) : ALL_GROUPS
 const isFullMode = !queuesArg
 
@@ -53,7 +53,8 @@ async function loadWorkers(): Promise<Worker[]> {
     const { pendingNotificationsWorker } = await import('./processors/pending-notifications.processor')
     const { hotAlertsWorker } = await import('./processors/hot-alerts.processor')
     const { whatsappNotificationWorker } = await import('./processors/whatsapp-notification.processor')
-    workers.push(notificationWorker, pendingNotificationsWorker, hotAlertsWorker, whatsappNotificationWorker)
+    const { outcomeCheckWorker } = await import('./processors/outcome-check.processor')
+    workers.push(notificationWorker, pendingNotificationsWorker, hotAlertsWorker, whatsappNotificationWorker, outcomeCheckWorker)
   }
 
   // Split notification groups for parallel mode
@@ -62,7 +63,8 @@ async function loadWorkers(): Promise<Worker[]> {
     const { hotAlertsWorker } = await import('./processors/hot-alerts.processor')
     const { mapCacheWorker } = await import('./processors/map-cache.processor')
     const { pipelineHealthWorker } = await import('./processors/pipeline-health.processor')
-    workers.push(pendingNotificationsWorker, hotAlertsWorker, mapCacheWorker, pipelineHealthWorker)
+    const { outcomeCheckWorker } = await import('./processors/outcome-check.processor')
+    workers.push(pendingNotificationsWorker, hotAlertsWorker, mapCacheWorker, pipelineHealthWorker, outcomeCheckWorker)
   }
 
   if (selectedGroups.includes('telegram')) {
@@ -73,6 +75,16 @@ async function loadWorkers(): Promise<Worker[]> {
   if (selectedGroups.includes('whatsapp')) {
     const { whatsappNotificationWorker } = await import('./processors/whatsapp-notification.processor')
     workers.push(whatsappNotificationWorker)
+  }
+
+  // Dedicated enrichment group: results scraping + competitor analysis + contact/CNAE enrichment
+  if (selectedGroups.includes('enrichment')) {
+    const { resultsScrapingWorker } = await import('./processors/results-scraping.processor')
+    const { competitionAnalysisWorker } = await import('./processors/competition-analysis.processor')
+    const { contactEnrichmentWorker } = await import('./processors/contact-enrichment.processor')
+    const { fornecedorEnrichmentWorker } = await import('./processors/fornecedor-enrichment.processor')
+    const { documentExpiryWorker } = await import('./processors/document-expiry.processor')
+    workers.push(resultsScrapingWorker, competitionAnalysisWorker, contactEnrichmentWorker, fornecedorEnrichmentWorker, documentExpiryWorker)
   }
 
   if (isFullMode || selectedGroups.includes('analysis')) {
@@ -101,6 +113,7 @@ import { hotAlertsQueue } from './queues/hot-alerts.queue'
 import { competitionAnalysisQueue } from './queues/competition-analysis.queue'
 import { mapCacheQueue } from './queues/map-cache.queue'
 import { pipelineHealthQueue } from './queues/pipeline-health.queue'
+import { outcomePromptQueue } from './queues/outcome-prompt.queue'
 
 async function setupRepeatableJobs() {
   const today = formatDatePNCP(new Date())
@@ -288,6 +301,17 @@ async function setupRepeatableJobs() {
     },
   )
   logger.info('Pipeline health watchdog scheduled (every 5m)')
+
+  // Schedule outcome prompt check every 6 hours (won/lost outcome capture)
+  await outcomePromptQueue.add(
+    'outcome-check',
+    {},
+    {
+      repeat: { every: 6 * 60 * 60 * 1000 },
+      jobId: 'outcome-check-6h-repeat',
+    },
+  )
+  logger.info('Outcome prompt check scheduled (every 6h)')
 
   // Trigger immediate map cache refresh on startup
   mapCacheQueue.add('refresh-map-startup', {}).catch((err) => {
@@ -602,7 +626,7 @@ async function main() {
             .eq('company_id', company.id)
             .eq('match_source', 'keyword')
             .gte('score', 30)
-            .limit(200)
+            .limit(500)
 
           if (!untriaged || untriaged.length === 0) continue
 
@@ -628,9 +652,9 @@ async function main() {
 
     // Run once on startup (after 2 min delay to let other init finish)
     setTimeout(runAiTriageSweep, 2 * 60 * 1000)
-    // Then every 2 hours
-    setInterval(runAiTriageSweep, 2 * 60 * 60 * 1000)
-    logger.info('AI triage sweep scheduled (every 2h — upgrades keyword matches)')
+    // Then every 1 hour (accelerated to drain 10K+ keyword backlog)
+    setInterval(runAiTriageSweep, 60 * 60 * 1000)
+    logger.info('AI triage sweep scheduled (every 1h — upgrades keyword matches)')
   }
 
   if (isFullMode || selectedGroups.includes('scraping')) {
@@ -638,6 +662,40 @@ async function main() {
     backfillComprasgovDocuments().catch(err => {
       logger.error({ err }, 'Comprasgov document backfill failed')
     })
+  }
+
+  // ─── Enrichment group: autonomous competitive intelligence pipeline ──────
+  if (selectedGroups.includes('enrichment')) {
+    // Schedule enrichment jobs (these are owned by this worker, not scraping)
+    await resultsScrapingQueue.add(
+      'results-scrape', { batch: 0 },
+      { repeat: { every: 6 * 60 * 60 * 1000 }, jobId: 'results-scrape-6h-repeat' },
+    )
+    await fornecedorEnrichmentQueue.add(
+      'fornecedor-enrich', { batch: 0 },
+      { repeat: { every: 8 * 60 * 60 * 1000 }, jobId: 'fornecedor-enrichment-8h-repeat' },
+    )
+    await competitionAnalysisQueue.add(
+      'materialize-stats', { mode: 'incremental' },
+      { repeat: { every: 3 * 60 * 60 * 1000 }, jobId: 'competition-analysis-3h-enrichment' },
+    )
+    await documentExpiryQueue.add(
+      'document-expiry-check', { checkAll: true },
+      { repeat: { every: 7 * 24 * 60 * 60 * 1000 }, jobId: 'document-expiry-weekly-enrichment' },
+    )
+    logger.info('Enrichment repeatable jobs scheduled (results 6h, fornecedor 8h, stats 3h, docs weekly)')
+
+    // Trigger immediate full materialization + enrichment on startup
+    competitionAnalysisQueue.add('materialize-full-startup', { mode: 'full' }).catch(err => {
+      logger.error({ err }, 'Failed to enqueue startup full materialization')
+    })
+    fornecedorEnrichmentQueue.add('fornecedor-startup', { batch: 0 }).catch(err => {
+      logger.error({ err }, 'Failed to enqueue startup fornecedor enrichment')
+    })
+    resultsScrapingQueue.add('results-startup', { batch: 0 }).catch(err => {
+      logger.error({ err }, 'Failed to enqueue startup results scraping')
+    })
+    logger.info('Enrichment startup jobs enqueued (full materialization + fornecedor + results)')
   }
 
   // Semantic matching: embed tenders + profile companies + run sweep (non-blocking)

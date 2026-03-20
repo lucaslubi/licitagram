@@ -46,6 +46,8 @@ const QUEUE_CONFIG = [
   { name: 'competition-analysis', critical: false, maxWaiting: 50 },
   { name: 'results-scraping', critical: false, maxWaiting: 500 },
   { name: 'fornecedor-enrichment', critical: false, maxWaiting: 50 },
+  { name: 'contact-enrichment', critical: false, maxWaiting: 50 },
+  { name: 'document-expiry', critical: false, maxWaiting: 5 },
   { name: 'map-cache', critical: true, maxWaiting: 5 },
   { name: 'pipeline-health', critical: false, maxWaiting: 5 },
   { name: 'comprasgov-scraping', critical: false, maxWaiting: 50 },
@@ -213,11 +215,18 @@ async function checkQueueHealth(): Promise<{ issues: string[]; fixes: string[] }
             'scraping': 'worker-scraping',
             'extraction': 'worker-extraction',
             'matching': 'worker-matching',
+            'ai-triage': 'worker-matching',
+            'semantic-matching': 'worker-matching',
             'notification': 'worker-telegram',
             'notification-whatsapp': 'worker-whatsapp',
             'pending-notifications': 'worker-alerts',
             'hot-alerts': 'worker-alerts',
             'map-cache': 'worker-alerts',
+            'competition-analysis': 'worker-enrichment',
+            'results-scraping': 'worker-enrichment',
+            'fornecedor-enrichment': 'worker-enrichment',
+            'contact-enrichment': 'worker-enrichment',
+            'document-expiry': 'worker-enrichment',
           }
           const workerName = workerMap[cfg.name]
           if (workerName) {

@@ -8,7 +8,7 @@
 import { Worker } from 'bullmq'
 import { connection } from '../queues/connection'
 import type { WhatsAppNotificationJobData } from '../queues/notification-whatsapp.queue'
-import { sendMatchAlert, isConnected } from '../whatsapp/client'
+import { sendMatchAlert, sendOutcomePrompt, isConnected } from '../whatsapp/client'
 import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
 
@@ -21,6 +21,24 @@ const whatsappNotificationWorker = new Worker<WhatsAppNotificationJobData>(
     const connected = await isConnected()
     if (!connected) {
       logger.warn({ matchId }, 'WhatsApp Evolution API not connected, skipping')
+      return
+    }
+
+    // ─── Outcome Prompt ──────────────────────────────────────────────
+    if ('type' in job.data && job.data.type === 'outcome_prompt') {
+      const { tenderObjeto, tenderOrgao, daysSinceClose } = job.data
+
+      try {
+        await sendOutcomePrompt(
+          whatsappNumber,
+          { objeto: tenderObjeto, orgao_nome: tenderOrgao },
+          matchId,
+          daysSinceClose,
+        )
+      } catch (err) {
+        logger.error({ matchId, err }, 'WhatsApp outcome prompt failed')
+        throw err
+      }
       return
     }
 
@@ -58,6 +76,16 @@ const whatsappNotificationWorker = new Worker<WhatsAppNotificationJobData>(
         },
         matchId,
       )
+      // Mark match as notified (prevents re-sending on next pending check)
+      await supabase
+        .from('matches')
+        .update({
+          notified_at: new Date().toISOString(),
+          status: 'notified',
+        })
+        .eq('id', matchId)
+        .is('notified_at', null) // Only if not already notified by Telegram
+
       logger.info({ matchId, whatsappNumber: whatsappNumber.slice(-4) }, 'WhatsApp notification sent')
     } catch (err) {
       logger.error({ matchId, err }, 'WhatsApp notification failed')

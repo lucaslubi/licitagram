@@ -1,10 +1,9 @@
 import { Queue } from 'bullmq'
 import { connection } from './connection'
 
-export interface WhatsAppNotificationJobData {
-  matchId: string
-  whatsappNumber: string
-}
+export type WhatsAppNotificationJobData =
+  | { matchId: string; whatsappNumber: string }
+  | { matchId: string; whatsappNumber: string; type: 'outcome_prompt'; tenderObjeto: string; tenderOrgao: string; daysSinceClose: number }
 
 export const whatsappQueue = new Queue<WhatsAppNotificationJobData, unknown, string>('notification-whatsapp', {
   connection,

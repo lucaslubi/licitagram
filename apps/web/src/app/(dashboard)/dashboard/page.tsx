@@ -59,6 +59,8 @@ export default async function DashboardPage() {
     interestedResult,
     matchesForStats,
     documentsResult,
+    winStatsOverall,
+    winStatsRecent,
   ] = await Promise.all([
     // Total matches (AI-verified only, open tenders only)
     // IMPORTANT: use head:true to get accurate count without row limit (max_rows=1000)
@@ -157,6 +159,21 @@ export default async function DashboardPage() {
       .from('company_documents')
       .select('id, validade')
       .eq('company_id', companyId),
+
+    // Win stats overall
+    supabase
+      .from('bid_outcomes')
+      .select('outcome', { count: 'exact' })
+      .eq('company_id', companyId)
+      .in('outcome', ['won', 'lost']),
+
+    // Win stats last 30 days
+    supabase
+      .from('bid_outcomes')
+      .select('outcome')
+      .eq('company_id', companyId)
+      .in('outcome', ['won', 'lost'])
+      .gte('reported_at', thirtyDaysAgo.toISOString()),
   ])
 
   const totalMatches = totalMatchesResult.count ?? 0
@@ -211,6 +228,19 @@ export default async function DashboardPage() {
     return new Date(d.validade) < now
   }).length
 
+  // Win rate calculations
+  const winStatsAll = (winStatsOverall.data || []) as Array<{ outcome: string }>
+  const totalWon = winStatsAll.filter((o) => o.outcome === 'won').length
+  const totalLost = winStatsAll.filter((o) => o.outcome === 'lost').length
+  const totalOutcomes = totalWon + totalLost
+  const overallWinRate = totalOutcomes > 0 ? Math.round((totalWon / totalOutcomes) * 100) : 0
+
+  const recentOutcomes = (winStatsRecent.data || []) as Array<{ outcome: string }>
+  const recentWon = recentOutcomes.filter((o) => o.outcome === 'won').length
+  const recentTotal = recentOutcomes.length
+  const recentWinRate = recentTotal > 0 ? Math.round((recentWon / recentTotal) * 100) : 0
+  const winRateDiff = recentWinRate - overallWinRate
+
   const conversionRate = totalMatches > 0 ? Math.round((interestedCount / totalMatches) * 100) : 0
 
   return (
@@ -237,6 +267,26 @@ export default async function DashboardPage() {
         <KPICard label="Valor em Análise" value={totalValueInAnalysis > 0 ? formatCurrency(totalValueInAnalysis) : 'R$ 0'} small />
         <KPICard label="Total de Matches" value={totalMatches.toLocaleString('pt-BR')} />
       </div>
+
+      {/* Win Rate Card */}
+      {totalOutcomes > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <Card className="md:col-span-1">
+            <CardContent className="pt-4 pb-3">
+              <p className="text-xs font-medium text-gray-400 mb-1">Taxa de Vitória</p>
+              <div className="flex items-baseline gap-2">
+                <p className="text-3xl font-bold text-gray-900">{overallWinRate}%</p>
+                {recentTotal >= 3 && Math.abs(winRateDiff) > 10 && (
+                  <span className={`text-sm font-medium ${winRateDiff > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                    {winRateDiff > 0 ? '\u2191' : '\u2193'} {Math.abs(winRateDiff)}% (30d)
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-gray-400 mt-1">{totalWon} ganhas / {totalLost} perdidas</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <Card>

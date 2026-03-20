@@ -92,6 +92,43 @@ const notificationWorker = new Worker<NotificationJobData>(
       return
     }
 
+    // ─── Outcome Prompt ────────────────────────────────────────────────
+    if ('type' in job.data && job.data.type === 'outcome_prompt') {
+      const { matchId, telegramChatId, tenderObjeto, tenderOrgao, daysSinceClose } = job.data
+
+      if (!bot) {
+        logger.warn({ matchId }, 'Outcome prompt: bot not initialized, skipping')
+        return
+      }
+
+      const objeto = (tenderObjeto || 'Sem descrição').substring(0, 100).replace(/[<>&]/g, '')
+      const orgao = (tenderOrgao || '').replace(/[<>&]/g, '')
+      const promptText = [
+        '📊 <b>Resultado da Licitação</b>',
+        '',
+        `A licitação encerrou há ${daysSinceClose} dia(s):`,
+        `📋 ${objeto}`,
+        `🏛️ ${orgao}`,
+        '',
+        'Como foi o resultado?',
+      ].join('\n')
+
+      const { InlineKeyboard } = await import('grammy')
+      const keyboard = new InlineKeyboard()
+        .text('🎉 Ganhamos!', `outcome_won_${matchId}`)
+        .text('😔 Perdemos', `outcome_lost_${matchId}`)
+        .row()
+        .text('❌ Não participamos', `outcome_skip_${matchId}`)
+
+      await bot.api.sendMessage(telegramChatId, promptText, {
+        parse_mode: 'HTML',
+        reply_markup: keyboard,
+      })
+
+      logger.info({ telegramChatId, matchId }, 'Outcome prompt sent via Telegram')
+      return
+    }
+
     // ─── New Matches Digest ────────────────────────────────────────────
     if ('type' in job.data && job.data.type === 'new_matches') {
       const { telegramChatId, matches, totalValor } = job.data

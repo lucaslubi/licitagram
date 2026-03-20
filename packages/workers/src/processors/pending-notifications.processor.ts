@@ -16,10 +16,21 @@ import { logger } from '../lib/logger'
  * Trial/Free: 1 per cycle → light touch.
  */
 const BATCH_BY_PLAN: Record<string, number> = {
-  enterprise: 3,
-  pro: 2,
-  trial: 1,
+  enterprise: 5,
+  pro: 3,
+  trial: 2,
   free: 1,
+}
+
+/**
+ * When backlog is large (> 50 pending), use higher batch sizes
+ * to drain faster without spamming (still one batch per 5min cycle).
+ */
+const BACKLOG_BATCH_BY_PLAN: Record<string, number> = {
+  enterprise: 15,
+  pro: 10,
+  trial: 5,
+  free: 2,
 }
 
 /**
@@ -144,7 +155,9 @@ const pendingNotificationsWorker = new Worker(
       const alreadySent = sentTodayByCompany.get(user.company_id) || 0
 
       // Determine batch size for this cycle
-      let cycleBatch = batchSize
+      // Use larger batch when there's a significant backlog to drain faster
+      const backlogBatch = BACKLOG_BATCH_BY_PLAN[plan] || 5
+      let cycleBatch = validMatches.length > 50 ? backlogBatch : batchSize
 
       // Late in the day and haven't hit minimum? Send a bigger batch
       if (isLateDay && alreadySent < minDaily) {

@@ -1,13 +1,14 @@
 /**
  * PM2 Ecosystem Configuration — Licitagram Workers (Parallel Mode)
  *
- * 6 independent worker processes running in parallel:
+ * 7 independent worker processes running in parallel:
  *   - worker-scraping:    PNCP, comprasgov, ARP, legado scrapers
  *   - worker-extraction:  PDF extraction, document processing
  *   - worker-matching:    keyword, AI triage, semantic matching
  *   - worker-alerts:      hot scan, urgency checks, pending-notifications, digests
  *   - worker-telegram:    Telegram message delivery (rate limited by Telegram API)
  *   - worker-whatsapp:    WhatsApp message delivery via Evolution API (1 msg/s)
+ *   - worker-enrichment:  results scraping, competitor stats, contact/CNAE enrichment
  *
  * Usage:
  *   pm2 start ecosystem.config.js          # Start all 6 workers + metrics
@@ -99,6 +100,18 @@ module.exports = {
       node_args: '--max-old-space-size=256',
       out_file: '/var/log/licitagram/worker-whatsapp-out.log',
       error_file: '/var/log/licitagram/worker-whatsapp-err.log',
+    },
+
+    // ─── Enrichment: results scraping, competitor stats, contact/CNAE enrichment
+    // Runs competition analysis pipeline independently
+    {
+      ...baseConfig,
+      name: 'worker-enrichment',
+      script: SCRIPT,
+      args: '--queues enrichment',
+      node_args: '--max-old-space-size=512 --expose-gc',
+      out_file: '/var/log/licitagram/worker-enrichment-out.log',
+      error_file: '/var/log/licitagram/worker-enrichment-err.log',
     },
 
     // ─── Queue metrics (lightweight monitoring) ────────────────────────

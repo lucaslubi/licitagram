@@ -309,6 +309,92 @@ export default async function CompetitorsPage({
     opportunityWindows.sort((a, b) => a.competitorCount - b.competitorCount)
   }
 
+  // ─── Mercado (Market Intelligence) Data ──────────────────────────────────
+  let mercadoSectorStats: Array<{
+    cnaeDiv: string; totalCompetitors: number; avgWinRate: number
+    avgDiscount: number; totalValue: number
+  }> = []
+  let mercadoUfMap: Array<{
+    uf: string; competitors: number; avgWinRate: number; opportunityScore: number
+  }> = []
+  let mercadoTopActive: Array<Record<string, unknown>> = []
+  let mercadoWatchlistInSector: Array<{
+    cnpj: string; nome: string; winRate: number; participacoes: number
+  }> = []
+
+  if (tab === 'mercado' && isEnterprise && companyCnaeDivisions.length > 0) {
+    // Fetch all competitors in user's CNAE divisions
+    const { data: sectorData } = await supabase
+      .from('competitor_stats')
+      .select('*')
+      .order('total_participacoes', { ascending: false })
+      .limit(500)
+
+    const sectorFiltered = (sectorData || []).filter((s) => {
+      const cnaeDiv = (s.cnae_divisao as string) || ''
+      return companyCnaeDivisions.includes(cnaeDiv)
+    })
+
+    // A. Sector Overview - aggregate by CNAE division
+    const cnaeDivAgg: Record<string, {
+      count: number; totalWinRate: number; totalDiscount: number; totalValue: number
+    }> = {}
+    for (const s of sectorFiltered) {
+      const div = (s.cnae_divisao as string) || ''
+      if (!div) continue
+      if (!cnaeDivAgg[div]) cnaeDivAgg[div] = { count: 0, totalWinRate: 0, totalDiscount: 0, totalValue: 0 }
+      cnaeDivAgg[div].count++
+      cnaeDivAgg[div].totalWinRate += Number(s.win_rate || 0)
+      cnaeDivAgg[div].totalDiscount += Number(s.desconto_medio || 0)
+      cnaeDivAgg[div].totalValue += Number(s.valor_total_ganho || 0)
+    }
+    mercadoSectorStats = Object.entries(cnaeDivAgg).map(([cnaeDiv, d]) => ({
+      cnaeDiv,
+      totalCompetitors: d.count,
+      avgWinRate: d.count > 0 ? d.totalWinRate / d.count : 0,
+      avgDiscount: d.count > 0 ? d.totalDiscount / d.count : 0,
+      totalValue: d.totalValue,
+    })).sort((a, b) => b.totalCompetitors - a.totalCompetitors)
+
+    // B. Heat Map by UF
+    const ufAgg: Record<string, { competitors: number; totalWinRate: number }> = {}
+    for (const s of sectorFiltered) {
+      const ufsAtua = (s.ufs_atuacao as Record<string, boolean>) || {}
+      const wr = Number(s.win_rate || 0)
+      for (const uf of Object.keys(ufsAtua)) {
+        if (!ufAgg[uf]) ufAgg[uf] = { competitors: 0, totalWinRate: 0 }
+        ufAgg[uf].competitors++
+        ufAgg[uf].totalWinRate += wr
+      }
+    }
+    const maxCompetitors = Math.max(...Object.values(ufAgg).map((v) => v.competitors), 1)
+    mercadoUfMap = Object.entries(ufAgg).map(([uf, d]) => ({
+      uf,
+      competitors: d.competitors,
+      avgWinRate: d.competitors > 0 ? d.totalWinRate / d.competitors : 0,
+      opportunityScore: Math.round(100 - (d.competitors / maxCompetitors) * 100),
+    })).sort((a, b) => a.competitors - b.competitors)
+
+    // C. Top 10 most active competitors in sector
+    mercadoTopActive = sectorFiltered.slice(0, 10)
+
+    // D. Watchlist integration - which watchlisted competitors are in same CNAE
+    if (watchlistCnpjs.length > 0) {
+      for (const cnpj of watchlistCnpjs) {
+        const match = sectorFiltered.find((s) => s.cnpj === cnpj)
+        if (match) {
+          const wEntry = (watchlist || []).find((w) => w.competitor_cnpj === cnpj)
+          mercadoWatchlistInSector.push({
+            cnpj,
+            nome: wEntry?.competitor_nome || cnpj,
+            winRate: Number(match.win_rate || 0),
+            participacoes: Number(match.total_participacoes || 0),
+          })
+        }
+      }
+    }
+  }
+
   // Top competitors from the same tenders
   let topCompetitors: Array<{
     cnpj: string; nome: string; count: number; wins: number
@@ -364,6 +450,7 @@ export default async function CompetitorsPage({
         {[
           { key: 'watchlist', label: 'Watchlist' },
           { key: 'ranking', label: 'Ranking' },
+          { key: 'mercado', label: 'Mercado' },
           { key: 'panorama', label: 'Panorama' },
           { key: 'comparativa', label: 'Comparativa' },
           { key: 'buscar', label: 'Buscar' },
@@ -564,6 +651,268 @@ export default async function CompetitorsPage({
             )}
           </CardContent>
         </Card>
+      )}
+
+      {tab === 'mercado' && (
+        <div className="space-y-4">
+          {!isEnterprise ? (
+            /* Non-enterprise: upgrade prompt */
+            <Card>
+              <CardContent className="py-12">
+                <div className="text-center space-y-4 max-w-md mx-auto">
+                  <div className="text-4xl">&#x1f512;</div>
+                  <h3 className="text-xl font-semibold">Inteligencia de Mercado</h3>
+                  <p className="text-sm text-gray-500">Disponivel no plano Enterprise</p>
+                  <p className="text-sm text-gray-400">
+                    Acompanhe tendencias do seu setor, volume de licitacoes por UF, e identifique janelas de oportunidade com poucos concorrentes.
+                  </p>
+                  <Link
+                    href="/billing"
+                    className="inline-block px-6 py-2.5 bg-orange-500 text-white rounded-md hover:bg-orange-600 text-sm font-medium"
+                  >
+                    Ver planos
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              {/* A. Visao Geral do Setor */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <span className="inline-block w-1.5 h-5 bg-orange-500 rounded-full" />
+                    Visao Geral do Setor
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {mercadoSectorStats.length === 0 ? (
+                    <p className="text-center text-gray-400 py-6">
+                      {companyCnaeDivisions.length === 0
+                        ? 'Configure o CNAE da sua empresa para ver dados de mercado.'
+                        : 'Dados insuficientes para o seu segmento.'}
+                    </p>
+                  ) : (
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {mercadoSectorStats.map((s) => (
+                        <div key={s.cnaeDiv} className="border rounded-lg p-4 space-y-3 shadow-sm">
+                          <div className="flex items-center justify-between">
+                            <p className="font-semibold text-sm">Divisao CNAE {s.cnaeDiv}</p>
+                            <Badge variant="outline" className="text-xs border-orange-300 text-orange-700">
+                              {s.totalCompetitors} concorrente{s.totalCompetitors !== 1 ? 's' : ''}
+                            </Badge>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2 text-center">
+                            <div>
+                              <p className="text-lg font-bold text-orange-600">{Math.round(s.avgWinRate)}%</p>
+                              <p className="text-xs text-muted-foreground">Win Rate Med.</p>
+                            </div>
+                            <div>
+                              <p className="text-lg font-bold">{s.avgDiscount.toFixed(1)}%</p>
+                              <p className="text-xs text-muted-foreground">Desconto Med.</p>
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold">
+                                {s.totalValue > 0
+                                  ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact', maximumFractionDigits: 1 }).format(s.totalValue)
+                                  : 'N/D'}
+                              </p>
+                              <p className="text-xs text-muted-foreground">Volume Total</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* B. Mapa de Calor por UF */}
+              {mercadoUfMap.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <span className="inline-block w-1.5 h-5 bg-orange-500 rounded-full" />
+                      Mapa de Calor por UF
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <table className="w-full caption-bottom text-sm">
+                        <thead className="[&_tr]:border-b">
+                          <tr className="border-b transition-colors hover:bg-muted/50">
+                            <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">UF</th>
+                            <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Concorrentes</th>
+                            <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Win Rate Med.</th>
+                            <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Oportunidade</th>
+                          </tr>
+                        </thead>
+                        <tbody className="[&_tr:last-child]:border-0">
+                          {mercadoUfMap.map((row) => {
+                            const isOpportunity = row.competitors <= 3
+                            return (
+                              <tr key={row.uf} className={`border-b transition-colors hover:bg-muted/50 ${isOpportunity ? 'bg-green-50' : ''}`}>
+                                <td className="p-4 text-sm font-medium">
+                                  {row.uf}
+                                  {isOpportunity && (
+                                    <Badge variant="outline" className="ml-2 text-xs text-green-700 border-green-300">
+                                      Janela de Oportunidade
+                                    </Badge>
+                                  )}
+                                </td>
+                                <td className="p-4 text-center">{row.competitors}</td>
+                                <td className="p-4 text-center text-sm">{Math.round(row.avgWinRate)}%</td>
+                                <td className="p-4 text-center">
+                                  <div className="flex items-center justify-center gap-2">
+                                    <div className="w-16 bg-gray-200 rounded-full h-2">
+                                      <div
+                                        className={`h-2 rounded-full ${row.opportunityScore >= 70 ? 'bg-green-500' : row.opportunityScore >= 40 ? 'bg-yellow-500' : 'bg-red-400'}`}
+                                        style={{ width: `${row.opportunityScore}%` }}
+                                      />
+                                    </div>
+                                    <span className="text-xs font-medium">{row.opportunityScore}</span>
+                                  </div>
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* C. Tendencias - Top 10 mais ativos */}
+              {mercadoTopActive.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <span className="inline-block w-1.5 h-5 bg-orange-500 rounded-full" />
+                      Tendencias - Concorrentes Mais Ativos
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <table className="w-full caption-bottom text-sm">
+                        <thead className="[&_tr]:border-b">
+                          <tr className="border-b transition-colors hover:bg-muted/50">
+                            <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground w-8">#</th>
+                            <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Nome</th>
+                            <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Part.</th>
+                            <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Win Rate</th>
+                            <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground hidden md:table-cell">Porte</th>
+                            <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground hidden md:table-cell">UFs</th>
+                            <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground w-8"></th>
+                          </tr>
+                        </thead>
+                        <tbody className="[&_tr:last-child]:border-0">
+                          {mercadoTopActive.map((mc, i) => {
+                            const cnpj = mc.cnpj as string
+                            const isWatched = watchlistCnpjs.includes(cnpj)
+                            const ufsAtua = (mc.ufs_atuacao as Record<string, boolean>) || {}
+                            const topUfs = Object.keys(ufsAtua).slice(0, 4)
+                            return (
+                              <tr key={cnpj} className="border-b transition-colors hover:bg-muted/50">
+                                <td className="p-4 font-bold">{i + 1}</td>
+                                <td className="p-4 text-sm font-medium">
+                                  {(mc.razao_social as string) || '-'}
+                                  {(mc.cnae_divisao as string) && (
+                                    <span className="block text-xs text-gray-400 mt-0.5">CNAE Div. {mc.cnae_divisao as string}</span>
+                                  )}
+                                </td>
+                                <td className="p-4 text-center">{mc.total_participacoes as number}</td>
+                                <td className="p-4 text-center text-sm">{Math.round(Number(mc.win_rate || 0))}%</td>
+                                <td className="p-4 text-sm hidden md:table-cell">
+                                  {mc.porte ? (
+                                    <Badge variant="outline" className="text-xs">{mc.porte as string}</Badge>
+                                  ) : '-'}
+                                </td>
+                                <td className="p-4 text-sm hidden md:table-cell">
+                                  <div className="flex flex-wrap gap-1">
+                                    {topUfs.map((uf) => (
+                                      <Badge key={uf} variant="outline" className="text-xs font-mono">{uf}</Badge>
+                                    ))}
+                                  </div>
+                                </td>
+                                <td className="p-4 text-center">
+                                  {isWatched && (
+                                    <span className="text-orange-500 text-lg" title="Na sua watchlist">&#9733;</span>
+                                  )}
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* D. Watchlist Integration */}
+              {mercadoWatchlistInSector.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <span className="inline-block w-1.5 h-5 bg-orange-500 rounded-full" />
+                      Seus Concorrentes Monitorados no Setor
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-center">
+                        <div>
+                          <p className="text-2xl font-bold text-orange-600">{mercadoWatchlistInSector.length}</p>
+                          <p className="text-xs text-muted-foreground">Na watchlist & mesmo CNAE</p>
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold text-orange-600">
+                            {mercadoWatchlistInSector.length > 0
+                              ? Math.round(mercadoWatchlistInSector.reduce((sum, w) => sum + w.winRate, 0) / mercadoWatchlistInSector.length)
+                              : 0}%
+                          </p>
+                          <p className="text-xs text-muted-foreground">Win Rate Combinado</p>
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold text-orange-600">
+                            {mercadoWatchlistInSector.reduce((sum, w) => sum + w.participacoes, 0)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">Participacoes Totais</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {mercadoWatchlistInSector.map((w) => (
+                        <div key={w.cnpj} className="border rounded-lg p-3 shadow-sm flex items-center justify-between">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate">{w.nome}</p>
+                            <p className="text-xs text-muted-foreground font-mono">{formatCnpj(w.cnpj)}</p>
+                          </div>
+                          <div className="text-right shrink-0 ml-2">
+                            <p className="text-sm font-bold text-orange-600">{Math.round(w.winRate)}%</p>
+                            <p className="text-xs text-muted-foreground">{w.participacoes} part.</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Empty state when no CNAE configured */}
+              {companyCnaeDivisions.length === 0 && (
+                <Card>
+                  <CardContent className="py-12">
+                    <p className="text-center text-gray-400">
+                      Configure o CNAE da sua empresa nas configuracoes para ver a inteligencia de mercado.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </>
+          )}
+        </div>
       )}
 
       {tab === 'panorama' && (
