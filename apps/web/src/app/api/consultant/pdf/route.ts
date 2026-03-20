@@ -1,55 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
+import { getUserWithPlan } from '@/lib/auth-helpers'
 import { renderToStream } from '@react-pdf/renderer'
 import React from 'react'
 import { LicitagramReport, type ReportSection, type ReportMetadata } from '@/lib/pdf/templates'
 
 export async function POST(request: NextRequest) {
-  // Auth + plan check (enterprise plan only — check for proposal_generator as enterprise feature)
+  // Auth check — PDF export available to all authenticated users
   const userCtx = await getUserWithPlan()
   if (!userCtx) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Gate PDF export to plans with proposal_generator (enterprise-tier feature)
-  if (!hasFeature(userCtx, 'proposal_generator')) {
-    return NextResponse.json(
-      { error: 'Exportação PDF disponível apenas para planos Enterprise. Faça upgrade do seu plano.' },
-      { status: 403 },
-    )
-  }
-
   const body = await request.json()
   const {
-    type,
     title,
     subtitle,
-    sections,
     metadata,
   } = body as {
-    type: 'tender_analysis' | 'competitor_ranking' | 'custom'
+    type?: string
     title: string
     subtitle?: string
-    sections: ReportSection[]
+    sections?: Array<{ heading: string; content?: string; type?: string; rows?: Array<Record<string, string>>; columns?: Array<{ key: string; label: string; width?: string }>; score?: number; scoreLabel?: string; items?: string[] }>
     metadata?: ReportMetadata
   }
 
-  if (!title || !sections || !Array.isArray(sections) || sections.length === 0) {
+  // Accept sections from body, normalizing type to default 'text' if missing
+  const rawSections = body.sections as Array<Record<string, unknown>> | undefined
+
+  if (!title || !rawSections || !Array.isArray(rawSections) || rawSections.length === 0) {
     return NextResponse.json(
       { error: 'Título e seções são obrigatórios.' },
       { status: 400 },
     )
   }
 
-  // Validate sections
-  for (const section of sections) {
-    if (!section.heading || !section.type) {
-      return NextResponse.json(
-        { error: 'Cada seção precisa de heading e type.' },
-        { status: 400 },
-      )
-    }
-  }
+  // Normalize sections — default type to 'text', ensure heading exists
+  const sections: ReportSection[] = rawSections.map((s) => ({
+    heading: String(s.heading || 'Sem título'),
+    content: String(s.content || ''),
+    type: (['text', 'table', 'score', 'bullet'].includes(String(s.type)) ? String(s.type) : 'text') as ReportSection['type'],
+    rows: s.rows as ReportSection['rows'],
+    columns: s.columns as ReportSection['columns'],
+    score: s.score as number | undefined,
+    scoreLabel: s.scoreLabel as string | undefined,
+    items: s.items as string[] | undefined,
+  }))
 
   try {
     // Render PDF

@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
       const completion = await openrouter.chat.completions.create({
         model: 'google/gemini-2.5-flash',
         messages,
-        max_tokens: 16384,
+        max_tokens: 2048,
         temperature: 0.2,
         stream: true,
       })
@@ -214,7 +214,7 @@ export async function POST(request: NextRequest) {
     const completion = await deepseek.chat.completions.create({
       model: 'deepseek-chat',
       messages: dsMessages,
-      max_tokens: 8192,
+      max_tokens: 2048,
       temperature: 0.2,
       stream: true,
     })
