@@ -491,13 +491,13 @@ export default async function CompetitorsPage({
             p_company_id: profile.company_id,
             p_min_score: 0,
             p_limit: 50,
-          }),
+          }).then(r => r),
           5000,
         ),
         withTimeout(
           supabase.rpc('get_competitor_summary', {
             p_company_id: profile.company_id,
-          }),
+          }).then(r => r),
           5000,
         ),
       ])
