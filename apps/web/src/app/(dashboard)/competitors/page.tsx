@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { AddWatchlistForm } from './watchlist-form'
 import { DeleteWatchlistButton } from './delete-watchlist-button'
+import { MercadoSummaryCards, MercadoTable, type MercadoCompetitor } from './mercado-table'
 
 export default async function CompetitorsPage({
   searchParams,
@@ -321,6 +322,7 @@ export default async function CompetitorsPage({
   let mercadoWatchlistInSector: Array<{
     cnpj: string; nome: string; winRate: number; participacoes: number
   }> = []
+  let mercadoCompetitors: MercadoCompetitor[] = []
 
   if (tab === 'mercado' && isEnterprise && companyCnaeDivisions.length > 0) {
     // Fetch all competitors in user's CNAE divisions
@@ -334,6 +336,25 @@ export default async function CompetitorsPage({
       const cnaeDiv = (s.cnae_divisao as string) || ''
       return companyCnaeDivisions.includes(cnaeDiv)
     })
+
+    // Build MercadoCompetitor array for the client component
+    mercadoCompetitors = sectorFiltered.map((s) => ({
+      cnpj: s.cnpj as string,
+      razao_social: (s.razao_social as string) || null,
+      porte: (s.porte as string) || null,
+      cnae_divisao: (s.cnae_divisao as string) || null,
+      uf: (s.uf as string) || null,
+      total_participacoes: Number(s.total_participacoes || 0),
+      total_vitorias: Number(s.total_vitorias || 0),
+      win_rate: Number(s.win_rate || 0),
+      valor_total_ganho: Number(s.valor_total_ganho || 0),
+      desconto_medio: Number(s.desconto_medio || 0),
+      ufs_atuacao: (s.ufs_atuacao as Record<string, boolean>) || {},
+      ultima_participacao: (s.ultima_participacao as string) || null,
+      segmento_ia: (s.segmento_ia as string) || null,
+      nivel_ameaca: (s.nivel_ameaca as string) || null,
+      isWatched: watchlistCnpjs.includes(s.cnpj as string),
+    }))
 
     // A. Sector Overview - aggregate by CNAE division
     const cnaeDivAgg: Record<string, {
@@ -677,6 +698,11 @@ export default async function CompetitorsPage({
             </Card>
           ) : (
             <>
+              {/* Summary Cards */}
+              {mercadoCompetitors.length > 0 && (
+                <MercadoSummaryCards competitors={mercadoCompetitors} />
+              )}
+
               {/* A. Visao Geral do Setor */}
               <Card>
                 <CardHeader>
@@ -704,11 +730,11 @@ export default async function CompetitorsPage({
                           </div>
                           <div className="grid grid-cols-3 gap-2 text-center">
                             <div>
-                              <p className="text-lg font-bold text-orange-600">{Math.round(s.avgWinRate)}%</p>
+                              <p className="text-lg font-bold text-orange-600">{(s.avgWinRate * 100).toFixed(1)}%</p>
                               <p className="text-xs text-muted-foreground">Win Rate Med.</p>
                             </div>
                             <div>
-                              <p className="text-lg font-bold">{s.avgDiscount.toFixed(1)}%</p>
+                              <p className="text-lg font-bold">{(s.avgDiscount * 100).toFixed(1)}%</p>
                               <p className="text-xs text-muted-foreground">Desconto Med.</p>
                             </div>
                             <div>
@@ -727,7 +753,12 @@ export default async function CompetitorsPage({
                 </CardContent>
               </Card>
 
-              {/* B. Mapa de Calor por UF */}
+              {/* B. Concorrentes por Segmento IA - sortable interactive table */}
+              {mercadoCompetitors.length > 0 && (
+                <MercadoTable competitors={mercadoCompetitors} />
+              )}
+
+              {/* C. Mapa de Calor por UF */}
               {mercadoUfMap.length > 0 && (
                 <Card>
                   <CardHeader>
@@ -761,7 +792,7 @@ export default async function CompetitorsPage({
                                   )}
                                 </td>
                                 <td className="p-4 text-center">{row.competitors}</td>
-                                <td className="p-4 text-center text-sm">{Math.round(row.avgWinRate)}%</td>
+                                <td className="p-4 text-center text-sm">{(row.avgWinRate * 100).toFixed(1)}%</td>
                                 <td className="p-4 text-center">
                                   <div className="flex items-center justify-center gap-2">
                                     <div className="w-16 bg-gray-200 rounded-full h-2">
@@ -772,73 +803,6 @@ export default async function CompetitorsPage({
                                     </div>
                                     <span className="text-xs font-medium">{row.opportunityScore}</span>
                                   </div>
-                                </td>
-                              </tr>
-                            )
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* C. Tendencias - Top 10 mais ativos */}
-              {mercadoTopActive.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <span className="inline-block w-1.5 h-5 bg-orange-500 rounded-full" />
-                      Tendencias - Concorrentes Mais Ativos
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="overflow-x-auto">
-                      <table className="w-full caption-bottom text-sm">
-                        <thead className="[&_tr]:border-b">
-                          <tr className="border-b transition-colors hover:bg-muted/50">
-                            <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground w-8">#</th>
-                            <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Nome</th>
-                            <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Part.</th>
-                            <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Win Rate</th>
-                            <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground hidden md:table-cell">Porte</th>
-                            <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground hidden md:table-cell">UFs</th>
-                            <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground w-8"></th>
-                          </tr>
-                        </thead>
-                        <tbody className="[&_tr:last-child]:border-0">
-                          {mercadoTopActive.map((mc, i) => {
-                            const cnpj = mc.cnpj as string
-                            const isWatched = watchlistCnpjs.includes(cnpj)
-                            const ufsAtua = (mc.ufs_atuacao as Record<string, boolean>) || {}
-                            const topUfs = Object.keys(ufsAtua).slice(0, 4)
-                            return (
-                              <tr key={cnpj} className="border-b transition-colors hover:bg-muted/50">
-                                <td className="p-4 font-bold">{i + 1}</td>
-                                <td className="p-4 text-sm font-medium">
-                                  {(mc.razao_social as string) || '-'}
-                                  {(mc.cnae_divisao as string) && (
-                                    <span className="block text-xs text-gray-400 mt-0.5">CNAE Div. {mc.cnae_divisao as string}</span>
-                                  )}
-                                </td>
-                                <td className="p-4 text-center">{mc.total_participacoes as number}</td>
-                                <td className="p-4 text-center text-sm">{Math.round(Number(mc.win_rate || 0) * 100)}%</td>
-                                <td className="p-4 text-sm hidden md:table-cell">
-                                  {mc.porte ? (
-                                    <Badge variant="outline" className="text-xs">{mc.porte as string}</Badge>
-                                  ) : '-'}
-                                </td>
-                                <td className="p-4 text-sm hidden md:table-cell">
-                                  <div className="flex flex-wrap gap-1">
-                                    {topUfs.map((uf) => (
-                                      <Badge key={uf} variant="outline" className="text-xs font-mono">{uf}</Badge>
-                                    ))}
-                                  </div>
-                                </td>
-                                <td className="p-4 text-center">
-                                  {isWatched && (
-                                    <span className="text-orange-500 text-lg" title="Na sua watchlist">&#9733;</span>
-                                  )}
                                 </td>
                               </tr>
                             )
@@ -869,7 +833,7 @@ export default async function CompetitorsPage({
                         <div>
                           <p className="text-2xl font-bold text-orange-600">
                             {mercadoWatchlistInSector.length > 0
-                              ? Math.round(mercadoWatchlistInSector.reduce((sum, w) => sum + w.winRate, 0) / mercadoWatchlistInSector.length)
+                              ? (mercadoWatchlistInSector.reduce((sum, w) => sum + w.winRate, 0) / mercadoWatchlistInSector.length * 100).toFixed(1)
                               : 0}%
                           </p>
                           <p className="text-xs text-muted-foreground">Win Rate Combinado</p>
@@ -890,7 +854,7 @@ export default async function CompetitorsPage({
                             <p className="text-xs text-muted-foreground font-mono">{formatCnpj(w.cnpj)}</p>
                           </div>
                           <div className="text-right shrink-0 ml-2">
-                            <p className="text-sm font-bold text-orange-600">{Math.round(w.winRate)}%</p>
+                            <p className="text-sm font-bold text-orange-600">{(w.winRate * 100).toFixed(1)}%</p>
                             <p className="text-xs text-muted-foreground">{w.participacoes} part.</p>
                           </div>
                         </div>
@@ -917,6 +881,136 @@ export default async function CompetitorsPage({
 
       {tab === 'panorama' && (
         <div className="space-y-4">
+          {/* Market Overview Summary Cards */}
+          {marketCompetitors.length > 0 && (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-center">
+                    <p className="text-3xl font-bold text-orange-600">{marketCompetitors.length}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Concorrentes no Segmento</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-center">
+                    <p className="text-3xl font-bold text-orange-600">
+                      {marketCompetitors.length > 0
+                        ? (marketCompetitors.reduce((sum, mc) => sum + Number(mc.total_participacoes || 0), 0) / marketCompetitors.length).toFixed(0)
+                        : 0}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">Media de Participacoes por Concorrente</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-center">
+                    <p className="text-3xl font-bold text-orange-600">{Object.keys(ufCompetitionMap).length}</p>
+                    <p className="text-xs text-muted-foreground mt-1">UFs com Atividade</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-center">
+                    <p className="text-3xl font-bold text-orange-600">
+                      {marketCompetitors.length > 0
+                        ? (marketCompetitors.reduce((sum, mc) => sum + Number(mc.win_rate || 0), 0) / marketCompetitors.length * 100).toFixed(1)
+                        : 0}%
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">Win Rate Medio do Segmento</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Distribution chart placeholder */}
+          {marketCompetitors.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Distribuicao de Concorrentes por Porte</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div
+                  className="h-48 rounded-lg bg-gray-50 border border-dashed border-gray-200 flex items-center justify-center"
+                  data-chart="porte-distribution"
+                  data-values={JSON.stringify(
+                    (() => {
+                      const porteCount: Record<string, number> = {}
+                      for (const mc of marketCompetitors) {
+                        const porte = (mc.porte as string) || 'N/D'
+                        porteCount[porte] = (porteCount[porte] || 0) + 1
+                      }
+                      return porteCount
+                    })()
+                  )}
+                >
+                  <div className="text-center">
+                    <div className="flex items-center justify-center gap-4 flex-wrap">
+                      {(() => {
+                        const porteCount: Record<string, number> = {}
+                        for (const mc of marketCompetitors) {
+                          const porte = (mc.porte as string) || 'N/D'
+                          porteCount[porte] = (porteCount[porte] || 0) + 1
+                        }
+                        const colors: Record<string, string> = {
+                          'ME': 'bg-blue-500',
+                          'EPP': 'bg-indigo-500',
+                          'MEDIO': 'bg-purple-500',
+                          'DEMAIS': 'bg-gray-500',
+                          'N/D': 'bg-gray-300',
+                        }
+                        const total = marketCompetitors.length
+                        return Object.entries(porteCount)
+                          .sort((a, b) => b[1] - a[1])
+                          .map(([porte, count]) => (
+                            <div key={porte} className="flex items-center gap-2">
+                              <div className={`w-3 h-3 rounded-full ${colors[porte.toUpperCase()] || 'bg-gray-400'}`} />
+                              <span className="text-sm font-medium">{porte}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {count} ({Math.round((count / total) * 100)}%)
+                              </span>
+                            </div>
+                          ))
+                      })()}
+                    </div>
+                    {/* Visual bar representation */}
+                    <div className="mt-4 flex h-6 rounded-full overflow-hidden w-80 mx-auto">
+                      {(() => {
+                        const porteCount: Record<string, number> = {}
+                        for (const mc of marketCompetitors) {
+                          const porte = (mc.porte as string) || 'N/D'
+                          porteCount[porte] = (porteCount[porte] || 0) + 1
+                        }
+                        const colors: Record<string, string> = {
+                          'ME': 'bg-blue-500',
+                          'EPP': 'bg-indigo-500',
+                          'MEDIO': 'bg-purple-500',
+                          'DEMAIS': 'bg-gray-500',
+                          'N/D': 'bg-gray-300',
+                        }
+                        const total = marketCompetitors.length
+                        return Object.entries(porteCount)
+                          .sort((a, b) => b[1] - a[1])
+                          .map(([porte, count]) => (
+                            <div
+                              key={porte}
+                              className={`${colors[porte.toUpperCase()] || 'bg-gray-400'}`}
+                              style={{ width: `${(count / total) * 100}%` }}
+                              title={`${porte}: ${count}`}
+                            />
+                          ))
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Top 10 Competitors in CNAE */}
           <Card>
             <CardHeader>
@@ -939,6 +1033,7 @@ export default async function CompetitorsPage({
                         <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Part.</th>
                         <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Vit.</th>
                         <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Win Rate</th>
+                        <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground hidden md:table-cell">Valor Ganho</th>
                         <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground hidden md:table-cell">Porte</th>
                         <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground hidden md:table-cell">UF</th>
                       </tr>
@@ -955,7 +1050,12 @@ export default async function CompetitorsPage({
                             </Badge>
                           </td>
                           <td className="p-4 text-center text-sm">
-                            {`${Math.round(Number(mc.win_rate || 0) * 100)}%`}
+                            {`${(Number(mc.win_rate || 0) * 100).toFixed(1)}%`}
+                          </td>
+                          <td className="p-4 text-right text-sm hidden md:table-cell">
+                            {Number(mc.valor_total_ganho || 0) > 0
+                              ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(mc.valor_total_ganho))
+                              : '-'}
                           </td>
                           <td className="p-4 text-sm hidden md:table-cell">
                             {mc.porte ? (
@@ -1005,8 +1105,8 @@ export default async function CompetitorsPage({
                                 )}
                               </td>
                               <td className="p-4 text-center">{data.competitors}</td>
-                              <td className="p-4 text-center text-sm">{`${Math.round(avgWinRate)}%`}</td>
-                              <td className="p-4 text-center text-sm">{`${avgDiscount.toFixed(1)}%`}</td>
+                              <td className="p-4 text-center text-sm">{`${(avgWinRate * 100).toFixed(1)}%`}</td>
+                              <td className="p-4 text-center text-sm">{`${(avgDiscount * 100).toFixed(1)}%`}</td>
                             </tr>
                           )
                         })}
@@ -1042,7 +1142,7 @@ export default async function CompetitorsPage({
                           return (
                             <tr key={modId} className="border-b transition-colors hover:bg-muted/50">
                               <td className="p-4 text-sm font-medium">{modId}</td>
-                              <td className="p-4 text-center text-sm">{`${avgDiscount.toFixed(1)}%`}</td>
+                              <td className="p-4 text-center text-sm">{`${(avgDiscount * 100).toFixed(1)}%`}</td>
                               <td className="p-4 text-center text-sm">{avgParticipants}</td>
                             </tr>
                           )

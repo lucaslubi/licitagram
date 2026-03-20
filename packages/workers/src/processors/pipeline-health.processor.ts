@@ -53,6 +53,7 @@ const QUEUE_CONFIG = [
   { name: 'comprasgov-scraping', critical: false, maxWaiting: 50 },
   { name: 'comprasgov-arp', critical: false, maxWaiting: 20 },
   { name: 'comprasgov-legado', critical: false, maxWaiting: 20 },
+  { name: 'proactive-supplier-scraping', critical: false, maxWaiting: 20 },
 ] as const
 
 // ─── Recovery Actions ────────────────────────────────────────────────────────
@@ -227,6 +228,7 @@ async function checkQueueHealth(): Promise<{ issues: string[]; fixes: string[] }
             'fornecedor-enrichment': 'worker-enrichment',
             'contact-enrichment': 'worker-enrichment',
             'document-expiry': 'worker-enrichment',
+            'proactive-supplier-scraping': 'worker-enrichment',
           }
           const workerName = workerMap[cfg.name]
           if (workerName) {

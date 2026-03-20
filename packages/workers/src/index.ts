@@ -84,7 +84,9 @@ async function loadWorkers(): Promise<Worker[]> {
     const { contactEnrichmentWorker } = await import('./processors/contact-enrichment.processor')
     const { fornecedorEnrichmentWorker } = await import('./processors/fornecedor-enrichment.processor')
     const { documentExpiryWorker } = await import('./processors/document-expiry.processor')
-    workers.push(resultsScrapingWorker, competitionAnalysisWorker, contactEnrichmentWorker, fornecedorEnrichmentWorker, documentExpiryWorker)
+    const { aiCompetitorClassifierWorker } = await import('./processors/ai-competitor-classifier.processor')
+    const { proactiveSupplierScrapingWorker } = await import('./processors/proactive-supplier-scraping.processor')
+    workers.push(resultsScrapingWorker, competitionAnalysisWorker, contactEnrichmentWorker, fornecedorEnrichmentWorker, documentExpiryWorker, aiCompetitorClassifierWorker, proactiveSupplierScrapingWorker)
   }
 
   if (isFullMode || selectedGroups.includes('analysis')) {
@@ -92,7 +94,9 @@ async function loadWorkers(): Promise<Worker[]> {
     const { contactEnrichmentWorker } = await import('./processors/contact-enrichment.processor')
     const { fornecedorEnrichmentWorker } = await import('./processors/fornecedor-enrichment.processor')
     const { documentExpiryWorker } = await import('./processors/document-expiry.processor')
-    workers.push(competitionAnalysisWorker, contactEnrichmentWorker, fornecedorEnrichmentWorker, documentExpiryWorker)
+    const { aiCompetitorClassifierWorker } = await import('./processors/ai-competitor-classifier.processor')
+    const { proactiveSupplierScrapingWorker } = await import('./processors/proactive-supplier-scraping.processor')
+    workers.push(competitionAnalysisWorker, contactEnrichmentWorker, fornecedorEnrichmentWorker, documentExpiryWorker, aiCompetitorClassifierWorker, proactiveSupplierScrapingWorker)
   }
 
   return workers
@@ -114,6 +118,8 @@ import { competitionAnalysisQueue } from './queues/competition-analysis.queue'
 import { mapCacheQueue } from './queues/map-cache.queue'
 import { pipelineHealthQueue } from './queues/pipeline-health.queue'
 import { outcomePromptQueue } from './queues/outcome-prompt.queue'
+import { aiCompetitorClassifierQueue } from './queues/ai-competitor-classifier.queue'
+import { proactiveSupplierScrapingQueue } from './queues/proactive-supplier-scraping.queue'
 
 async function setupRepeatableJobs() {
   const today = formatDatePNCP(new Date())
@@ -181,16 +187,16 @@ async function setupRepeatableJobs() {
   }
   logger.info('PNCP SP+MG UF-specific scraping jobs scheduled (every 6h)')
 
-  // Schedule PNCP results scraping (competitive intelligence) every 24 hours
+  // Schedule PNCP results scraping (competitive intelligence) every 6 hours
   await resultsScrapingQueue.add(
     'results-scrape',
     { batch: 0 },
     {
-      repeat: { every: 24 * 60 * 60 * 1000 },
+      repeat: { every: 6 * 60 * 60 * 1000 },
       jobId: 'results-scrape-repeat',
     },
   )
-  logger.info('PNCP results scraping job scheduled (every 24h)')
+  logger.info('PNCP results scraping job scheduled (every 6h)')
 
   // Schedule document expiry check weekly (every 7 days)
   await documentExpiryQueue.add(
@@ -203,16 +209,16 @@ async function setupRepeatableJobs() {
   )
   logger.info('Document expiry check scheduled (weekly)')
 
-  // Schedule fornecedor enrichment every 24 hours (enrich competitors with CNAE, porte, etc.)
+  // Schedule fornecedor enrichment every 8 hours (enrich competitors with CNAE, porte, etc.)
   await fornecedorEnrichmentQueue.add(
     'fornecedor-enrich',
     { batch: 0 },
     {
-      repeat: { every: 24 * 60 * 60 * 1000 },
+      repeat: { every: 8 * 60 * 60 * 1000 },
       jobId: 'fornecedor-enrichment-repeat',
     },
   )
-  logger.info('Fornecedor enrichment job scheduled (every 24h)')
+  logger.info('Fornecedor enrichment job scheduled (every 8h)')
 
   // Schedule ARP (Atas de Registro de Preço) scraping every 12 hours
   await arpScrapingQueue.add(
@@ -280,6 +286,17 @@ async function setupRepeatableJobs() {
   )
   logger.info('Competition analysis scheduled (every 3h)')
 
+  // Schedule AI competitor classification every 2 hours
+  await aiCompetitorClassifierQueue.add(
+    'classify-competitors',
+    { batch: 0 },
+    {
+      repeat: { every: 2 * 60 * 60 * 1000 },
+      jobId: 'ai-competitor-classifier-2h-repeat',
+    },
+  )
+  logger.info('AI competitor classifier scheduled (every 2h)')
+
   // Schedule map cache refresh every 1 hour
   await mapCacheQueue.add(
     'refresh-map',
@@ -312,6 +329,17 @@ async function setupRepeatableJobs() {
     },
   )
   logger.info('Outcome prompt check scheduled (every 6h)')
+
+  // Schedule proactive supplier scraping every 4 hours (discovers competitors from PNCP publications)
+  await proactiveSupplierScrapingQueue.add(
+    'proactive-supplier-sweep',
+    {},
+    {
+      repeat: { every: 4 * 60 * 60 * 1000 },
+      jobId: 'proactive-supplier-sweep-4h-repeat',
+    },
+  )
+  logger.info('Proactive supplier scraping scheduled (every 4h)')
 
   // Trigger immediate map cache refresh on startup
   mapCacheQueue.add('refresh-map-startup', {}).catch((err) => {
@@ -683,7 +711,15 @@ async function main() {
       'document-expiry-check', { checkAll: true },
       { repeat: { every: 7 * 24 * 60 * 60 * 1000 }, jobId: 'document-expiry-weekly-enrichment' },
     )
-    logger.info('Enrichment repeatable jobs scheduled (results 6h, fornecedor 8h, stats 3h, docs weekly)')
+    await aiCompetitorClassifierQueue.add(
+      'classify-competitors', { batch: 0 },
+      { repeat: { every: 2 * 60 * 60 * 1000 }, jobId: 'ai-competitor-classifier-2h-enrichment' },
+    )
+    await proactiveSupplierScrapingQueue.add(
+      'proactive-supplier-sweep', {},
+      { repeat: { every: 4 * 60 * 60 * 1000 }, jobId: 'proactive-supplier-sweep-4h-enrichment' },
+    )
+    logger.info('Enrichment repeatable jobs scheduled (results 6h, fornecedor 8h, stats 3h, docs weekly, AI classifier 2h, proactive suppliers 4h)')
 
     // Trigger immediate full materialization + enrichment on startup
     competitionAnalysisQueue.add('materialize-full-startup', { mode: 'full' }).catch(err => {
@@ -695,7 +731,13 @@ async function main() {
     resultsScrapingQueue.add('results-startup', { batch: 0 }).catch(err => {
       logger.error({ err }, 'Failed to enqueue startup results scraping')
     })
-    logger.info('Enrichment startup jobs enqueued (full materialization + fornecedor + results)')
+    aiCompetitorClassifierQueue.add('classify-startup', { batch: 0 }).catch(err => {
+      logger.error({ err }, 'Failed to enqueue startup AI competitor classifier')
+    })
+    proactiveSupplierScrapingQueue.add('proactive-supplier-startup', {}).catch(err => {
+      logger.error({ err }, 'Failed to enqueue startup proactive supplier scraping')
+    })
+    logger.info('Enrichment startup jobs enqueued (full materialization + fornecedor + results + AI classifier + proactive suppliers)')
   }
 
   // Semantic matching: embed tenders + profile companies + run sweep (non-blocking)
