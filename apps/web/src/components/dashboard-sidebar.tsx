@@ -25,6 +25,14 @@ interface DashboardSidebarProps {
 
 const COLLAPSED_KEY = 'sidebar-collapsed'
 
+/** Map nav hrefs to element IDs used by the onboarding tour */
+const NAV_TOUR_IDS: Record<string, string> = {
+  '/opportunities': 'nav-opportunities',
+  '/competitors': 'nav-competitors',
+  '/map': 'nav-map',
+  '/settings': 'nav-settings',
+}
+
 export function DashboardSidebar({
   navItems,
   isAdmin,
@@ -105,6 +113,7 @@ export function DashboardSidebar({
               )}
               <Link
                 href={item.href}
+                id={NAV_TOUR_IDS[item.href]}
                 title={collapsed ? item.label : undefined}
                 className={`flex items-center ${
                   collapsed ? 'justify-center px-2 py-2.5' : 'px-3 py-2.5'

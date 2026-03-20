@@ -30,6 +30,10 @@ export interface UserWithPlan {
   subscription: SubscriptionWithPlan | null
   plan: Plan | null
   features: PlanFeatures | null
+  onboardingCompleted: boolean
+  telegramChatId: number | null
+  ufsInteresse: string[]
+  palavrasChaveFiltro: string[]
 }
 
 // ─── Core Auth Functions ─────────────────────────────────────────────────────
@@ -54,7 +58,9 @@ export async function getUserWithPlan(): Promise<UserWithPlan | null> {
     .from('users')
     .select(`
       id, company_id, full_name, role, min_score,
-      is_platform_admin, admin_permissions, is_active
+      is_platform_admin, admin_permissions, is_active,
+      onboarding_completed, telegram_chat_id,
+      ufs_interesse, palavras_chave_filtro
     `)
     .eq('id', user.id)
     .single()
@@ -87,6 +93,10 @@ export async function getUserWithPlan(): Promise<UserWithPlan | null> {
     subscription,
     plan,
     features: plan?.features as PlanFeatures | null,
+    onboardingCompleted: profile.onboarding_completed || false,
+    telegramChatId: profile.telegram_chat_id ?? null,
+    ufsInteresse: profile.ufs_interesse || [],
+    palavrasChaveFiltro: profile.palavras_chave_filtro || [],
   }
 }
 

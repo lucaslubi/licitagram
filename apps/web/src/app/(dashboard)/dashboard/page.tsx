@@ -244,7 +244,7 @@ export default async function DashboardPage() {
   const conversionRate = totalMatches > 0 ? Math.round((interestedCount / totalMatches) * 100) : 0
 
   return (
-    <div>
+    <div id="dashboard-overview">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
         <p className="text-[10px] text-gray-400">

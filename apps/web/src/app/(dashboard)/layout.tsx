@@ -2,7 +2,9 @@ export const dynamic = 'force-dynamic'
 
 import { redirect } from 'next/navigation'
 import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
+import { createClient } from '@/lib/supabase/server'
 import { DashboardSidebar } from '@/components/dashboard-sidebar'
+import { DashboardAiWrapper } from '@/components/dashboard-ai-wrapper'
 import type { PlanFeatureKey } from '@licitagram/shared'
 
 interface NavItem {
@@ -45,6 +47,18 @@ export default async function DashboardLayout({
   const userEmail = user.email || ''
   const userInitial = (user.fullName || user.email || 'U')[0].toUpperCase()
 
+  // Fetch WhatsApp status for onboarding wizard
+  let hasWhatsapp = false
+  if (!user.onboardingCompleted) {
+    const supabase = await createClient()
+    const { data: wpData } = await supabase
+      .from('users')
+      .select('whatsapp_verified')
+      .eq('id', user.userId)
+      .single()
+    hasWhatsapp = !!wpData?.whatsapp_verified
+  }
+
   return (
     <div className="flex h-screen bg-gray-50 font-roboto">
       <DashboardSidebar
@@ -59,7 +73,15 @@ export default async function DashboardLayout({
       {/* Main content — add top padding on mobile for the fixed top bar */}
       <main className="flex-1 overflow-auto bg-gray-50">
         <div className="pt-14 md:pt-0 h-full">
-          <div className="p-4 md:p-8 h-full">{children}</div>
+          <DashboardAiWrapper
+            onboardingCompleted={user.onboardingCompleted}
+            userUfs={user.ufsInteresse}
+            userKeywords={user.palavrasChaveFiltro}
+            hasTelegram={!!user.telegramChatId}
+            hasWhatsapp={hasWhatsapp}
+          >
+            <div className="p-4 md:p-8 h-full">{children}</div>
+          </DashboardAiWrapper>
         </div>
       </main>
     </div>
