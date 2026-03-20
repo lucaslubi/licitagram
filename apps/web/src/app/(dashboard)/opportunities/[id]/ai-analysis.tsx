@@ -13,6 +13,23 @@ const CATEGORY_LABELS: Record<string, string> = {
   capacidade_economica: 'Capacidade Econômica',
   documentacao: 'Documentação',
   localizacao: 'Localização',
+  keywords: 'Palavras-chave',
+  description: 'Descrição de Serviços',
+  cnae: 'Compatibilidade CNAE',
+}
+
+const CATEGORY_ICONS: Record<string, string> = {
+  compatibilidade_cnae: '🏢',
+  compatibilidade_objeto: '📋',
+  qualificacao_tecnica: '🛠️',
+  potencial_participacao: '🎯',
+  relevancia_estrategica: '⭐',
+  capacidade_economica: '💰',
+  documentacao: '📄',
+  localizacao: '📍',
+  keywords: '🔑',
+  description: '📝',
+  cnae: '🏢',
 }
 
 const FIT_LABELS: Record<string, string> = {
@@ -22,12 +39,38 @@ const FIT_LABELS: Record<string, string> = {
   excelente: 'Excelente',
 }
 
+type FitLevel = 'baixo' | 'medio' | 'alto' | 'excelente'
+
+const FIT_CONFIG: Record<FitLevel, { bg: string; text: string; border: string; dot: string; bar: string; barWidth: string }> = {
+  excelente: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', dot: 'bg-emerald-500', bar: 'bg-emerald-500', barWidth: 'w-full' },
+  alto:      { bg: 'bg-blue-50',    text: 'text-blue-700',    border: 'border-blue-200',    dot: 'bg-blue-500',    bar: 'bg-blue-500',    barWidth: 'w-3/4' },
+  medio:     { bg: 'bg-amber-50',   text: 'text-amber-700',   border: 'border-amber-200',   dot: 'bg-amber-500',   bar: 'bg-amber-500',   barWidth: 'w-1/2' },
+  baixo:     { bg: 'bg-red-50',     text: 'text-red-700',     border: 'border-red-200',     dot: 'bg-red-500',     bar: 'bg-red-500',     barWidth: 'w-1/4' },
+}
+
 /** Derive fit label from a numeric score (for backward compat with old AI responses) */
 function scoreFitLabel(score: number): string {
   if (score >= 86) return 'Excelente'
   if (score >= 61) return 'Alto'
   if (score >= 41) return 'Médio'
   return 'Baixo'
+}
+
+function getFitKey(item: { fit?: string; score?: number }): FitLevel {
+  if (item.fit) {
+    const normalized = item.fit.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    if (normalized === 'excelente') return 'excelente'
+    if (normalized === 'alto') return 'alto'
+    if (normalized === 'medio') return 'medio'
+    return 'baixo'
+  }
+  if (typeof item.score === 'number') {
+    if (item.score >= 86) return 'excelente'
+    if (item.score >= 61) return 'alto'
+    if (item.score >= 41) return 'medio'
+    return 'baixo'
+  }
+  return 'baixo'
 }
 
 interface BreakdownItem {
@@ -234,68 +277,114 @@ export function AiAnalysis({ matchId, initialData, matchSource, hasAccess = true
       {/* Parecer Técnico — Fit por Categoria */}
       {breakdown.length > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle>Parecer Técnico</CardTitle>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2">
+              <svg className="w-5 h-5 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+              Parecer Técnico
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">Avaliação detalhada de compatibilidade por dimensão</p>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {breakdown.map((item) => {
-              const fitLabel = item.fit
-                ? (FIT_LABELS[item.fit] || item.fit)
-                : (typeof item.score === 'number' ? scoreFitLabel(item.score) : '—')
-              return (
-                <div key={item.category} className="border-b border-gray-100 pb-3 last:border-0 last:pb-0">
-                  <div className="flex items-baseline justify-between mb-1">
-                    <span className="text-sm font-medium text-gray-900">
-                      {CATEGORY_LABELS[item.category] || item.category}
-                    </span>
-                    <span className="text-sm text-gray-600 font-medium">
-                      {fitLabel}
-                    </span>
+          <CardContent className="pt-2">
+            <div className="grid gap-3">
+              {breakdown.map((item) => {
+                const fitKey = getFitKey(item)
+                const config = FIT_CONFIG[fitKey]
+                const fitLabel = item.fit
+                  ? (FIT_LABELS[item.fit] || item.fit)
+                  : (typeof item.score === 'number' ? scoreFitLabel(item.score) : '—')
+                const icon = CATEGORY_ICONS[item.category] || '📊'
+
+                return (
+                  <div
+                    key={item.category}
+                    className={`rounded-lg border ${config.border} ${config.bg} p-3 transition-all hover:shadow-sm`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">{icon}</span>
+                        <span className="text-sm font-semibold text-gray-900">
+                          {CATEGORY_LABELS[item.category] || item.category}
+                        </span>
+                      </div>
+                      <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${config.bg} ${config.text} border ${config.border}`}>
+                        {fitLabel}
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200/60 rounded-full h-1.5 mb-2">
+                      <div className={`h-1.5 rounded-full ${config.bar} ${config.barWidth} transition-all duration-500`} />
+                    </div>
+                    <p className="text-xs text-gray-600 leading-relaxed">{item.reason}</p>
                   </div>
-                  <p className="text-xs text-gray-500 leading-relaxed">{item.reason}</p>
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Riscos */}
-      {riscos.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Riscos Identificados</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2">
-              {riscos.map((risco, i) => (
-                <li key={i} className="flex gap-2 text-sm p-2 bg-amber-50 border border-amber-200 rounded-md">
-                  <span className="text-amber-500 shrink-0">•</span>
-                  <span>{risco}</span>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      )}
+      {/* Riscos + Ações lado a lado */}
+      {(riscos.length > 0 || acoesNecessarias.length > 0) && (
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* Riscos */}
+          {riscos.length > 0 && (
+            <Card className="border-amber-200/60">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <div className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center">
+                    <svg className="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                  </div>
+                  <span>Riscos</span>
+                  <span className="ml-auto text-xs font-normal text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">{riscos.length}</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-1">
+                <ul className="space-y-2">
+                  {riscos.map((risco, i) => (
+                    <li key={i} className="flex gap-2.5 text-sm p-2.5 bg-amber-50/60 rounded-lg">
+                      <div className="w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center shrink-0 mt-0.5">
+                        <span className="text-amber-600 text-xs font-bold">{i + 1}</span>
+                      </div>
+                      <span className="text-gray-700 leading-relaxed">{risco}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
 
-      {/* Acoes */}
-      {acoesNecessarias.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Ações Necessárias</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2">
-              {acoesNecessarias.map((acao, i) => (
-                <li key={i} className="flex gap-2 text-sm p-2 bg-brand/5 border border-brand/20 rounded-md">
-                  <span className="text-brand shrink-0">{i + 1}.</span>
-                  <span>{acao}</span>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
+          {/* Ações Necessárias */}
+          {acoesNecessarias.length > 0 && (
+            <Card className="border-brand/20">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <div className="w-7 h-7 rounded-full bg-brand/10 flex items-center justify-center">
+                    <svg className="w-4 h-4 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                    </svg>
+                  </div>
+                  <span>Ações</span>
+                  <span className="ml-auto text-xs font-normal text-brand bg-brand/10 px-2 py-0.5 rounded-full">{acoesNecessarias.length}</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-1">
+                <ul className="space-y-2">
+                  {acoesNecessarias.map((acao, i) => (
+                    <li key={i} className="flex gap-2.5 text-sm p-2.5 bg-brand/5 rounded-lg">
+                      <div className="w-5 h-5 rounded-full bg-brand/10 flex items-center justify-center shrink-0 mt-0.5">
+                        <span className="text-brand text-xs font-bold">{i + 1}</span>
+                      </div>
+                      <span className="text-gray-700 leading-relaxed">{acao}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       )}
     </div>
   )
