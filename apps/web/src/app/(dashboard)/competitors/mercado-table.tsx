@@ -20,9 +20,12 @@ export type MercadoCompetitor = {
   segmento_ia: string | null
   nivel_ameaca: string | null
   isWatched: boolean
+  relevance_score?: number | null
+  relationship_type?: string | null
+  relevance_reason?: string | null
 }
 
-type SortField = 'razao_social' | 'total_participacoes' | 'total_vitorias' | 'win_rate' | 'valor_total_ganho' | 'nivel_ameaca'
+type SortField = 'razao_social' | 'total_participacoes' | 'total_vitorias' | 'win_rate' | 'valor_total_ganho' | 'nivel_ameaca' | 'relevance_score'
 type SortDirection = 'asc' | 'desc'
 
 const brlFormat = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -33,6 +36,32 @@ function nivelAmeacaOrder(nivel: string | null): number {
   if (nivel === 'medio') return 2
   if (nivel === 'baixo') return 1
   return 0
+}
+
+function RelevanceBadge({ type }: { type: string | null | undefined }) {
+  if (!type) return null
+  const config: Record<string, { className: string; label: string }> = {
+    concorrente_direto: { className: 'bg-red-100 text-red-700 border-red-200', label: 'Direto' },
+    concorrente_indireto: { className: 'bg-yellow-100 text-yellow-700 border-yellow-200', label: 'Indireto' },
+    potencial_parceiro: { className: 'bg-blue-100 text-blue-700 border-blue-200', label: 'Parceiro' },
+    irrelevante: { className: 'bg-gray-100 text-gray-500 border-gray-200', label: 'Irrelevante' },
+  }
+  const c = config[type]
+  if (!c) return null
+  return <Badge variant="outline" className={`text-xs ${c.className}`}>{c.label}</Badge>
+}
+
+export function RelevanceScoreBadge({ score }: { score: number | null | undefined }) {
+  if (score == null) return null
+  const color = score >= 80 ? 'bg-green-500' : score >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+  return (
+    <div className="flex items-center gap-1.5">
+      <div className="w-10 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+        <div className={`h-full rounded-full ${color}`} style={{ width: `${score}%` }} />
+      </div>
+      <span className="text-xs font-medium text-gray-600">{score}</span>
+    </div>
+  )
 }
 
 function NivelAmeacaBadge({ nivel }: { nivel: string | null }) {
@@ -166,6 +195,9 @@ export function MercadoTable({ competitors }: { competitors: MercadoCompetitor[]
           break
         case 'nivel_ameaca':
           cmp = nivelAmeacaOrder(a.nivel_ameaca) - nivelAmeacaOrder(b.nivel_ameaca)
+          break
+        case 'relevance_score':
+          cmp = (a.relevance_score ?? -1) - (b.relevance_score ?? -1)
           break
       }
       return sortDir === 'asc' ? cmp : -cmp
@@ -301,6 +333,12 @@ function CompetitorTable({
             <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground hidden md:table-cell">Porte</th>
             <th
               className="h-12 px-4 text-center align-middle font-medium text-muted-foreground cursor-pointer select-none hover:text-orange-600"
+              onClick={() => onSort('relevance_score')}
+            >
+              Relev. <SortIcon field="relevance_score" sortField={sortField} sortDir={sortDir} />
+            </th>
+            <th
+              className="h-12 px-4 text-center align-middle font-medium text-muted-foreground cursor-pointer select-none hover:text-orange-600"
               onClick={() => onSort('nivel_ameaca')}
             >
               Ameaca <SortIcon field="nivel_ameaca" sortField={sortField} sortDir={sortDir} />
@@ -335,6 +373,16 @@ function CompetitorTable({
                 </td>
                 <td className="p-4 text-sm hidden md:table-cell">
                   <PorteBadge porte={mc.porte} />
+                </td>
+                <td className="p-4 text-center">
+                  {mc.relevance_score != null ? (
+                    <div className="flex flex-col items-center gap-1">
+                      <RelevanceScoreBadge score={mc.relevance_score} />
+                      <RelevanceBadge type={mc.relationship_type} />
+                    </div>
+                  ) : (
+                    <span className="text-xs text-gray-300">--</span>
+                  )}
                 </td>
                 <td className="p-4 text-center">
                   <NivelAmeacaBadge nivel={mc.nivel_ameaca} />

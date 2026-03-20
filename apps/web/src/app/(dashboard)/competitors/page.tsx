@@ -26,6 +26,25 @@ export default async function CompetitorsPage({
   const tab = params.tab || 'mercado'
   const searchQuery = params.q || ''
 
+  // Fetch AI relevance data once for all tabs
+  let relevanceMap: Record<string, { score: number; type: string; reason: string }> = {}
+  if (profile?.company_id) {
+    const { data: relevanceData } = await supabase
+      .from('competitor_relevance')
+      .select('competitor_cnpj, relevance_score, relationship_type, reason')
+      .eq('company_id', profile.company_id)
+
+    if (relevanceData) {
+      for (const r of relevanceData) {
+        relevanceMap[r.competitor_cnpj] = {
+          score: r.relevance_score,
+          type: r.relationship_type || '',
+          reason: r.reason || '',
+        }
+      }
+    }
+  }
+
   // Get watchlist
   const { data: watchlist } = await supabase
     .from('competitor_watchlist')
@@ -337,24 +356,44 @@ export default async function CompetitorsPage({
       return companyCnaeDivisions.includes(cnaeDiv)
     })
 
-    // Build MercadoCompetitor array for the client component
-    mercadoCompetitors = sectorFiltered.map((s) => ({
-      cnpj: s.cnpj as string,
-      razao_social: (s.razao_social as string) || null,
-      porte: (s.porte as string) || null,
-      cnae_divisao: (s.cnae_divisao as string) || null,
-      uf: (s.uf as string) || null,
-      total_participacoes: Number(s.total_participacoes || 0),
-      total_vitorias: Number(s.total_vitorias || 0),
-      win_rate: Number(s.win_rate || 0),
-      valor_total_ganho: Number(s.valor_total_ganho || 0),
-      desconto_medio: Number(s.desconto_medio || 0),
-      ufs_atuacao: (s.ufs_atuacao as Record<string, boolean>) || {},
-      ultima_participacao: (s.ultima_participacao as string) || null,
-      segmento_ia: (s.segmento_ia as string) || null,
-      nivel_ameaca: (s.nivel_ameaca as string) || null,
-      isWatched: watchlistCnpjs.includes(s.cnpj as string),
-    }))
+    // Build MercadoCompetitor array for the client component, enriched with relevance
+    mercadoCompetitors = sectorFiltered
+      .filter((s) => {
+        const rel = relevanceMap[s.cnpj as string]
+        // Filter out irrelevant competitors (relevance_score < 30) when relevance data exists
+        if (rel && rel.score < 30) return false
+        return true
+      })
+      .map((s) => {
+        const rel = relevanceMap[s.cnpj as string]
+        return {
+          cnpj: s.cnpj as string,
+          razao_social: (s.razao_social as string) || null,
+          porte: (s.porte as string) || null,
+          cnae_divisao: (s.cnae_divisao as string) || null,
+          uf: (s.uf as string) || null,
+          total_participacoes: Number(s.total_participacoes || 0),
+          total_vitorias: Number(s.total_vitorias || 0),
+          win_rate: Number(s.win_rate || 0),
+          valor_total_ganho: Number(s.valor_total_ganho || 0),
+          desconto_medio: Number(s.desconto_medio || 0),
+          ufs_atuacao: (s.ufs_atuacao as Record<string, boolean>) || {},
+          ultima_participacao: (s.ultima_participacao as string) || null,
+          segmento_ia: (s.segmento_ia as string) || null,
+          nivel_ameaca: (s.nivel_ameaca as string) || null,
+          isWatched: watchlistCnpjs.includes(s.cnpj as string),
+          relevance_score: rel?.score ?? null,
+          relationship_type: rel?.type ?? null,
+          relevance_reason: rel?.reason ?? null,
+        }
+      })
+      .sort((a, b) => {
+        // Sort by relevance_score DESC if available, fallback to total_participacoes
+        const aScore = a.relevance_score ?? -1
+        const bScore = b.relevance_score ?? -1
+        if (aScore !== bScore) return bScore - aScore
+        return b.total_participacoes - a.total_participacoes
+      })
 
     // A. Sector Overview - aggregate by CNAE division
     const cnaeDivAgg: Record<string, {
@@ -589,6 +628,15 @@ export default async function CompetitorsPage({
                     else if (daysSince <= 90) { activityLabel = 'Moderado'; activityVariant = 'secondary' }
                   }
 
+                  const wRel = relevanceMap[w.competitor_cnpj]
+                  const relBadgeConfig: Record<string, { className: string; label: string }> = {
+                    concorrente_direto: { className: 'bg-red-100 text-red-700 border-red-200', label: 'Direto' },
+                    concorrente_indireto: { className: 'bg-yellow-100 text-yellow-700 border-yellow-200', label: 'Indireto' },
+                    potencial_parceiro: { className: 'bg-blue-100 text-blue-700 border-blue-200', label: 'Parceiro' },
+                    irrelevante: { className: 'bg-gray-100 text-gray-500 border-gray-200', label: 'Irrelevante' },
+                  }
+                  const wRelConfig = wRel?.type ? relBadgeConfig[wRel.type] : null
+
                   return (
                     <Card key={w.id}>
                       <CardHeader className="pb-2">
@@ -604,12 +652,20 @@ export default async function CompetitorsPage({
                         </div>
                       </CardHeader>
                       <CardContent className="space-y-3">
-                        {/* Activity + porte + location badges */}
+                        {/* Activity + porte + location + relevance badges */}
                         <div className="flex flex-wrap gap-1.5">
                           <Badge variant={activityVariant} className="text-xs">{activityLabel}</Badge>
                           {stats.porte && <Badge variant="outline" className="text-xs">{stats.porte}</Badge>}
                           {stats.uf && (
                             <Badge variant="outline" className="text-xs">{stats.uf}</Badge>
+                          )}
+                          {wRelConfig && (
+                            <Badge variant="outline" className={`text-xs ${wRelConfig.className}`}>{wRelConfig.label}</Badge>
+                          )}
+                          {wRel && (
+                            <Badge variant="outline" className="text-xs border-orange-300 text-orange-700">
+                              Relev. {wRel.score}
+                            </Badge>
                           )}
                         </div>
 
@@ -1082,6 +1138,42 @@ export default async function CompetitorsPage({
             </div>
           )}
 
+          {/* AI Relevance Summary */}
+          {Object.keys(relevanceMap).length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <span className="inline-block w-1.5 h-5 bg-orange-500 rounded-full" />
+                  Classificacao de Concorrentes por IA
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {(() => {
+                  const allRels = Object.values(relevanceMap)
+                  const diretos = allRels.filter((r) => r.type === 'concorrente_direto').length
+                  const indiretos = allRels.filter((r) => r.type === 'concorrente_indireto').length
+                  const parceiros = allRels.filter((r) => r.type === 'potencial_parceiro').length
+                  return (
+                    <div className="grid grid-cols-3 gap-4 text-center">
+                      <div className="border rounded-lg p-4 border-red-200 bg-red-50">
+                        <p className="text-2xl font-bold text-red-600">{diretos}</p>
+                        <p className="text-xs text-red-700 mt-1">Concorrentes Diretos</p>
+                      </div>
+                      <div className="border rounded-lg p-4 border-yellow-200 bg-yellow-50">
+                        <p className="text-2xl font-bold text-yellow-600">{indiretos}</p>
+                        <p className="text-xs text-yellow-700 mt-1">Concorrentes Indiretos</p>
+                      </div>
+                      <div className="border rounded-lg p-4 border-blue-200 bg-blue-50">
+                        <p className="text-2xl font-bold text-blue-600">{parceiros}</p>
+                        <p className="text-xs text-blue-700 mt-1">Parceiros Potenciais</p>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Distribution chart placeholder */}
           {marketCompetitors.length > 0 && (
             <Card>
@@ -1449,6 +1541,15 @@ export default async function CompetitorsPage({
                           if (stats.desconto_medio > 15) strengths.push('Pricing agressivo')
                           else if (stats.desconto_medio < 5 && stats.desconto_medio > 0) weaknesses.push('Desconto conservador')
 
+                          const cmpRel = relevanceMap[w.competitor_cnpj]
+                          const cmpRelBadgeConfig: Record<string, { className: string; label: string }> = {
+                            concorrente_direto: { className: 'bg-red-100 text-red-700 border-red-200', label: 'Direto' },
+                            concorrente_indireto: { className: 'bg-yellow-100 text-yellow-700 border-yellow-200', label: 'Indireto' },
+                            potencial_parceiro: { className: 'bg-blue-100 text-blue-700 border-blue-200', label: 'Parceiro' },
+                            irrelevante: { className: 'bg-gray-100 text-gray-500 border-gray-200', label: 'Irrelevante' },
+                          }
+                          const cmpRelConf = cmpRel?.type ? cmpRelBadgeConfig[cmpRel.type] : null
+
                           return (
                             <div key={w.id} className="border rounded-lg p-4 space-y-3">
                               <div>
@@ -1459,8 +1560,25 @@ export default async function CompetitorsPage({
                                   {stats.uf && (
                                     <Badge variant="outline" className="text-xs">{stats.uf}</Badge>
                                   )}
+                                  {cmpRelConf && (
+                                    <Badge variant="outline" className={`text-xs ${cmpRelConf.className}`}>{cmpRelConf.label}</Badge>
+                                  )}
                                 </div>
                               </div>
+
+                              {/* Relevance score */}
+                              {cmpRel && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-muted-foreground">Relevancia IA:</span>
+                                  <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                    <div
+                                      className={`h-full rounded-full ${cmpRel.score >= 80 ? 'bg-green-500' : cmpRel.score >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                                      style={{ width: `${cmpRel.score}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-xs font-medium text-gray-600">{cmpRel.score}</span>
+                                </div>
+                              )}
 
                               {/* Key metrics */}
                               <div className="grid grid-cols-2 gap-2 text-center">
@@ -1539,6 +1657,7 @@ export default async function CompetitorsPage({
                                 <th className="h-10 px-3 text-center align-middle font-medium text-muted-foreground hidden md:table-cell">Ticket</th>
                                 <th className="h-10 px-3 text-center align-middle font-medium text-muted-foreground hidden md:table-cell">Desconto</th>
                                 <th className="h-10 px-3 text-center align-middle font-medium text-muted-foreground hidden lg:table-cell">UFs</th>
+                                <th className="h-10 px-3 text-center align-middle font-medium text-muted-foreground">Relev.</th>
                               </tr>
                             </thead>
                             <tbody className="[&_tr:last-child]:border-0">
@@ -1547,6 +1666,7 @@ export default async function CompetitorsPage({
                                 if (!stats) return null
                                 const winRatePct = Math.round(stats.win_rate * 100)
                                 const winRateColor = winRatePct >= 60 ? 'text-green-600' : winRatePct >= 30 ? 'text-yellow-600' : 'text-red-600'
+                                const tblRel = relevanceMap[w.competitor_cnpj]
                                 return (
                                   <tr key={w.id} className="border-b transition-colors hover:bg-muted/50">
                                     <td className="p-3 text-sm font-medium truncate max-w-[200px]">
@@ -1565,6 +1685,13 @@ export default async function CompetitorsPage({
                                     </td>
                                     <td className="p-3 text-center text-sm hidden lg:table-cell">
                                       {Object.keys(stats.ufs_atuacao || {}).length}
+                                    </td>
+                                    <td className="p-3 text-center">
+                                      {tblRel ? (
+                                        <span className="text-xs font-medium text-orange-600">{tblRel.score}</span>
+                                      ) : (
+                                        <span className="text-xs text-gray-300">--</span>
+                                      )}
                                     </td>
                                   </tr>
                                 )
@@ -1625,6 +1752,15 @@ export default async function CompetitorsPage({
                     else if (daysSince <= 90) { activityLabel = 'Moderado'; activityVariant = 'secondary' }
                   }
 
+                  const sRel = relevanceMap[c.cnpj]
+                  const sRelBadgeConfig: Record<string, { className: string; label: string }> = {
+                    concorrente_direto: { className: 'bg-red-100 text-red-700 border-red-200', label: 'Direto' },
+                    concorrente_indireto: { className: 'bg-yellow-100 text-yellow-700 border-yellow-200', label: 'Indireto' },
+                    potencial_parceiro: { className: 'bg-blue-100 text-blue-700 border-blue-200', label: 'Parceiro' },
+                    irrelevante: { className: 'bg-gray-100 text-gray-500 border-gray-200', label: 'Irrelevante' },
+                  }
+                  const sRelConf = sRel?.type ? sRelBadgeConfig[sRel.type] : null
+
                   return (
                     <Card key={c.cnpj}>
                       <CardHeader className="pb-2">
@@ -1646,6 +1782,14 @@ export default async function CompetitorsPage({
                           )}
                           {!c.municipio && c.uf && (
                             <Badge variant="outline" className="text-xs">{c.uf}</Badge>
+                          )}
+                          {sRelConf && (
+                            <Badge variant="outline" className={`text-xs ${sRelConf.className}`}>{sRelConf.label}</Badge>
+                          )}
+                          {sRel && (
+                            <Badge variant="outline" className="text-xs border-orange-300 text-orange-700">
+                              Relev. {sRel.score}
+                            </Badge>
                           )}
                         </div>
 
