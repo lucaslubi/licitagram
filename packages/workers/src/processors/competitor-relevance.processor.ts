@@ -4,13 +4,14 @@
  * BullMQ worker that analyzes competitor relevance using AI.
  * For each company in the system:
  *   1. Get company profile (CNAEs, services, keywords)
- *   2. Get top 50 competitors from competitors table
- *   3. Get shared tender objects for context
- *   4. Call AI relevance engine in batches of 5
- *   5. Upsert results into competitor_relevance table
+ *   2. Get top 100 competitors from competitors table
+ *   3. Discover additional competitors via CNAE overlap
+ *   4. Get shared tender objects for context
+ *   5. Call AI relevance engine in batches of 8 (with retry)
+ *   6. Upsert results into competitor_relevance table
  *
- * Runs every 4 hours. Skips companies analyzed in last 24h.
- * Processes max 3 companies per job run.
+ * Runs every 4 hours. Skips companies analyzed in last 12h.
+ * Processes max 5 companies per job run.
  */
 
 import { Worker, type Job } from 'bullmq'
@@ -25,8 +26,8 @@ import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
 
 const MAX_COMPANIES_PER_RUN = 5
-const MAX_COMPETITORS_PER_COMPANY = 50
-const SKIP_IF_ANALYZED_WITHIN_MS = 6 * 60 * 60 * 1000 // 6 hours — re-analyze more frequently
+const MAX_COMPETITORS_PER_COMPANY = 100
+const SKIP_IF_ANALYZED_WITHIN_MS = 12 * 60 * 60 * 1000 // 12 hours
 
 async function processCompetitorRelevance(job: Job<CompetitorRelevanceJobData>) {
   const startTime = Date.now()
@@ -90,6 +91,74 @@ async function processCompetitorRelevance(job: Job<CompetitorRelevanceJobData>) 
   )
 }
 
+/**
+ * Discover additional competitors via CNAE division overlap.
+ * Finds companies in the same CNAE divisions (first 2 digits) that may not
+ * have appeared in the same tenders yet.
+ */
+async function discoverCompetitorsByCNAE(
+  company: {
+    id: string
+    cnae_principal: string | null
+    cnaes_secundarios: string[] | null
+  },
+  existingCnpjs: Set<string>,
+): Promise<Array<{ cnpj: string; razao_social: string | null; cnae_divisao: string | null }>> {
+  // Extract CNAE divisions (first 2 digits) from principal and secondary CNAEs
+  const cnaeDivisoes = new Set<string>()
+
+  if (company.cnae_principal && company.cnae_principal.length >= 2) {
+    cnaeDivisoes.add(company.cnae_principal.substring(0, 2))
+  }
+
+  if (company.cnaes_secundarios) {
+    for (const cnae of company.cnaes_secundarios) {
+      if (cnae && cnae.length >= 2) {
+        cnaeDivisoes.add(cnae.substring(0, 2))
+      }
+    }
+  }
+
+  if (cnaeDivisoes.size === 0) {
+    return []
+  }
+
+  const divisaoList = [...cnaeDivisoes]
+
+  // Query competitor_stats for companies in the same CNAE divisions, ordered by participation count
+  const allCnaeCompetitors: Array<{ cnpj: string; razao_social: string | null; cnae_divisao: string | null }> = []
+
+  for (const divisao of divisaoList) {
+    const { data, error } = await supabase
+      .from('competitor_stats')
+      .select('cnpj, razao_social, cnae_divisao')
+      .eq('cnae_divisao', divisao)
+      .order('total_participacoes', { ascending: false })
+      .limit(50)
+
+    if (!error && data) {
+      for (const row of data) {
+        if (row.cnpj && !existingCnpjs.has(row.cnpj)) {
+          allCnaeCompetitors.push(row)
+        }
+      }
+    }
+  }
+
+  // Deduplicate by cnpj and take top 30
+  const seen = new Set<string>()
+  const unique: typeof allCnaeCompetitors = []
+  for (const c of allCnaeCompetitors) {
+    if (!seen.has(c.cnpj)) {
+      seen.add(c.cnpj)
+      unique.push(c)
+    }
+    if (unique.length >= 30) break
+  }
+
+  return unique
+}
+
 async function analyzeCompanyCompetitors(company: {
   id: string
   razao_social: string | null
@@ -101,12 +170,13 @@ async function analyzeCompanyCompetitors(company: {
   const companyId = company.id
 
   // 3. Find competitors that appeared in the same tenders as this company
-  // Step A: Get tender IDs this company was matched to
+  // Step A: Get tender IDs this company was matched to (ordered by most recent first)
   const { data: companyMatches, error: matchError } = await supabase
     .from('matches')
     .select('tender_id')
     .eq('company_id', companyId)
-    .limit(200)
+    .order('created_at', { ascending: false })
+    .limit(500)
 
   if (matchError || !companyMatches || companyMatches.length === 0) {
     logger.info({ companyId }, 'No matches found for company, skipping relevance analysis')
@@ -146,7 +216,7 @@ async function analyzeCompanyCompetitors(company: {
     if (!c.cnpj) continue
     const existing = cnpjCounts.get(c.cnpj) || { count: 0, tenderIds: [] }
     existing.count++
-    if (existing.tenderIds.length < 10) {
+    if (existing.tenderIds.length < 20) {
       existing.tenderIds.push(c.tender_id)
     }
     cnpjCounts.set(c.cnpj, existing)
@@ -160,6 +230,21 @@ async function analyzeCompanyCompetitors(company: {
   if (topCnpjs.length === 0) {
     logger.info({ companyId }, 'No unique competitor CNPJs found')
     return
+  }
+
+  // Discover additional competitors via CNAE overlap
+  const existingCnpjSet = new Set(topCnpjs.map(([cnpj]) => cnpj))
+  const cnaeDiscoveries = await discoverCompetitorsByCNAE(company, existingCnpjSet)
+
+  if (cnaeDiscoveries.length > 0) {
+    logger.info(
+      { companyId, cnaeDiscoveryCount: cnaeDiscoveries.length },
+      'Discovered additional competitors via CNAE overlap',
+    )
+    // Add CNAE discoveries to the topCnpjs list with count 0
+    for (const discovery of cnaeDiscoveries) {
+      topCnpjs.push([discovery.cnpj, { count: 0, tenderIds: [] }])
+    }
   }
 
   // 4. Get competitor profiles from competitor_stats + competitors table
@@ -185,8 +270,11 @@ async function analyzeCompanyCompetitors(company: {
 
   const statsMap = new Map((competitorStats || []).map((s) => [s.cnpj, s]))
 
+  // Track which CNPJs came from CNAE discovery
+  const cnaeDiscoveryCnpjs = new Set(cnaeDiscoveries.map(d => d.cnpj))
+
   // Build competitor profiles
-  const competitorProfiles: CompetitorProfile[] = topCnpjs.map(([cnpj]) => {
+  const competitorProfiles: CompetitorProfile[] = topCnpjs.map(([cnpj, data]) => {
     const stats = statsMap.get(cnpj)
     const details = detailsMap.get(cnpj)
     return {
@@ -196,6 +284,7 @@ async function analyzeCompanyCompetitors(company: {
       cnae_nome: details?.cnae_nome || null,
       porte: stats?.porte || null,
       uf: stats?.uf || null,
+      sharedTenderCount: data.count,
     }
   })
 
@@ -207,7 +296,7 @@ async function analyzeCompanyCompetitors(company: {
     }
   }
 
-  const tenderIdList = [...allTenderIds].slice(0, 200)
+  const tenderIdList = [...allTenderIds].slice(0, 500)
   const { data: tenders } = await supabase
     .from('tenders')
     .select('id, objeto')
@@ -237,19 +326,54 @@ async function analyzeCompanyCompetitors(company: {
     'Analyzing competitor relevance with AI',
   )
 
-  const results = await analyzeCompetitorRelevanceBatch({
+  let results = await analyzeCompetitorRelevanceBatch({
     companyProfile,
     competitors: competitorProfiles,
     sharedTenderObjectsMap,
   })
+
+  // Retry once if results are empty or much smaller than expected (< 50% of input)
+  const expectedMinResults = Math.floor(competitorProfiles.length * 0.5)
+  if (results.length < expectedMinResults) {
+    logger.warn(
+      {
+        companyId,
+        resultCount: results.length,
+        expectedMin: expectedMinResults,
+        competitorCount: competitorProfiles.length,
+      },
+      'AI analysis returned fewer results than expected, retrying once',
+    )
+
+    const retryResults = await analyzeCompetitorRelevanceBatch({
+      companyProfile,
+      competitors: competitorProfiles,
+      sharedTenderObjectsMap,
+    })
+
+    // Use whichever attempt returned more results
+    if (retryResults.length > results.length) {
+      logger.info(
+        { companyId, originalCount: results.length, retryCount: retryResults.length },
+        'Retry returned more results, using retry results',
+      )
+      results = retryResults
+    } else {
+      logger.info(
+        { companyId, originalCount: results.length, retryCount: retryResults.length },
+        'Retry did not improve results, keeping original',
+      )
+    }
+  }
 
   // 7. Upsert results into competitor_relevance table
   let upserted = 0
   for (const result of results) {
     const competitorData = topCnpjs.find(([cnpj]) => cnpj === result.cnpj)
     const sharedCount = competitorData ? competitorData[1].count : 0
-    const sharedObjects = (sharedTenderObjectsMap[result.cnpj] || []).slice(0, 5)
+    const sharedObjects = (sharedTenderObjectsMap[result.cnpj] || []).slice(0, 10)
     const stats = statsMap.get(result.cnpj)
+    const isCnaeDiscovery = cnaeDiscoveryCnpjs.has(result.cnpj)
 
     const { error: upsertError } = await supabase
       .from('competitor_relevance')
@@ -263,6 +387,7 @@ async function analyzeCompanyCompetitors(company: {
           reason: result.reason,
           shared_tender_count: sharedCount,
           shared_tender_objects: sharedObjects,
+          discovery_source: isCnaeDiscovery ? 'cnae_discovery' : 'shared_tenders',
           analyzed_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         },
@@ -283,6 +408,7 @@ async function analyzeCompanyCompetitors(company: {
     {
       companyId,
       totalCompetitors: competitorProfiles.length,
+      cnaeDiscoveries: cnaeDiscoveries.length,
       upserted,
       directCount: results.filter((r) => r.relationship_type === 'concorrente_direto').length,
       indirectCount: results.filter((r) => r.relationship_type === 'concorrente_indireto').length,

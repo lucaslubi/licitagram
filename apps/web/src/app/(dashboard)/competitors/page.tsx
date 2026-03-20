@@ -473,15 +473,34 @@ export default async function CompetitorsPage({
   }
   let topCompetitors: RelevantCompetitor[] = []
   let rankingHasAiData = false
+  let rankingSummary: { total_analyzed: number; direct_count: number; indirect_count: number; partner_count: number; avg_relevance: number; last_analyzed: string | null } | null = null
 
   if (profile?.company_id && tab === 'ranking') {
-    // Try AI-powered relevance data first
-    const { data: relevantCompetitors } = await supabase
-      .rpc('get_relevant_competitors', {
+    // Fetch AI-powered relevance data — ALL competitors (min_score 0, limit 50, excludes irrelevante in RPC)
+    const [{ data: relevantCompetitors }, { data: summaryData }] = await Promise.all([
+      supabase.rpc('get_relevant_competitors', {
         p_company_id: profile.company_id,
-        p_min_score: 40,
-        p_limit: 20
-      })
+        p_min_score: 0,
+        p_limit: 50,
+      }),
+      supabase.rpc('get_competitor_summary', {
+        p_company_id: profile.company_id,
+      }),
+    ])
+
+    if (summaryData) {
+      const sd = Array.isArray(summaryData) ? summaryData[0] : summaryData
+      if (sd) {
+        rankingSummary = {
+          total_analyzed: (sd as any).total_analyzed ?? 0,
+          direct_count: (sd as any).direct_count ?? 0,
+          indirect_count: (sd as any).indirect_count ?? 0,
+          partner_count: (sd as any).partner_count ?? 0,
+          avg_relevance: (sd as any).avg_relevance ?? 0,
+          last_analyzed: (sd as any).last_analyzed ?? null,
+        }
+      }
+    }
 
     if (relevantCompetitors && relevantCompetitors.length > 0) {
       rankingHasAiData = true
@@ -502,30 +521,36 @@ export default async function CompetitorsPage({
       }))
     }
 
-    // Fallback: if no AI data yet, use old frequency-based method
+    // Fallback: if no AI data yet, use frequency-based from ALL tenders (not just open ones)
     if (topCompetitors.length === 0) {
-      const today = new Date().toISOString().split('T')[0]
       const { data: matchedTenders } = await supabase
         .from('matches')
-        .select('tender_id, tenders!inner(data_encerramento, modalidade_id)')
+        .select('tender_id')
         .eq('company_id', profile.company_id)
-        .not('tenders.modalidade_id', 'in', '(9,14)')
-        .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
-        .limit(100)
+        .order('created_at', { ascending: false })
+        .limit(300)
 
       if (matchedTenders && matchedTenders.length > 0) {
-        const tenderIds = matchedTenders.map((m) => m.tender_id)
-        const { data: competitors } = await supabase
-          .from('competitors')
-          .select('cnpj, nome, situacao, porte, cnae_nome, uf_fornecedor, municipio_fornecedor')
-          .in('tender_id', tenderIds)
+        const tenderIds = [...new Set(matchedTenders.map((m) => m.tender_id))]
+        // Fetch in batches to avoid URL length limits
+        const allCompetitors: any[] = []
+        for (let i = 0; i < tenderIds.length; i += 100) {
+          const batch = tenderIds.slice(i, i + 100)
+          const { data: batchData } = await supabase
+            .from('competitors')
+            .select('cnpj, nome, situacao, porte, cnae_nome, uf_fornecedor')
+            .in('tender_id', batch)
+            .not('cnpj', 'is', null)
+          if (batchData) allCompetitors.push(...batchData)
+        }
 
-        if (competitors) {
+        if (allCompetitors.length > 0) {
           const grouped: Record<string, {
             nome: string; count: number; wins: number
-            porte?: string; cnae_nome?: string; uf?: string; municipio?: string
+            porte?: string; cnae_nome?: string; uf?: string
           }> = {}
-          for (const c of competitors) {
+          for (const c of allCompetitors) {
+            if (!c.cnpj) continue
             if (!grouped[c.cnpj]) grouped[c.cnpj] = { nome: c.nome, count: 0, wins: 0 }
             grouped[c.cnpj].count++
             const isWinner = c.situacao && typeof c.situacao === 'string' && c.situacao.toLowerCase().includes('homologad')
@@ -533,7 +558,6 @@ export default async function CompetitorsPage({
             if (c.porte && !grouped[c.cnpj].porte) grouped[c.cnpj].porte = c.porte
             if (c.cnae_nome && !grouped[c.cnpj].cnae_nome) grouped[c.cnpj].cnae_nome = c.cnae_nome
             if (c.uf_fornecedor && !grouped[c.cnpj].uf) grouped[c.cnpj].uf = c.uf_fornecedor
-            if (c.municipio_fornecedor && !grouped[c.cnpj].municipio) grouped[c.cnpj].municipio = c.municipio_fornecedor
           }
           topCompetitors = Object.entries(grouped)
             .map(([cnpj, data]) => ({
@@ -552,7 +576,7 @@ export default async function CompetitorsPage({
               nivel_ameaca: null,
             }))
             .sort((a, b) => b.count - a.count)
-            .slice(0, 15)
+            .slice(0, 30)
         }
       }
     }
@@ -730,154 +754,190 @@ export default async function CompetitorsPage({
 
       {tab === 'ranking' && (
         <div className="space-y-4">
+          {/* AI Analysis Status Banner */}
           {!rankingHasAiData && topCompetitors.length > 0 && (
             <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4">
-              <span className="text-2xl">&#x1F916;</span>
+              <span className="inline-block w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
               <div>
                 <p className="text-sm font-medium text-blue-800">Analise de IA em andamento...</p>
                 <p className="text-xs text-blue-600">
-                  Os concorrentes estao sendo analisados e ranqueados por relevancia. Resultados aparecerao em breve.
-                  Enquanto isso, exibimos o ranking por frequencia.
+                  Concorrentes sendo analisados por relevancia contextual. Enquanto isso, ranking por frequencia de co-participacao.
                 </p>
               </div>
             </div>
           )}
 
+          {/* Summary Cards (when AI data available) */}
+          {rankingHasAiData && rankingSummary && (
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <div className="rounded-lg border bg-white p-3 text-center">
+                <p className="text-2xl font-bold text-gray-900">{rankingSummary.total_analyzed}</p>
+                <p className="text-xs text-gray-500">Analisados</p>
+              </div>
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-center">
+                <p className="text-2xl font-bold text-red-700">{rankingSummary.direct_count}</p>
+                <p className="text-xs text-red-600">Diretos</p>
+              </div>
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-center">
+                <p className="text-2xl font-bold text-amber-700">{rankingSummary.indirect_count}</p>
+                <p className="text-xs text-amber-600">Indiretos</p>
+              </div>
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-center">
+                <p className="text-2xl font-bold text-blue-700">{rankingSummary.partner_count}</p>
+                <p className="text-xs text-blue-600">Parceiros</p>
+              </div>
+              <div className="rounded-lg border bg-white p-3 text-center">
+                <p className="text-2xl font-bold text-gray-900">{rankingSummary.avg_relevance ? Number(rankingSummary.avg_relevance).toFixed(0) : '-'}</p>
+                <p className="text-xs text-gray-500">Score Medio</p>
+              </div>
+            </div>
+          )}
+
           <Card>
-            <CardHeader>
+            <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2">
-                <span className="inline-block w-1.5 h-5 bg-orange-500 rounded-full" />
-                {rankingHasAiData ? 'Seus Concorrentes por Relevancia de IA' : 'Concorrentes Mais Frequentes nas Suas Licitacoes'}
+                <svg className="w-5 h-5 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                {rankingHasAiData ? 'Ranking de Concorrentes por IA' : 'Ranking por Frequencia'}
               </CardTitle>
+              {rankingHasAiData && rankingSummary?.last_analyzed && (
+                <p className="text-xs text-muted-foreground">
+                  Ultima analise: {new Date(rankingSummary.last_analyzed).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </p>
+              )}
             </CardHeader>
             <CardContent>
               {topCompetitors.length === 0 ? (
                 <div className="text-center py-10 space-y-3">
-                  <span className="text-4xl">&#x1F916;</span>
-                  <p className="text-sm text-gray-500">
-                    Analise de IA em andamento... Os concorrentes estao sendo analisados e ranqueados por relevancia.
-                    Resultados aparecerao em breve.
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    Dados insuficientes. Os rankings serao exibidos quando houver dados de resultados de licitacoes.
+                  <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto">
+                    <svg className="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                  </div>
+                  <p className="text-sm text-gray-600 font-medium">Analise de IA em andamento</p>
+                  <p className="text-xs text-gray-400 max-w-sm mx-auto">
+                    Seus concorrentes estao sendo analisados com inteligencia artificial para criar um ranking contextual preciso.
+                    Os resultados aparecerao em breve.
                   </p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full caption-bottom text-sm">
-                    <thead className="[&_tr]:border-b">
-                      <tr className="border-b transition-colors hover:bg-muted/50">
-                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground w-8">#</th>
-                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Nome</th>
-                        {rankingHasAiData && (
-                          <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Relevancia</th>
-                        )}
-                        {rankingHasAiData && (
-                          <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Tipo</th>
-                        )}
-                        <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Win Rate</th>
-                        <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Part.</th>
-                        <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Vit.</th>
-                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground hidden md:table-cell">Porte</th>
-                        <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground hidden md:table-cell">UF</th>
-                        {rankingHasAiData && (
-                          <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground hidden lg:table-cell">Segmento</th>
-                        )}
-                        {rankingHasAiData && (
-                          <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground hidden lg:table-cell">Ameaca</th>
-                        )}
-                      </tr>
-                    </thead>
-                    <tbody className="[&_tr:last-child]:border-0">
-                      {topCompetitors.map((c, i) => {
-                        const winRatePct = (c.win_rate * 100).toFixed(1)
-                        const winRateColor = c.win_rate >= 0.6 ? 'text-green-600' : c.win_rate >= 0.3 ? 'text-yellow-600' : 'text-red-600'
-                        const scoreColor = (c.relevance_score ?? 0) >= 80
-                          ? 'bg-green-500'
-                          : (c.relevance_score ?? 0) >= 50
-                            ? 'bg-yellow-500'
-                            : 'bg-red-500'
-                        const relationshipConfig: Record<string, { className: string; label: string }> = {
-                          concorrente_direto: { className: 'bg-red-100 text-red-700 border-red-200', label: 'Direto' },
-                          concorrente_indireto: { className: 'bg-yellow-100 text-yellow-700 border-yellow-200', label: 'Indireto' },
-                          potencial_parceiro: { className: 'bg-blue-100 text-blue-700 border-blue-200', label: 'Parceiro Potencial' },
-                          irrelevante: { className: 'bg-gray-100 text-gray-500 border-gray-200', label: 'Irrelevante' },
-                        }
-                        const relConfig = c.relationship_type ? relationshipConfig[c.relationship_type] : null
-                        const nivelConfig: Record<string, { className: string; label: string }> = {
-                          alto: { className: 'bg-red-100 text-red-700 border-red-200', label: 'Alto' },
-                          medio: { className: 'bg-yellow-100 text-yellow-700 border-yellow-200', label: 'Medio' },
-                          baixo: { className: 'bg-green-100 text-green-700 border-green-200', label: 'Baixo' },
-                        }
-                        const nivelConf = c.nivel_ameaca ? nivelConfig[c.nivel_ameaca] : null
+                <div className="space-y-2">
+                  {topCompetitors.map((c, i) => {
+                    const winRatePct = Math.round(c.win_rate * 100)
+                    const scoreVal = c.relevance_score ?? 0
+                    const scoreColor = scoreVal >= 80
+                      ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                      : scoreVal >= 60
+                        ? 'text-blue-700 bg-blue-50 border-blue-200'
+                        : scoreVal >= 40
+                          ? 'text-amber-700 bg-amber-50 border-amber-200'
+                          : 'text-gray-600 bg-gray-50 border-gray-200'
+                    const barColor = scoreVal >= 80 ? 'bg-emerald-500' : scoreVal >= 60 ? 'bg-blue-500' : scoreVal >= 40 ? 'bg-amber-500' : 'bg-gray-400'
+                    const relationshipConfig: Record<string, { bg: string; text: string; border: string; label: string; icon: string }> = {
+                      concorrente_direto: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', label: 'Direto', icon: '🎯' },
+                      concorrente_indireto: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', label: 'Indireto', icon: '↔️' },
+                      potencial_parceiro: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200', label: 'Parceiro', icon: '🤝' },
+                    }
+                    const relConfig = c.relationship_type ? relationshipConfig[c.relationship_type] : null
+                    const isTopThreat = i < 3 && rankingHasAiData
 
-                        return (
-                          <tr key={c.cnpj} className="border-b transition-colors hover:bg-muted/50">
-                            <td className="p-4 font-bold text-muted-foreground">{i + 1}</td>
-                            <td className="p-4 text-sm font-medium">
-                              <span>{c.nome || formatCnpj(c.cnpj)}</span>
-                              {c.reason && (
-                                <details className="mt-1">
-                                  <summary className="text-xs text-blue-500 cursor-pointer hover:text-blue-700">Ver analise da IA</summary>
-                                  <p className="text-xs text-gray-500 mt-1 pl-2 border-l-2 border-blue-200">{c.reason}</p>
-                                </details>
+                    return (
+                      <div
+                        key={c.cnpj}
+                        className={`rounded-lg border p-4 transition-all hover:shadow-md ${isTopThreat ? 'border-orange-200 bg-orange-50/30' : 'bg-white hover:bg-gray-50/50'}`}
+                      >
+                        <div className="flex items-start gap-3">
+                          {/* Rank number */}
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-sm font-bold ${
+                            isTopThreat ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-500'
+                          }`}>
+                            {i + 1}
+                          </div>
+
+                          {/* Main content */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <h3 className="text-sm font-semibold text-gray-900 truncate">
+                                  {c.nome || formatCnpj(c.cnpj)}
+                                </h3>
+                                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                  {relConfig && (
+                                    <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${relConfig.bg} ${relConfig.text} ${relConfig.border}`}>
+                                      <span>{relConfig.icon}</span> {relConfig.label}
+                                    </span>
+                                  )}
+                                  {c.porte && (
+                                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">{c.porte}</span>
+                                  )}
+                                  {c.uf && (
+                                    <span className="text-xs text-gray-400">{c.uf}</span>
+                                  )}
+                                  {c.segmento_ia && (
+                                    <span className="text-xs text-gray-400 hidden md:inline">• {c.segmento_ia}</span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Score badge */}
+                              {rankingHasAiData && c.relevance_score != null && (
+                                <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${scoreColor} shrink-0`}>
+                                  <span className="text-lg font-bold leading-none">{c.relevance_score}</span>
+                                  <span className="text-[10px] font-medium opacity-70 leading-none">/100</span>
+                                </div>
                               )}
-                              {c.shared_tender_count > 0 && (
-                                <span className="block text-xs text-gray-400 mt-0.5">
-                                  {c.shared_tender_count} licitacao{c.shared_tender_count !== 1 ? 'es' : ''} em comum
-                                </span>
-                              )}
-                            </td>
-                            {rankingHasAiData && (
-                              <td className="p-4">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+                            </div>
+
+                            {/* Stats row */}
+                            <div className="flex items-center gap-4 mt-2">
+                              {rankingHasAiData && (
+                                <div className="flex-1 max-w-[200px]">
+                                  <div className="w-full bg-gray-200 rounded-full h-1.5">
                                     <div
-                                      className={`h-full rounded-full ${scoreColor}`}
-                                      style={{ width: `${c.relevance_score ?? 0}%` }}
+                                      className={`h-1.5 rounded-full ${barColor} transition-all duration-500`}
+                                      style={{ width: `${scoreVal}%` }}
                                     />
                                   </div>
-                                  <span className="text-xs font-medium text-gray-600 w-8 text-right">{c.relevance_score ?? '-'}</span>
                                 </div>
-                              </td>
-                            )}
-                            {rankingHasAiData && (
-                              <td className="p-4 text-center">
-                                {relConfig ? (
-                                  <Badge variant="outline" className={`text-xs ${relConfig.className}`}>{relConfig.label}</Badge>
-                                ) : (
-                                  <span className="text-xs text-gray-400">-</span>
+                              )}
+                              <div className="flex items-center gap-3 text-xs text-gray-500">
+                                <span title="Win Rate" className={`font-semibold ${winRatePct >= 50 ? 'text-green-600' : winRatePct >= 25 ? 'text-amber-600' : 'text-gray-500'}`}>
+                                  {winRatePct}% WR
+                                </span>
+                                <span title="Participacoes">{c.count} part.</span>
+                                <span title="Vitorias" className={c.wins > 0 ? 'text-green-600 font-medium' : ''}>
+                                  {c.wins} vit.
+                                </span>
+                                {c.shared_tender_count > 0 && (
+                                  <span title="Licitacoes em comum" className="text-blue-500">
+                                    {c.shared_tender_count} em comum
+                                  </span>
                                 )}
-                              </td>
-                            )}
-                            <td className={`p-4 text-center font-bold ${winRateColor}`}>{winRatePct}%</td>
-                            <td className="p-4 text-center">{c.count}</td>
-                            <td className="p-4 text-center">
-                              <Badge variant={c.wins > 0 ? 'default' : 'secondary'}>{c.wins}</Badge>
-                            </td>
-                            <td className="p-4 text-sm hidden md:table-cell">
-                              {c.porte ? (
-                                <Badge variant="outline" className="text-xs">{c.porte}</Badge>
-                              ) : '-'}
-                            </td>
-                            <td className="p-4 text-sm text-gray-400 hidden md:table-cell">{c.uf || '-'}</td>
-                            {rankingHasAiData && (
-                              <td className="p-4 text-center text-xs text-gray-500 hidden lg:table-cell">{c.segmento_ia || '-'}</td>
-                            )}
-                            {rankingHasAiData && (
-                              <td className="p-4 text-center hidden lg:table-cell">
-                                {nivelConf ? (
-                                  <Badge variant="outline" className={`text-xs ${nivelConf.className}`}>{nivelConf.label}</Badge>
-                                ) : (
-                                  <span className="text-xs text-gray-400">-</span>
+                                {c.nivel_ameaca && (
+                                  <span className={`font-medium ${
+                                    c.nivel_ameaca === 'alto' ? 'text-red-600' : c.nivel_ameaca === 'medio' ? 'text-amber-600' : 'text-green-600'
+                                  }`}>
+                                    Ameaca {c.nivel_ameaca}
+                                  </span>
                                 )}
-                              </td>
+                              </div>
+                            </div>
+
+                            {/* AI reason (expandable) */}
+                            {c.reason && (
+                              <details className="mt-2">
+                                <summary className="text-xs text-blue-500 cursor-pointer hover:text-blue-700 font-medium">
+                                  Ver analise da IA
+                                </summary>
+                                <p className="text-xs text-gray-500 mt-1.5 pl-3 border-l-2 border-blue-200 leading-relaxed">{c.reason}</p>
+                              </details>
                             )}
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </CardContent>

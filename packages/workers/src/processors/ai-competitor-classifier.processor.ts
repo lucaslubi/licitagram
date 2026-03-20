@@ -38,7 +38,7 @@ interface CompetitorRow {
   total_participacoes: number | null
   total_vitorias: number | null
   win_rate: number | null
-  valor_total_vitorias: number | null
+  valor_total_ganho: number | null
 }
 
 interface ClassificationResult {
@@ -57,7 +57,7 @@ function buildPrompt(competitors: CompetitorRow[]): string {
     total_participacoes: c.total_participacoes || 0,
     total_vitorias: c.total_vitorias || 0,
     win_rate: c.win_rate != null ? `${(c.win_rate * 100).toFixed(1)}%` : '0%',
-    valor_total_vitorias: c.valor_total_vitorias || 0,
+    valor_total_ganho: c.valor_total_ganho || 0,
   }))
 
   return `Classifique as seguintes empresas:
@@ -75,7 +75,7 @@ async function processAiCompetitorClassifier(job: Job<AiCompetitorClassifierJobD
     // Fetch competitors without AI classification
     const { data: competitors, error: fetchError } = await supabase
       .from('competitor_stats')
-      .select('cnpj, razao_social, cnae_divisao, cnae_nome, porte, total_participacoes, total_vitorias, win_rate, valor_total_vitorias')
+      .select('cnpj, razao_social, cnae_divisao, porte, total_participacoes, total_vitorias, win_rate, valor_total_ganho')
       .is('segmento_ia', null)
       .order('total_participacoes', { ascending: false })
       .range(offset, offset + BATCH_SIZE - 1)
