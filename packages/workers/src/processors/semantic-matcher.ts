@@ -42,12 +42,16 @@ const KEYWORD_WEIGHT = 0.20          // Keyword overlap contribution
 
 // ─── Layer 1: Recall (pgvector) ─────────────────────────────────────────────
 
+// Non-competitive modalities that should never generate matches/notifications
+const NON_COMPETITIVE_MODALITIES = [9, 12, 14] // Inexigibilidade, Credenciamento, Inaplicabilidade
+
 interface RecallCandidate {
   id: string
   objeto: string
   orgao_nome: string | null
   uf: string | null
   modalidade_nome: string | null
+  modalidade_id: number | null
   valor_estimado: number | null
   data_abertura: string | null
   data_encerramento: string | null
@@ -276,7 +280,24 @@ export async function runSemanticMatching(companyId: string): Promise<{
     logger.info({ companyId }, 'No recall candidates found')
     return stats
   }
-  logger.info({ companyId, candidates: candidates.length }, 'Recall candidates found')
+
+  // Filter out non-competitive modalities (inexigibilidade, credenciamento, inaplicabilidade)
+  const beforeFilter = candidates.length
+  const filteredCandidates = candidates.filter(
+    (c) => !c.modalidade_id || !NON_COMPETITIVE_MODALITIES.includes(c.modalidade_id)
+  )
+  if (filteredCandidates.length < beforeFilter) {
+    logger.info(
+      { companyId, removed: beforeFilter - filteredCandidates.length },
+      'Filtered non-competitive modalities from recall candidates',
+    )
+  }
+
+  if (filteredCandidates.length === 0) {
+    logger.info({ companyId }, 'No candidates after non-competitive modality filter')
+    return stats
+  }
+  logger.info({ companyId, candidates: filteredCandidates.length }, 'Recall candidates found')
 
   // Layer 2: Precision
   const allCnaes: string[] = []
@@ -288,7 +309,7 @@ export async function runSemanticMatching(companyId: string): Promise<{
     ...((company.capacidades as string[]) || []),
   ]
 
-  const precisionResults = computePrecisionScores(candidates, companyDivisions, companyKeywords)
+  const precisionResults = computePrecisionScores(filteredCandidates, companyDivisions, companyKeywords)
 
   // Filter: only keep scores >= MIN_FINAL_SCORE
   const aboveThreshold = precisionResults.filter((r) => r.combinedScore >= MIN_FINAL_SCORE)

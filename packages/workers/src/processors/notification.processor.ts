@@ -165,13 +165,24 @@ const notificationWorker = new Worker<NotificationJobData>(
       .from('matches')
       .select(`
         id, score, match_source, breakdown, ai_justificativa, company_id,
-        tenders (objeto, orgao_nome, uf, valor_estimado, data_abertura, data_encerramento, modalidade_nome)
+        tenders (objeto, orgao_nome, uf, valor_estimado, data_abertura, data_encerramento, modalidade_nome, modalidade_id)
       `)
       .eq('id', matchId)
       .single()
 
     if (!match) {
       logger.warn({ matchId }, 'Match not found for notification')
+      return
+    }
+
+    // ── BLOCK non-competitive modalities (inexigibilidade, credenciamento, inaplicabilidade) ──
+    const tenderCheck = (match.tenders as unknown) as Record<string, unknown>
+    const modalidadeId = tenderCheck?.modalidade_id as number | null
+    if (modalidadeId && [9, 12, 14].includes(modalidadeId)) {
+      logger.info(
+        { matchId, modalidadeId, modalidade_nome: tenderCheck?.modalidade_nome },
+        'Notification blocked: non-competitive modality (inexigibilidade/credenciamento)',
+      )
       return
     }
 

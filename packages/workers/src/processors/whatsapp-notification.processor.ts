@@ -46,7 +46,7 @@ const whatsappNotificationWorker = new Worker<WhatsAppNotificationJobData>(
       .from('matches')
       .select(`
         id, score, match_source, ai_justificativa, company_id,
-        tenders (objeto, orgao_nome, uf, valor_estimado, data_abertura, modalidade_nome)
+        tenders (objeto, orgao_nome, uf, valor_estimado, data_abertura, modalidade_nome, modalidade_id)
       `)
       .eq('id', matchId)
       .single()
@@ -56,7 +56,18 @@ const whatsappNotificationWorker = new Worker<WhatsAppNotificationJobData>(
       return
     }
 
-    const tender = (match.tenders as unknown) as Record<string, unknown>
+    // Block non-competitive modalities (inexigibilidade, credenciamento, inaplicabilidade)
+    const tenderCheck = (match.tenders as unknown) as Record<string, unknown>
+    const modalidadeId = tenderCheck?.modalidade_id as number | null
+    if (modalidadeId && [9, 12, 14].includes(modalidadeId)) {
+      logger.info(
+        { matchId, modalidadeId },
+        'WhatsApp notification blocked: non-competitive modality',
+      )
+      return
+    }
+
+    const tender = tenderCheck
 
     try {
       await sendMatchAlert(
