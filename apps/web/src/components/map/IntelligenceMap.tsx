@@ -421,7 +421,7 @@ export function IntelligenceMap({
                     </span>
                   )}
                   <div
-                    className={`flex items-center justify-center rounded-full cursor-pointer shadow-lg transition-transform hover:scale-125 hover:z-50 ${
+                    className={`flex items-center justify-center rounded-full cursor-pointer shadow-lg transition-transform hover:scale-125 hover:z-40 ${
                       isHot
                         ? 'border-2 border-yellow-400'
                         : isAi
@@ -542,7 +542,7 @@ export function IntelligenceMap({
         </div>
 
         {/* Legend */}
-        <div className="absolute bottom-2 left-4 z-10">
+        <div className="absolute bottom-2 left-4 z-[9998]">
           <Card className="bg-black/70 border-white/10 p-3 text-white">
             <p className="text-xs font-semibold mb-2">Score do Match</p>
             <div className="flex items-center gap-1 mb-1">

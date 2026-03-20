@@ -178,7 +178,7 @@ export function AiConsultant() {
         <button
           id="ai-consultant-button"
           onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-[#F97316] text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center justify-center group"
+          className="fixed bottom-6 right-6 z-[9999] w-14 h-14 rounded-full bg-[#F97316] text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center justify-center group"
           aria-label="Abrir Consultor IA"
         >
           <Sparkles className="w-6 h-6 group-hover:rotate-12 transition-transform" />
@@ -192,7 +192,7 @@ export function AiConsultant() {
 
       {/* Chat panel */}
       {open && (
-        <div className="fixed bottom-0 right-0 md:bottom-6 md:right-6 z-50 w-full h-full md:w-[400px] md:h-auto md:max-h-[550px] bg-white md:rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden">
+        <div className="fixed bottom-0 right-0 md:bottom-6 md:right-6 z-[9999] w-full h-full md:w-[400px] md:h-auto md:max-h-[550px] bg-white md:rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-[#F97316] to-orange-500 text-white shrink-0">
             <div className="flex items-center gap-2">
