@@ -11,6 +11,7 @@ import type { WhatsAppNotificationJobData } from '../queues/notification-whatsap
 import { sendMatchAlert, sendOutcomePrompt, isConnected } from '../whatsapp/client'
 import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
+import { validateNotification } from '../lib/notification-guard'
 
 const whatsappNotificationWorker = new Worker<WhatsAppNotificationJobData>(
   'notification-whatsapp',
@@ -42,48 +43,31 @@ const whatsappNotificationWorker = new Worker<WhatsAppNotificationJobData>(
       return
     }
 
-    const { data: match } = await supabase
-      .from('matches')
-      .select(`
-        id, score, match_source, ai_justificativa, company_id,
-        tenders (objeto, orgao_nome, uf, valor_estimado, data_abertura, modalidade_nome, modalidade_id)
-      `)
-      .eq('id', matchId)
-      .single()
-
-    if (!match) {
-      logger.warn({ matchId }, 'WhatsApp: match not found')
+    // ── LAST-MILE GUARD — single source of truth for all blocking rules ──
+    const guard = await validateNotification(matchId)
+    if (!guard.allowed) {
+      logger.info({ matchId, reason: guard.reason }, 'WhatsApp GUARD BLOCKED')
       return
     }
 
-    // Block non-competitive modalities (inexigibilidade, credenciamento, inaplicabilidade)
-    const tenderCheck = (match.tenders as unknown) as Record<string, unknown>
-    const modalidadeId = tenderCheck?.modalidade_id as number | null
-    if (modalidadeId && [9, 12, 14].includes(modalidadeId)) {
-      logger.info(
-        { matchId, modalidadeId },
-        'WhatsApp notification blocked: non-competitive modality',
-      )
-      return
-    }
-
-    const tender = tenderCheck
+    const tender = guard.tender!
+    const match = guard.match!
 
     try {
       await sendMatchAlert(
         whatsappNumber,
         {
-          score: match.score,
-          justificativa: match.ai_justificativa || '',
+          score: match.score as number,
+          justificativa: (match.ai_justificativa as string) || '',
           recomendacao: undefined,
         },
         {
-          objeto: (tender?.objeto as string) || '',
-          orgao_nome: (tender?.orgao_nome as string) || '',
-          uf: (tender?.uf as string) || '',
-          valor_estimado: tender?.valor_estimado as number | null,
-          data_abertura: tender?.data_abertura as string | null,
-          modalidade_nome: tender?.modalidade_nome as string | null,
+          objeto: (tender.objeto as string) || '',
+          orgao_nome: (tender.orgao_nome as string) || '',
+          uf: (tender.uf as string) || '',
+          valor_estimado: tender.valor_estimado as number | null,
+          data_abertura: tender.data_abertura as string | null,
+          modalidade_nome: tender.modalidade_nome as string | null,
         },
         matchId,
       )

@@ -5,11 +5,7 @@ import { bot } from '../telegram/bot'
 import { formatMatchAlert, formatHotAlert, formatUrgencyAlert48h, formatUrgencyAlert24h, formatNewMatchesDigest } from '../telegram/formatters'
 import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
-
-// ─── Notification Threshold ──────────────────────────────────────────────
-// AI triage already did rigorous filtering — trust its scores.
-// Only notify matches with score >= 50 (user's requested threshold).
-const MIN_NOTIFICATION_SCORE = 50
+import { validateNotification } from '../lib/notification-guard'
 
 const notificationWorker = new Worker<NotificationJobData>(
   'notification',
@@ -161,80 +157,29 @@ const notificationWorker = new Worker<NotificationJobData>(
       return
     }
 
-    const { data: match } = await supabase
-      .from('matches')
-      .select(`
-        id, score, match_source, breakdown, ai_justificativa, company_id,
-        tenders (objeto, orgao_nome, uf, valor_estimado, data_abertura, data_encerramento, modalidade_nome, modalidade_id)
-      `)
-      .eq('id', matchId)
-      .single()
-
-    if (!match) {
-      logger.warn({ matchId }, 'Match not found for notification')
+    // ── LAST-MILE GUARD — single source of truth for all blocking rules ──
+    const guard = await validateNotification(matchId)
+    if (!guard.allowed) {
+      logger.info({ matchId, reason: guard.reason }, 'Telegram GUARD BLOCKED')
       return
     }
 
-    // ── BLOCK non-competitive modalities (inexigibilidade, credenciamento, inaplicabilidade) ──
-    const tenderCheck = (match.tenders as unknown) as Record<string, unknown>
-    const modalidadeId = tenderCheck?.modalidade_id as number | null
-    if (modalidadeId && [9, 12, 14].includes(modalidadeId)) {
-      logger.info(
-        { matchId, modalidadeId, modalidade_nome: tenderCheck?.modalidade_nome },
-        'Notification blocked: non-competitive modality (inexigibilidade/credenciamento)',
-      )
-      return
-    }
-
-    // ── BLOCK unverified matches — only AI-verified sources get notified ──
-    const VERIFIED_SOURCES = ['ai', 'ai_triage', 'semantic']
-    if (!VERIFIED_SOURCES.includes(match.match_source || '')) {
-      logger.info(
-        { matchId, matchSource: match.match_source, score: match.score },
-        'Notification blocked: match not AI-verified (keyword-only)',
-      )
-      return
-    }
-
-    // ── Skip expired tenders — don't notify about already-closed tenders ──
-    const tenderData = (match.tenders as unknown) as Record<string, unknown>
-    if (tenderData?.data_encerramento) {
-      const encerramento = new Date(tenderData.data_encerramento as string)
-      if (encerramento < new Date()) {
-        logger.info(
-          { matchId, data_encerramento: tenderData.data_encerramento },
-          'Skipping notification for expired tender',
-        )
-        await supabase
-          .from('matches')
-          .update({ status: 'expired' })
-          .eq('id', matchId)
-        return
-      }
-    }
-
-    // ── Score threshold — AI triage already did rigorous filtering ──────
-    const tender = tenderData
-    const tenderObjeto = (tender?.objeto as string) || ''
-
-    if (match.score < MIN_NOTIFICATION_SCORE) {
-      logger.info({ matchId, score: match.score }, 'Notification skipped: below minimum score threshold')
-      return
-    }
+    const match = guard.match!
+    const tender = guard.tender!
 
     // ── Send Telegram notification ──────────────────────────────────
     const { text, keyboard } = formatMatchAlert({
-      matchId: match.id,
-      score: match.score,
+      matchId: match.id as string,
+      score: match.score as number,
       breakdown: (match.breakdown as Array<{ category: string; score: number; reason: string }>) || [],
-      justificativa: match.ai_justificativa || '',
+      justificativa: (match.ai_justificativa as string) || '',
       tender: {
-        objeto: tenderObjeto,
-        orgao_nome: (tender?.orgao_nome as string) || '',
-        uf: (tender?.uf as string) || '',
-        valor_estimado: tender?.valor_estimado as number | null,
-        data_abertura: tender?.data_abertura as string | null,
-        modalidade_nome: tender?.modalidade_nome as string | null,
+        objeto: (tender.objeto as string) || '',
+        orgao_nome: (tender.orgao_nome as string) || '',
+        uf: (tender.uf as string) || '',
+        valor_estimado: tender.valor_estimado as number | null,
+        data_abertura: tender.data_abertura as string | null,
+        modalidade_nome: tender.modalidade_nome as string | null,
       },
     })
 

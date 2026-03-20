@@ -4,6 +4,24 @@ import { notificationQueue } from '../queues/notification.queue'
 import { whatsappQueue } from '../queues/notification-whatsapp.queue'
 import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
+import { purgeNonCompetitiveMatches } from '../lib/notification-guard'
+
+// ─── Priority levels for BullMQ (lower number = higher priority) ────────
+// Fresh matches (< 2h old) get processed first
+const PRIORITY_FRESH = 1   // < 2 hours old
+const PRIORITY_RECENT = 3  // < 12 hours old
+const PRIORITY_NORMAL = 5  // < 48 hours old
+const PRIORITY_BACKLOG = 8 // older than 48h
+
+function getJobPriority(createdAt: string | null): number {
+  if (!createdAt) return PRIORITY_NORMAL
+  const ageMs = Date.now() - new Date(createdAt).getTime()
+  const ageHours = ageMs / (60 * 60 * 1000)
+  if (ageHours < 2) return PRIORITY_FRESH
+  if (ageHours < 12) return PRIORITY_RECENT
+  if (ageHours < 48) return PRIORITY_NORMAL
+  return PRIORITY_BACKLOG
+}
 
 /**
  * Batch size per cycle by plan tier.
@@ -57,6 +75,17 @@ const pendingNotificationsWorker = new Worker(
   'pending-notifications',
   async () => {
     logger.info('Checking for pending notifications...')
+
+    // ── STARTUP PURGE: clean non-competitive matches that slipped through ──
+    // This runs on every cycle but is fast (indexed query) and self-healing
+    try {
+      const purged = await purgeNonCompetitiveMatches()
+      if (purged > 0) {
+        logger.info({ purged }, 'Purged non-competitive matches before notification cycle')
+      }
+    } catch (purgeErr) {
+      logger.warn({ err: purgeErr }, 'Purge non-competitive matches failed (non-critical)')
+    }
 
     // Find users with any notification channel linked
     // Query only columns guaranteed to exist; whatsapp_verified may not exist yet
@@ -128,20 +157,20 @@ const pendingNotificationsWorker = new Worker(
       // ONLY notify AI-verified matches — keyword-only matches are unreliable
       const { data: pendingMatches } = await supabase
         .from('matches')
-        .select('id, score, match_source, tenders(data_encerramento, modalidade_id)')
+        .select('id, score, match_source, created_at, tenders(data_encerramento, modalidade_id)')
         .eq('company_id', user.company_id)
         .eq('status', 'new')
         .gte('score', minScore)
         .in('match_source', ['ai', 'ai_triage', 'semantic'])
         .is('notified_at', null)
-        .order('score', { ascending: false })
+        .order('created_at', { ascending: false })  // Newest first!
         .limit(MAX_NOTIFICATIONS_PER_USER)
 
       if (!pendingMatches || pendingMatches.length === 0) continue
 
       // Filter out expired tenders AND non-competitive modalities in code
-      // Inexigibilidade (9) and Inaplicabilidade (14) are impossible to bid on
-      const EXCLUDED_MODS = new Set([9, 14])
+      // Inexigibilidade (9), Credenciamento (12), Inaplicabilidade (14) — impossible to bid competitively
+      const EXCLUDED_MODS = new Set([9, 12, 14])
       const validMatches = pendingMatches.filter((m: any) => {
         const mod = m.tenders?.modalidade_id
         if (mod && EXCLUDED_MODS.has(mod)) return false
@@ -180,8 +209,11 @@ const pendingNotificationsWorker = new Worker(
 
       for (const match of batch) {
         try {
+          const priority = getJobPriority((match as any).created_at)
+
           // Enqueue Telegram (independent queue)
           // jobId prevents duplicate sends across pending-check cycles
+          // priority ensures fresh matches are processed before old backlog
           if (hasTelegram) {
             await notificationQueue.add(
               `tg-${user.id}-${match.id}`,
@@ -191,6 +223,7 @@ const pendingNotificationsWorker = new Worker(
               },
               {
                 jobId: `tg-${user.id}-${match.id}`,
+                priority,
                 attempts: 3,
                 backoff: { type: 'exponential', delay: 3000 },
               },
@@ -208,6 +241,7 @@ const pendingNotificationsWorker = new Worker(
               },
               {
                 jobId: `wa-${user.id}-${match.id}`,
+                priority,
                 attempts: 3,
                 backoff: { type: 'exponential', delay: 5000 },
               },
