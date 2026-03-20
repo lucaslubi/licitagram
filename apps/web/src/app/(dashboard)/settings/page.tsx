@@ -114,7 +114,7 @@ export default function SettingsPage() {
       <h1 className="text-2xl font-bold mb-6">Configurações</h1>
 
       {message && (
-        <div className="mb-4 p-3 rounded-md bg-brand/5 text-brand text-sm">{message}</div>
+        <div className={`mb-4 p-3 rounded-md text-sm ${message.includes('sucesso') ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>{message}</div>
       )}
 
       <div className="space-y-6 max-w-2xl">
