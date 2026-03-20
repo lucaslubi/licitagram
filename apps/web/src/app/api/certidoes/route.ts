@@ -57,16 +57,17 @@ export async function POST(req: NextRequest) {
       certidoes = certidoes.filter(c => tipos.includes(c.tipo))
     }
 
-    // Save/update each certidão in company_documents
+    // Save only auto-consulted certidões (not manual ones)
     const saved: string[] = []
     for (const cert of certidoes) {
-      if (cert.situacao === 'error') continue // Don't save errored ones
+      // Only save certidões that were actually consulted (not manual links)
+      if (cert.situacao === 'error' || cert.situacao === 'manual') continue
 
       const docTipo = cert.tipo
       const descricao = cert.detalhes
       const numero = cert.numero
       const validade = cert.validade
-      const arquivoUrl = cert.pdf_url
+      const arquivoUrl = cert.pdf_url || cert.consulta_url
 
       // Check if document of this type already exists
       const { data: existing } = await supabase
@@ -77,25 +78,18 @@ export async function POST(req: NextRequest) {
         .maybeSingle()
 
       if (existing) {
-        // Update only if new data has a later validity or the existing one is expired
-        const existingValidade = existing.validade ? new Date(existing.validade) : new Date(0)
-        const newValidade = validade ? new Date(validade) : new Date()
-
-        if (newValidade >= existingValidade) {
-          await supabase
-            .from('company_documents')
-            .update({
-              descricao: `[Auto] ${descricao}`,
-              numero,
-              validade,
-              arquivo_url: arquivoUrl,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', existing.id)
-          saved.push(docTipo)
-        }
+        await supabase
+          .from('company_documents')
+          .update({
+            descricao: `[Auto] ${descricao}`,
+            numero,
+            validade,
+            arquivo_url: arquivoUrl,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existing.id)
+        saved.push(docTipo)
       } else {
-        // Insert new
         await supabase
           .from('company_documents')
           .insert({

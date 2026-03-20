@@ -1,13 +1,17 @@
 /**
  * Certidões — Direct Government Integration
  *
- * Fetches Brazilian government certificates directly from official sources:
- * - CNDT (TST) — No captcha, direct POST
- * - TCU Consolidated — No captcha, public API
- * - CND Federal (Receita/PGFN) — Captcha solved via Tesseract.js OCR
- * - CRF FGTS (Caixa) — Captcha solved via Tesseract.js OCR
+ * Fetches Brazilian government certificates directly from official sources.
  *
- * Zero cost, no third-party intermediaries.
+ * AUTO (no captcha):
+ * - TCU/CEIS/CNEP — Portal da Transparência JSON endpoint (sanctions check)
+ *
+ * GUIDED (has captcha — provides direct link with CNPJ):
+ * - CNDT (TST) — reCAPTCHA
+ * - CND Federal (Receita/PGFN) — hCaptcha
+ * - CRF FGTS (Caixa) — captcha
+ *
+ * Zero cost, no third-party APIs.
  */
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -20,15 +24,19 @@ export type CertidaoTipo =
   | 'trabalhista'
   | 'tcu'
 
+export type CertidaoSituacao = 'regular' | 'irregular' | 'error' | 'pending' | 'manual'
+
 export interface CertidaoResult {
   tipo: CertidaoTipo
   label: string
-  situacao: 'regular' | 'irregular' | 'error' | 'pending'
+  situacao: CertidaoSituacao
   detalhes: string
   numero: string | null
   emissao: string | null
   validade: string | null
   pdf_url: string | null
+  /** Direct link for user to consult manually (when captcha blocks automation) */
+  consulta_url: string | null
 }
 
 export interface ConsultaResult {
@@ -45,630 +53,233 @@ function cleanCnpj(cnpj: string): string {
   return cnpj.replace(/\D/g, '')
 }
 
-function parseDateBR(s: string | null | undefined): string | null {
-  if (!s) return null
-  const m = s.match(/(\d{2})\/(\d{2})\/(\d{4})/)
-  if (m) return `${m[3]}-${m[2]}-${m[1]}`
-  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10)
-  return null
-}
-
-function futureDate(days: number): string {
-  const d = new Date()
-  d.setDate(d.getDate() + days)
-  return d.toISOString().slice(0, 10)
-}
-
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
 const HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-  'Accept': 'application/json, text/html, */*',
   'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
 }
 
-// ─── 1. CNDT — Certidão Negativa de Débitos Trabalhistas (TST) ─────────────
-// No captcha. Direct POST with CNPJ.
-
-export async function fetchCNDT(cnpj: string): Promise<CertidaoResult> {
-  const clean = cleanCnpj(cnpj)
-
-  try {
-    // TST CNDT endpoint — POST form data with CNPJ
-    const res = await fetch('https://cndt-certidao.tst.jus.br/gerarCertidao', {
-      method: 'POST',
-      headers: {
-        ...HEADERS,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Referer': 'https://cndt-certidao.tst.jus.br/',
-        'Origin': 'https://cndt-certidao.tst.jus.br',
-      },
-      body: `numeroDocumento=${clean}&tipoDocumento=CNPJ`,
-      signal: AbortSignal.timeout(30_000),
-    })
-
-    const html = await res.text()
-
-    // Parse the response HTML for certificate data
-    const isNegativa = /certid[aã]o\s+negativa/i.test(html)
-    const isPositiva = /certid[aã]o\s+positiva/i.test(html)
-
-    // Extract certificate number
-    const numMatch = html.match(/Certid[aã]o\s+n[uú]mero[:\s]*([^\s<]+)/i)
-      || html.match(/numero[:\s]*(\d[\d./\-]+)/i)
-    const numero = numMatch?.[1] || null
-
-    // Extract validity date
-    const valMatch = html.match(/validade[:\s]*(\d{2}\/\d{2}\/\d{4})/i)
-      || html.match(/v[aá]lida\s+at[eé][:\s]*(\d{2}\/\d{2}\/\d{4})/i)
-    const validade = parseDateBR(valMatch?.[1]) || futureDate(180)
-
-    // Extract emission date
-    const emMatch = html.match(/emiss[aã]o[:\s]*(\d{2}\/\d{2}\/\d{4})/i)
-      || html.match(/emitida\s+em[:\s]*(\d{2}\/\d{2}\/\d{4})/i)
-    const emissao = parseDateBR(emMatch?.[1]) || todayISO()
-
-    if (isNegativa) {
-      return {
-        tipo: 'trabalhista',
-        label: 'CNDT — Certidão Trabalhista (TST)',
-        situacao: 'regular',
-        detalhes: 'Certidão Negativa de Débitos Trabalhistas — Nada consta',
-        numero,
-        emissao,
-        validade,
-        pdf_url: null,
-      }
-    }
-
-    if (isPositiva) {
-      return {
-        tipo: 'trabalhista',
-        label: 'CNDT — Certidão Trabalhista (TST)',
-        situacao: 'irregular',
-        detalhes: 'Certidão Positiva de Débitos Trabalhistas — Existem pendências',
-        numero,
-        emissao,
-        validade,
-        pdf_url: null,
-      }
-    }
-
-    // Could not determine — check if there's an error message
-    const errorMatch = html.match(/<div[^>]*class="[^"]*erro[^"]*"[^>]*>(.*?)<\/div>/is)
-      || html.match(/<span[^>]*class="[^"]*error[^"]*"[^>]*>(.*?)<\/span>/is)
-    const errorMsg = errorMatch?.[1]?.replace(/<[^>]+>/g, '').trim()
-
-    if (errorMsg) {
-      return {
-        tipo: 'trabalhista',
-        label: 'CNDT — Certidão Trabalhista (TST)',
-        situacao: 'error',
-        detalhes: errorMsg,
-        numero: null, emissao: null, validade: null, pdf_url: null,
-      }
-    }
-
-    // Fallback: page loaded but couldn't parse
-    return {
-      tipo: 'trabalhista',
-      label: 'CNDT — Certidão Trabalhista (TST)',
-      situacao: 'regular',
-      detalhes: 'Consulta realizada — sem débitos identificados',
-      numero, emissao, validade, pdf_url: null,
-    }
-  } catch (err) {
-    return {
-      tipo: 'trabalhista',
-      label: 'CNDT — Certidão Trabalhista (TST)',
-      situacao: 'error',
-      detalhes: `Falha na consulta: ${err instanceof Error ? err.message : 'erro desconhecido'}`,
-      numero: null, emissao: null, validade: null, pdf_url: null,
-    }
-  }
-}
-
-// ─── 2. TCU — Consulta Consolidada (Licitante Inidôneo) ────────────────────
-// Public API at Portal da Transparência / certidoes-apf.apps.tcu.gov.br
+// ─── 1. TCU / CEIS / CNEP — Portal da Transparência ────────────────────────
+// Public JSON endpoint, no auth or captcha needed.
 
 export async function fetchTCU(cnpj: string): Promise<CertidaoResult> {
   const clean = cleanCnpj(cnpj)
 
   try {
-    // TCU Certidões APF — public endpoint, no auth needed
     const res = await fetch(
-      `https://certidoes-apf.apps.tcu.gov.br/api/rest/certidao/${clean}`,
-      {
-        method: 'GET',
-        headers: { ...HEADERS, Accept: 'application/json' },
-        signal: AbortSignal.timeout(30_000),
-      },
-    )
-
-    if (res.ok) {
-      const data = await res.json()
-
-      const irregular = data.inadimplente || data.inidoneo || data.inidoleo
-        || data.impedido || data.suspensa || data.licitanteInidoneo
-        || data.declaracaoInidoneo || data.suspensaoImpedimento
-        || data.irregularCEPIM || data.irregularCNEP || data.irregularCEIS
-
-      return {
-        tipo: 'tcu',
-        label: 'TCU — Consulta Consolidada',
-        situacao: irregular ? 'irregular' : 'regular',
-        detalhes: irregular
-          ? 'Empresa consta em registros de inidoneidade/impedimento no TCU, CEIS, CNEP ou CEPIM'
-          : 'Nada consta nos registros do TCU, CEIS, CNEP e CEPIM',
-        numero: null,
-        emissao: todayISO(),
-        validade: null,
-        pdf_url: null,
-      }
-    }
-
-    // Fallback: try Portal da Transparência API
-    const fallbackRes = await fetch(
-      `https://api.portaldatransparencia.gov.br/api-de-dados/ceis?cnpjSancionado=${clean}`,
+      `https://portaldatransparencia.gov.br/sancoes/consulta/resultado?` +
+      `paginacaoSimples=true&tamanhoPagina=10&offset=0&direcaoOrdenacao=asc` +
+      `&colunaOrdenacao=nomeSancionado&cpfCnpj=${clean}`,
       {
         method: 'GET',
         headers: {
           ...HEADERS,
           Accept: 'application/json',
-          'chave-api-dados': process.env.PORTAL_TRANSPARENCIA_KEY || '',
+          'X-Requested-With': 'XMLHttpRequest',
         },
-        signal: AbortSignal.timeout(15_000),
+        signal: AbortSignal.timeout(20_000),
       },
-    ).catch(() => null)
+    )
 
-    if (fallbackRes?.ok) {
-      const ceis = await fallbackRes.json()
-      const hasSanction = Array.isArray(ceis) && ceis.length > 0
-
+    if (!res.ok) {
       return {
         tipo: 'tcu',
-        label: 'TCU — Consulta Consolidada',
-        situacao: hasSanction ? 'irregular' : 'regular',
-        detalhes: hasSanction
-          ? `Empresa consta no CEIS com ${ceis.length} registro(s) de sanção`
-          : 'Nada consta no CEIS (Cadastro de Empresas Inidôneas e Suspensas)',
+        label: 'TCU / CEIS / CNEP — Sanções',
+        situacao: 'error',
+        detalhes: `Serviço indisponível (HTTP ${res.status})`,
+        numero: null, emissao: null, validade: null, pdf_url: null, consulta_url: null,
+      }
+    }
+
+    const data = await res.json()
+    const total = data.recordsTotal || data.recordsFiltered || 0
+    const records = data.data || []
+
+    // Check if any record has actual sanction data
+    const hasSanctions = records.some((r: Record<string, unknown>) =>
+      r.nomeSancionado || r.orgao || r.dataInicialSancao,
+    )
+
+    if (total === 0 || !hasSanctions) {
+      return {
+        tipo: 'tcu',
+        label: 'TCU / CEIS / CNEP — Sanções',
+        situacao: 'regular',
+        detalhes: 'Nada consta nos cadastros CEIS, CNEP e CEPIM do Portal da Transparência',
         numero: null,
         emissao: todayISO(),
         validade: null,
         pdf_url: null,
+        consulta_url: `https://portaldatransparencia.gov.br/sancoes/consulta?cpfCnpj=${clean}`,
       }
     }
 
+    // Build details from sanctions
+    const sanctions = records
+      .filter((r: Record<string, unknown>) => r.nomeSancionado)
+      .map((r: Record<string, unknown>) => {
+        const parts: string[] = []
+        if (r.cadastro) parts.push(r.cadastro as string)
+        if (r.orgao) parts.push(`Órgão: ${r.orgao}`)
+        if (r.dataInicialSancao) parts.push(`Desde: ${r.dataInicialSancao}`)
+        return parts.join(' — ')
+      })
+      .filter(Boolean)
+
     return {
       tipo: 'tcu',
-      label: 'TCU — Consulta Consolidada',
-      situacao: 'error',
-      detalhes: `Serviço indisponível (HTTP ${res.status})`,
-      numero: null, emissao: null, validade: null, pdf_url: null,
+      label: 'TCU / CEIS / CNEP — Sanções',
+      situacao: 'irregular',
+      detalhes: `Empresa consta com ${total} registro(s) de sanção. ${sanctions.slice(0, 3).join('; ')}`,
+      numero: null,
+      emissao: todayISO(),
+      validade: null,
+      pdf_url: null,
+      consulta_url: `https://portaldatransparencia.gov.br/sancoes/consulta?cpfCnpj=${clean}`,
     }
   } catch (err) {
     return {
       tipo: 'tcu',
-      label: 'TCU — Consulta Consolidada',
+      label: 'TCU / CEIS / CNEP — Sanções',
       situacao: 'error',
-      detalhes: `Falha na consulta: ${err instanceof Error ? err.message : 'erro desconhecido'}`,
-      numero: null, emissao: null, validade: null, pdf_url: null,
+      detalhes: `Falha: ${err instanceof Error ? err.message : 'erro desconhecido'}`,
+      numero: null, emissao: null, validade: null, pdf_url: null, consulta_url: null,
     }
+  }
+}
+
+// ─── 2. CNDT — Certidão Trabalhista (TST) ──────────────────────────────────
+// Uses reCAPTCHA — cannot be automated. Returns direct link.
+
+export function buildCNDTManual(cnpj: string): CertidaoResult {
+  return {
+    tipo: 'trabalhista',
+    label: 'CNDT — Certidão Trabalhista (TST)',
+    situacao: 'manual',
+    detalhes: 'Acesse o link abaixo, informe o CNPJ e resolva o captcha para emitir.',
+    numero: null,
+    emissao: null,
+    validade: null,
+    pdf_url: null,
+    consulta_url: 'https://cndt-certidao.tst.jus.br/inicio.faces',
   }
 }
 
 // ─── 3. CND Federal — Receita Federal / PGFN ───────────────────────────────
-// Has captcha — we attempt OCR with Tesseract.js. If captcha can't be solved,
-// we return 'pending' status asking user to check manually.
+// Uses hCaptcha — cannot be automated. Returns direct link.
 
-export async function fetchCNDFederal(cnpj: string): Promise<CertidaoResult> {
-  const clean = cleanCnpj(cnpj)
-
-  try {
-    // Step 1: Get session and captcha image
-    const sessionRes = await fetch(
-      'https://solucoes.receita.fazenda.gov.br/Servicos/certidaointernet/CND/Certidao.aspx',
-      {
-        method: 'GET',
-        headers: HEADERS,
-        signal: AbortSignal.timeout(15_000),
-      },
-    )
-
-    if (!sessionRes.ok) {
-      return buildCNDFederalError(`Portal indisponível (HTTP ${sessionRes.status})`)
-    }
-
-    const html = await sessionRes.text()
-    const cookies = sessionRes.headers.getSetCookie?.() || []
-    const cookieStr = cookies.map(c => c.split(';')[0]).join('; ')
-
-    // Extract __VIEWSTATE and __EVENTVALIDATION for ASP.NET form
-    const viewState = extractHiddenField(html, '__VIEWSTATE')
-    const eventValidation = extractHiddenField(html, '__EVENTVALIDATION')
-    const viewStateGen = extractHiddenField(html, '__VIEWSTATEGENERATOR')
-
-    if (!viewState) {
-      // Page might have changed to reCAPTCHA or gov.br login
-      if (html.includes('recaptcha') || html.includes('google.com/recaptcha')) {
-        return {
-          tipo: 'cnd_federal',
-          label: 'CND Federal (Receita/PGFN)',
-          situacao: 'pending',
-          detalhes: 'A Receita Federal usa reCAPTCHA. Consulte manualmente em solucoes.receita.fazenda.gov.br',
-          numero: null, emissao: null, validade: null,
-          pdf_url: 'https://solucoes.receita.fazenda.gov.br/Servicos/certidaointernet/CND/Certidao.aspx',
-        }
-      }
-      return buildCNDFederalError('Não foi possível obter formulário da Receita Federal')
-    }
-
-    // Step 2: Get captcha image
-    const captchaRes = await fetch(
-      'https://solucoes.receita.fazenda.gov.br/Servicos/certidaointernet/CND/Captcha.aspx',
-      {
-        method: 'GET',
-        headers: { ...HEADERS, Cookie: cookieStr, Referer: 'https://solucoes.receita.fazenda.gov.br/Servicos/certidaointernet/CND/Certidao.aspx' },
-        signal: AbortSignal.timeout(15_000),
-      },
-    )
-
-    if (!captchaRes.ok) {
-      return buildCNDFederalError('Não foi possível obter captcha')
-    }
-
-    const captchaBuffer = Buffer.from(await captchaRes.arrayBuffer())
-
-    // Step 3: Solve captcha with Tesseract.js OCR
-    const captchaText = await solveCaptchaOCR(captchaBuffer)
-
-    if (!captchaText || captchaText.length < 4) {
-      return {
-        tipo: 'cnd_federal',
-        label: 'CND Federal (Receita/PGFN)',
-        situacao: 'pending',
-        detalhes: 'Captcha não pôde ser resolvido automaticamente. Consulte manualmente.',
-        numero: null, emissao: null, validade: null,
-        pdf_url: 'https://solucoes.receita.fazenda.gov.br/Servicos/certidaointernet/CND/Certidao.aspx',
-      }
-    }
-
-    // Step 4: Submit form with solved captcha
-    const formData = new URLSearchParams({
-      __VIEWSTATE: viewState,
-      __VIEWSTATEGENERATOR: viewStateGen || '',
-      __EVENTVALIDATION: eventValidation || '',
-      'ctl00$ContentPlaceHolder1$txtCNPJ': clean,
-      'ctl00$ContentPlaceHolder1$txtTexto_captcha_serpro_gov_br': captchaText,
-      'ctl00$ContentPlaceHolder1$btnConsultar': 'Consultar',
-    })
-
-    const submitRes = await fetch(
-      'https://solucoes.receita.fazenda.gov.br/Servicos/certidaointernet/CND/Certidao.aspx',
-      {
-        method: 'POST',
-        headers: {
-          ...HEADERS,
-          'Content-Type': 'application/x-www-form-urlencoded',
-          Cookie: cookieStr,
-          Referer: 'https://solucoes.receita.fazenda.gov.br/Servicos/certidaointernet/CND/Certidao.aspx',
-        },
-        body: formData.toString(),
-        signal: AbortSignal.timeout(30_000),
-      },
-    )
-
-    const resultHtml = await submitRes.text()
-
-    // Parse result
-    const isNegativa = /certid[aã]o\s+negativa/i.test(resultHtml)
-    const isPositiva = /certid[aã]o\s+positiva/i.test(resultHtml)
-    const captchaWrong = /c[oó]digo\s+(de\s+)?verifica[cç][aã]o/i.test(resultHtml)
-      || /captcha.*inv[aá]lid/i.test(resultHtml)
-      || /caracteres.*imagem/i.test(resultHtml)
-
-    if (captchaWrong) {
-      return {
-        tipo: 'cnd_federal',
-        label: 'CND Federal (Receita/PGFN)',
-        situacao: 'pending',
-        detalhes: 'Captcha incorreto. Consulte manualmente em solucoes.receita.fazenda.gov.br',
-        numero: null, emissao: null, validade: null,
-        pdf_url: 'https://solucoes.receita.fazenda.gov.br/Servicos/certidaointernet/CND/Certidao.aspx',
-      }
-    }
-
-    const numMatch = resultHtml.match(/c[oó]digo\s+de\s+controle[:\s]*([A-Z0-9.\-]+)/i)
-    const valMatch = resultHtml.match(/v[aá]lid[ao]\s+at[eé][:\s]*(\d{2}\/\d{2}\/\d{4})/i)
-    const emMatch = resultHtml.match(/emiss[aã]o[:\s]*(\d{2}\/\d{2}\/\d{4})/i)
-
-    if (isNegativa) {
-      return {
-        tipo: 'cnd_federal',
-        label: 'CND Federal (Receita/PGFN)',
-        situacao: 'regular',
-        detalhes: 'Certidão Negativa de Débitos relativos a Créditos Tributários Federais e à Dívida Ativa da União',
-        numero: numMatch?.[1] || null,
-        emissao: parseDateBR(emMatch?.[1]) || todayISO(),
-        validade: parseDateBR(valMatch?.[1]) || futureDate(180),
-        pdf_url: null,
-      }
-    }
-
-    if (isPositiva) {
-      return {
-        tipo: 'cnd_federal',
-        label: 'CND Federal (Receita/PGFN)',
-        situacao: 'irregular',
-        detalhes: 'Certidão Positiva — Existem pendências com a Receita Federal / PGFN',
-        numero: numMatch?.[1] || null,
-        emissao: parseDateBR(emMatch?.[1]) || todayISO(),
-        validade: parseDateBR(valMatch?.[1]) || null,
-        pdf_url: null,
-      }
-    }
-
-    return {
-      tipo: 'cnd_federal',
-      label: 'CND Federal (Receita/PGFN)',
-      situacao: 'pending',
-      detalhes: 'Resultado inconclusivo. Consulte manualmente.',
-      numero: null, emissao: null, validade: null,
-      pdf_url: 'https://solucoes.receita.fazenda.gov.br/Servicos/certidaointernet/CND/Certidao.aspx',
-    }
-  } catch (err) {
-    return buildCNDFederalError(err instanceof Error ? err.message : 'erro desconhecido')
-  }
-}
-
-function buildCNDFederalError(msg: string): CertidaoResult {
+export function buildCNDFederalManual(cnpj: string): CertidaoResult {
   return {
     tipo: 'cnd_federal',
     label: 'CND Federal (Receita/PGFN)',
-    situacao: 'error',
-    detalhes: `Falha: ${msg}`,
-    numero: null, emissao: null, validade: null, pdf_url: null,
+    situacao: 'manual',
+    detalhes: 'Acesse o link abaixo, informe o CNPJ e resolva o captcha para emitir.',
+    numero: null,
+    emissao: null,
+    validade: null,
+    pdf_url: null,
+    consulta_url: 'https://servicos.receitafederal.gov.br/servico/certidoes/',
   }
 }
 
-// ─── 4. CRF FGTS — Caixa Econômica Federal ─────────────────────────────────
-// Similar approach: session + captcha + form submission
+// ─── 4. CRF FGTS — Caixa Econômica ─────────────────────────────────────────
+// Uses captcha — cannot be automated. Returns direct link.
 
-export async function fetchFGTS(cnpj: string): Promise<CertidaoResult> {
-  const clean = cleanCnpj(cnpj)
-
-  try {
-    // Step 1: Get session page
-    const pageRes = await fetch(
-      'https://consulta-crf.caixa.gov.br/consultacrf/pages/consultaEmpregador.jsf',
-      {
-        method: 'GET',
-        headers: HEADERS,
-        signal: AbortSignal.timeout(15_000),
-      },
-    )
-
-    if (!pageRes.ok) {
-      return buildFGTSError(`Portal indisponível (HTTP ${pageRes.status})`)
-    }
-
-    const html = await pageRes.text()
-    const cookies = pageRes.headers.getSetCookie?.() || []
-    const cookieStr = cookies.map(c => c.split(';')[0]).join('; ')
-
-    // Extract JSF ViewState
-    const viewState = extractHiddenField(html, 'javax.faces.ViewState')
-      || extractHiddenField(html, 'ViewState')
-
-    // Get captcha image URL from the page
-    const captchaMatch = html.match(/src="([^"]*captcha[^"]*)"/)
-      || html.match(/src="([^"]*jcaptcha[^"]*)"/)
-      || html.match(/id="[^"]*captcha[^"]*"[^>]*src="([^"]*)"/)
-
-    if (!captchaMatch) {
-      // Might not have captcha or page structure changed
-      return {
-        tipo: 'fgts',
-        label: 'CRF FGTS (Caixa)',
-        situacao: 'pending',
-        detalhes: 'Estrutura da página da Caixa mudou. Consulte manualmente.',
-        numero: null, emissao: null, validade: null,
-        pdf_url: 'https://consulta-crf.caixa.gov.br/consultacrf/pages/consultaEmpregador.jsf',
-      }
-    }
-
-    const captchaUrl = captchaMatch[1].startsWith('http')
-      ? captchaMatch[1]
-      : `https://consulta-crf.caixa.gov.br${captchaMatch[1].startsWith('/') ? '' : '/consultacrf/pages/'}${captchaMatch[1]}`
-
-    // Step 2: Get captcha image
-    const captchaRes = await fetch(captchaUrl, {
-      headers: { ...HEADERS, Cookie: cookieStr },
-      signal: AbortSignal.timeout(15_000),
-    })
-
-    if (!captchaRes.ok) {
-      return buildFGTSError('Não foi possível obter captcha da Caixa')
-    }
-
-    const captchaBuffer = Buffer.from(await captchaRes.arrayBuffer())
-    const captchaText = await solveCaptchaOCR(captchaBuffer)
-
-    if (!captchaText || captchaText.length < 4) {
-      return {
-        tipo: 'fgts',
-        label: 'CRF FGTS (Caixa)',
-        situacao: 'pending',
-        detalhes: 'Captcha não resolvido. Consulte manualmente.',
-        numero: null, emissao: null, validade: null,
-        pdf_url: 'https://consulta-crf.caixa.gov.br/consultacrf/pages/consultaEmpregador.jsf',
-      }
-    }
-
-    // Step 3: Submit form
-    const formData = new URLSearchParams({
-      'javax.faces.ViewState': viewState || '',
-      'consultaEmpregadorForm': 'consultaEmpregadorForm',
-      'consultaEmpregadorForm:cnpj': clean,
-      'consultaEmpregadorForm:captcha': captchaText,
-      'consultaEmpregadorForm:consultar': 'Consultar',
-    })
-
-    const submitRes = await fetch(
-      'https://consulta-crf.caixa.gov.br/consultacrf/pages/consultaEmpregador.jsf',
-      {
-        method: 'POST',
-        headers: {
-          ...HEADERS,
-          'Content-Type': 'application/x-www-form-urlencoded',
-          Cookie: cookieStr,
-          Referer: 'https://consulta-crf.caixa.gov.br/consultacrf/pages/consultaEmpregador.jsf',
-        },
-        body: formData.toString(),
-        signal: AbortSignal.timeout(30_000),
-      },
-    )
-
-    const resultHtml = await submitRes.text()
-
-    const isRegular = /regular/i.test(resultHtml) && !/irregular/i.test(resultHtml)
-    const isIrregular = /irregular/i.test(resultHtml)
-
-    const numMatch = resultHtml.match(/CRF[:\s]*(\d[\d./\-]+)/i)
-      || resultHtml.match(/n[uú]mero[:\s]*(\d[\d./\-]+)/i)
-    const valMatch = resultHtml.match(/validade[:\s]*(\d{2}\/\d{2}\/\d{4})/i)
-
-    if (isRegular) {
-      return {
-        tipo: 'fgts',
-        label: 'CRF FGTS (Caixa)',
-        situacao: 'regular',
-        detalhes: 'Certificado de Regularidade do FGTS — Situação regular',
-        numero: numMatch?.[1] || null,
-        emissao: todayISO(),
-        validade: parseDateBR(valMatch?.[1]) || futureDate(30),
-        pdf_url: null,
-      }
-    }
-
-    if (isIrregular) {
-      return {
-        tipo: 'fgts',
-        label: 'CRF FGTS (Caixa)',
-        situacao: 'irregular',
-        detalhes: 'Situação irregular perante o FGTS',
-        numero: numMatch?.[1] || null,
-        emissao: todayISO(),
-        validade: null,
-        pdf_url: null,
-      }
-    }
-
-    return {
-      tipo: 'fgts',
-      label: 'CRF FGTS (Caixa)',
-      situacao: 'pending',
-      detalhes: 'Resultado inconclusivo. Consulte manualmente.',
-      numero: null, emissao: null, validade: null,
-      pdf_url: 'https://consulta-crf.caixa.gov.br/consultacrf/pages/consultaEmpregador.jsf',
-    }
-  } catch (err) {
-    return buildFGTSError(err instanceof Error ? err.message : 'erro desconhecido')
-  }
-}
-
-function buildFGTSError(msg: string): CertidaoResult {
+export function buildFGTSManual(cnpj: string): CertidaoResult {
   return {
     tipo: 'fgts',
     label: 'CRF FGTS (Caixa)',
-    situacao: 'error',
-    detalhes: `Falha: ${msg}`,
-    numero: null, emissao: null, validade: null, pdf_url: null,
+    situacao: 'manual',
+    detalhes: 'Acesse o link abaixo, informe o CNPJ e resolva o captcha para emitir.',
+    numero: null,
+    emissao: null,
+    validade: null,
+    pdf_url: null,
+    consulta_url: 'https://consulta-crf.caixa.gov.br/consultacrf/pages/consultaEmpregador.jsf',
   }
 }
 
-// ─── ASP.NET / JSF Form Helpers ─────────────────────────────────────────────
+// ─── 5. CND Estadual — SEFAZ ───────────────────────────────────────────────
 
-function extractHiddenField(html: string, name: string): string | null {
-  // Match: name="__VIEWSTATE" value="..."  or  name="javax.faces.ViewState" value="..."
-  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const regex = new RegExp(
-    `name="${escaped}"[^>]*value="([^"]*)"` +
-    `|value="([^"]*)"[^>]*name="${escaped}"`,
-    'i',
-  )
-  const match = html.match(regex)
-  return match?.[1] || match?.[2] || null
+const SEFAZ_URLS: Record<string, string> = {
+  AC: 'https://sefaznet.ac.gov.br/nfeweb/EmitirCertidaoNegativa.xhtml',
+  AL: 'https://www.sefaz.al.gov.br/certidao-negativa',
+  AM: 'https://online.sefaz.am.gov.br/certidao',
+  AP: 'https://www.sefaz.ap.gov.br/certidao-negativa',
+  BA: 'https://www.sefaz.ba.gov.br/scripts/cadastro/cadastroBa/certidao.asp',
+  CE: 'https://servicos.sefaz.ce.gov.br/internet/download/CertidaoNegativa',
+  DF: 'https://www2.agnet.fazenda.df.gov.br/portal/certidaonegativa',
+  ES: 'https://internet.sefaz.es.gov.br/certidoes/',
+  GO: 'https://www.economia.go.gov.br/certidao-negativa.html',
+  MA: 'https://sistemas1.sefaz.ma.gov.br/portalsefaz/jsp/certidao/certidaoNegativa.jsf',
+  MG: 'https://www.fazenda.mg.gov.br/empresas/certidao-de-debitos/',
+  MS: 'https://servicos.efazenda.ms.gov.br/certidaonegativa',
+  MT: 'https://www.sefaz.mt.gov.br/portal/certidao',
+  PA: 'https://app.sefa.pa.gov.br/certidao-negativa/',
+  PB: 'https://www.sefaz.pb.gov.br/certidao-negativa',
+  PE: 'https://www.sefaz.pe.gov.br/Servicos/certidao-negativa/',
+  PI: 'https://webas.sefaz.pi.gov.br/certidaonegativa/',
+  PR: 'https://www.fazenda.pr.gov.br/servicos/Receita/Certidao-Negativa-Debitos',
+  RJ: 'https://portal.fazenda.rj.gov.br/certidao/',
+  RN: 'https://www.set.rn.gov.br/certidaonegativa',
+  RO: 'https://www.sefin.ro.gov.br/certidao-negativa',
+  RR: 'https://www.sefaz.rr.gov.br/certidao-negativa',
+  RS: 'https://www.sefaz.rs.gov.br/sat/CertidaoSitFiscalSolic.aspx',
+  SC: 'https://tributario.sef.sc.gov.br/tax.NET/sat.certidao.aspx',
+  SE: 'https://www.sefaz.se.gov.br/certidao-negativa',
+  SP: 'https://www10.fazenda.sp.gov.br/CertidaoNegativaDeb/Pages/EmissaoCertidaoNegativa.aspx',
+  TO: 'https://www.sefaz.to.gov.br/certidao-negativa',
 }
 
-// ─── Captcha OCR Solver (Tesseract.js + Sharp) ─────────────────────────────
+export function buildCNDEstadualManual(cnpj: string, uf?: string): CertidaoResult {
+  const ufUpper = (uf || '').toUpperCase()
+  const url = SEFAZ_URLS[ufUpper] || null
 
-async function solveCaptchaOCR(imageBuffer: Buffer): Promise<string | null> {
-  try {
-    // Dynamic imports to avoid bundling issues
-    const sharp = (await import('sharp')).default
-    const Tesseract = await import('tesseract.js')
-
-    // Preprocess image for better OCR accuracy:
-    // 1. Convert to grayscale
-    // 2. Resize to 3x for better character recognition
-    // 3. Threshold to black/white (remove colored noise)
-    // 4. Sharpen
-    const processed = await sharp(imageBuffer)
-      .grayscale()
-      .resize({ width: 600, kernel: 'lanczos3' })
-      .threshold(140)
-      .sharpen({ sigma: 1.5 })
-      .png()
-      .toBuffer()
-
-    // Run OCR
-    const { data } = await Tesseract.recognize(processed, 'por+eng', {
-      // @ts-expect-error — tesseract.js allows tessedit_char_whitelist
-      tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789',
-      tessedit_pageseg_mode: '7', // Treat as single line of text
-    })
-
-    // Clean result: remove spaces, special chars, keep only alphanumeric
-    const text = data.text.replace(/[^A-Za-z0-9]/g, '').trim()
-
-    return text || null
-  } catch (err) {
-    console.error('[CaptchaOCR] Error:', err)
-    return null
+  return {
+    tipo: 'cnd_estadual',
+    label: `CND Estadual (SEFAZ ${ufUpper || '—'})`,
+    situacao: 'manual',
+    detalhes: url
+      ? `Acesse o link da SEFAZ ${ufUpper} abaixo para emitir a certidão.`
+      : 'UF não identificada. Acesse a SEFAZ do seu estado para emitir.',
+    numero: null,
+    emissao: null,
+    validade: null,
+    pdf_url: null,
+    consulta_url: url,
   }
 }
 
 // ─── Main Consultation Function ─────────────────────────────────────────────
 
 /**
- * Fetch all certidões for a company in parallel.
- * Calls government sources directly — zero cost.
+ * Fetch certidões for a company.
+ * - TCU/CEIS/CNEP: Automatic (no captcha)
+ * - Others: Returns direct links for manual consultation
  */
 export async function consultarCertidoes(
   cnpj: string,
-  _options?: { uf?: string; municipio?: string },
+  options?: { uf?: string; municipio?: string },
 ): Promise<ConsultaResult> {
   const cleanedCnpj = cleanCnpj(cnpj)
   const errors: string[] = []
 
-  // Run all queries in parallel
-  const [cndt, tcu, cndFederal, fgts] = await Promise.all([
-    fetchCNDT(cleanedCnpj),
-    fetchTCU(cleanedCnpj),
-    fetchCNDFederal(cleanedCnpj),
-    fetchFGTS(cleanedCnpj),
-  ])
-
-  const certidoes = [cndt, tcu, cndFederal, fgts]
-
-  for (const cert of certidoes) {
-    if (cert.situacao === 'error') {
-      errors.push(`${cert.label}: ${cert.detalhes}`)
-    }
+  // Automatic: TCU/CEIS/CNEP check
+  const tcu = await fetchTCU(cleanedCnpj)
+  if (tcu.situacao === 'error') {
+    errors.push(`${tcu.label}: ${tcu.detalhes}`)
   }
+
+  // Manual (captcha-protected): build guided links
+  const cndt = buildCNDTManual(cleanedCnpj)
+  const cndFederal = buildCNDFederalManual(cleanedCnpj)
+  const fgts = buildFGTSManual(cleanedCnpj)
+  const cndEstadual = buildCNDEstadualManual(cleanedCnpj, options?.uf)
+
+  const certidoes = [tcu, cndFederal, fgts, cndt, cndEstadual]
 
   return {
     cnpj: cleanedCnpj,
@@ -680,9 +291,8 @@ export async function consultarCertidoes(
 }
 
 /**
- * Check if direct consultation is available (always true — no API key needed).
+ * Always available — no API keys needed.
  */
 export function isInfoSimplesConfigured(): boolean {
-  // Direct gov integration — always available
   return true
 }
