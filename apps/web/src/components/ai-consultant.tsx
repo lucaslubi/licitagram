@@ -10,9 +10,12 @@ interface Message {
   content: string
 }
 
-/** Extract [GERAR_PDF:{...}] markers from assistant content */
+/** Extract [GERAR_PDF:{...}] markers from assistant content.
+ *  Uses greedy match on the JSON object braces so nested arrays/objects
+ *  (like sections:[{...}]) don't break the extraction. */
 function extractPdfMarker(content: string): { cleanContent: string; pdfPayload: Record<string, unknown> | null } {
-  const regex = /\[GERAR_PDF:([\s\S]*?)\]/
+  // Greedy: capture from first { to last } before the closing ]
+  const regex = /\[GERAR_PDF:(\{[\s\S]*\})\]/
   const match = content.match(regex)
   if (!match) return { cleanContent: content, pdfPayload: null }
   try {
