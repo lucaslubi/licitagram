@@ -64,7 +64,8 @@ async function loadWorkers(): Promise<Worker[]> {
     const { mapCacheWorker } = await import('./processors/map-cache.processor')
     const { pipelineHealthWorker } = await import('./processors/pipeline-health.processor')
     const { outcomeCheckWorker } = await import('./processors/outcome-check.processor')
-    workers.push(pendingNotificationsWorker, hotAlertsWorker, mapCacheWorker, pipelineHealthWorker, outcomeCheckWorker)
+    const { dailyAuditWorker } = await import('./processors/daily-audit.processor')
+    workers.push(pendingNotificationsWorker, hotAlertsWorker, mapCacheWorker, pipelineHealthWorker, outcomeCheckWorker, dailyAuditWorker)
   }
 
   if (selectedGroups.includes('telegram')) {
@@ -123,6 +124,7 @@ import { outcomePromptQueue } from './queues/outcome-prompt.queue'
 import { aiCompetitorClassifierQueue } from './queues/ai-competitor-classifier.queue'
 import { proactiveSupplierScrapingQueue } from './queues/proactive-supplier-scraping.queue'
 import { competitorRelevanceQueue } from './queues/competitor-relevance.queue'
+import { dailyAuditQueue } from './queues/daily-audit.queue'
 
 async function setupRepeatableJobs() {
   const today = formatDatePNCP(new Date())
@@ -321,6 +323,17 @@ async function setupRepeatableJobs() {
     },
   )
   logger.info('Pipeline health watchdog scheduled (every 5m)')
+
+  // Schedule daily audit at 3 AM BRT (06:00 UTC)
+  await dailyAuditQueue.add(
+    'daily-audit',
+    {},
+    {
+      repeat: { pattern: '0 6 * * *' },
+      jobId: 'daily-audit-3am-brt',
+    },
+  )
+  logger.info('Daily audit scheduled (3 AM BRT / 06:00 UTC)')
 
   // Schedule outcome prompt check every 6 hours (won/lost outcome capture)
   await outcomePromptQueue.add(

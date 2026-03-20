@@ -61,8 +61,9 @@ const QUEUE_CONFIG = [
   { name: 'comprasgov-scraping', critical: false, maxWaiting: 50 },
   { name: 'comprasgov-arp', critical: false, maxWaiting: 20 },
   { name: 'comprasgov-legado', critical: false, maxWaiting: 20 },
-  // Self
+  // Self + audit
   { name: 'pipeline-health', critical: false, maxWaiting: 5 },
+  { name: 'daily-audit', critical: false, maxWaiting: 5 },
 ] as const
 
 // Complete mapping: queue name → PM2 process name (for auto-restart)
@@ -90,6 +91,7 @@ const WORKER_MAP: Record<string, string> = {
   'proactive-supplier-scraping': 'worker-enrichment',
   'ai-competitor-classifier': 'worker-enrichment',
   'competitor-relevance': 'worker-enrichment',
+  'daily-audit': 'worker-alerts',
 }
 
 // All PM2 processes we expect to be running
