@@ -162,23 +162,38 @@ async function analyzeCompanyCompetitors(company: {
     return
   }
 
-  // 4. Get competitor profiles from competitor_stats
+  // 4. Get competitor profiles from competitor_stats + competitors table
   const cnpjList = topCnpjs.map(([cnpj]) => cnpj)
   const { data: competitorStats } = await supabase
     .from('competitor_stats')
-    .select('cnpj, razao_social, cnae_codigo, cnae_nome, porte, uf')
+    .select('cnpj, razao_social, cnae_divisao, porte, uf')
     .in('cnpj', cnpjList)
+
+  // Also get CNAE details from competitors table (has cnae_codigo and cnae_nome)
+  const { data: competitorDetails } = await supabase
+    .from('competitors')
+    .select('cnpj, cnae_codigo, cnae_nome')
+    .in('cnpj', cnpjList)
+    .not('cnae_codigo', 'is', null)
+
+  const detailsMap = new Map<string, { cnae_codigo: string; cnae_nome: string }>()
+  for (const d of (competitorDetails || [])) {
+    if (d.cnpj && !detailsMap.has(d.cnpj)) {
+      detailsMap.set(d.cnpj, { cnae_codigo: String(d.cnae_codigo || ''), cnae_nome: d.cnae_nome || '' })
+    }
+  }
 
   const statsMap = new Map((competitorStats || []).map((s) => [s.cnpj, s]))
 
   // Build competitor profiles
   const competitorProfiles: CompetitorProfile[] = topCnpjs.map(([cnpj]) => {
     const stats = statsMap.get(cnpj)
+    const details = detailsMap.get(cnpj)
     return {
       cnpj,
       razao_social: stats?.razao_social || null,
-      cnae_codigo: stats?.cnae_codigo ? String(stats.cnae_codigo) : null,
-      cnae_nome: stats?.cnae_nome || null,
+      cnae_codigo: details?.cnae_codigo || (stats?.cnae_divisao ? String(stats.cnae_divisao) : null),
+      cnae_nome: details?.cnae_nome || null,
       porte: stats?.porte || null,
       uf: stats?.uf || null,
     }
