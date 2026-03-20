@@ -275,11 +275,12 @@ export async function fetchCNDTAuto(cnpj: string): Promise<CertidaoResult> {
     return await processTSTForm(formHtml, cleanCnpj, cookieStr, baseUrl)
   } catch (err) {
     console.error('[certidoes-auto] TST fetch error:', err)
+    // Fallback to manual link instead of showing error
     return {
       tipo: 'trabalhista',
       label: 'CNDT — Certidão Trabalhista (TST)',
-      situacao: 'error',
-      detalhes: `Falha na consulta automática: ${err instanceof Error ? err.message : 'erro desconhecido'}`,
+      situacao: 'manual',
+      detalhes: 'Consulta automática indisponível. Acesse o link para emitir manualmente.',
       numero: null,
       emissao: null,
       validade: null,
@@ -373,9 +374,10 @@ async function processTSTForm(
 // ─── Receita Federal (CND) — Automated ──────────────────────────────────────
 // Uses hCaptcha → requires 2Captcha
 
-// Known hCaptcha sitekeys for Receita Federal
-const RECEITA_HCAPTCHA_SITEKEY = 'e03e1b68-3adc-4715-871f-c1e55f498fb8'
+// Receita Federal CND URLs
 const RECEITA_CND_URL = 'https://solucoes.receita.fazenda.gov.br/Servicos/certidaointernet/PJ/Emitir'
+// hCaptcha sitekey — extracted from the rendered page
+const RECEITA_HCAPTCHA_SITEKEY = 'e03e1b68-3adc-4715-871f-c1e55f498fb8'
 
 export async function fetchCNDFederalAuto(cnpj: string): Promise<CertidaoResult> {
   const cleanCnpj = cnpj.replace(/\D/g, '')
@@ -447,8 +449,8 @@ export async function fetchCNDFederalAuto(cnpj: string): Promise<CertidaoResult>
     return {
       tipo: 'cnd_federal',
       label: 'CND Federal (Receita/PGFN)',
-      situacao: 'error',
-      detalhes: `Falha na consulta automática: ${err instanceof Error ? err.message : 'erro desconhecido'}`,
+      situacao: 'manual',
+      detalhes: 'Consulta automática indisponível. Acesse o link para emitir manualmente.',
       numero: null,
       emissao: null,
       validade: null,
@@ -509,7 +511,7 @@ function parseReceitaResult(html: string): CertidaoResult {
 }
 
 // ─── FGTS (Caixa) — Automated ───────────────────────────────────────────────
-// JSF form with captcha
+// JSF form — NO captcha, just CNPJ + UF submission
 
 const FGTS_URL = 'https://consulta-crf.caixa.gov.br/consultacrf/pages/consultaEmpregador.jsf'
 
@@ -517,11 +519,16 @@ export async function fetchFGTSAuto(cnpj: string): Promise<CertidaoResult> {
   const cleanCnpj = cnpj.replace(/\D/g, '')
 
   try {
-    // Load the form page
+    // Step 1: Load the form page to get session + ViewState
     const pageRes = await fetch(FGTS_URL, {
       method: 'GET',
-      headers: HEADERS,
-      signal: AbortSignal.timeout(15_000),
+      headers: {
+        ...HEADERS,
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        Connection: 'keep-alive',
+      },
+      redirect: 'follow',
+      signal: AbortSignal.timeout(20_000),
     })
 
     if (!pageRes.ok) throw new Error(`FGTS page HTTP ${pageRes.status}`)
@@ -533,76 +540,25 @@ export async function fetchFGTSAuto(cnpj: string): Promise<CertidaoResult> {
     const viewState = extractViewState(pageHtml)
     if (!viewState) throw new Error('ViewState not found on FGTS page')
 
-    // Extract captcha image
-    const captchaImgMatch = pageHtml.match(/id="[^"]*captcha[^"]*"[^>]*src="data:image\/[^;]+;base64,([^"]+)"/)
-      || pageHtml.match(/id="[^"]*captcha[^"]*"[^>]*src="([^"]+)"/)
-
-    let captchaAnswer: string | null = null
-
-    if (captchaImgMatch?.[1]) {
-      const isBase64 = !captchaImgMatch[1].startsWith('http')
-
-      if (isBase64) {
-        // Try OCR first
-        captchaAnswer = await solveWithOCR(captchaImgMatch[1])
-        if (!captchaAnswer && TWO_CAPTCHA_KEY) {
-          captchaAnswer = await solveImageCaptcha(captchaImgMatch[1])
-        }
-      } else {
-        // Fetch captcha image
-        const imgRes = await fetch(
-          captchaImgMatch[1].startsWith('http')
-            ? captchaImgMatch[1]
-            : `https://consulta-crf.caixa.gov.br${captchaImgMatch[1]}`,
-          {
-            headers: { ...HEADERS, Cookie: cookieStr },
-            signal: AbortSignal.timeout(10_000),
-          },
-        )
-        const imgBuf = Buffer.from(await imgRes.arrayBuffer())
-        const imgBase64 = imgBuf.toString('base64')
-
-        captchaAnswer = await solveWithOCR(imgBase64)
-        if (!captchaAnswer && TWO_CAPTCHA_KEY) {
-          captchaAnswer = await solveImageCaptcha(imgBase64)
-        }
-      }
-    }
-
-    if (!captchaAnswer) {
-      return {
-        tipo: 'fgts',
-        label: 'CRF FGTS (Caixa)',
-        situacao: 'manual',
-        detalhes: 'Captcha não pôde ser resolvido automaticamente. Use o link para consulta manual.',
-        numero: null,
-        emissao: null,
-        validade: null,
-        pdf_url: null,
-        consulta_url: FGTS_URL,
-      }
-    }
-
-    // Submit the form (field names may vary — using common patterns)
+    // Step 2: Submit the form — no captcha needed
+    // Form fields from WebFetch analysis: mainForm with inscricao + UF
     const formBody = new URLSearchParams({
       'javax.faces.ViewState': viewState,
+      'mainForm': 'mainForm',
+      'mainForm:inscricao': cleanCnpj,
+      'mainForm:tipoInscricao': 'CNPJ',
+      'mainForm:uf': '',
+      'mainForm:_link_hidden_': '',
+      'mainForm:j_idcl': '',
     })
 
-    // Try to extract form field names
-    const cnpjFieldMatch = pageHtml.match(/id="([^"]*cnpj[^"]*)"[^>]*type="text"/i)
-      || pageHtml.match(/id="([^"]*inscricao[^"]*)"[^>]*type="text"/i)
-    const captchaFieldMatch = pageHtml.match(/id="([^"]*captcha[^"]*)"[^>]*type="text"/i)
-      || pageHtml.match(/id="([^"]*resposta[^"]*)"[^>]*type="text"/i)
-    const submitMatch = pageHtml.match(/id="([^"]*consultar[^"]*)"[^>]*type="submit"/i)
-      || pageHtml.match(/id="([^"]*btn[^"]*)"[^>]*type="submit"/i)
-
-    const cnpjField = cnpjFieldMatch?.[1]?.replace(/:/g, ':') || 'form:cnpj'
-    const captchaField = captchaFieldMatch?.[1]?.replace(/:/g, ':') || 'form:captcha'
-    const submitBtn = submitMatch?.[1]?.replace(/:/g, ':') || 'form:consultar'
-
-    formBody.set(cnpjField, cleanCnpj)
-    formBody.set(captchaField, captchaAnswer)
-    formBody.set(submitBtn, submitBtn)
+    // Try to find the actual submit button name
+    const submitMatch = pageHtml.match(/id="(mainForm:[^"]*)"[^>]*(?:type="submit"|onclick)[^>]*(?:Consultar|consultar)/i)
+    if (submitMatch?.[1]) {
+      formBody.set(submitMatch[1], submitMatch[1])
+    } else {
+      formBody.set('mainForm:btnConsultar', 'Consultar')
+    }
 
     const submitRes = await fetch(FGTS_URL, {
       method: 'POST',
@@ -611,6 +567,7 @@ export async function fetchFGTSAuto(cnpj: string): Promise<CertidaoResult> {
         'Content-Type': 'application/x-www-form-urlencoded',
         Cookie: cookieStr,
         Referer: FGTS_URL,
+        Origin: 'https://consulta-crf.caixa.gov.br',
       },
       body: formBody.toString(),
       redirect: 'follow',
@@ -657,14 +614,25 @@ export async function fetchFGTSAuto(cnpj: string): Promise<CertidaoResult> {
       }
     }
 
-    throw new Error('Resultado não interpretado')
+    // If we can't parse the result, fallback to manual
+    return {
+      tipo: 'fgts',
+      label: 'CRF FGTS (Caixa)',
+      situacao: 'manual',
+      detalhes: 'Resultado não interpretado. Acesse o link para consulta manual.',
+      numero: null,
+      emissao: null,
+      validade: null,
+      pdf_url: null,
+      consulta_url: FGTS_URL,
+    }
   } catch (err) {
     console.error('[certidoes-auto] FGTS error:', err)
     return {
       tipo: 'fgts',
       label: 'CRF FGTS (Caixa)',
-      situacao: 'error',
-      detalhes: `Falha na consulta automática: ${err instanceof Error ? err.message : 'erro desconhecido'}`,
+      situacao: 'manual',
+      detalhes: 'Consulta automática indisponível. Acesse o link para emitir manualmente.',
       numero: null,
       emissao: null,
       validade: null,
@@ -700,31 +668,38 @@ export async function consultarCertidoesAuto(
 
   const certidoes: CertidaoResult[] = []
 
+  // Helper: when Promise rejects, return manual fallback
+  const manualFallback = (tipo: string, label: string, url: string): CertidaoResult => ({
+    tipo: tipo as CertidaoResult['tipo'],
+    label,
+    situacao: 'manual',
+    detalhes: 'Consulta automática indisponível. Acesse o link para emitir manualmente.',
+    numero: null, emissao: null, validade: null, pdf_url: null,
+    consulta_url: url,
+  })
+
   // Process CNDT
   if (cndt.status === 'fulfilled') {
     certidoes.push(cndt.value)
-    if (cndt.value.situacao !== 'manual' && cndt.value.situacao !== 'error') autoCount++
-    if (cndt.value.situacao === 'error') errors.push(`CNDT: ${cndt.value.detalhes}`)
+    if (cndt.value.situacao === 'regular' || cndt.value.situacao === 'irregular') autoCount++
   } else {
-    errors.push(`CNDT: ${cndt.reason}`)
+    certidoes.push(manualFallback('trabalhista', 'CNDT — Certidão Trabalhista (TST)', 'https://cndt-certidao.tst.jus.br/inicio.faces'))
   }
 
   // Process CND Federal
   if (cndFederal.status === 'fulfilled') {
     certidoes.push(cndFederal.value)
-    if (cndFederal.value.situacao !== 'manual' && cndFederal.value.situacao !== 'error') autoCount++
-    if (cndFederal.value.situacao === 'error') errors.push(`CND Federal: ${cndFederal.value.detalhes}`)
+    if (cndFederal.value.situacao === 'regular' || cndFederal.value.situacao === 'irregular') autoCount++
   } else {
-    errors.push(`CND Federal: ${cndFederal.reason}`)
+    certidoes.push(manualFallback('cnd_federal', 'CND Federal (Receita/PGFN)', RECEITA_CND_URL))
   }
 
   // Process FGTS
   if (fgts.status === 'fulfilled') {
     certidoes.push(fgts.value)
-    if (fgts.value.situacao !== 'manual' && fgts.value.situacao !== 'error') autoCount++
-    if (fgts.value.situacao === 'error') errors.push(`FGTS: ${fgts.value.detalhes}`)
+    if (fgts.value.situacao === 'regular' || fgts.value.situacao === 'irregular') autoCount++
   } else {
-    errors.push(`FGTS: ${fgts.reason}`)
+    certidoes.push(manualFallback('fgts', 'CRF FGTS (Caixa)', FGTS_URL))
   }
 
   return { certidoes, errors, autoCount }
