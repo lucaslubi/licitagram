@@ -265,7 +265,7 @@ export default async function OpportunityDetailPage({
                     <div key={i} className="flex items-center justify-between text-xs py-1 border-b last:border-0">
                       <span className="font-medium">{(c.razao_social as string) || 'N/I'}</span>
                       <span className="text-gray-500">
-                        Win rate {Math.round(Number(c.win_rate || 0))}% · {(c.porte as string) || 'N/I'}
+                        Win rate {Math.round(Number(c.win_rate || 0) * 100)}% · {(c.porte as string) || 'N/I'}
                       </span>
                     </div>
                   ))}

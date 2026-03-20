@@ -496,7 +496,7 @@ export default async function CompetitorsPage({
                     porte: null, cnae_divisao: null, uf: null,
                     ultima_participacao: null, overlapCount: 0,
                   }
-                  const winRatePct = Math.round(stats.win_rate)
+                  const winRatePct = Math.round(stats.win_rate * 100)
                   const winRateColor = winRatePct >= 60 ? 'text-green-600' : winRatePct >= 30 ? 'text-yellow-600' : 'text-red-600'
 
                   // UFs where this competitor operates
@@ -822,7 +822,7 @@ export default async function CompetitorsPage({
                                   )}
                                 </td>
                                 <td className="p-4 text-center">{mc.total_participacoes as number}</td>
-                                <td className="p-4 text-center text-sm">{Math.round(Number(mc.win_rate || 0))}%</td>
+                                <td className="p-4 text-center text-sm">{Math.round(Number(mc.win_rate || 0) * 100)}%</td>
                                 <td className="p-4 text-sm hidden md:table-cell">
                                   {mc.porte ? (
                                     <Badge variant="outline" className="text-xs">{mc.porte as string}</Badge>
@@ -955,7 +955,7 @@ export default async function CompetitorsPage({
                             </Badge>
                           </td>
                           <td className="p-4 text-center text-sm">
-                            {`${Math.round(Number(mc.win_rate || 0))}%`}
+                            {`${Math.round(Number(mc.win_rate || 0) * 100)}%`}
                           </td>
                           <td className="p-4 text-sm hidden md:table-cell">
                             {mc.porte ? (
@@ -1172,7 +1172,7 @@ export default async function CompetitorsPage({
                         {watchlist.map((w) => {
                           const stats = watchlistStats[w.competitor_cnpj]
                           if (!stats) return null
-                          const winRatePct = Math.round(stats.win_rate)
+                          const winRatePct = Math.round(stats.win_rate * 100)
                           const winRateColor = winRatePct >= 60 ? 'text-green-600' : winRatePct >= 30 ? 'text-yellow-600' : 'text-red-600'
                           const discountPct = stats.desconto_medio.toFixed(1)
 
@@ -1290,7 +1290,7 @@ export default async function CompetitorsPage({
                               {watchlist.map((w) => {
                                 const stats = watchlistStats[w.competitor_cnpj]
                                 if (!stats) return null
-                                const winRatePct = Math.round(stats.win_rate)
+                                const winRatePct = Math.round(stats.win_rate * 100)
                                 const winRateColor = winRatePct >= 60 ? 'text-green-600' : winRatePct >= 30 ? 'text-yellow-600' : 'text-red-600'
                                 return (
                                   <tr key={w.id} className="border-b transition-colors hover:bg-muted/50">
@@ -1354,7 +1354,7 @@ export default async function CompetitorsPage({
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {searchResults.map((c) => {
                   const winRatePct = c.hasStats && c.win_rate != null
-                    ? Math.round(c.win_rate)
+                    ? Math.round(c.win_rate * 100)
                     : c.participacoes > 0 ? Math.round((c.vitorias / c.participacoes) * 100) : 0
                   const winRateColor = winRatePct >= 60 ? 'text-green-600' : winRatePct >= 30 ? 'text-yellow-600' : 'text-red-600'
 
