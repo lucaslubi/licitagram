@@ -31,7 +31,7 @@ const SITUACAO_CONFIG = {
   pending: { label: 'Pendente', icon: '⏳', color: 'text-gray-600 bg-gray-50 border-gray-200' },
 }
 
-export function ConsultaCertidoes({ cnpj, hasApiKey }: { cnpj: string; hasApiKey: boolean }) {
+export function ConsultaCertidoes({ cnpj }: { cnpj: string; hasApiKey?: boolean }) {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<ConsultaResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -63,21 +63,6 @@ export function ConsultaCertidoes({ cnpj, hasApiKey }: { cnpj: string; hasApiKey
     } finally {
       setLoading(false)
     }
-  }
-
-  if (!hasApiKey) {
-    return (
-      <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
-        <div className="text-3xl mb-2">🔗</div>
-        <h3 className="font-semibold text-gray-700 mb-1">Consulta Automática de Certidões</h3>
-        <p className="text-sm text-gray-500 mb-3">
-          Integração com órgãos federais para puxar automaticamente CND Federal, FGTS, CNDT, TCU e mais.
-        </p>
-        <p className="text-xs text-gray-400">
-          Configure a variável <code className="bg-gray-200 px-1 rounded">INFOSIMPLES_API_TOKEN</code> para ativar.
-        </p>
-      </div>
-    )
   }
 
   return (
@@ -125,7 +110,7 @@ export function ConsultaCertidoes({ cnpj, hasApiKey }: { cnpj: string; hasApiKey
             Consultando órgãos federais... Isso pode levar até 60 segundos.
           </p>
           <p className="text-xs text-blue-500 mt-1">
-            CNPJ: {formatCnpj(cnpj)} — Consultando Receita Federal, Caixa, TST e TCU...
+            CNPJ: {formatCnpj(cnpj)} — Consultando TST, TCU, Receita Federal e Caixa diretamente...
           </p>
         </div>
       )}

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { consultarCertidoes, isInfoSimplesConfigured } from '@/lib/certidoes'
-import type { CertidaoResult } from '@/lib/certidoes'
+import { consultarCertidoes } from '@/lib/certidoes'
 
 /**
  * POST /api/certidoes
  *
- * Automatically fetches all available certidões for the authenticated user's company.
+ * Fetches certidões directly from government sources (TST, TCU, Receita, Caixa).
+ * No third-party API needed — zero cost.
  * Saves results to company_documents and returns the consultation result.
  */
 export async function POST(req: NextRequest) {
@@ -39,18 +39,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'CNPJ não cadastrado' }, { status: 400 })
     }
 
-    if (!isInfoSimplesConfigured()) {
-      return NextResponse.json(
-        { error: 'Integração com InfoSimples não configurada. Contate o administrador.' },
-        { status: 503 },
-      )
-    }
-
     // Optional: check which certidões to fetch (default: all)
     const body = await req.json().catch(() => ({}))
     const tipos: string[] | undefined = body.tipos
 
-    // Fetch certidões
+    // Fetch certidões directly from government sources
     const result = await consultarCertidoes(company.cnpj, {
       uf: company.uf || undefined,
       municipio: company.municipio || undefined,
@@ -121,7 +114,7 @@ export async function POST(req: NextRequest) {
       success: true,
       consultado_em: result.consultado_em,
       razao_social: result.razao_social,
-      certidoes: certidoes.map(({ raw, ...rest }) => rest), // Strip raw data from response
+      certidoes,
       saved,
       errors: result.errors,
     })

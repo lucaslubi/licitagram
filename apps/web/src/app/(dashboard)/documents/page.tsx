@@ -5,7 +5,6 @@ import { Badge } from '@/components/ui/badge'
 import { AddDocumentForm } from './add-document-form'
 import { DocumentRow } from './document-actions'
 import { ConsultaCertidoes } from './consulta-certidoes'
-import { isInfoSimplesConfigured } from '@/lib/certidoes'
 
 const DOCUMENT_TYPES: Record<string, string> = {
   cnd_federal: 'CND Federal (Receita/PGFN)',
@@ -84,7 +83,6 @@ export default async function DocumentsPage() {
 
   // Check for auto-fetched certidões
   const autoCount = enriched.filter((d) => d.descricao?.startsWith('[Auto]')).length
-  const hasApiKey = isInfoSimplesConfigured()
 
   return (
     <div>
@@ -130,7 +128,7 @@ export default async function DocumentsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ConsultaCertidoes cnpj={company.cnpj} hasApiKey={hasApiKey} />
+            <ConsultaCertidoes cnpj={company.cnpj} />
           </CardContent>
         </Card>
       )}
