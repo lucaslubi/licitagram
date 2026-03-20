@@ -24,9 +24,9 @@ import {
 import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
 
-const MAX_COMPANIES_PER_RUN = 3
+const MAX_COMPANIES_PER_RUN = 5
 const MAX_COMPETITORS_PER_COMPANY = 50
-const SKIP_IF_ANALYZED_WITHIN_MS = 24 * 60 * 60 * 1000 // 24 hours
+const SKIP_IF_ANALYZED_WITHIN_MS = 6 * 60 * 60 * 1000 // 6 hours — re-analyze more frequently
 
 async function processCompetitorRelevance(job: Job<CompetitorRelevanceJobData>) {
   const startTime = Date.now()
@@ -100,18 +100,45 @@ async function analyzeCompanyCompetitors(company: {
 }) {
   const companyId = company.id
 
-  // 3. Get top competitors by participation count (from competitor_stats joined with competitors)
-  // We need competitors that appeared in the same tenders as this company
-  const { data: competitors, error: compError } = await supabase
-    .from('competitors')
-    .select('cnpj, tender_id')
+  // 3. Find competitors that appeared in the same tenders as this company
+  // Step A: Get tender IDs this company was matched to
+  const { data: companyMatches, error: matchError } = await supabase
+    .from('matches')
+    .select('tender_id')
     .eq('company_id', companyId)
-    .not('cnpj', 'is', null)
+    .limit(200)
 
-  if (compError || !competitors || competitors.length === 0) {
-    logger.info({ companyId }, 'No competitors found for company')
+  if (matchError || !companyMatches || companyMatches.length === 0) {
+    logger.info({ companyId }, 'No matches found for company, skipping relevance analysis')
     return
   }
+
+  const companyTenderIds = [...new Set(companyMatches.map(m => m.tender_id))]
+
+  // Step B: Get all competitors that participated in those same tenders
+  // Paginate to handle large result sets
+  let allCompetitors: Array<{ cnpj: string; tender_id: string }> = []
+  const BATCH_SIZE = 100
+  for (let i = 0; i < companyTenderIds.length; i += BATCH_SIZE) {
+    const batch = companyTenderIds.slice(i, i + BATCH_SIZE)
+    const { data: batchCompetitors, error: batchErr } = await supabase
+      .from('competitors')
+      .select('cnpj, tender_id')
+      .in('tender_id', batch)
+      .not('cnpj', 'is', null)
+
+    if (!batchErr && batchCompetitors) {
+      allCompetitors = allCompetitors.concat(batchCompetitors)
+    }
+  }
+
+  const competitors = allCompetitors
+  if (competitors.length === 0) {
+    logger.info({ companyId, tenderCount: companyTenderIds.length }, 'No competitors found in company tenders')
+    return
+  }
+
+  logger.info({ companyId, tenderCount: companyTenderIds.length, competitorRows: competitors.length }, 'Found competitors for relevance analysis')
 
   // Count occurrences per CNPJ and track tender IDs
   const cnpjCounts = new Map<string, { count: number; tenderIds: string[] }>()

@@ -333,16 +333,16 @@ async function setupRepeatableJobs() {
   )
   logger.info('Outcome prompt check scheduled (every 6h)')
 
-  // Schedule competitor relevance analysis every 4 hours (AI-powered contextual scoring)
+  // Schedule competitor relevance analysis every 1 hour (AI-powered contextual scoring)
   await competitorRelevanceQueue.add(
     'analyze-relevance',
     {},
     {
-      repeat: { every: 4 * 60 * 60 * 1000 },
-      jobId: 'competitor-relevance-4h-repeat',
+      repeat: { every: 1 * 60 * 60 * 1000 },
+      jobId: 'competitor-relevance-1h-repeat',
     },
   )
-  logger.info('Competitor relevance analysis scheduled (every 4h)')
+  logger.info('Competitor relevance analysis scheduled (every 1h)')
 
   // Schedule proactive supplier scraping every 4 hours (discovers competitors from PNCP publications)
   await proactiveSupplierScrapingQueue.add(
@@ -735,9 +735,9 @@ async function main() {
     )
     await competitorRelevanceQueue.add(
       'analyze-relevance', {},
-      { repeat: { every: 4 * 60 * 60 * 1000 }, jobId: 'competitor-relevance-4h-enrichment' },
+      { repeat: { every: 1 * 60 * 60 * 1000 }, jobId: 'competitor-relevance-1h-enrichment' },
     )
-    logger.info('Enrichment repeatable jobs scheduled (results 6h, fornecedor 8h, stats 3h, docs weekly, AI classifier 2h, proactive suppliers 4h, relevance 4h)')
+    logger.info('Enrichment repeatable jobs scheduled (results 6h, fornecedor 8h, stats 3h, docs weekly, AI classifier 2h, proactive suppliers 4h, relevance 1h)')
 
     // Trigger immediate full materialization + enrichment on startup
     competitionAnalysisQueue.add('materialize-full-startup', { mode: 'full' }).catch(err => {
