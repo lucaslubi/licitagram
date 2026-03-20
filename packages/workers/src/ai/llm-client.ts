@@ -47,7 +47,7 @@ const TASK_CONFIG: Record<TaskType, { maxTokens: number; temperature: number }> 
   summary:           { maxTokens: 512,  temperature: 0.3 },
   classification:    { maxTokens: 256,  temperature: 0.0 },
   riskAnalysis:      { maxTokens: 2048, temperature: 0.2 },
-  onDemandAnalysis:  { maxTokens: 4096, temperature: 0.1 },
+  onDemandAnalysis:  { maxTokens: 8192, temperature: 0.1 },
   chat:              { maxTokens: 4096, temperature: 0.4 },
   relevanceAnalysis: { maxTokens: 1024, temperature: 0.1 },
 }

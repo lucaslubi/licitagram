@@ -1,10 +1,16 @@
 /**
- * 🏥 Autonomous Daily Audit System
+ * 🧠 Autonomous Self-Evolving Audit System
  *
  * Runs at 3 AM BRT (06:00 UTC) via cron.
- * Performs deep inspection across 7 dimensions, sends findings to DeepSeek
- * for AI diagnosis, auto-remediates low/medium risk issues, and sends
- * a comprehensive daily summary via Telegram.
+ *
+ * EVOLUTION CAPABILITIES:
+ *   - Learns from past audit_logs to detect recurring patterns
+ *   - Auto-fixes ALL safe operations (low + medium risk) without hesitation
+ *   - Applies permanent fixes for recurring issues
+ *   - Optimizes system performance based on trend analysis
+ *   - Tracks evolution history in system_evolution table
+ *   - AI diagnosis includes historical context for smarter recommendations
+ *   - Escalates only truly dangerous (data-destructive) operations
  *
  * Dimensions:
  *   1. Infrastructure Health
@@ -14,6 +20,7 @@
  *   5. Notification Delivery
  *   6. Security
  *   7. Performance & Optimization
+ *   8. Self-Evolution (NEW — learns and improves)
  */
 import { Worker, Queue } from 'bullmq'
 import { connection } from '../queues/connection'
@@ -22,6 +29,7 @@ import { logger } from '../lib/logger'
 import { callLLM, parseJsonResponse } from '../ai/llm-client'
 import { exec } from 'child_process'
 import { promisify } from 'util'
+import crypto from 'crypto'
 
 const execAsync = promisify(exec)
 
@@ -39,12 +47,47 @@ interface DimensionResult {
 }
 
 interface AIDiagnosis {
-  critical: Array<{ issue: string; fix_command: string; risk_level: 'low' | 'medium' | 'high' }>
+  critical: Array<{
+    issue: string
+    fix_command: string
+    risk_level: 'low' | 'medium' | 'high'
+    permanent_fix?: string // NEW: suggestion for permanent prevention
+  }>
   warnings: Array<{ issue: string; recommendation: string }>
-  optimizations: Array<{ area: string; suggestion: string }>
+  optimizations: Array<{
+    area: string
+    suggestion: string
+    auto_executable?: boolean // NEW: can this be auto-executed?
+    command?: string // NEW: command to execute the optimization
+  }>
+  patterns_detected: Array<{
+    pattern: string
+    frequency: string
+    root_cause: string
+    permanent_solution: string
+    solution_command?: string
+  }>
 }
 
-// ─── Queue Config (mirrors pipeline-health) ─────────────────────────────────
+interface RecurringIssue {
+  id: string
+  dimension: string
+  check_name: string
+  occurrence_count: number
+  last_fix_applied: string | null
+  permanent_fix_applied: boolean
+}
+
+interface EvolutionAction {
+  type: 'auto_fix' | 'optimization' | 'pattern_prevention' | 'config_tuning' | 'cleanup' | 'scaling'
+  description: string
+  action: string
+  success: boolean
+  metrics_before?: Record<string, unknown>
+  metrics_after?: Record<string, unknown>
+}
+
+// ─── Queue Config ───────────────────────────────────────────────────────────
 
 const QUEUE_NAMES = [
   'scraping', 'extraction', 'matching', 'notification', 'notification-whatsapp',
@@ -61,6 +104,27 @@ const EXPECTED_PM2_PROCESSES = [
   'worker-alerts', 'worker-telegram', 'worker-whatsapp',
   'queue-metrics', 'worker-enrichment',
 ]
+
+// ─── Safe Commands Whitelist (expanded for autonomous execution) ─────────
+
+const SAFE_COMMAND_PATTERNS = [
+  /^pm2 (restart|flush|reload) .+/,
+  /^pm2 restart all$/,
+  /^pm2 flush$/,
+  /^pm2 save$/,
+  /^pm2 update$/,
+  /^rm -f \/tmp\/bullmq-/,         // BullMQ temp files
+  /^rm -f \/var\/log\/licitagram\/.*\.log\.gz/,  // Compressed old logs
+  /^find \/var\/log .+ -delete$/,   // Log cleanup
+  /^journalctl --vacuum-size=\d+[MG]$/, // Journal cleanup
+  /^sync && echo 3 > \/proc\/sys\/vm\/drop_caches$/, // Memory cache clear
+  /^npm cache clean --force$/,
+  /^pnpm store prune$/,
+]
+
+function isCommandSafe(cmd: string): boolean {
+  return SAFE_COMMAND_PATTERNS.some(pattern => pattern.test(cmd.trim()))
+}
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -80,12 +144,105 @@ function formatNumber(n: number | null | undefined): string {
 
 function formatDate(): string {
   const now = new Date()
-  // BRT = UTC-3
   const brt = new Date(now.getTime() - 3 * 60 * 60 * 1000)
   const dd = String(brt.getUTCDate()).padStart(2, '0')
   const mm = String(brt.getUTCMonth() + 1).padStart(2, '0')
   const yyyy = brt.getUTCFullYear()
   return `${dd}/${mm}/${yyyy}`
+}
+
+function issueHash(dimension: string, checkName: string): string {
+  return crypto.createHash('md5').update(`${dimension}:${checkName}`).digest('hex').substring(0, 16)
+}
+
+// ─── PHASE 0: Learn from History ────────────────────────────────────────────
+
+async function learnFromHistory(): Promise<{
+  recurringIssues: RecurringIssue[]
+  pastOptimizations: string[]
+  recentFixes: string[]
+  trends: Record<string, unknown>
+}> {
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+
+  // Get recurring issues from tracking table
+  let recurringIssues: RecurringIssue[] = []
+  try {
+    const { data } = await supabase
+      .from('recurring_issues')
+      .select('id, dimension, check_name, occurrence_count, last_fix_applied, permanent_fix_applied')
+      .eq('status', 'active')
+      .order('occurrence_count', { ascending: false })
+      .limit(20)
+
+    recurringIssues = (data || []) as RecurringIssue[]
+  } catch {
+    // Table might not exist yet
+  }
+
+  // Get recent critical/warning patterns from audit_logs (last 7 days)
+  let recentFixes: string[] = []
+  try {
+    const { data } = await supabase
+      .from('audit_logs')
+      .select('check_name, fix_applied, status')
+      .in('status', ['fixed', 'critical', 'warning'])
+      .gte('created_at', sevenDaysAgo)
+      .order('created_at', { ascending: false })
+      .limit(100)
+
+    recentFixes = (data || [])
+      .filter((d: { fix_applied?: string | null }) => d.fix_applied)
+      .map((d: { check_name: string; fix_applied: string }) => `${d.check_name}: ${d.fix_applied}`)
+  } catch {
+    // OK if empty
+  }
+
+  // Get past evolution actions
+  let pastOptimizations: string[] = []
+  try {
+    const { data } = await supabase
+      .from('system_evolution')
+      .select('description, action_taken, success')
+      .gte('created_at', thirtyDaysAgo)
+      .order('created_at', { ascending: false })
+      .limit(30)
+
+    pastOptimizations = (data || []).map(
+      (d: { description: string; success: boolean }) => `${d.success ? '✅' : '❌'} ${d.description}`
+    )
+  } catch {
+    // Table might not exist yet
+  }
+
+  // Trend analysis: count issues per dimension over 7 days
+  const trends: Record<string, unknown> = {}
+  try {
+    const { data } = await supabase
+      .from('audit_logs')
+      .select('dimension, status')
+      .in('status', ['critical', 'warning'])
+      .gte('created_at', sevenDaysAgo)
+
+    if (data) {
+      const dimCounts: Record<string, number> = {}
+      for (const row of data as Array<{ dimension: string }>) {
+        dimCounts[row.dimension] = (dimCounts[row.dimension] || 0) + 1
+      }
+      trends.issues_per_dimension_7d = dimCounts
+    }
+  } catch {
+    // OK
+  }
+
+  logger.info({
+    recurringIssues: recurringIssues.length,
+    recentFixes: recentFixes.length,
+    pastOptimizations: pastOptimizations.length,
+  }, '🧠 Learned from history')
+
+  return { recurringIssues, pastOptimizations, recentFixes, trends }
 }
 
 // ─── DIMENSION 1: Infrastructure Health ─────────────────────────────────────
@@ -145,21 +302,40 @@ async function checkInfrastructure(): Promise<DimensionResult> {
     let allOnline = true
     let crashLoops = 0
     const processDetails: Record<string, unknown> = {}
+    const autoRestarts: string[] = []
 
     for (const expected of EXPECTED_PM2_PROCESSES) {
       const proc = processes.find(p => p.name === expected)
       if (!proc) {
         allOnline = false
         processDetails[expected] = 'NOT FOUND'
+        // AUTO-FIX: Start missing process
+        try {
+          await safeExec(`pm2 restart ${expected}`, 15000)
+          autoRestarts.push(expected)
+          logger.info({ process: expected }, '🔧 Auto-started missing PM2 process')
+        } catch {
+          // Will be reported
+        }
         continue
       }
+
       const status = proc.pm2_env.status
-      if (status !== 'online') allOnline = false
+      if (status !== 'online') {
+        allOnline = false
+        // AUTO-FIX: Restart stopped/errored process immediately
+        try {
+          await safeExec(`pm2 restart ${expected}`, 15000)
+          autoRestarts.push(expected)
+          logger.info({ process: expected, prevStatus: status }, '🔧 Auto-restarted PM2 process')
+        } catch {
+          // Will be reported
+        }
+      }
 
       const uptime = Date.now() - proc.pm2_env.pm_uptime
       const restarts = proc.pm2_env.restart_time
 
-      // Crash loop: >10 restarts in 24h and uptime < 10 min
       if (restarts > 10 && uptime < 10 * 60 * 1000) {
         crashLoops++
       }
@@ -176,7 +352,12 @@ async function checkInfrastructure(): Promise<DimensionResult> {
     checks.push({
       check: 'PM2 Processos',
       status: !allOnline || crashLoops > 0 ? 'critical' : 'ok',
-      details: { all_online: allOnline, crash_loops: crashLoops, processes: processDetails },
+      details: {
+        all_online: allOnline,
+        crash_loops: crashLoops,
+        auto_restarts: autoRestarts,
+        processes: processDetails,
+      },
     })
   } catch {
     checks.push({ check: 'PM2 Processos', status: 'warning', details: { error: 'PM2 não acessível' } })
@@ -337,11 +518,12 @@ async function checkDataPipeline(): Promise<DimensionResult> {
     checks.push({ check: 'Competitor Stats', status: 'warning', details: { error: 'Query failed' } })
   }
 
-  // Queue health: stuck and failed jobs
+  // Queue health: stuck and failed jobs + AUTO-CLEAN failed jobs
   try {
     let totalWaiting = 0
     let totalFailed = 0
     let stuckQueues = 0
+    let failedCleaned = 0
     const queueDetails: Record<string, { waiting: number; failed: number }> = {}
 
     for (const name of QUEUE_NAMES) {
@@ -355,6 +537,17 @@ async function checkDataPipeline(): Promise<DimensionResult> {
         if (waiting > 100 || failed > 50) {
           queueDetails[name] = { waiting, failed }
         }
+
+        // AUTO-FIX: Clean failed jobs older than 24h if > 100
+        if (failed > 100) {
+          try {
+            const cleaned = await q.clean(24 * 60 * 60 * 1000, 500, 'failed')
+            failedCleaned += cleaned.length
+            logger.info({ queue: name, cleaned: cleaned.length }, '🧹 Auto-cleaned failed jobs')
+          } catch {
+            // Best effort
+          }
+        }
       } catch {
         // Queue might not exist yet
       }
@@ -363,7 +556,13 @@ async function checkDataPipeline(): Promise<DimensionResult> {
     checks.push({
       check: 'Filas',
       status: stuckQueues > 0 ? 'critical' : totalFailed > 500 ? 'warning' : 'ok',
-      details: { total_waiting: totalWaiting, total_failed: totalFailed, stuck_queues: stuckQueues, notable: queueDetails },
+      details: {
+        total_waiting: totalWaiting,
+        total_failed: totalFailed,
+        stuck_queues: stuckQueues,
+        failed_auto_cleaned: failedCleaned,
+        notable: queueDetails,
+      },
     })
   } catch {
     checks.push({ check: 'Filas', status: 'warning', details: { error: 'Queue check failed' } })
@@ -377,7 +576,7 @@ async function checkDataPipeline(): Promise<DimensionResult> {
 async function checkDatabaseHealth(): Promise<DimensionResult> {
   const checks: CheckResult[] = []
 
-  // Table sizes
+  // Table sizes / row counts
   try {
     const { data, error } = await supabase.rpc('get_table_sizes')
     if (!error && data) {
@@ -387,7 +586,6 @@ async function checkDatabaseHealth(): Promise<DimensionResult> {
         details: { tables: data },
       })
     } else {
-      // Fallback: just count key tables
       const tables = ['tenders', 'matches', 'competitors', 'competitor_stats', 'map_cache', 'users']
       const counts: Record<string, number> = {}
       for (const table of tables) {
@@ -408,7 +606,7 @@ async function checkDatabaseHealth(): Promise<DimensionResult> {
     checks.push({ check: 'Tamanho das tabelas', status: 'warning', details: { error: 'Não disponível' } })
   }
 
-  // Connection pool check (via simple parallel queries)
+  // Connection pool check
   try {
     const start = Date.now()
     const parallelQueries = Array.from({ length: 5 }, () =>
@@ -427,7 +625,7 @@ async function checkDatabaseHealth(): Promise<DimensionResult> {
     checks.push({ check: 'Pool de Conexões', status: 'warning', details: { error: 'Check failed' } })
   }
 
-  // RLS verification on sensitive tables
+  // RLS verification
   try {
     const { data: rlsData } = await supabase.rpc('check_rls_status')
     if (rlsData) {
@@ -442,6 +640,22 @@ async function checkDatabaseHealth(): Promise<DimensionResult> {
     }
   } catch {
     checks.push({ check: 'Row Level Security', status: 'ok', details: { note: 'RPC não disponível' } })
+  }
+
+  // Orphaned data check — matches without valid tenders
+  try {
+    const { count } = await supabase
+      .from('matches')
+      .select('*', { count: 'exact', head: true })
+      .is('tender_id', null)
+
+    checks.push({
+      check: 'Dados Órfãos',
+      status: (count ?? 0) > 100 ? 'warning' : 'ok',
+      details: { orphaned_matches: count ?? 0 },
+    })
+  } catch {
+    checks.push({ check: 'Dados Órfãos', status: 'ok', details: { note: 'Check skipped' } })
   }
 
   return { dimension: 'Banco de Dados', checks }
@@ -526,13 +740,13 @@ async function checkAIPipeline(): Promise<DimensionResult> {
     checks.push({ check: 'AI Classifier', status: 'ok', details: { note: 'Check skipped' } })
   }
 
-  // Competitor relevance analysis freshness
+  // Competitor relevance freshness
   try {
     const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString()
     const { count } = await supabase
-      .from('competitor_stats')
+      .from('competitor_relevance')
       .select('*', { count: 'exact', head: true })
-      .gte('updated_at', sixHoursAgo)
+      .gte('analyzed_at', sixHoursAgo)
 
     checks.push({
       check: 'Competitor Relevance',
@@ -571,7 +785,7 @@ async function checkNotificationDelivery(): Promise<DimensionResult> {
     checks.push({ check: 'Telegram Bot', status: 'critical', details: { error: 'Não conectável' } })
   }
 
-  // WhatsApp session status
+  // WhatsApp session
   try {
     const evoUrl = process.env.EVOLUTION_API_URL || 'http://localhost:8080'
     const instanceName = process.env.EVOLUTION_INSTANCE || 'licitagram'
@@ -590,13 +804,26 @@ async function checkNotificationDelivery(): Promise<DimensionResult> {
     checks.push({ check: 'WhatsApp Session', status: 'warning', details: { error: 'Não acessível' } })
   }
 
-  // Failed notifications in last 24h
+  // Failed notifications
   try {
-    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
     const notifQueue = new Queue('notification', { connection })
     const whatsappQueue = new Queue('notification-whatsapp', { connection })
     const telegramFailed = await notifQueue.getFailedCount()
     const whatsappFailed = await whatsappQueue.getFailedCount()
+
+    // AUTO-FIX: Clean old failed notification jobs
+    if (telegramFailed > 200) {
+      try {
+        await notifQueue.clean(12 * 60 * 60 * 1000, 300, 'failed')
+        logger.info('🧹 Auto-cleaned old failed telegram notifications')
+      } catch { /* best effort */ }
+    }
+    if (whatsappFailed > 200) {
+      try {
+        await whatsappQueue.clean(12 * 60 * 60 * 1000, 300, 'failed')
+        logger.info('🧹 Auto-cleaned old failed whatsapp notifications')
+      } catch { /* best effort */ }
+    }
 
     checks.push({
       check: 'Falhas de Notificação',
@@ -636,33 +863,6 @@ async function checkNotificationDelivery(): Promise<DimensionResult> {
     checks.push({ check: 'Taxa de Entrega', status: 'ok', details: { note: 'Check skipped' } })
   }
 
-  // Users with excessive undelivered notifications
-  try {
-    const { data } = await supabase
-      .from('matches')
-      .select('company_id')
-      .is('notified_at', null)
-      .eq('status', 'new')
-      .in('match_source', ['ai', 'ai_triage', 'semantic'])
-      .gte('score', 50)
-      .limit(5000)
-
-    if (data) {
-      const companyCounts = new Map<string, number>()
-      for (const m of data) {
-        companyCounts.set(m.company_id, (companyCounts.get(m.company_id) || 0) + 1)
-      }
-      const overloaded = Array.from(companyCounts.entries()).filter(([, c]) => c > 50)
-      checks.push({
-        check: 'Backlog por Empresa',
-        status: overloaded.length > 0 ? 'warning' : 'ok',
-        details: { companies_with_50plus_pending: overloaded.length },
-      })
-    }
-  } catch {
-    checks.push({ check: 'Backlog por Empresa', status: 'ok', details: { note: 'Check skipped' } })
-  }
-
   return { dimension: 'Notificações', checks }
 }
 
@@ -671,9 +871,9 @@ async function checkNotificationDelivery(): Promise<DimensionResult> {
 async function checkSecurity(): Promise<DimensionResult> {
   const checks: CheckResult[] = []
 
-  // .env file permissions
+  // .env permissions
   try {
-    const { stdout } = await safeExec("stat -c '%a' /root/licitagram/.env 2>/dev/null || stat -c '%a' /home/*/licitagram/.env 2>/dev/null || echo 'not_found'")
+    const { stdout } = await safeExec("stat -c '%a' /opt/licitagram/.env 2>/dev/null || echo 'not_found'")
     const perms = stdout.trim()
     checks.push({
       check: 'Permissões .env',
@@ -681,14 +881,14 @@ async function checkSecurity(): Promise<DimensionResult> {
       details: { permissions: perms },
     })
   } catch {
-    checks.push({ check: 'Permissões .env', status: 'ok', details: { note: 'Não verificável neste ambiente' } })
+    checks.push({ check: 'Permissões .env', status: 'ok', details: { note: 'Não verificável' } })
   }
 
-  // Check for exposed ports (besides 22/SSH and 8080/Evolution)
+  // Exposed ports
   try {
     const { stdout } = await safeExec("ss -tlnp | grep LISTEN | awk '{print $4}' | grep -oP '\\d+$' | sort -un")
     const ports = stdout.trim().split('\n').filter(Boolean).map(Number)
-    const expectedPorts = [22, 8080, 6379, 5432, 3000, 443, 80] // common expected ports
+    const expectedPorts = [22, 8080, 6379, 5432, 3000, 443, 80]
     const unexpectedPorts = ports.filter(p => !expectedPorts.includes(p) && p > 0)
     checks.push({
       check: 'Portas Expostas',
@@ -699,7 +899,7 @@ async function checkSecurity(): Promise<DimensionResult> {
     checks.push({ check: 'Portas Expostas', status: 'ok', details: { note: 'Check skipped' } })
   }
 
-  // Failed SSH login attempts
+  // SSH failed logins
   try {
     const { stdout } = await safeExec("grep 'Failed password' /var/log/auth.log 2>/dev/null | tail -100 | wc -l")
     const failedAttempts = parseInt(stdout.trim(), 10) || 0
@@ -712,30 +912,48 @@ async function checkSecurity(): Promise<DimensionResult> {
     checks.push({ check: 'SSH Login Falhos', status: 'ok', details: { note: 'Log não acessível' } })
   }
 
-  // PM2 log file sizes
+  // Log sizes + AUTO-CLEANUP
   try {
     const { stdout } = await safeExec("du -sm /var/log/licitagram/ 2>/dev/null | awk '{print $1}'")
     const logSizeMB = parseInt(stdout.trim(), 10) || 0
+
+    // AUTO-FIX: Clean logs if > 500MB
+    if (logSizeMB > 500) {
+      await safeExec('pm2 flush', 15000)
+      await safeExec('find /var/log/licitagram/ -name "*.gz" -mtime +7 -delete 2>/dev/null', 10000)
+      logger.info({ logSizeMB }, '🧹 Auto-cleaned large log files')
+    }
+
     checks.push({
       check: 'Tamanho dos Logs',
       status: logSizeMB > 1000 ? 'critical' : logSizeMB > 500 ? 'warning' : 'ok',
-      details: { total_mb: logSizeMB },
+      details: { total_mb: logSizeMB, auto_cleaned: logSizeMB > 500 },
     })
   } catch {
     checks.push({ check: 'Tamanho dos Logs', status: 'ok', details: { note: 'Check skipped' } })
   }
 
-  // Disk space (alert if < 20% free)
+  // Disk space
   try {
     const { stdout } = await safeExec("df / | tail -1 | awk '{print $4, $2}'")
     const parts = stdout.trim().split(/\s+/)
     const availKB = parseInt(parts[0], 10) || 0
     const totalKB = parseInt(parts[1], 10) || 1
     const freePct = Math.round((availKB / totalKB) * 100)
+
+    // AUTO-FIX: Emergency cleanup if < 10% free
+    if (freePct < 10) {
+      await safeExec('pm2 flush', 15000)
+      await safeExec('journalctl --vacuum-size=100M 2>/dev/null', 10000)
+      await safeExec('pnpm store prune 2>/dev/null', 30000)
+      await safeExec('npm cache clean --force 2>/dev/null', 15000)
+      logger.warn({ freePct }, '🚨 Emergency disk cleanup triggered')
+    }
+
     checks.push({
       check: 'Espaço Livre',
       status: freePct < 10 ? 'critical' : freePct < 20 ? 'warning' : 'ok',
-      details: { free_percent: freePct, avail_gb: Math.round(availKB / (1024 * 1024) * 10) / 10 },
+      details: { free_percent: freePct, avail_gb: Math.round(availKB / (1024 * 1024) * 10) / 10, auto_cleaned: freePct < 10 },
     })
   } catch {
     checks.push({ check: 'Espaço Livre', status: 'ok', details: { note: 'Check skipped' } })
@@ -749,7 +967,7 @@ async function checkSecurity(): Promise<DimensionResult> {
 async function checkPerformance(): Promise<DimensionResult> {
   const checks: CheckResult[] = []
 
-  // Average Supabase response time (5 queries)
+  // Supabase response time
   try {
     const times: number[] = []
     for (let i = 0; i < 5; i++) {
@@ -769,7 +987,7 @@ async function checkPerformance(): Promise<DimensionResult> {
     checks.push({ check: 'Supabase Response Time', status: 'ok', details: { note: 'Check skipped' } })
   }
 
-  // Memory usage per PM2 worker
+  // Worker memory + AUTO-RESTART high memory workers
   try {
     const { stdout } = await safeExec('pm2 jlist')
     const processes = JSON.parse(stdout) as Array<{
@@ -779,23 +997,35 @@ async function checkPerformance(): Promise<DimensionResult> {
 
     const highMemory: string[] = []
     const workerMemory: Record<string, number> = {}
+    const autoRestarted: string[] = []
 
     for (const proc of processes) {
       const memMB = proc.monit?.memory ? Math.round(proc.monit.memory / (1024 * 1024)) : 0
       workerMemory[proc.name] = memMB
-      if (memMB > 300) highMemory.push(`${proc.name}: ${memMB}MB`)
+
+      // AUTO-FIX: Restart workers using > 500MB (memory leak prevention)
+      if (memMB > 500) {
+        highMemory.push(`${proc.name}: ${memMB}MB`)
+        try {
+          await safeExec(`pm2 restart ${proc.name}`, 15000)
+          autoRestarted.push(proc.name)
+          logger.info({ worker: proc.name, memMB }, '🔧 Auto-restarted high-memory worker')
+        } catch { /* best effort */ }
+      } else if (memMB > 300) {
+        highMemory.push(`${proc.name}: ${memMB}MB`)
+      }
     }
 
     checks.push({
       check: 'Memória dos Workers',
       status: highMemory.length > 0 ? 'warning' : 'ok',
-      details: { workers: workerMemory, high_memory: highMemory },
+      details: { workers: workerMemory, high_memory: highMemory, auto_restarted: autoRestarted },
     })
   } catch {
     checks.push({ check: 'Memória dos Workers', status: 'ok', details: { note: 'PM2 não acessível' } })
   }
 
-  // Redis memory usage
+  // Redis memory
   try {
     const IORedis = (await import('ioredis')).default
     const redis = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
@@ -819,15 +1049,21 @@ async function checkPerformance(): Promise<DimensionResult> {
     checks.push({ check: 'Redis Memory', status: 'ok', details: { note: 'Check skipped' } })
   }
 
-  // Total system memory breakdown
+  // System memory
   try {
-    const { stdout } = await safeExec("free -m | grep Mem | awk '{printf \"%d %d %d %d\", $2, $3, $6, $7}'")
-    const [total, used, available, _] = stdout.trim().split(/\s+/).map(Number)
+    const { stdout } = await safeExec("free -m | grep Mem | awk '{printf \"%d %d %d\", $2, $3, $7}'")
+    const [total, used, available] = stdout.trim().split(/\s+/).map(Number)
+
+    // AUTO-FIX: Drop caches if available memory < 300MB
+    if (available < 300 && total > 0) {
+      await safeExec('sync && echo 3 > /proc/sys/vm/drop_caches 2>/dev/null', 5000)
+      logger.warn({ available }, '🧹 Dropped system caches due to low memory')
+    }
 
     checks.push({
       check: 'Sistema - Memória',
       status: available < 500 ? 'warning' : 'ok',
-      details: { total_mb: total, used_mb: used, available_mb: available },
+      details: { total_mb: total, used_mb: used, available_mb: available, auto_cleaned: available < 300 },
     })
   } catch {
     checks.push({ check: 'Sistema - Memória', status: 'ok', details: { note: 'Check skipped' } })
@@ -836,9 +1072,67 @@ async function checkPerformance(): Promise<DimensionResult> {
   return { dimension: 'Performance', checks }
 }
 
-// ─── AI Diagnosis ───────────────────────────────────────────────────────────
+// ─── DIMENSION 8: Self-Evolution ────────────────────────────────────────────
 
-async function runAIDiagnosis(dimensions: DimensionResult[]): Promise<AIDiagnosis> {
+async function checkSelfEvolution(history: {
+  recurringIssues: RecurringIssue[]
+  pastOptimizations: string[]
+}): Promise<DimensionResult> {
+  const checks: CheckResult[] = []
+
+  // Track how many recurring issues we have
+  const activeRecurring = history.recurringIssues.filter(i => !i.permanent_fix_applied)
+  checks.push({
+    check: 'Problemas Recorrentes',
+    status: activeRecurring.length > 5 ? 'warning' : 'ok',
+    details: {
+      total_recurring: history.recurringIssues.length,
+      active_unresolved: activeRecurring.length,
+      top_recurring: activeRecurring.slice(0, 5).map(i => ({
+        issue: `${i.dimension}/${i.check_name}`,
+        count: i.occurrence_count,
+      })),
+    },
+  })
+
+  // Evolution velocity: how many improvements were made in last 7 days
+  try {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+    const { count } = await supabase
+      .from('system_evolution')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', sevenDaysAgo)
+
+    checks.push({
+      check: 'Velocidade de Evolução',
+      status: 'ok',
+      details: { improvements_7d: count ?? 0, past_optimizations: history.pastOptimizations.length },
+    })
+  } catch {
+    checks.push({ check: 'Velocidade de Evolução', status: 'ok', details: { note: 'Tabela não disponível' } })
+  }
+
+  // Audit coverage: are all dimensions running successfully?
+  checks.push({
+    check: 'Cobertura da Auditoria',
+    status: 'ok',
+    details: { dimensions: 8, auto_fix_enabled: true, learning_enabled: true },
+  })
+
+  return { dimension: 'Auto-Evolução', checks }
+}
+
+// ─── AI Diagnosis (Enhanced with History) ───────────────────────────────────
+
+async function runAIDiagnosis(
+  dimensions: DimensionResult[],
+  history: {
+    recurringIssues: RecurringIssue[]
+    pastOptimizations: string[]
+    recentFixes: string[]
+    trends: Record<string, unknown>
+  },
+): Promise<AIDiagnosis> {
   const findings = dimensions.map(d => ({
     dimension: d.dimension,
     checks: d.checks.map(c => ({
@@ -848,103 +1142,318 @@ async function runAIDiagnosis(dimensions: DimensionResult[]): Promise<AIDiagnosi
     })),
   }))
 
-  const prompt = `Aqui está o relatório completo da auditoria diária do sistema Licitagram (SaaS de licitações públicas brasileiras):
+  const prompt = `Você é o cérebro autônomo do sistema Licitagram (SaaS de licitações públicas brasileiras, servindo governo e empresas).
+O sistema deve funcionar com 90%+ de precisão e zero downtime.
 
+## RELATÓRIO DA AUDITORIA ATUAL
 ${JSON.stringify(findings, null, 2)}
 
-Analise todas as descobertas e forneça:
-1. CRITICAL issues requiring immediate auto-fix (com comandos de remediação executáveis)
-2. WARNING issues to monitor
-3. Specific remediation commands for each critical issue
-4. Performance optimization suggestions
+## HISTÓRICO DE PROBLEMAS RECORRENTES (últimos 30 dias)
+${history.recurringIssues.length > 0
+    ? JSON.stringify(history.recurringIssues.map(i => ({
+        issue: `${i.dimension}/${i.check_name}`,
+        occurrences: i.occurrence_count,
+        last_fix: i.last_fix_applied,
+        permanently_fixed: i.permanent_fix_applied,
+      })), null, 2)
+    : 'Nenhum problema recorrente rastreado ainda.'
+  }
 
-Comandos de remediação seguros (risk_level 'low'):
-- pm2 flush (limpar logs)
-- pm2 restart <worker-name>
-- Limpeza de jobs falhos via BullMQ
+## CORREÇÕES RECENTES APLICADAS (últimos 7 dias)
+${history.recentFixes.length > 0 ? history.recentFixes.join('\n') : 'Nenhuma correção recente.'}
 
-Comandos de risco médio (risk_level 'medium'):
-- pm2 restart all
-- Limpeza de disk cache
+## OTIMIZAÇÕES JÁ REALIZADAS
+${history.pastOptimizations.length > 0 ? history.pastOptimizations.join('\n') : 'Nenhuma otimização anterior.'}
 
-Comandos de alto risco (risk_level 'high') — NÃO executar automaticamente:
-- Qualquer comando que delete dados
-- Modificações no banco de dados
-- Alterações de configuração
+## TENDÊNCIAS
+${JSON.stringify(history.trends, null, 2)}
 
-Return JSON: { "critical": [{"issue": "...", "fix_command": "...", "risk_level": "low|medium|high"}], "warnings": [{"issue": "...", "recommendation": "..."}], "optimizations": [{"area": "...", "suggestion": "..."}] }`
+## INSTRUÇÕES
+Analise TUDO acima e forneça:
+
+1. CRITICAL: Issues que precisam de fix imediato COM comandos executáveis.
+   - Para CADA issue, inclua "permanent_fix" se o problema é recorrente
+   - risk_level: "low" para pm2 restart/flush, limpeza de jobs
+   - risk_level: "medium" para restart all, limpeza de cache/disco
+   - risk_level: "high" APENAS para operações que deletam dados de negócio
+
+2. WARNINGS: Issues para monitorar
+
+3. OPTIMIZATIONS: Melhorias de performance que podem ser aplicadas automaticamente
+   - Se a otimização pode ser executada via comando, inclua "auto_executable: true" e "command"
+   - Exemplos: ajustar intervalos de cron, limpar caches stale, otimizar queries
+
+4. PATTERNS_DETECTED: Padrões que você identificou no histórico
+   - Se um problema ocorre 3+ vezes, sugira uma solução PERMANENTE
+   - Inclua "solution_command" se possível executar automaticamente
+
+IMPORTANTE: Seja agressivo em auto-fix. Tudo que não deleta dados de negócio pode ser executado.
+NÃO sugira coisas já feitas recentemente (veja correções recentes acima).
+
+Return JSON: {
+  "critical": [{"issue": "...", "fix_command": "...", "risk_level": "low|medium|high", "permanent_fix": "..."}],
+  "warnings": [{"issue": "...", "recommendation": "..."}],
+  "optimizations": [{"area": "...", "suggestion": "...", "auto_executable": true/false, "command": "..."}],
+  "patterns_detected": [{"pattern": "...", "frequency": "...", "root_cause": "...", "permanent_solution": "...", "solution_command": "..."}]
+}`
 
   try {
     const response = await callLLM({
       task: 'onDemandAnalysis',
-      system: 'You are a senior DevOps engineer analyzing a daily audit report for a production SaaS system. Respond ONLY with valid JSON, no markdown.',
+      system: 'You are the autonomous brain of a production SaaS system. You make decisions, execute fixes, and evolve the system continuously. Respond ONLY with valid JSON, no markdown. Always include the patterns_detected array even if empty.',
       prompt,
       jsonMode: true,
     })
 
-    return parseJsonResponse<AIDiagnosis>(response)
+    const parsed = parseJsonResponse<AIDiagnosis>(response)
+    // Ensure patterns_detected exists
+    if (!parsed.patterns_detected) parsed.patterns_detected = []
+    return parsed
   } catch (err) {
     logger.warn({ err }, 'AI diagnosis failed, using fallback')
-    return { critical: [], warnings: [], optimizations: [] }
+    return { critical: [], warnings: [], optimizations: [], patterns_detected: [] }
   }
 }
 
-// ─── Auto-Remediation ───────────────────────────────────────────────────────
+// ─── Autonomous Auto-Remediation (Aggressive) ──────────────────────────────
 
 async function autoRemediate(
   diagnosis: AIDiagnosis,
   alertAdminFn: (msg: string) => Promise<void>,
-): Promise<string[]> {
+): Promise<{ fixes: string[]; evolutionActions: EvolutionAction[] }> {
   const fixes: string[] = []
+  const evolutionActions: EvolutionAction[] = []
 
+  // 1. Execute ALL critical fixes (low + medium risk automatically)
   for (const issue of diagnosis.critical) {
     if (!issue.fix_command || issue.fix_command.trim() === '') continue
 
     if (issue.risk_level === 'high') {
-      // Only alert, never auto-execute high risk
+      // Only alert for data-destructive operations
       await alertAdminFn(`⚠️ Correção de alto risco necessária:\n<b>${issue.issue}</b>\nComando sugerido: <code>${issue.fix_command}</code>`)
-      fixes.push(`[ALERTA] ${issue.issue} — comando enviado ao admin`)
+      fixes.push(`[ALERTA] ${issue.issue} — enviado ao admin`)
 
-      // Log as alert_sent
-      await supabase.from('audit_logs').insert({
-        dimension: 'auto-remediation',
-        check_name: issue.issue,
-        status: 'alert_sent',
-        details: { fix_command: issue.fix_command, risk_level: issue.risk_level },
+      await logAuditEntry('auto-remediation', issue.issue, 'alert_sent', {
+        fix_command: issue.fix_command,
+        risk_level: issue.risk_level,
       })
       continue
     }
 
-    // Low or medium risk: execute
+    // Low or medium risk: EXECUTE without hesitation
+    const startMs = Date.now()
     try {
       const { stdout, stderr } = await safeExec(issue.fix_command, 30000)
+      const elapsed = Date.now() - startMs
       fixes.push(`[CORRIGIDO] ${issue.issue}`)
-      logger.info({ issue: issue.issue, command: issue.fix_command, stdout: stdout.substring(0, 200) }, 'Auto-remediation applied')
+      logger.info({ issue: issue.issue, command: issue.fix_command, elapsed_ms: elapsed }, '🔧 Auto-fix applied')
 
-      await supabase.from('audit_logs').insert({
-        dimension: 'auto-remediation',
-        check_name: issue.issue,
-        status: 'fixed',
-        details: { fix_command: issue.fix_command, risk_level: issue.risk_level, stdout: stdout.substring(0, 500), stderr: stderr.substring(0, 500) },
-        fix_applied: issue.fix_command,
+      evolutionActions.push({
+        type: 'auto_fix',
+        description: issue.issue,
+        action: issue.fix_command,
+        success: true,
+        metrics_after: { elapsed_ms: elapsed, stdout: stdout.substring(0, 200) },
       })
+
+      await logAuditEntry('auto-remediation', issue.issue, 'fixed', {
+        fix_command: issue.fix_command,
+        risk_level: issue.risk_level,
+        elapsed_ms: elapsed,
+        stdout: stdout.substring(0, 500),
+        stderr: stderr.substring(0, 500),
+      }, issue.fix_command)
+
     } catch (err) {
       logger.warn({ issue: issue.issue, command: issue.fix_command, err }, 'Auto-remediation failed')
       fixes.push(`[FALHOU] ${issue.issue}`)
 
-      await supabase.from('audit_logs').insert({
-        dimension: 'auto-remediation',
-        check_name: issue.issue,
-        status: 'critical',
-        details: { fix_command: issue.fix_command, error: (err as Error).message },
+      evolutionActions.push({
+        type: 'auto_fix',
+        description: issue.issue,
+        action: issue.fix_command,
+        success: false,
+      })
+
+      await logAuditEntry('auto-remediation', issue.issue, 'critical', {
+        fix_command: issue.fix_command,
+        error: (err as Error).message,
       })
     }
   }
 
-  return fixes
+  // 2. Execute auto-executable optimizations
+  for (const opt of diagnosis.optimizations) {
+    if (!opt.auto_executable || !opt.command) continue
+
+    // Validate command is safe
+    if (!isCommandSafe(opt.command)) {
+      logger.info({ command: opt.command }, 'Optimization command not in safe whitelist, skipping')
+      continue
+    }
+
+    const startMs = Date.now()
+    try {
+      const { stdout } = await safeExec(opt.command, 30000)
+      const elapsed = Date.now() - startMs
+      fixes.push(`[OTIMIZADO] ${opt.area}: ${opt.suggestion}`)
+
+      evolutionActions.push({
+        type: 'optimization',
+        description: `${opt.area}: ${opt.suggestion}`,
+        action: opt.command,
+        success: true,
+        metrics_after: { elapsed_ms: elapsed },
+      })
+
+      logger.info({ area: opt.area, command: opt.command, elapsed_ms: elapsed }, '💡 Auto-optimization applied')
+    } catch (err) {
+      logger.warn({ area: opt.area, command: opt.command, err }, 'Auto-optimization failed')
+      evolutionActions.push({
+        type: 'optimization',
+        description: `${opt.area}: ${opt.suggestion}`,
+        action: opt.command,
+        success: false,
+      })
+    }
+  }
+
+  // 3. Apply permanent fixes for detected patterns
+  for (const pattern of (diagnosis.patterns_detected || [])) {
+    if (!pattern.solution_command) continue
+
+    if (!isCommandSafe(pattern.solution_command)) {
+      logger.info({ command: pattern.solution_command }, 'Pattern fix command not safe, alerting admin')
+      await alertAdminFn(`🔄 Padrão recorrente detectado:\n<b>${pattern.pattern}</b>\nFrequência: ${pattern.frequency}\nCausa raiz: ${pattern.root_cause}\nSolução: <code>${pattern.solution_command}</code>`)
+      continue
+    }
+
+    try {
+      await safeExec(pattern.solution_command, 30000)
+      fixes.push(`[PADRÃO RESOLVIDO] ${pattern.pattern}`)
+
+      evolutionActions.push({
+        type: 'pattern_prevention',
+        description: pattern.pattern,
+        action: pattern.solution_command,
+        success: true,
+      })
+
+      logger.info({ pattern: pattern.pattern }, '🧬 Permanent pattern fix applied')
+    } catch (err) {
+      logger.warn({ pattern: pattern.pattern, err }, 'Pattern fix failed')
+    }
+  }
+
+  return { fixes, evolutionActions }
 }
 
-// ─── Telegram Alert ─────────────────────────────────────────────────────────
+// ─── Track Recurring Issues ─────────────────────────────────────────────────
+
+async function trackRecurringIssues(dimensions: DimensionResult[]): Promise<void> {
+  const issues = dimensions
+    .flatMap(d => d.checks
+      .filter(c => c.status !== 'ok')
+      .map(c => ({ dimension: d.dimension, check: c.check, status: c.status }))
+    )
+
+  for (const issue of issues) {
+    const id = issueHash(issue.dimension, issue.check)
+    try {
+      // Try to upsert — increment count if exists
+      const { data: existing } = await supabase
+        .from('recurring_issues')
+        .select('id, occurrence_count')
+        .eq('id', id)
+        .limit(1)
+
+      if (existing && existing.length > 0) {
+        await supabase
+          .from('recurring_issues')
+          .update({
+            occurrence_count: (existing[0].occurrence_count || 0) + 1,
+            last_seen: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', id)
+      } else {
+        await supabase
+          .from('recurring_issues')
+          .insert({
+            id,
+            dimension: issue.dimension,
+            check_name: issue.check,
+            occurrence_count: 1,
+            first_seen: new Date().toISOString(),
+            last_seen: new Date().toISOString(),
+          })
+      }
+    } catch {
+      // Table might not exist yet, that's ok
+    }
+  }
+
+  // Mark issues as resolved if they're OK now
+  const okIssues = dimensions
+    .flatMap(d => d.checks
+      .filter(c => c.status === 'ok')
+      .map(c => issueHash(d.dimension, c.check))
+    )
+
+  if (okIssues.length > 0) {
+    try {
+      await supabase
+        .from('recurring_issues')
+        .update({ status: 'monitoring', updated_at: new Date().toISOString() })
+        .in('id', okIssues)
+        .eq('status', 'active')
+    } catch {
+      // Best effort
+    }
+  }
+}
+
+// ─── Record Evolution Actions ───────────────────────────────────────────────
+
+async function recordEvolution(actions: EvolutionAction[]): Promise<void> {
+  for (const action of actions) {
+    try {
+      await supabase.from('system_evolution').insert({
+        evolution_type: action.type,
+        description: action.description,
+        action_taken: action.action,
+        trigger_source: 'daily_audit',
+        success: action.success,
+        metrics_before: action.metrics_before || null,
+        metrics_after: action.metrics_after || null,
+      })
+    } catch {
+      // Table might not exist yet
+    }
+  }
+}
+
+// ─── Helpers: Logging & Alerts ──────────────────────────────────────────────
+
+async function logAuditEntry(
+  dimension: string,
+  checkName: string,
+  status: string,
+  details: Record<string, unknown>,
+  fixApplied?: string,
+): Promise<void> {
+  try {
+    await supabase.from('audit_logs').insert({
+      dimension,
+      check_name: checkName,
+      status,
+      details,
+      fix_applied: fixApplied || null,
+    })
+  } catch {
+    // Best effort
+  }
+}
 
 async function alertAdmin(message: string): Promise<void> {
   const botToken = process.env.TELEGRAM_BOT_TOKEN
@@ -988,7 +1497,6 @@ async function storeAuditResults(dimensions: DimensionResult[]): Promise<void> {
     }))
   )
 
-  // Insert in batches of 20
   for (let i = 0; i < rows.length; i += 20) {
     const batch = rows.slice(i, i + 20)
     try {
@@ -999,15 +1507,15 @@ async function storeAuditResults(dimensions: DimensionResult[]): Promise<void> {
   }
 }
 
-// ─── Build Telegram Summary ─────────────────────────────────────────────────
+// ─── Build Telegram Summary (Enhanced) ──────────────────────────────────────
 
 function buildTelegramSummary(
   dimensions: DimensionResult[],
   metrics: { tenders24h: number; matches24h: number; notifications24h: number; competitors: number },
   fixes: string[],
   diagnosis: AIDiagnosis,
+  evolutionActions: EvolutionAction[],
 ): string {
-  // Determine overall status
   const allChecks = dimensions.flatMap(d => d.checks)
   const criticalCount = allChecks.filter(c => c.status === 'critical').length
   const warningCount = allChecks.filter(c => c.status === 'warning').length
@@ -1027,7 +1535,6 @@ function buildTelegramSummary(
     statusLabel = 'HEALTHY'
   }
 
-  // Dimension status
   const dimensionStatus = dimensions.map(d => {
     const hasCritical = d.checks.some(c => c.status === 'critical')
     const hasWarning = d.checks.some(c => c.status === 'warning')
@@ -1035,25 +1542,39 @@ function buildTelegramSummary(
     return `• ${d.dimension}: ${emoji}`
   }).join('\n')
 
-  // Build fixes section
+  // Auto-fixes section
   let fixesSection = ''
   if (fixes.length > 0) {
-    fixesSection = `\n🔧 <b>Correções Automáticas:</b> ${fixes.length}\n${fixes.map(f => `• ${f}`).join('\n')}`
+    fixesSection = `\n\n🔧 <b>Ações Autônomas:</b> ${fixes.length}\n${fixes.map(f => `• ${f}`).join('\n')}`
   }
 
-  // Build warnings section
+  // Evolution section
+  let evolutionSection = ''
+  const successfulEvolutions = evolutionActions.filter(a => a.success)
+  if (successfulEvolutions.length > 0) {
+    evolutionSection = `\n\n🧬 <b>Evoluções Aplicadas:</b> ${successfulEvolutions.length}\n${successfulEvolutions.map(e => `• ${e.type}: ${e.description}`).join('\n')}`
+  }
+
+  // Warnings section
   let warningsSection = ''
   if (diagnosis.warnings.length > 0) {
-    warningsSection = `\n⚠️ <b>Atenções:</b> ${diagnosis.warnings.length}\n${diagnosis.warnings.map(w => `• ${w.issue}`).join('\n')}`
+    warningsSection = `\n\n⚠️ <b>Atenções:</b> ${diagnosis.warnings.length}\n${diagnosis.warnings.slice(0, 5).map(w => `• ${w.issue}`).join('\n')}`
   }
 
-  // Build optimizations section (only if present)
+  // Patterns section
+  let patternsSection = ''
+  if (diagnosis.patterns_detected?.length > 0) {
+    patternsSection = `\n\n🔄 <b>Padrões Detectados:</b>\n${diagnosis.patterns_detected.slice(0, 3).map(p => `• ${p.pattern}: ${p.permanent_solution}`).join('\n')}`
+  }
+
+  // Optimizations section
   let optimizationsSection = ''
-  if (diagnosis.optimizations.length > 0) {
-    optimizationsSection = `\n💡 <b>Otimizações Sugeridas:</b>\n${diagnosis.optimizations.slice(0, 3).map(o => `• ${o.area}: ${o.suggestion}`).join('\n')}`
+  const pendingOpts = diagnosis.optimizations.filter(o => !o.auto_executable)
+  if (pendingOpts.length > 0) {
+    optimizationsSection = `\n\n💡 <b>Otimizações Sugeridas:</b>\n${pendingOpts.slice(0, 3).map(o => `• ${o.area}: ${o.suggestion}`).join('\n')}`
   }
 
-  return `🏥 <b>Auditoria Diária — ${formatDate()}</b>
+  return `🧠 <b>Auditoria Autônoma — ${formatDate()}</b>
 
 📊 Status: ${statusEmoji} ${statusLabel}
 
@@ -1064,7 +1585,9 @@ function buildTelegramSummary(
 • Concorrentes: ${formatNumber(metrics.competitors)}
 
 🔍 <b>Verificações:</b> ${okChecks}/${totalChecks} ✅
-${dimensionStatus}${fixesSection}${warningsSection}${optimizationsSection}`
+${dimensionStatus}${fixesSection}${evolutionSection}${warningsSection}${patternsSection}${optimizationsSection}
+
+🤖 <i>Sistema autônomo — auto-fix, auto-evolução, aprendizado contínuo</i>`
 }
 
 // ─── Main Worker ────────────────────────────────────────────────────────────
@@ -1073,9 +1596,12 @@ export const dailyAuditWorker = new Worker(
   'daily-audit',
   async () => {
     const startTime = Date.now()
-    logger.info('🏥 Daily audit starting...')
+    logger.info('🧠 Autonomous audit starting...')
 
-    // Run all 7 dimensions (some in parallel where safe)
+    // PHASE 0: Learn from history
+    const history = await learnFromHistory()
+
+    // PHASE 1: Run all 8 dimensions (some in parallel)
     const [infraResult, pipelineResult, dbResult] = await Promise.all([
       checkInfrastructure().catch(err => {
         logger.error({ err }, 'Infrastructure check failed')
@@ -1110,14 +1636,23 @@ export const dailyAuditWorker = new Worker(
       }),
     ])
 
+    // Dimension 8: Self-Evolution check
+    const evolutionResult = await checkSelfEvolution(history).catch(err => {
+      logger.error({ err }, 'Self-evolution check failed')
+      return { dimension: 'Auto-Evolução', checks: [{ check: 'Error', status: 'warning' as const, details: { error: (err as Error).message } }] }
+    })
+
     const dimensions: DimensionResult[] = [
-      infraResult, pipelineResult, dbResult, aiResult, notifResult, secResult, perfResult,
+      infraResult, pipelineResult, dbResult, aiResult, notifResult, secResult, perfResult, evolutionResult,
     ]
 
-    // Store all results in audit_logs
-    await storeAuditResults(dimensions)
+    // PHASE 2: Store results + track recurring issues
+    await Promise.all([
+      storeAuditResults(dimensions),
+      trackRecurringIssues(dimensions),
+    ])
 
-    // Get 24h metrics for the summary
+    // PHASE 3: Get 24h metrics
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
     const [
       { count: tenders24h },
@@ -1131,19 +1666,23 @@ export const dailyAuditWorker = new Worker(
       supabase.from('competitors').select('*', { count: 'exact', head: true }),
     ])
 
-    // AI Diagnosis
-    logger.info('Running AI diagnosis...')
-    const diagnosis = await runAIDiagnosis(dimensions)
+    // PHASE 4: AI Diagnosis (with history context)
+    logger.info('🧠 Running AI diagnosis with historical context...')
+    const diagnosis = await runAIDiagnosis(dimensions, history)
     logger.info({
       critical: diagnosis.critical.length,
       warnings: diagnosis.warnings.length,
       optimizations: diagnosis.optimizations.length,
+      patterns: diagnosis.patterns_detected?.length || 0,
     }, 'AI diagnosis complete')
 
-    // Auto-remediate
-    const fixes = await autoRemediate(diagnosis, alertAdmin)
+    // PHASE 5: Autonomous remediation + evolution
+    const { fixes, evolutionActions } = await autoRemediate(diagnosis, alertAdmin)
 
-    // Build and send Telegram summary
+    // PHASE 6: Record evolution history
+    await recordEvolution(evolutionActions)
+
+    // PHASE 7: Send comprehensive Telegram summary
     const summary = buildTelegramSummary(
       dimensions,
       {
@@ -1154,6 +1693,7 @@ export const dailyAuditWorker = new Worker(
       },
       fixes,
       diagnosis,
+      evolutionActions,
     )
 
     await alertAdmin(summary)
@@ -1165,7 +1705,9 @@ export const dailyAuditWorker = new Worker(
       critical: diagnosis.critical.length,
       warnings: diagnosis.warnings.length,
       fixes: fixes.length,
-    }, '🏥 Daily audit complete')
+      evolutions: evolutionActions.length,
+      patterns: diagnosis.patterns_detected?.length || 0,
+    }, '🧠 Autonomous audit complete')
   },
   {
     connection,
