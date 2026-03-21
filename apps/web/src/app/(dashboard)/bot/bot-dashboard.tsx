@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { GuidedLogin } from './guided-login'
 
 /* ── Types ──────────────────────────────────────────────────────────────────── */
 
@@ -107,6 +108,8 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
   const [showConfigDialog, setShowConfigDialog] = useState(false)
   const [showSessionDialog, setShowSessionDialog] = useState(false)
   const [editingConfig, setEditingConfig] = useState<BotConfig | null>(null)
+  const [guidedLoginPortal, setGuidedLoginPortal] = useState<{ portal: string; configId: string } | null>(null)
+  const [connectedPortals, setConnectedPortals] = useState<Set<string>>(new Set())
 
   // Form state — config
   const [configForm, setConfigForm] = useState({
@@ -405,6 +408,19 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                       }`}>
                         {config.enabled ? 'Ativo' : 'Inativo'}
                       </span>
+                      {connectedPortals.has(config.id) ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                          Conectado
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => setGuidedLoginPortal({ portal: config.portal, configId: config.id })}
+                          className="text-xs px-2.5 py-1 rounded-md bg-brand text-white hover:bg-brand/90 transition-colors font-medium"
+                          title="Login guiado no portal"
+                        >
+                          Conectar
+                        </button>
+                      )}
                       <button
                         onClick={() => openEditConfig(config)}
                         className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -710,6 +726,19 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
             </div>
           </div>
         </div>
+      )}
+
+      {/* ═══ Guided Login Dialog ═══ */}
+      {guidedLoginPortal && (
+        <GuidedLogin
+          portal={guidedLoginPortal.portal}
+          configId={guidedLoginPortal.configId}
+          onSuccess={() => {
+            setConnectedPortals(prev => new Set([...prev, guidedLoginPortal.configId]))
+            setGuidedLoginPortal(null)
+          }}
+          onClose={() => setGuidedLoginPortal(null)}
+        />
       )}
 
       {/* ═══ New Session Dialog ═══ */}
