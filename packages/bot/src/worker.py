@@ -8,6 +8,11 @@ import sys
 import time
 import json
 from datetime import datetime
+from dotenv import load_dotenv
+
+# Load .env FIRST (before any other imports that need env vars)
+_env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), '.env')
+load_dotenv(_env_path)
 
 # Add parent to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -20,13 +25,6 @@ from src.manager import LicitagramBotManager, MinimalDecreaseStrategy, TimedStra
 SUPABASE_URL = os.environ.get('SUPABASE_URL') or os.environ.get('NEXT_PUBLIC_SUPABASE_URL', '')
 SUPABASE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
 POLL_INTERVAL = 10  # seconds
-
-# Load .env from project root
-from dotenv import load_dotenv
-_env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), '.env')
-load_dotenv(_env_path)
-SUPABASE_URL = os.environ.get('SUPABASE_URL') or os.environ.get('NEXT_PUBLIC_SUPABASE_URL', '')
-SUPABASE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
 
 logger = LicitagramBotLogger(log_to_file=True, log_dir='/var/log/licitagram')
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
