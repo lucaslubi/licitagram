@@ -71,7 +71,9 @@ export function ConsultaCertidoes({ cnpj }: { cnpj: string; hasApiKey?: boolean 
         setJobStatus(data.status)
 
         if (data.status === 'completed' && data.result?.certidoes) {
+          console.log('[certidoes] Async results received:', data.result.certidoes.length, data.result.certidoes.map(c => `${c.tipo}:${c.situacao}`))
           setAsyncCertidoes(data.result.certidoes)
+          setJobStatus('completed')
           if (pollingRef.current) clearInterval(pollingRef.current)
           pollingRef.current = null
           router.refresh()
@@ -125,8 +127,17 @@ export function ConsultaCertidoes({ cnpj }: { cnpj: string; hasApiKey?: boolean 
     }
   }
 
-  // Combine sync + async results
-  const allCertidoes = [...(result?.certidoes || []), ...asyncCertidoes]
+  // Combine sync + async results (async overrides sync for same tipo)
+  const syncCertidoes = result?.certidoes || []
+  const asyncMap = new Map(asyncCertidoes.map(c => [c.tipo, c]))
+  const merged = syncCertidoes.map(c => asyncMap.get(c.tipo) || c)
+  // Add any async certidoes not in sync (new types from worker)
+  for (const c of asyncCertidoes) {
+    if (!syncCertidoes.find(s => s.tipo === c.tipo)) {
+      merged.push(c)
+    }
+  }
+  const allCertidoes = merged
   const autoResults = allCertidoes.filter(c => c.situacao !== 'manual')
   const manualResults = allCertidoes.filter(c => c.situacao === 'manual')
   const isPolling = jobStatus === 'pending' || jobStatus === 'processing'
