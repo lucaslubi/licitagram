@@ -21,6 +21,7 @@
 
 export type CertidaoTipo =
   | 'cnd_federal'
+  | 'federal'
   | 'cnd_estadual'
   | 'cnd_municipal'
   | 'fgts'

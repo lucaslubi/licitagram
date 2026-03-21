@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { GuidedCertidao } from './guided-certidao'
 
 interface CertidaoResultItem {
   tipo: string
@@ -49,6 +50,7 @@ export function ConsultaCertidoes({ cnpj }: { cnpj: string; hasApiKey?: boolean 
   const [asyncCertidoes, setAsyncCertidoes] = useState<CertidaoResultItem[]>([])
   const [jobStatus, setJobStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [guidedPortal, setGuidedPortal] = useState<'receita' | 'fgts' | null>(null)
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const router = useRouter()
 
@@ -316,31 +318,63 @@ export function ConsultaCertidoes({ cnpj }: { cnpj: string; hasApiKey?: boolean 
           {manualResults.length > 0 && !isPolling && (
             <div className="rounded-lg border border-gray-200 bg-white p-4">
               <h4 className="font-medium text-sm text-gray-700 mb-3 flex items-center gap-1.5">
-                <span>\uD83D\uDCCB</span>
+                <span>{'\uD83D\uDCCB'}</span>
                 Emitir Certidoes (consulta manual)
               </h4>
               <p className="text-xs text-gray-500 mb-3">
-                Estas certidoes nao puderam ser emitidas automaticamente.
-                Clique no link para abrir o site do governo e emitir manualmente.
+                Emita diretamente pelo Licitagram (captcha guiado) ou abra o site do governo.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {manualResults.map((cert) => (
-                  <a
-                    key={cert.tipo}
-                    href={cert.consulta_url || '#'}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border border-gray-200 hover:border-brand hover:bg-brand/5 transition-colors ${!cert.consulta_url ? 'opacity-50 pointer-events-none' : ''}`}
-                  >
-                    <svg className="h-4 w-4 text-brand shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-gray-800 truncate">{cert.label}</p>
-                      <p className="text-xs text-gray-400 truncate">{cert.detalhes}</p>
+                {manualResults.map((cert) => {
+                  const guidedPortalType =
+                    cert.tipo === 'cnd_federal' || cert.tipo === 'federal' ? 'receita' as const
+                    : cert.tipo === 'fgts' ? 'fgts' as const
+                    : null
+
+                  return (
+                    <div
+                      key={cert.tipo}
+                      className="flex flex-col gap-1.5 px-3 py-2.5 rounded-lg border border-gray-200"
+                    >
+                      <div className="flex items-center gap-2">
+                        <svg className="h-4 w-4 text-brand shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-gray-800 truncate">{cert.label}</p>
+                          <p className="text-xs text-gray-400 truncate">{cert.detalhes}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        {guidedPortalType && (
+                          <button
+                            onClick={() => setGuidedPortal(guidedPortalType)}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-brand text-white rounded-md text-xs font-medium hover:bg-brand/90 transition-colors"
+                          >
+                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            Emitir via Licitagram
+                          </button>
+                        )}
+                        {cert.consulta_url && (
+                          <a
+                            href={cert.consulta_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 px-2.5 py-1.5 border border-gray-200 text-gray-600 rounded-md text-xs font-medium hover:bg-gray-50 transition-colors"
+                          >
+                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                            Abrir site
+                          </a>
+                        )}
+                      </div>
                     </div>
-                  </a>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )}
@@ -354,6 +388,18 @@ export function ConsultaCertidoes({ cnpj }: { cnpj: string; hasApiKey?: boolean 
             </div>
           )}
         </div>
+      )}
+      {/* Guided Certidao Modal */}
+      {guidedPortal && (
+        <GuidedCertidao
+          portal={guidedPortal}
+          cnpj={cnpj}
+          onSuccess={() => {
+            setGuidedPortal(null)
+            router.refresh()
+          }}
+          onClose={() => setGuidedPortal(null)}
+        />
       )}
     </div>
   )

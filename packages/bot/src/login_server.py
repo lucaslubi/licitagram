@@ -47,6 +47,11 @@ PORTAL_URLS = {
     'licitacoes_e': 'https://www.licitacoes-e.com.br/',
 }
 
+CERTIDAO_URLS = {
+    'receita': 'https://solucoes.receita.fazenda.gov.br/Servicos/CertidaoInternet/PJ/Emitir',
+    'fgts': 'https://consulta-crf.caixa.gov.br/consultacrf/pages/consultaEmpregador.jsf',
+}
+
 logger = LicitagramBotLogger(log_to_file=True, log_dir='/var/log/licitagram')
 
 # ── CapSolver helpers ────────────────────────────────────────────────────────
@@ -375,6 +380,15 @@ class SessionManager:
                     page.wait_for_load_state('networkidle', timeout=8000)
                 except Exception:
                     pass
+            elif action == 'click_coordinates' and value:
+                # value is "x,y" coordinates
+                coords = value.split(',')
+                x, y = int(coords[0]), int(coords[1])
+                page.mouse.click(x, y)
+                try:
+                    page.wait_for_load_state('networkidle', timeout=8000)
+                except Exception:
+                    pass
             elif action == 'screenshot':
                 pass  # Just take a screenshot below
             elif action == 'solve_captcha':
@@ -434,6 +448,127 @@ class SessionManager:
         except Exception as e:
             logger.log_exception(e, f"get_cookies({session_id})")
             return {'error': str(e), 'status': 'error'}
+
+    def start_certidao(self, portal: str, cnpj: str, session_id: str) -> dict:
+        """Open a new browser session for certidão emission and auto-fill CNPJ."""
+        with self._lock:
+            if len(self._sessions) >= MAX_SESSIONS:
+                return {'error': 'Too many concurrent sessions', 'status': 'error'}
+            if session_id in self._sessions:
+                return {'error': 'Session already exists', 'status': 'error'}
+
+        url = CERTIDAO_URLS.get(portal)
+        if not url:
+            return {'error': f'Unknown certidao portal: {portal}', 'status': 'error'}
+
+        # Format CNPJ as XX.XXX.XXX/XXXX-XX
+        c = cnpj.replace('.', '').replace('/', '').replace('-', '').strip()
+        if len(c) == 14:
+            formatted_cnpj = f'{c[:2]}.{c[2:5]}.{c[5:8]}/{c[8:12]}-{c[12:]}'
+        else:
+            formatted_cnpj = cnpj
+
+        try:
+            context = self._browser.new_context(
+                viewport={'width': 1280, 'height': 800},
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            )
+            page = context.new_page()
+            page.goto(url, wait_until='networkidle', timeout=30000)
+
+            with self._lock:
+                self._sessions[session_id] = {
+                    'context': context,
+                    'page': page,
+                    'portal': portal,
+                    'certidao': True,
+                    'last_activity': time.time(),
+                }
+
+            logger.info(f"Certidao session {session_id} started — portal={portal} url={page.url}")
+
+            # Auto-fill CNPJ based on portal
+            try:
+                if portal == 'receita':
+                    page.wait_for_selector('input#NI', timeout=10000)
+                    page.fill('input#NI', formatted_cnpj)
+                elif portal == 'fgts':
+                    page.wait_for_selector('input[id*="inscricao"]', timeout=10000)
+                    page.fill('input[id*="inscricao"]', c)  # FGTS uses raw digits
+            except Exception as fill_err:
+                logger.warning(f"Certidao {session_id} — CNPJ fill failed: {fill_err}")
+
+            time.sleep(1)
+            screenshot = self._take_screenshot(page)
+
+            return {
+                'screenshot': screenshot,
+                'status': 'captcha_page',
+                'url': page.url,
+            }
+        except Exception as e:
+            logger.log_exception(e, f"start_certidao({portal})")
+            return {'error': str(e), 'status': 'error'}
+
+    def check_certidao_result(self, session_id: str) -> dict:
+        """Check if a certidão was emitted by inspecting the current page text."""
+        with self._lock:
+            session = self._sessions.get(session_id)
+            if not session:
+                return {'error': 'Session not found', 'status': 'error'}
+            session['last_activity'] = time.time()
+
+        page = session['page']
+
+        try:
+            page_text = page.evaluate('() => document.body.innerText || ""')
+            page_text_lower = page_text.lower()
+            screenshot = self._take_screenshot(page)
+
+            # Detect certidão results
+            result_status = 'pending'
+            detalhes = ''
+
+            if 'certidão negativa' in page_text_lower or 'certidao negativa' in page_text_lower:
+                result_status = 'negativa'
+                detalhes = 'Certidão Negativa emitida com sucesso'
+            elif 'certidão positiva com efeitos de negativa' in page_text_lower:
+                result_status = 'positiva_negativa'
+                detalhes = 'Certidão Positiva com Efeitos de Negativa'
+            elif 'certidão positiva' in page_text_lower or 'certidao positiva' in page_text_lower:
+                result_status = 'positiva'
+                detalhes = 'Certidão Positiva'
+            elif 'regularidade fiscal' in page_text_lower and ('regular' in page_text_lower):
+                result_status = 'negativa'
+                detalhes = 'Situação Regular'
+            elif 'crf emitido' in page_text_lower or 'certificado de regularidade' in page_text_lower:
+                result_status = 'negativa'
+                detalhes = 'CRF FGTS emitido'
+            elif 'situação irregular' in page_text_lower or 'situacao irregular' in page_text_lower:
+                result_status = 'positiva'
+                detalhes = 'Situação Irregular'
+            elif 'erro' in page_text_lower and ('cnpj' in page_text_lower or 'consulta' in page_text_lower):
+                result_status = 'error'
+                detalhes = 'Erro na consulta'
+
+            return {
+                'result_status': result_status,
+                'detalhes': detalhes,
+                'screenshot': screenshot,
+                'url': page.url,
+                'status': 'ok',
+            }
+        except Exception as e:
+            logger.log_exception(e, f"check_certidao_result({session_id})")
+            try:
+                screenshot = self._take_screenshot(page)
+            except Exception:
+                screenshot = ''
+            return {
+                'error': str(e),
+                'status': 'error',
+                'screenshot': screenshot,
+            }
 
     def close_session(self, session_id: str) -> dict:
         """Close a browser session."""
@@ -514,6 +649,25 @@ class LoginHandler(BaseHTTPRequestHandler):
                 self._send_json({'error': 'session_id required'}, 400)
                 return
             result = sessions.get_cookies(session_id)
+            self._send_json(result)
+
+        elif path == '/start_certidao':
+            portal = body.get('portal', '')
+            cnpj = body.get('cnpj', '')
+            session_id = body.get('session_id', str(uuid.uuid4()))
+            if not portal or not cnpj:
+                self._send_json({'error': 'portal and cnpj required'}, 400)
+                return
+            result = sessions.start_certidao(portal, cnpj, session_id)
+            status = 200 if 'error' not in result else 400
+            self._send_json(result, status)
+
+        elif path == '/check_result':
+            session_id = body.get('session_id', '')
+            if not session_id:
+                self._send_json({'error': 'session_id required'}, 400)
+                return
+            result = sessions.check_certidao_result(session_id)
             self._send_json(result)
 
         elif path == '/close':
