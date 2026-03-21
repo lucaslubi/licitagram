@@ -92,7 +92,7 @@ async function processCertidoesPoller(job: Job) {
   // 2. Mark as processing
   await supabase
     .from('certidao_jobs')
-    .update({ status: 'processing', started_at: new Date().toISOString() })
+    .update({ status: 'processing' })
     .eq('id', jobId)
 
   const results: CertidaoResult[] = []
@@ -159,10 +159,9 @@ async function processCertidoesPoller(job: Job) {
       }
 
       // 4d. Update progress
-      const progress = Math.round(((i + 1) / totalTypes) * 100)
       await supabase
         .from('certidao_jobs')
-        .update({ progress })
+        .update({ progress: { completed: i + 1, total: totalTypes, current: tipo } })
         .eq('id', jobId)
     }
 
@@ -171,9 +170,9 @@ async function processCertidoesPoller(job: Job) {
       .from('certidao_jobs')
       .update({
         status: 'completed',
-        progress: 100,
-        result_json: results,
-        finished_at: new Date().toISOString(),
+        progress: { completed: totalTypes, total: totalTypes },
+        result_json: { certidoes: results },
+        completed_at: new Date().toISOString(),
       })
       .eq('id', jobId)
 
@@ -187,7 +186,7 @@ async function processCertidoesPoller(job: Job) {
         status: 'failed',
         error_message: err.message || 'Erro desconhecido',
         result_json: results.length > 0 ? results : null,
-        finished_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
       })
       .eq('id', jobId)
   }
