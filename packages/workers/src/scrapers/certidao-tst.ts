@@ -73,8 +73,8 @@ export async function scrapeTST(cnpj: string): Promise<CertidaoResult> {
       return manualFallback
     }
 
-    // Step 5: Solve captcha via 2Captcha
-    log.info('Solving TST captcha via 2Captcha')
+    // Step 5: Solve captcha via CapSolver
+    log.info('Solving TST captcha via CapSolver')
     let captchaAnswer: string
     try {
       captchaAnswer = await solveImageCaptcha(captchaBase64)

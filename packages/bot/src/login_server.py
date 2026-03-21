@@ -10,6 +10,8 @@ import time
 import base64
 import uuid
 import threading
+import urllib.request
+import urllib.error
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from datetime import datetime
 
@@ -34,6 +36,8 @@ from src.logger import LicitagramBotLogger
 PORT = int(os.environ.get('LOGIN_SERVER_PORT', 3999))
 MAX_SESSIONS = 3
 SESSION_TIMEOUT = 300  # 5 minutes
+CAPSOLVER_API_KEY = os.environ.get('CAPSOLVER_API_KEY', '')
+CAPSOLVER_TIMEOUT = 120  # max seconds to wait for solution
 
 PORTAL_URLS = {
     'comprasnet': 'https://www.gov.br/compras/pt-br',
@@ -44,6 +48,66 @@ PORTAL_URLS = {
 }
 
 logger = LicitagramBotLogger(log_to_file=True, log_dir='/var/log/licitagram')
+
+# ── CapSolver helpers ────────────────────────────────────────────────────────
+
+def _capsolver_request(endpoint: str, payload: dict) -> dict:
+    """Send a JSON request to the CapSolver API and return the parsed response."""
+    url = f'https://api.capsolver.com/{endpoint}'
+    data = json.dumps(payload).encode('utf-8')
+    req = urllib.request.Request(url, data=data, headers={'Content-Type': 'application/json'})
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        return json.loads(resp.read().decode('utf-8'))
+
+
+def capsolver_solve_recaptcha_v2(site_url: str, site_key: str) -> str:
+    """
+    Solve a ReCaptcha v2 via CapSolver (proxyless).
+    Returns the g-recaptcha-response token string.
+    Raises RuntimeError on failure or timeout.
+    """
+    if not CAPSOLVER_API_KEY:
+        raise RuntimeError('CAPSOLVER_API_KEY not configured')
+
+    # 1. Create task
+    create_resp = _capsolver_request('createTask', {
+        'clientKey': CAPSOLVER_API_KEY,
+        'task': {
+            'type': 'ReCaptchaV2TaskProxyLess',
+            'websiteURL': site_url,
+            'websiteKey': site_key,
+        },
+    })
+
+    if create_resp.get('errorId', 0) != 0:
+        raise RuntimeError(f"CapSolver createTask error: {create_resp.get('errorDescription', create_resp)}")
+
+    task_id = create_resp.get('taskId')
+    if not task_id:
+        raise RuntimeError(f"CapSolver returned no taskId: {create_resp}")
+
+    # 2. Poll for result
+    deadline = time.time() + CAPSOLVER_TIMEOUT
+    while time.time() < deadline:
+        time.sleep(3)
+        result_resp = _capsolver_request('getTaskResult', {
+            'clientKey': CAPSOLVER_API_KEY,
+            'taskId': task_id,
+        })
+
+        status = result_resp.get('status', '')
+        if status == 'ready':
+            solution = result_resp.get('solution', {})
+            token = solution.get('gRecaptchaResponse', '')
+            if not token:
+                raise RuntimeError(f"CapSolver solution missing token: {result_resp}")
+            return token
+        elif status == 'failed':
+            raise RuntimeError(f"CapSolver task failed: {result_resp.get('errorDescription', result_resp)}")
+        # status == 'processing' → keep polling
+
+    raise RuntimeError(f"CapSolver timeout after {CAPSOLVER_TIMEOUT}s for task {task_id}")
+
 
 # ── Session Manager ──────────────────────────────────────────────────────────
 
@@ -115,6 +179,128 @@ class SessionManager:
         raw = page.screenshot(type='jpeg', quality=60)
         return base64.b64encode(raw).decode('ascii')
 
+    def _detect_recaptcha_sitekey(self, page) -> str | None:
+        """Detect a ReCaptcha v2 on the page and return the siteKey, or None."""
+        # Method 1: look for data-sitekey attribute
+        sitekey = page.evaluate('''() => {
+            const el = document.querySelector('[data-sitekey]');
+            if (el) return el.getAttribute('data-sitekey');
+            return null;
+        }''')
+        if sitekey:
+            return sitekey
+
+        # Method 2: look inside reCAPTCHA iframe src for k= parameter
+        sitekey = page.evaluate('''() => {
+            const frames = document.querySelectorAll('iframe[src*="recaptcha"]');
+            for (const f of frames) {
+                const m = f.src.match(/[?&]k=([A-Za-z0-9_-]+)/);
+                if (m) return m[1];
+            }
+            return null;
+        }''')
+        return sitekey
+
+    def _inject_recaptcha_token(self, page, token: str):
+        """Inject a solved reCAPTCHA token into the page and trigger the callback."""
+        page.evaluate('''(token) => {
+            // Set the response textarea (may be hidden)
+            const textarea = document.getElementById('g-recaptcha-response');
+            if (textarea) {
+                textarea.value = token;
+                textarea.style.display = 'block';
+            }
+            // Also set any other response textareas (multiple reCAPTCHA widgets)
+            document.querySelectorAll('[name="g-recaptcha-response"]').forEach(el => {
+                el.value = token;
+            });
+            // Trigger the callback
+            try {
+                // Standard callback path
+                if (typeof ___grecaptcha_cfg !== 'undefined' && ___grecaptcha_cfg.clients) {
+                    for (const clientKey of Object.keys(___grecaptcha_cfg.clients)) {
+                        const client = ___grecaptcha_cfg.clients[clientKey];
+                        // Walk the client object to find the callback
+                        const findCallback = (obj, depth) => {
+                            if (depth > 5 || !obj) return;
+                            for (const key of Object.keys(obj)) {
+                                if (typeof obj[key] === 'function') {
+                                    // Likely the callback
+                                } else if (typeof obj[key] === 'object' && obj[key] !== null) {
+                                    const inner = obj[key];
+                                    if (typeof inner.callback === 'function') {
+                                        inner.callback(token);
+                                        return;
+                                    }
+                                    findCallback(inner, depth + 1);
+                                }
+                            }
+                        };
+                        findCallback(client, 0);
+                    }
+                }
+            } catch (e) {
+                console.warn('reCAPTCHA callback trigger error:', e);
+            }
+        }''', token)
+
+    def solve_captcha(self, session_id: str) -> dict:
+        """Detect and solve a reCAPTCHA v2 on the current page."""
+        with self._lock:
+            session = self._sessions.get(session_id)
+            if not session:
+                return {'error': 'Session not found', 'status': 'error'}
+            session['last_activity'] = time.time()
+
+        page = session['page']
+
+        try:
+            # Detect reCAPTCHA
+            sitekey = self._detect_recaptcha_sitekey(page)
+            if not sitekey:
+                screenshot = self._take_screenshot(page)
+                return {
+                    'status': 'no_captcha',
+                    'message': 'No reCAPTCHA detected on the page',
+                    'screenshot': screenshot,
+                    'url': page.url,
+                }
+
+            current_url = page.url
+            logger.info(f"Session {session_id} — reCAPTCHA detected, siteKey={sitekey[:16]}... Solving via CapSolver")
+
+            # Solve via CapSolver (this blocks for up to CAPSOLVER_TIMEOUT seconds)
+            token = capsolver_solve_recaptcha_v2(current_url, sitekey)
+
+            logger.info(f"Session {session_id} — reCAPTCHA solved, injecting token")
+
+            # Inject the token
+            self._inject_recaptcha_token(page, token)
+
+            # Small delay to let any JS callbacks fire
+            time.sleep(1)
+
+            screenshot = self._take_screenshot(page)
+            return {
+                'status': 'captcha_solved',
+                'message': 'reCAPTCHA solved and token injected',
+                'screenshot': screenshot,
+                'url': page.url,
+            }
+
+        except Exception as e:
+            logger.log_exception(e, f"solve_captcha({session_id})")
+            try:
+                screenshot = self._take_screenshot(page)
+            except Exception:
+                screenshot = ''
+            return {
+                'error': str(e),
+                'status': 'captcha_error',
+                'screenshot': screenshot,
+                'url': page.url,
+            }
+
     def start_session(self, portal: str, session_id: str) -> dict:
         """Open a new browser session for the given portal."""
         with self._lock:
@@ -136,8 +322,6 @@ class SessionManager:
             page = context.new_page()
             page.goto(url, wait_until='networkidle', timeout=30000)
 
-            screenshot = self._take_screenshot(page)
-
             with self._lock:
                 self._sessions[session_id] = {
                     'context': context,
@@ -148,11 +332,25 @@ class SessionManager:
 
             logger.info(f"Session {session_id} started — portal={portal} url={page.url}")
 
-            return {
+            # Auto-solve captcha for gov.br portals
+            captcha_result = None
+            if portal in ('comprasnet', 'pncp', 'comprasgov') and CAPSOLVER_API_KEY:
+                sitekey = self._detect_recaptcha_sitekey(page)
+                if sitekey:
+                    logger.info(f"Session {session_id} — auto-solving reCAPTCHA on login page")
+                    captcha_result = self.solve_captcha(session_id)
+
+            screenshot = self._take_screenshot(page)
+
+            result = {
                 'screenshot': screenshot,
                 'status': 'login_page',
                 'url': page.url,
             }
+            if captcha_result:
+                result['captcha'] = captcha_result.get('status', 'unknown')
+
+            return result
         except Exception as e:
             logger.log_exception(e, f"start_session({portal})")
             return {'error': str(e), 'status': 'error'}
@@ -179,6 +377,8 @@ class SessionManager:
                     pass
             elif action == 'screenshot':
                 pass  # Just take a screenshot below
+            elif action == 'solve_captcha':
+                return self.solve_captcha(session_id)
             else:
                 return {'error': f'Invalid action: {action}', 'status': 'error'}
 

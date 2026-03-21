@@ -6,15 +6,15 @@
  * AUTO (no captcha):
  * - TCU/CEIS/CNEP — Portal da Transparência JSON endpoint (sanctions check)
  *
- * AUTO (captcha-solving via OCR/2Captcha):
- * - CNDT (TST) — Custom image captcha → Tesseract.js OCR / 2Captcha
- * - CND Federal (Receita/PGFN) — hCaptcha → 2Captcha
- * - CRF FGTS (Caixa) — captcha → OCR / 2Captcha
+ * AUTO (captcha-solving via CapSolver on VPS worker):
+ * - CNDT (TST) — Custom image captcha → CapSolver ImageToTextTask
+ * - CND Federal (Receita/PGFN) — hCaptcha → CapSolver HCaptchaTaskProxyLess
+ * - CRF FGTS (Caixa) — captcha → CapSolver
  *
  * FALLBACK (manual links when auto fails):
  * - Returns direct government URLs for manual consultation
  *
- * env: TWO_CAPTCHA_API_KEY (optional — enables hCaptcha solving)
+ * env: CAPSOLVER_API_KEY (on VPS worker — enables captcha solving)
  */
 
 // ─── Types ──────────────────────────────────────────────────────────────────

@@ -88,7 +88,7 @@ export async function scrapeReceita(cnpj: string): Promise<CertidaoResult> {
         return manualFallback
       }
 
-      // Try to solve hCaptcha via 2Captcha
+      // Try to solve hCaptcha via CapSolver
       let token: string | null = null
       try {
         token = await solveHCaptcha(sitekey, RECEITA_URL)
@@ -98,7 +98,7 @@ export async function scrapeReceita(cnpj: string): Promise<CertidaoResult> {
       }
 
       if (!token) {
-        log.warn('hCaptcha not solved (2Captcha may not support it)')
+        log.warn('hCaptcha not solved (CapSolver failed)')
         return manualFallback
       }
 

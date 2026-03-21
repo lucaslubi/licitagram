@@ -3,8 +3,8 @@
  *
  * Current status:
  * ✅ TCU/CEIS/CNEP — Automatic via Portal da Transparência (in certidoes.ts)
- * 📎 Receita Federal (CND) — Manual (requires hCaptcha, not supported by 2Captcha)
- * 📎 TST (CNDT) — Manual (RichFaces A4J AJAX can't be replicated server-side)
+ * 📎 Receita Federal (CND) — Manual (requires hCaptcha, handled by VPS worker via CapSolver)
+ * 📎 TST (CNDT) — Manual (RichFaces A4J AJAX, handled by VPS worker via CapSolver)
  * 📎 Caixa (FGTS CRF) — Manual (WAF blocks server-side requests)
  *
  * Future: Use Puppeteer on VPS worker for TST/Receita/FGTS automation.
@@ -19,8 +19,8 @@ export function isAutoSolveAvailable(): boolean {
 }
 
 // ─── Receita Federal (CND) — Manual ─────────────────────────────────────────
-// Requires hCaptcha (sitekey: 4a65992d-58fc-4812-8b87-789f7e7c4c4b)
-// 2Captcha account doesn't support hCaptcha → manual fallback
+// Requires hCaptcha — automated via CapSolver on VPS worker
+// Vercel-side returns manual fallback (actual automation runs on VPS)
 
 const RECEITA_MANUAL_URL = 'https://servicos.receitafederal.gov.br/servico/certidoes/#/home/cnpj'
 
@@ -88,7 +88,7 @@ export async function consultarCertidoesAuto(
   autoCount: number
 }> {
   // All captcha-protected certidões return instant manual links
-  // (no HTTP calls, no 2Captcha charges, instant response)
+  // (actual automation runs on VPS worker with CapSolver)
   const [cndFederal, cndt, fgts] = await Promise.all([
     fetchCNDFederalAuto(cnpj),
     fetchCNDTAuto(cnpj),
