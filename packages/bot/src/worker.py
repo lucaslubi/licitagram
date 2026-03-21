@@ -100,6 +100,31 @@ def process_session(session: dict):
     pregao_id = session['pregao_id']
     portal = None
 
+    # If portal is 'auto', 'pncp', or 'comprasgov', detect from tender data
+    if portal_name in ('auto', 'pncp', 'comprasgov'):
+        tender_id = session.get('tender_id')
+        if tender_id:
+            try:
+                tender = supabase.table('tenders').select('source, link_sistema_origem, link_pncp').eq('id', tender_id).single().execute()
+                if tender.data:
+                    source = tender.data.get('source', '')
+                    link = tender.data.get('link_sistema_origem', '') or ''
+                    # Map source/link to portal
+                    if 'comprasnet' in link.lower() or 'compras.gov' in link.lower() or source == 'pncp':
+                        portal_name = 'comprasnet'
+                    elif 'bll' in link.lower():
+                        portal_name = 'bll'
+                    elif 'licitacoes-e' in link.lower() or 'bb.com' in link.lower():
+                        portal_name = 'licitacoes_e'
+                    else:
+                        portal_name = 'comprasnet'  # Default for PNCP tenders
+                    logger.info(f"Auto-detected portal: {portal_name} from source={source}")
+            except Exception as e:
+                logger.warning(f"Failed to auto-detect portal from tender {tender_id}: {e}")
+                portal_name = 'comprasnet'  # Default
+        else:
+            portal_name = 'comprasnet'  # Default
+
     logger.info(f"Processing session {session_id} for pregao {pregao_id} on {portal_name}")
 
     # Validate config_id exists

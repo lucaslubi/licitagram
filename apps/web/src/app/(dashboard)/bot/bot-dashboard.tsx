@@ -49,10 +49,11 @@ interface Props {
 }
 
 const PORTAL_OPTIONS = [
+  { value: 'pncp', label: 'PNCP (Auto-detectar portal)' },
   { value: 'comprasnet', label: 'ComprasNet' },
+  { value: 'comprasgov', label: 'ComprasGov' },
   { value: 'bec', label: 'BEC/SP' },
-  { value: 'licitacoes-e', label: 'Licitacoes-e (BB)' },
-  { value: 'compras_br', label: 'Compras.gov.br' },
+  { value: 'licitacoes_e', label: 'Licitacoes-e (BB)' },
   { value: 'bll', label: 'BLL Compras' },
 ]
 
