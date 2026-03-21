@@ -146,7 +146,7 @@ export async function POST(req: NextRequest) {
     if (!workerTipos.has('trabalhista')) {
       manualFallbacks.push(buildCNDTManual(cleanCnpj))
     }
-    if (!workerTipos.has('cnd_federal')) {
+    if (!workerTipos.has('cnd_federal') && !workerTipos.has('federal')) {
       manualFallbacks.push(buildCNDFederalManual(cleanCnpj))
     }
     if (!workerTipos.has('fgts')) {
