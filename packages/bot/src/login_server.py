@@ -48,7 +48,7 @@ PORTAL_URLS = {
 }
 
 CERTIDAO_URLS = {
-    'receita': 'https://solucoes.receita.fazenda.gov.br/Servicos/CertidaoInternet/PJ/Emitir',
+    'receita': 'https://servicos.receitafederal.gov.br/servico/certidoes/#/home/cnpj',
     'fgts': 'https://consulta-crf.caixa.gov.br/consultacrf/pages/consultaEmpregador.jsf',
 }
 
