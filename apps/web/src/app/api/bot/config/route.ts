@@ -88,11 +88,11 @@ export async function POST(req: NextRequest) {
       company_id: profile.company_id,
       portal,
       username,
-      password,
+      password_hash: password,
       strategy,
-      min_decrease_value: min_decrease_value || null,
-      min_decrease_percent: min_decrease_percent || null,
-      enabled: enabled !== false,
+      min_decrease_value: min_decrease_value ?? 0.01,
+      min_decrease_percent: min_decrease_percent ?? 0.1,
+      is_active: enabled !== false,
     }
 
     if (id) {
