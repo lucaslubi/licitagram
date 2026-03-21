@@ -107,8 +107,15 @@ function extractContainerId(html: string): string | null {
   return match?.[1] || null
 }
 
+function formatCnpj(cnpj: string): string {
+  const c = cnpj.replace(/\D/g, '')
+  if (c.length !== 14) return cnpj
+  return `${c.slice(0, 2)}.${c.slice(2, 5)}.${c.slice(5, 8)}/${c.slice(8, 12)}-${c.slice(12)}`
+}
+
 export async function fetchCNDTAuto(cnpj: string): Promise<CertidaoResult> {
   const cleanCnpj = cnpj.replace(/\D/g, '')
+  const formattedCnpj = formatCnpj(cleanCnpj)
   const baseUrl = 'https://cndt-certidao.tst.jus.br'
 
   try {
@@ -229,13 +236,12 @@ export async function fetchCNDTAuto(cnpj: string): Promise<CertidaoResult> {
 
     console.log(`[certidoes-auto] TST: captcha solved: "${captchaAnswer}", submitting...`)
 
-    // Step 5: Submit via regular POST (not AJAX)
-    // The A4J AJAX returns XML partial-response which is hard to parse.
-    // Regular POST returns full HTML page with results.
+    // Step 5: Submit the form
+    // Use formatted CNPJ (XX.XXX.XXX/XXXX-XX) as the form expects maxlength=18
     const submitParams: Record<string, string> = {
       'javax.faces.ViewState': viewState2,
       'gerarCertidaoForm': 'gerarCertidaoForm',
-      'gerarCertidaoForm:cpfCnpj': cleanCnpj,
+      'gerarCertidaoForm:cpfCnpj': formattedCnpj,
       'gerarCertidaoForm:podeFazerDownload': 'false',
       'resposta': captchaAnswer.toLowerCase(), // TST uses text-transform: lowercase
       'tokenDesafio': captchaData.tokenDesafio,
@@ -243,9 +249,16 @@ export async function fetchCNDTAuto(cnpj: string): Promise<CertidaoResult> {
       'emailUsuario': '',
     }
 
-    const submitBody = new URLSearchParams(submitParams)
+    console.log(`[certidoes-auto] TST: submitting with CNPJ=${formattedCnpj}, answer="${captchaAnswer.toLowerCase()}"`)
 
-    // Try AJAX first (gets proper partial response)
+    // Try A4J AJAX submit first (required for btnEmitirCertidao which is type="button")
+    const ajaxParams = {
+      ...submitParams,
+      'AJAXREQUEST': containerId || '_viewRoot',
+    }
+
+    const submitBody = new URLSearchParams(ajaxParams)
+
     const submitRes = await fetch(`${baseUrl}/gerarCertidao.faces`, {
       method: 'POST',
       headers: {
@@ -263,10 +276,33 @@ export async function fetchCNDTAuto(cnpj: string): Promise<CertidaoResult> {
     })
 
     const resultText = await submitRes.text()
-    console.log(`[certidoes-auto] TST: submit response ${resultText.length} chars, status ${submitRes.status}`)
-    console.log(`[certidoes-auto] TST: response preview:`, resultText.substring(0, 500))
+    console.log(`[certidoes-auto] TST: response ${resultText.length} chars, status ${submitRes.status}`)
+    console.log(`[certidoes-auto] TST: response:`, resultText.substring(0, 800))
 
-    // Parse A4J AJAX response (XML partial-response or full HTML)
+    // If AJAX returned an error, retry as regular POST
+    if (resultText.includes('NullPointerException') || resultText.includes('<error>')) {
+      console.log('[certidoes-auto] TST: AJAX failed, trying regular POST...')
+
+      const regularBody = new URLSearchParams(submitParams)
+      const regularRes = await fetch(`${baseUrl}/gerarCertidao.faces`, {
+        method: 'POST',
+        headers: {
+          ...HEADERS,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          Cookie: cookieStr,
+          Referer: `${baseUrl}/gerarCertidao.faces`,
+          Origin: baseUrl,
+        },
+        body: regularBody.toString(),
+        redirect: 'follow',
+        signal: AbortSignal.timeout(25_000),
+      })
+
+      const regularText = await regularRes.text()
+      console.log(`[certidoes-auto] TST: regular POST response ${regularText.length} chars`)
+      return parseTSTResponse(regularText, baseUrl, cleanCnpj)
+    }
+
     return parseTSTResponse(resultText, baseUrl, cleanCnpj)
   } catch (err) {
     console.error('[certidoes-auto] TST error:', err)
