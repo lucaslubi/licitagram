@@ -108,7 +108,7 @@ export async function scrapeReceita(cnpj: string): Promise<CertidaoResult> {
             if (m) return m[1]
           }
           // Search all script tags for sitekey
-          const scripts = document.querySelectorAll('script')
+          const scripts = Array.from(document.querySelectorAll('script'))
           for (const s of scripts) {
             const m = s.textContent?.match(/sitekey['":\s]*['"]([0-9a-f-]{20,})['"]/i)
             if (m) return m[1]
