@@ -13,7 +13,7 @@ export async function scrapeReceita(cnpj: string): Promise<CertidaoResult> {
   const cleanCnpj = cnpj.replace(/\D/g, '')
 
   const manualFallback: CertidaoResult = {
-    tipo: 'federal',
+    tipo: 'cnd_federal',
     label: 'CND \u2014 Certid\u00e3o de D\u00e9bitos Federais (Receita Federal)',
     situacao: 'manual',
     detalhes: 'N\u00e3o foi poss\u00edvel obter automaticamente. Consulte manualmente.',
@@ -71,17 +71,59 @@ export async function scrapeReceita(cnpj: string): Promise<CertidaoResult> {
     if (hcaptchaFrame) {
       log.info('hCaptcha detected on Receita Federal page')
 
-      // Extract sitekey from hCaptcha iframe or div
+      // Extract sitekey from hCaptcha (multiple strategies)
       const sitekey = await page.evaluate(() => {
+        // 1. data-sitekey on div
         const div = document.querySelector('[data-sitekey]')
         if (div) return div.getAttribute('data-sitekey')
+
+        // 2. h-captcha div with data-sitekey
+        const hcDiv = document.querySelector('.h-captcha[data-sitekey]')
+        if (hcDiv) return hcDiv.getAttribute('data-sitekey')
+
+        // 3. iframe src parameter
         const iframe = document.querySelector('iframe[src*="hcaptcha"]') as HTMLIFrameElement | null
-        if (iframe) {
+        if (iframe?.src) {
           const match = iframe.src.match(/sitekey=([a-f0-9-]+)/i)
-          return match?.[1] || null
+          if (match) return match[1]
         }
+
+        // 4. Check hcaptcha render config in window
+        const win = window as any
+        if (win.hcaptcha?._parms?.sitekey) return win.hcaptcha._parms.sitekey
+
+        // 5. Walk all iframes for hcaptcha ones and extract from src
+        const allIframes = document.querySelectorAll('iframe')
+        for (const f of allIframes) {
+          if (f.src.includes('hcaptcha') || f.src.includes('newassets')) {
+            const m = f.src.match(/sitekey=([a-f0-9-]+)/i)
+            if (m) return m[1]
+          }
+        }
+
+        // 6. Check Angular component config or script tags
+        const scripts = document.querySelectorAll('script')
+        for (const s of scripts) {
+          if (s.textContent?.includes('sitekey')) {
+            const m = s.textContent.match(/sitekey['":\s]+['"]([a-f0-9-]+)['"]/i)
+            if (m) return m[1]
+          }
+        }
+
+        // 7. Check meta tags
+        const meta = document.querySelector('meta[name*="captcha"]')
+        if (meta) return meta.getAttribute('content')
+
         return null
       })
+
+      // If still no sitekey, log the iframe src for debugging
+      if (!sitekey) {
+        const iframeSrc = await page.evaluate(() => {
+          const iframe = document.querySelector('iframe[src*="hcaptcha"]') as HTMLIFrameElement | null
+          return iframe?.src || 'no iframe found'
+        })
+        log.warn({ iframeSrc }, 'hCaptcha detected but sitekey not found - iframe src logged')
 
       if (!sitekey) {
         log.warn('hCaptcha detected but sitekey not found')
@@ -169,7 +211,7 @@ export async function scrapeReceita(cnpj: string): Promise<CertidaoResult> {
       const today = new Date().toISOString().split('T')[0]
 
       return {
-        tipo: 'federal',
+        tipo: 'cnd_federal',
         label: 'CND \u2014 Certid\u00e3o de D\u00e9bitos Federais (Receita Federal)',
         situacao: 'regular',
         detalhes: 'Certid\u00e3o Negativa de D\u00e9bitos emitida',
@@ -183,7 +225,7 @@ export async function scrapeReceita(cnpj: string): Promise<CertidaoResult> {
 
     if (/positiva/i.test(bodyText)) {
       return {
-        tipo: 'federal',
+        tipo: 'cnd_federal',
         label: 'CND \u2014 Certid\u00e3o de D\u00e9bitos Federais (Receita Federal)',
         situacao: 'irregular',
         detalhes: 'Certid\u00e3o Positiva \u2014 existem pend\u00eancias',
