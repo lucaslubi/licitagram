@@ -474,7 +474,9 @@ class SessionManager:
                 user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             )
             page = context.new_page()
-            page.goto(url, wait_until='networkidle', timeout=30000)
+            page.goto(url, wait_until='domcontentloaded', timeout=45000)
+            # Wait for SPA to render
+            page.wait_for_timeout(5000)
 
             with self._lock:
                 self._sessions[session_id] = {
@@ -490,8 +492,19 @@ class SessionManager:
             # Auto-fill CNPJ based on portal
             try:
                 if portal == 'receita':
-                    page.wait_for_selector('input#NI', timeout=10000)
-                    page.fill('input#NI', formatted_cnpj)
+                    # New Angular SPA - try multiple selectors
+                    selectors = ['input[placeholder*="CNPJ"]', 'input[formcontrolname]', 'input[type="text"]']
+                    filled = False
+                    for sel in selectors:
+                        try:
+                            page.wait_for_selector(sel, timeout=5000)
+                            page.fill(sel, c)  # digits only, Angular formats it
+                            filled = True
+                            break
+                        except Exception:
+                            continue
+                    if not filled:
+                        logger.warning("Could not find CNPJ input on Receita page")
                 elif portal == 'fgts':
                     page.wait_for_selector('input[id*="inscricao"]', timeout=10000)
                     page.fill('input[id*="inscricao"]', c)  # FGTS uses raw digits
