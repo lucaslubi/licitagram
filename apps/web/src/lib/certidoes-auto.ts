@@ -51,263 +51,27 @@ async function solveImageCaptcha(base64Image: string): Promise<string | null> {
   }
 }
 
-async function solveHCaptcha(sitekey: string, pageurl: string): Promise<string | null> {
-  if (!TWO_CAPTCHA_KEY) return null
+// ─── Receita Federal (CND) — Manual only ────────────────────────────────────
+// Requires hCaptcha (sitekey: 4a65992d-58fc-4812-8b87-789f7e7c4c4b)
+// 2Captcha account doesn't support hCaptcha method → manual fallback
 
-  try {
-    console.log(`[certidoes-auto] 2Captcha: solving hCaptcha sitekey=${sitekey.substring(0, 8)}...`)
-    const { Solver } = await import('2captcha-ts')
-    const solver = new Solver(TWO_CAPTCHA_KEY)
-
-    const result = await solver.hcaptcha({
-      sitekey,
-      pageurl,
-    })
-
-    console.log(`[certidoes-auto] 2Captcha: hCaptcha solved, token length=${result?.data?.length || 0}`)
-    return result?.data || null
-  } catch (err) {
-    const errMsg = err instanceof Error ? err.message : String(err)
-    console.error(`[certidoes-auto] 2Captcha hCaptcha error: ${errMsg}`)
-    // Common errors: ERROR_WRONG_USER_KEY, ERROR_ZERO_BALANCE, ERROR_CAPTCHA_UNSOLVABLE
-    return null
-  }
-}
-
-// ─── Receita Federal (CND) — hCaptcha + REST API ────────────────────────────
-// Angular SPA at servicos.receitafederal.gov.br
-// Requires hCaptcha token in X-Captcha-Token header
-// Sitekey: 4a65992d-58fc-4812-8b87-789f7e7c4c4b
-
-const RECEITA_BASE = 'https://servicos.receitafederal.gov.br/servico/certidoes'
 const RECEITA_MANUAL_URL = 'https://servicos.receitafederal.gov.br/servico/certidoes/#/home/cnpj'
-const RECEITA_HCAPTCHA_SITEKEY = '4a65992d-58fc-4812-8b87-789f7e7c4c4b'
 
-export async function fetchCNDFederalAuto(cnpj: string): Promise<CertidaoResult> {
-  const cleanCnpj = cnpj.replace(/\D/g, '')
-
-  try {
-    if (!TWO_CAPTCHA_KEY) {
-      return {
-        tipo: 'cnd_federal',
-        label: 'CND Federal (Receita/PGFN)',
-        situacao: 'manual',
-        detalhes: 'Chave 2Captcha necessária para resolver hCaptcha da Receita Federal.',
-        numero: null, emissao: null, validade: null, pdf_url: null,
-        consulta_url: RECEITA_MANUAL_URL,
-      }
-    }
-
-    console.log('[certidoes-auto] Receita Federal: solving hCaptcha...')
-
-    // Step 1: Solve hCaptcha via 2Captcha
-    const captchaToken = await solveHCaptcha(
-      RECEITA_HCAPTCHA_SITEKEY,
-      `${RECEITA_BASE}/`,
-    )
-
-    if (!captchaToken) {
-      throw new Error('hCaptcha não resolvido')
-    }
-
-    console.log('[certidoes-auto] Receita Federal: hCaptcha solved, calling API...')
-
-    // Step 2: Load page for session cookies
-    const pageRes = await fetch(`${RECEITA_BASE}/`, {
-      method: 'GET',
-      headers: {
-        ...HEADERS,
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      },
-      redirect: 'follow',
-      signal: AbortSignal.timeout(15_000),
-    })
-
-    const pageCookies = pageRes.headers.getSetCookie?.() || []
-    const cookieStr = pageCookies.map((c) => c.split(';')[0]).join('; ')
-
-    const apiHeaders: Record<string, string> = {
-      ...HEADERS,
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      Origin: 'https://servicos.receitafederal.gov.br',
-      Referer: `${RECEITA_BASE}/`,
-      'X-Captcha-Token': captchaToken,
-      ...(cookieStr ? { Cookie: cookieStr } : {}),
-    }
-
-    const body = JSON.stringify({
-      ni: cleanCnpj,
-      tipoContribuinte: 'PJ',
-      tipoContribuinteEnum: 'CNPJ',
-    })
-
-    // Step 3: Validate the CNPJ
-    const verifyRes = await fetch(`${RECEITA_BASE}/api/consulta/validar-contribuinte`, {
-      method: 'POST',
-      headers: apiHeaders,
-      body,
-      signal: AbortSignal.timeout(15_000),
-    })
-
-    console.log('[certidoes-auto] Receita verificar status:', verifyRes.status)
-
-    if (!verifyRes.ok) {
-      const errText = await verifyRes.text().catch(() => '')
-      console.log('[certidoes-auto] Receita verificar error:', errText.substring(0, 300))
-
-      // Try alternative endpoint
-      const altRes = await fetch(`${RECEITA_BASE}/api/Emissao/verificar`, {
-        method: 'POST',
-        headers: apiHeaders,
-        body,
-        signal: AbortSignal.timeout(15_000),
-      })
-
-      if (!altRes.ok) {
-        throw new Error(`Receita API HTTP ${verifyRes.status}`)
-      }
-
-      const altData = await altRes.json()
-      console.log('[certidoes-auto] Receita alt response:', JSON.stringify(altData).substring(0, 300))
-    }
-
-    // Step 4: Emit the certidão
-    const emitRes = await fetch(`${RECEITA_BASE}/api/Emissao`, {
-      method: 'POST',
-      headers: apiHeaders,
-      body,
-      signal: AbortSignal.timeout(20_000),
-    })
-
-    if (!emitRes.ok) {
-      // Try alternative emit endpoint
-      const altEmitRes = await fetch(`${RECEITA_BASE}/api/consulta/emitir`, {
-        method: 'POST',
-        headers: apiHeaders,
-        body,
-        signal: AbortSignal.timeout(20_000),
-      })
-
-      if (!altEmitRes.ok) {
-        const errText = await emitRes.text().catch(() => '')
-        throw new Error(`Receita Emissao HTTP ${emitRes.status}: ${errText.substring(0, 200)}`)
-      }
-
-      const altData = await altEmitRes.json()
-      return parseReceitaJSON(altData)
-    }
-
-    const emitData = await emitRes.json()
-    console.log('[certidoes-auto] Receita emissao response keys:', Object.keys(emitData))
-
-    return parseReceitaJSON(emitData)
-  } catch (err) {
-    console.error('[certidoes-auto] Receita Federal error:', err)
-    return {
-      tipo: 'cnd_federal',
-      label: 'CND Federal (Receita/PGFN)',
-      situacao: 'manual',
-      detalhes: `Consulta automática indisponível: ${err instanceof Error ? err.message : 'erro'}. Acesse o link.`,
-      numero: null,
-      emissao: null,
-      validade: null,
-      pdf_url: null,
-      consulta_url: RECEITA_MANUAL_URL,
-    }
-  }
-}
-
-function parseReceitaJSON(data: Record<string, unknown>): CertidaoResult {
-  const base: Omit<CertidaoResult, 'situacao' | 'detalhes'> = {
+export async function fetchCNDFederalAuto(_cnpj: string): Promise<CertidaoResult> {
+  // Receita Federal requires hCaptcha (sitekey: 4a65992d-58fc-4812-8b87-789f7e7c4c4b)
+  // hCaptcha solving requires a specific 2Captcha plan that supports it.
+  // Without hCaptcha support, we fall back to manual link.
+  // The API returns HTTP 400 with "CaptchaTokenNaoInformado" without a valid token.
+  return {
     tipo: 'cnd_federal',
     label: 'CND Federal (Receita/PGFN)',
+    situacao: 'manual',
+    detalhes: 'Site da Receita exige hCaptcha. Acesse o link para emitir manualmente.',
     numero: null,
-    emissao: todayISO(),
+    emissao: null,
     validade: null,
     pdf_url: null,
     consulta_url: RECEITA_MANUAL_URL,
-  }
-
-  const status = (data.statusEmissao as string) || (data.statusValidacao as string) || ''
-  const mensagem = (data.mensagem as Record<string, unknown>) || {}
-  const texto = (mensagem.texto as string) || (data.mensagem as string) || ''
-
-  // "Emitida" or similar = certidão emitted successfully
-  if (status === 'Emitida' || status === 'CertidaoEmitida') {
-    const certidao = (data.certidao as Record<string, unknown>) || {}
-    const codigoControle = (certidao.codigoControle as string) || null
-    const dataValidade = (certidao.dataValidade as string) || null
-    const tipo = (certidao.tipo as string) || ''
-
-    const isNegativa = tipo.toLowerCase().includes('negativa') && !tipo.toLowerCase().includes('positiva')
-    const isPositivaComEfeito = tipo.toLowerCase().includes('positiva') && tipo.toLowerCase().includes('efeito')
-
-    let validade: string | null = null
-    if (dataValidade) {
-      if (dataValidade.includes('/')) {
-        const [d, m, y] = dataValidade.split('/')
-        validade = `${y}-${m}-${d}`
-      } else {
-        validade = dataValidade.slice(0, 10)
-      }
-    }
-
-    return {
-      ...base,
-      situacao: isNegativa || isPositivaComEfeito ? 'regular' : 'irregular',
-      detalhes: isNegativa
-        ? 'Certidão Negativa de Débitos emitida pela Receita Federal/PGFN'
-        : isPositivaComEfeito
-          ? 'Certidão Positiva com Efeitos de Negativa (débitos com exigibilidade suspensa)'
-          : 'Certidão Positiva — existem débitos junto à Receita Federal/PGFN',
-      numero: codigoControle,
-      validade,
-    }
-  }
-
-  // "SemDireitoCertidao" = has pending issues
-  if (status === 'SemDireitoCertidao') {
-    return {
-      ...base,
-      situacao: 'irregular',
-      detalhes: typeof texto === 'string' && texto
-        ? texto
-        : 'Contribuinte possui pendências que impedem a emissão da certidão',
-    }
-  }
-
-  // "CertidaoValida" = already has a valid certidão
-  if (status === 'CertidaoValida' || data.status === 'Emitida') {
-    return {
-      ...base,
-      situacao: 'regular',
-      detalhes: 'Certidão válida encontrada na Receita Federal',
-    }
-  }
-
-  // "ContribuinteValido" = CNPJ is valid, proceed to emit
-  if (status === 'ContribuinteValido') {
-    return {
-      ...base,
-      situacao: 'regular',
-      detalhes: 'Contribuinte validado pela Receita Federal — certidão pode ser emitida',
-    }
-  }
-
-  // Unknown response
-  if (typeof texto === 'string' && texto) {
-    return {
-      ...base,
-      situacao: 'manual',
-      detalhes: texto,
-    }
-  }
-
-  return {
-    ...base,
-    situacao: 'manual',
-    detalhes: `Resposta: ${status || JSON.stringify(data).substring(0, 150)}`,
   }
 }
 
