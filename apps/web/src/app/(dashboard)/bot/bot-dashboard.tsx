@@ -59,10 +59,8 @@ const PORTAL_OPTIONS = [
 ]
 
 const STRATEGY_OPTIONS = [
-  { value: 'aggressive', label: 'Agressivo - Lances frequentes com decremento minimo' },
-  { value: 'moderate', label: 'Moderado - Lances equilibrados' },
-  { value: 'conservative', label: 'Conservador - Poucos lances, maior decremento' },
-  { value: 'sniper', label: 'Sniper - Lance unico nos segundos finais' },
+  { value: 'minimal_decrease', label: 'Moderado - Menor decremento possivel' },
+  { value: 'timed', label: 'Cronometrado - Lances nos ultimos segundos' },
 ]
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
