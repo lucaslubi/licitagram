@@ -34,7 +34,13 @@ export async function GET() {
       return NextResponse.json({ error: 'Erro ao listar configuracoes' }, { status: 500 })
     }
 
-    return NextResponse.json({ configs })
+    // Map password_hash -> password for frontend compatibility
+    const mapped = (configs ?? []).map(({ password_hash, ...rest }: Record<string, unknown>) => ({
+      ...rest,
+      password: password_hash,
+    }))
+
+    return NextResponse.json({ configs: mapped })
   } catch (err) {
     console.error('[API bot/config] GET error:', err)
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
@@ -120,21 +126,29 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Erro ao atualizar configuracao' }, { status: 500 })
       }
 
-      return NextResponse.json({ config: updated })
+      const { password_hash: _pw, ...rest } = updated as Record<string, unknown>
+      return NextResponse.json({ config: { ...rest, password: _pw } })
     } else {
-      // Create new
+      // Create new — use upsert to handle existing configs for same portal
       const { data: created, error } = await supabase
         .from('bot_configs')
-        .insert(record)
+        .upsert(record, { onConflict: 'company_id,portal' })
         .select()
         .single()
 
       if (error) {
         console.error('[API bot/config] INSERT error:', error)
-        return NextResponse.json({ error: 'Erro ao criar configuracao' }, { status: 500 })
+        // Return the actual DB error for debugging
+        const msg = error.code === '23514'
+          ? `Valor invalido: ${error.message}`
+          : error.code === '23505'
+            ? 'Ja existe uma configuracao para este portal'
+            : `Erro ao criar configuracao: ${error.message}`
+        return NextResponse.json({ error: msg }, { status: 500 })
       }
 
-      return NextResponse.json({ config: created }, { status: 201 })
+      const { password_hash: _pw, ...rest } = created as Record<string, unknown>
+      return NextResponse.json({ config: { ...rest, password: _pw } }, { status: 201 })
     }
   } catch (err) {
     console.error('[API bot/config] POST error:', err)

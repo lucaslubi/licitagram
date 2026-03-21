@@ -143,9 +143,18 @@ function PosicaoIndicator({ pos, total }: { pos: number; total: number }) {
 
 export default function PregaoLive({ sessionId: initialSessionId, sessions = [], configs = [] }: PregaoLiveProps) {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(initialSessionId || null)
-  const [demoMode, setDemoMode] = useState(!initialSessionId && sessions.length === 0)
-  const [estado, setEstado] = useState<EstadoDisputa>(estadoInicial)
-  const [lances, setLances] = useState<Lance[]>(demoMode ? lancesMock : [])
+  const [demoMode, setDemoMode] = useState(false)
+  const [estado, setEstado] = useState<EstadoDisputa>({
+    fase: 'aguardando',
+    nosso_lance: 0,
+    melhor_lance: 0,
+    nossa_posicao: 0,
+    total_concorrentes: 0,
+    lances_executados: 0,
+    lances_max: 0,
+    status_robo: 'standby',
+  })
+  const [lances, setLances] = useState<Lance[]>([])
   const [manualValue, setManualValue] = useState('')
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'warning' | 'error' } | null>(null)
   const [clock, setClock] = useState('')
@@ -252,7 +261,18 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
   useEffect(() => {
     if (!selectedSessionId) {
       if (!demoMode) {
-        setDemoMode(true)
+        // No session selected and not in demo — show empty state
+        setLances([])
+        setEstado({
+          fase: 'aguardando',
+          nosso_lance: 0,
+          melhor_lance: 0,
+          nossa_posicao: 0,
+          total_concorrentes: 0,
+          lances_executados: 0,
+          lances_max: 0,
+          status_robo: 'standby',
+        })
       }
       return
     }
@@ -518,12 +538,20 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
     if (demoMode) {
       // Switching to real — clear demo data
       setDemoMode(false)
-      if (!selectedSessionId) {
-        setLances([])
-        setEstado({ ...estadoInicial, status_robo: 'standby', fase: 'aguardando', lances_executados: 0, nosso_lance: 0, melhor_lance: 0 })
-      }
+      setSelectedSessionId(null)
+      setLances([])
+      setEstado({
+        fase: 'aguardando',
+        nosso_lance: 0,
+        melhor_lance: 0,
+        nossa_posicao: 0,
+        total_concorrentes: 0,
+        lances_executados: 0,
+        lances_max: 0,
+        status_robo: 'standby',
+      })
     } else {
-      // Switching to demo
+      // Switching to demo — load mock data
       setDemoMode(true)
       setSelectedSessionId(null)
       setLances(lancesMock)

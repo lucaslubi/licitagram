@@ -26,6 +26,7 @@ CREATE INDEX IF NOT EXISTS idx_competitor_stats_participacoes ON competitor_stat
 CREATE INDEX IF NOT EXISTS idx_competitor_stats_ufs_gin ON competitor_stats USING GIN (ufs_atuacao);
 
 ALTER TABLE public.competitor_stats ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS competitor_stats_select_authenticated ON public.competitor_stats;
 CREATE POLICY competitor_stats_select_authenticated ON public.competitor_stats
   FOR SELECT TO authenticated USING (true);
 

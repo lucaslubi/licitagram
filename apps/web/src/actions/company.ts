@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
-import { invalidateCache, CacheKeys, isRedisAvailable, getRedis } from '@/lib/redis'
+import { invalidateCache, CacheKeys } from '@/lib/redis'
 import { CNAE_DIVISIONS, RELATED_DIVISIONS, getCompanyDivisions, NON_COMPETITIVE_MODALITIES, getCompanySectors, detectSectorConflict, stemWord } from '@licitagram/shared'
 
 // ─── Service-role Supabase (bypasses RLS for match writes) ─────────────────
@@ -311,34 +311,20 @@ export async function saveCompany(payload: CompanyPayload, existingId?: string) 
     }
   }
 
-  // Trigger matching in BACKGROUND — save returns immediately for good UX
-  // The worker will handle keyword matching + AI triage + notifications
+  // Run matching synchronously (no Redis pub/sub needed — workers run on VPS independently)
   try {
-    if (isRedisAvailable()) {
-      const r = getRedis()
-      // Signal the workers to run a full rematch for this company
-      await r.publish('licitagram:company-saved', JSON.stringify({
-        companyId,
-        company: sanitized,
-      }))
-      console.log('[COMPANY] Published company-saved event for background matching')
-    } else {
-      // Fallback: run matching synchronously if Redis is not available
-      console.log('[COMPANY] Redis unavailable — running matching synchronously')
-      await runRematchForCompany(companyId, sanitized)
-    }
+    console.log('[COMPANY] Running matching synchronously')
+    await runRematchForCompany(companyId, sanitized)
   } catch (err) {
     console.error('[COMPANY] Background matching trigger failed:', err)
   }
 
-  // Invalidate caches immediately so dashboard reflects the save
-  if (isRedisAvailable()) {
-    try {
-      await invalidateCache(CacheKeys.allCompanyMatches(companyId))
-      await invalidateCache('cache:stats:dashboard:*')
-      await invalidateCache(`cache:company:${companyId}`)
-    } catch { /* non-critical */ }
-  }
+  // Invalidate in-memory caches so dashboard reflects the save
+  try {
+    await invalidateCache(CacheKeys.allCompanyMatches(companyId))
+    await invalidateCache('cache:stats:dashboard:*')
+    await invalidateCache(`cache:company:${companyId}`)
+  } catch { /* non-critical */ }
 
   // Force Next.js to revalidate company page so reloading shows fresh data
   revalidatePath('/company')
@@ -671,29 +657,18 @@ async function _runRematchForCompany(
   const totalElapsed = ((Date.now() - startTime) / 1000).toFixed(1)
   console.log(`[REMATCH] COMPLETE: scanned ${scanned} tenders, ${matchCount} new matches in ${totalElapsed}s`)
 
-  // Invalidate caches only if Redis is available
-  if (isRedisAvailable()) {
-    try {
-      const deleted = await invalidateCache(CacheKeys.allCompanyMatches(companyId))
-      console.log('[REMATCH] Cache invalidated, keys deleted:', deleted)
+  // Invalidate in-memory caches
+  try {
+    const deleted = await invalidateCache(CacheKeys.allCompanyMatches(companyId))
+    console.log('[REMATCH] Cache invalidated, keys deleted:', deleted)
 
-      const r = getRedis()
-      const scoreKeys = [10, 15, 20, 25, 30, 40, 50, 60].map(
-        (s) => CacheKeys.matchCount(companyId, s),
-      )
-      await r.del(...scoreKeys)
-      await invalidateCache('cache:stats:dashboard:*')
-
-      // Trigger pending notifications immediately so Telegram alerts go out
-      if (matchCount > 0) {
-        await r.publish('licitagram:rematch-done', JSON.stringify({ companyId, matchCount }))
-        console.log('[REMATCH] Published rematch-done event for notifications')
-      }
-    } catch (err) {
-      console.error('[REMATCH] Redis operations failed (non-critical):', err)
+    // Invalidate all score-variant match count keys
+    for (const s of [10, 15, 20, 25, 30, 40, 50, 60]) {
+      await invalidateCache(CacheKeys.matchCount(companyId, s))
     }
-  } else {
-    console.log('[REMATCH] Redis not available, skipping cache invalidation')
+    await invalidateCache('cache:stats:dashboard:*')
+  } catch (err) {
+    console.error('[REMATCH] Cache invalidation failed (non-critical):', err)
   }
 
   return matchCount

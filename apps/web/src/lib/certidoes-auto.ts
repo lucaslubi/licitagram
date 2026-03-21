@@ -1,84 +1,92 @@
 /**
- * Certidões — Automated Government Integration
+ * Certidões — VPS Worker Dispatch + Poll
  *
- * Current status:
- * ✅ TCU/CEIS/CNEP — Automatic via Portal da Transparência (in certidoes.ts)
- * 📎 Receita Federal (CND) — Manual (requires hCaptcha, handled by VPS worker via CapSolver)
- * 📎 TST (CNDT) — Manual (RichFaces A4J AJAX, handled by VPS worker via CapSolver)
- * 📎 Caixa (FGTS CRF) — Manual (WAF blocks server-side requests)
+ * Dispatches certidão jobs to the VPS Puppeteer worker via the
+ * certidao_jobs Supabase table and polls for results.
  *
- * Future: Use Puppeteer on VPS worker for TST/Receita/FGTS automation.
+ * The VPS worker runs Puppeteer with CapSolver extension to automatically
+ * solve captchas on government sites (TST, Receita Federal, Caixa/FGTS).
+ *
+ * Flow:
+ * 1. Insert row into certidao_jobs with status='pending'
+ * 2. VPS worker polls every 15s, picks up job, runs Puppeteer scrapers
+ * 3. Worker updates certidao_jobs with status='completed' and result_json
+ * 4. This module polls every 2s until complete or timeout
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js'
 import type { CertidaoResult } from './certidoes'
 
-// ─── Config ─────────────────────────────────────────────────────────────────
-
 export function isAutoSolveAvailable(): boolean {
-  return true // TCU always works
+  return true // VPS worker handles automation
 }
 
-// ─── Receita Federal (CND) — Manual ─────────────────────────────────────────
-// Requires hCaptcha — automated via CapSolver on VPS worker
-// Vercel-side returns manual fallback (actual automation runs on VPS)
+/**
+ * Dispatch a certidão job to the VPS worker and poll for results.
+ *
+ * @returns The certidão results from the worker, or empty array on timeout/failure
+ */
+export async function dispatchAndPollCertidoes(
+  supabase: SupabaseClient,
+  companyId: string,
+  cnpj: string,
+  options?: { maxWaitMs?: number; pollIntervalMs?: number },
+): Promise<{
+  certidoes: CertidaoResult[]
+  status: 'completed' | 'failed' | 'timeout'
+  error?: string
+}> {
+  const maxWait = options?.maxWaitMs ?? 100_000
+  const pollInterval = options?.pollIntervalMs ?? 2_000
 
-const RECEITA_MANUAL_URL = 'https://servicos.receitafederal.gov.br/servico/certidoes/#/home/cnpj'
+  // 1. Insert pending job
+  const { data: job, error: insertErr } = await supabase
+    .from('certidao_jobs')
+    .insert({
+      company_id: companyId,
+      cnpj,
+      status: 'pending',
+      progress: {},
+    })
+    .select('id')
+    .single()
 
-export async function fetchCNDFederalAuto(_cnpj: string): Promise<CertidaoResult> {
-  return {
-    tipo: 'cnd_federal',
-    label: 'CND Federal (Receita/PGFN)',
-    situacao: 'manual',
-    detalhes: 'Acesse o link para emitir a certidão federal.',
-    numero: null,
-    emissao: null,
-    validade: null,
-    pdf_url: null,
-    consulta_url: RECEITA_MANUAL_URL,
+  if (insertErr || !job?.id) {
+    console.error('[certidoes-auto] Failed to create job:', insertErr?.message)
+    return { certidoes: [], status: 'failed', error: insertErr?.message ?? 'Insert failed' }
   }
-}
 
-// ─── TST (CNDT) — Manual ────────────────────────────────────────────────────
-// TST uses RichFaces 3.3.3 A4J AJAX for form submission.
-// The A4J.AJAX.Submit requires JavaScript-level serialization that
-// cannot be replicated via server-side fetch() calls (NPE on every attempt).
-// Needs Puppeteer/headless browser for automation.
+  // 2. Poll for results
+  const start = Date.now()
 
-export async function fetchCNDTAuto(_cnpj: string): Promise<CertidaoResult> {
-  return {
-    tipo: 'trabalhista',
-    label: 'CNDT — Certidão Trabalhista (TST)',
-    situacao: 'manual',
-    detalhes: 'Acesse o link para emitir a certidão trabalhista.',
-    numero: null,
-    emissao: null,
-    validade: null,
-    pdf_url: null,
-    consulta_url: 'https://cndt-certidao.tst.jus.br/inicio.faces',
+  while (Date.now() - start < maxWait) {
+    await new Promise(r => setTimeout(r, pollInterval))
+
+    const { data: jobData } = await supabase
+      .from('certidao_jobs')
+      .select('status, result_json, error_message')
+      .eq('id', job.id)
+      .single()
+
+    if (jobData?.status === 'completed' && jobData.result_json?.certidoes) {
+      return { certidoes: jobData.result_json.certidoes, status: 'completed' }
+    }
+
+    if (jobData?.status === 'failed') {
+      return {
+        certidoes: jobData.result_json?.certidoes ?? [],
+        status: 'failed',
+        error: jobData.error_message ?? 'Worker failed',
+      }
+    }
   }
+
+  return { certidoes: [], status: 'timeout', error: 'VPS worker did not respond in time' }
 }
 
-// ─── FGTS (Caixa) — Manual ──────────────────────────────────────────────────
-// WAF blocks all server-side requests (403)
-
-const FGTS_URL = 'https://consulta-crf.caixa.gov.br/consultacrf/pages/consultaEmpregador.jsf'
-
-export async function fetchFGTSAuto(_cnpj: string): Promise<CertidaoResult> {
-  return {
-    tipo: 'fgts',
-    label: 'CRF FGTS (Caixa)',
-    situacao: 'manual',
-    detalhes: 'Acesse o link para emitir o CRF do FGTS.',
-    numero: null,
-    emissao: null,
-    validade: null,
-    pdf_url: null,
-    consulta_url: FGTS_URL,
-  }
-}
-
-// ─── Main Auto-Consulta ─────────────────────────────────────────────────────
-
+/**
+ * Legacy compatibility wrapper — used by consultarCertidoes in certidoes.ts
+ */
 export async function consultarCertidoesAuto(
   cnpj: string,
   _options?: { uf?: string; municipio?: string },
@@ -87,17 +95,12 @@ export async function consultarCertidoesAuto(
   errors: string[]
   autoCount: number
 }> {
-  // All captcha-protected certidões return instant manual links
-  // (actual automation runs on VPS worker with CapSolver)
-  const [cndFederal, cndt, fgts] = await Promise.all([
-    fetchCNDFederalAuto(cnpj),
-    fetchCNDTAuto(cnpj),
-    fetchFGTSAuto(cnpj),
-  ])
-
+  // This function cannot dispatch jobs because it doesn't have a Supabase client
+  // or company_id. The route.ts handles dispatch directly.
+  // Return empty results — the route adds manual fallbacks for missing types.
   return {
-    certidoes: [cndFederal, cndt, fgts],
-    errors: [],
+    certidoes: [],
+    errors: ['Auto dispatch requires Supabase client — use dispatchAndPollCertidoes directly'],
     autoCount: 0,
   }
 }

@@ -28,9 +28,6 @@ export const SUPABASE_SERVICE_ROLE_KEY = requireEnv('SUPABASE_SERVICE_ROLE_KEY')
 export const STRIPE_SECRET_KEY = requireEnv('STRIPE_SECRET_KEY')
 export const STRIPE_WEBHOOK_SECRET = requireEnv('STRIPE_WEBHOOK_SECRET')
 
-/** Redis */
-export const REDIS_URL = optionalEnv('REDIS_URL', 'redis://localhost:6379')
-
 /** AI */
 export const TOGETHER_API_KEY = process.env.TOGETHER_API_KEY || ''
 export const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || ''

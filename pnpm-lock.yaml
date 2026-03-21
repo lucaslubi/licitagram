@@ -77,9 +77,6 @@ importers:
       driver.js:
         specifier: ^1.4.0
         version: 1.4.0
-      ioredis:
-        specifier: ^5.4.0
-        version: 5.10.0
       lucide-react:
         specifier: ^0.460.0
         version: 0.460.0(react@18.3.1)
@@ -135,9 +132,6 @@ importers:
       '@types/adm-zip':
         specifier: ^0.5.7
         version: 0.5.7
-      '@types/ioredis':
-        specifier: ^5.0.0
-        version: 5.0.0
       '@types/mapbox-gl':
         specifier: ^3.5.0
         version: 3.5.0
@@ -1214,10 +1208,6 @@ packages:
 
   '@types/hast@3.0.4':
     resolution: {integrity: sha512-WPs+bbQw5aCj+x6laNGWLH3wviHtoCv/P3+otBhbOhJgG8qtpdAMlTCxLtsTWA7LH1Oh/bFCHsBn0TPS5m30EQ==}
-
-  '@types/ioredis@5.0.0':
-    resolution: {integrity: sha512-zJbJ3FVE17CNl5KXzdeSPtdltc4tMT3TzC6fxQS0sQngkbFZ6h+0uTafsRqu+eSLIugf6Yb0Ea0SUuRr42Nk9g==}
-    deprecated: This is a stub types definition. ioredis provides its own type definitions, so you do not need this installed.
 
   '@types/json-schema@7.0.15':
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
@@ -5145,12 +5135,6 @@ snapshots:
   '@types/hast@3.0.4':
     dependencies:
       '@types/unist': 3.0.3
-
-  '@types/ioredis@5.0.0':
-    dependencies:
-      ioredis: 5.10.0
-    transitivePeerDependencies:
-      - supports-color
 
   '@types/json-schema@7.0.15': {}
 

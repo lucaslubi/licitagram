@@ -218,7 +218,7 @@ function calculateDifficulty(habilitados: Habilitado[], valorEstimado: number): 
 /** Generate price suggestion based on competitor data and estimated value */
 function calculateSuggestion(habilitados: Habilitado[], valorEstimado: number): PriceSuggestion {
   if (!valorEstimado || valorEstimado <= 0) {
-    return mockSuggestion
+    return { lance_sugerido: 0, faixa_minima: 0, faixa_maxima: 0, baseado_em: 0, historico: [] }
   }
 
   const avgDiscount = habilitados.length > 0
@@ -359,8 +359,8 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
 
   // Get the selected tender data
   const selectedTender = tenders.find((t: any) => t.id === selectedTenderId)
-  const tenderTitle = selectedTender?.objeto || 'Contratação de empresa especializada para serviços técnicos de TI junto à Câmara Municipal'
-  const valorEstimado = selectedTender?.valor_estimado ? Number(selectedTender.valor_estimado) : 225000
+  const tenderTitle = selectedTender?.objeto || (isDemo ? 'Contratação de empresa especializada para serviços técnicos de TI junto à Câmara Municipal' : 'Nenhum pregão selecionado')
+  const valorEstimado = selectedTender?.valor_estimado ? Number(selectedTender.valor_estimado) : (isDemo ? 225000 : 0)
 
   // Strategy state - initialize with computed values
   const [strategy, setStrategy] = useState<Strategy>({
@@ -377,19 +377,31 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
 
   // When tender selection changes, recompute everything
   useEffect(() => {
-    if (!selectedTenderId || tenders.length === 0) {
-      // No real tender selected — use mock data
+    // If demo mode is explicitly on, use mock data
+    if (isDemo) {
       setHabilitados(mockHabilitados)
       setDifficulty(mockDifficulty)
       setSuggestion(mockSuggestion)
-      setIsDemo(true)
+      setStrategy(prev => ({
+        ...prev,
+        valor_referencia: 225000,
+        lance_inicial: mockSuggestion.lance_sugerido,
+        lance_minimo: mockSuggestion.faixa_minima,
+      }))
       return
     }
 
-    setIsDemo(false)
+    if (!selectedTenderId || tenders.length === 0) {
+      // No real tender selected — show empty state (not mock)
+      setHabilitados([])
+      setDifficulty({ score: 0, nivel: 'fácil', n_concorrentes: 0, win_rate_medio: 0, presenca_grande: false, descontos_agressivos: false, recomendacao: 'Selecione um pregão para ver a análise de concorrência.' })
+      setSuggestion({ lance_sugerido: 0, faixa_minima: 0, faixa_maxima: 0, baseado_em: 0, historico: [] })
+      return
+    }
+
     const tender = tenders.find((t: any) => t.id === selectedTenderId)
     const tenderComps = competitors.filter((c: any) => c.tender_id === selectedTenderId)
-    const ve = tender?.valor_estimado ? Number(tender.valor_estimado) : 225000
+    const ve = tender?.valor_estimado ? Number(tender.valor_estimado) : 0
 
     if (tenderComps.length > 0) {
       const habs = competitorsToHabilitados(tenderComps)
@@ -397,17 +409,16 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
       setDifficulty(calculateDifficulty(habs, ve))
       setSuggestion(calculateSuggestion(habs, ve))
     } else {
-      // No competitors found — use mock as fallback
-      setHabilitados(mockHabilitados)
-      setDifficulty(mockDifficulty)
-      setSuggestion(mockSuggestion)
-      setIsDemo(true)
+      // No competitors found for this tender — show empty (not mock)
+      setHabilitados([])
+      setDifficulty({ score: 0, nivel: 'fácil', n_concorrentes: 0, win_rate_medio: 0, presenca_grande: false, descontos_agressivos: false, recomendacao: 'Nenhum concorrente encontrado para este pregão ainda.' })
+      setSuggestion({ lance_sugerido: ve > 0 ? Math.round(ve * 0.85) : 0, faixa_minima: ve > 0 ? Math.round(ve * 0.7) : 0, faixa_maxima: ve > 0 ? Math.round(ve * 0.95) : 0, baseado_em: 0, historico: [] })
     }
 
     // Update strategy with new tender values
     const sug = tenderComps.length > 0
       ? calculateSuggestion(competitorsToHabilitados(tenderComps), ve)
-      : mockSuggestion
+      : { lance_sugerido: ve > 0 ? Math.round(ve * 0.85) : 0, faixa_minima: ve > 0 ? Math.round(ve * 0.7) : 0, faixa_maxima: ve > 0 ? Math.round(ve * 0.95) : 0, baseado_em: 0, historico: [] }
 
     setStrategy(prev => ({
       ...prev,
@@ -416,7 +427,7 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
       lance_minimo: sug.faixa_minima,
     }))
     setConfirmed(false)
-  }, [selectedTenderId, tenders, competitors])
+  }, [selectedTenderId, tenders, competitors, isDemo])
 
   useEffect(() => {
     const t = setTimeout(() => setLoading(false), 1800)
@@ -720,7 +731,18 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
             <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', animation: 'pulse 1.5s infinite' }} />
             <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, color: '#f97316' }}>SALA DO PREGÃO</span>
           </div>
-          <div style={s.headerBadge}>{isDemo ? 'DEMO' : 'AO VIVO'}</div>
+          <button
+            onClick={() => setIsDemo(!isDemo)}
+            style={{
+              ...s.headerBadge,
+              cursor: 'pointer',
+              background: isDemo ? '#3b82f622' : '#ef444422',
+              color: isDemo ? '#3b82f6' : '#ef4444',
+              border: `1px solid ${isDemo ? '#3b82f655' : '#ef444455'}`,
+            }}
+          >
+            {isDemo ? '● DEMO' : '○ AO VIVO'}
+          </button>
 
           {/* Tender selector or title */}
           {tenders.length > 0 ? (
@@ -746,7 +768,7 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
             <div style={{ color: '#94a3b8', fontWeight: 700 }}>
               {selectedTender?.data_abertura
                 ? new Date(selectedTender.data_abertura).toLocaleDateString('pt-BR') + ' · ' + new Date(selectedTender.data_abertura).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-                : '27/03/2026 · 10:00'}
+                : '—'}
             </div>
           </div>
           <div style={{ fontSize: 10, color: '#475569', textAlign: 'right' }}>

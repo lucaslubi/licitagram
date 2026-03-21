@@ -261,20 +261,22 @@ export function buildCNDEstadualManual(cnpj: string, uf?: string): CertidaoResul
 /**
  * Fetch certidões for a company.
  *
+ * NOTE: This function only runs TCU inline and returns manual links for
+ * captcha-protected certidões. For automatic fetching via VPS Puppeteer
+ * worker, use the API route POST /api/certidoes which dispatches jobs
+ * to the certidao_jobs table and polls for results.
+ *
  * Strategy:
  * 1. TCU/CEIS/CNEP: Always automatic (no captcha)
- * 2. CNDT, CND Federal, FGTS: Try auto (captcha-solving) first, fallback to manual
+ * 2. CNDT, CND Federal, FGTS: Manual links (automation via VPS worker in API route)
  * 3. CND Estadual: Always manual (too many state variations)
- *
- * @param autoSolve - Whether to attempt captcha-solving (default: true)
  */
 export async function consultarCertidoes(
   cnpj: string,
-  options?: { uf?: string; municipio?: string; autoSolve?: boolean },
+  options?: { uf?: string; municipio?: string },
 ): Promise<ConsultaResult> {
   const cleanedCnpj = cleanCnpj(cnpj)
   const errors: string[] = []
-  const shouldAutoSolve = options?.autoSolve !== false
 
   // 1. Automatic: TCU/CEIS/CNEP check (always works)
   const tcu = await fetchTCU(cleanedCnpj)
@@ -282,35 +284,11 @@ export async function consultarCertidoes(
     errors.push(`${tcu.label}: ${tcu.detalhes}`)
   }
 
-  // 2. Captcha-protected certidões: try auto, fallback to manual
-  let cndt: CertidaoResult
-  let cndFederal: CertidaoResult
-  let fgts: CertidaoResult
-
-  if (shouldAutoSolve) {
-    try {
-      const { consultarCertidoesAuto } = await import('./certidoes-auto')
-      const autoResult = await consultarCertidoesAuto(cleanedCnpj, options)
-
-      // Map auto results by tipo
-      const autoMap = new Map(autoResult.certidoes.map((c) => [c.tipo, c]))
-
-      cndt = autoMap.get('trabalhista') || buildCNDTManual(cleanedCnpj)
-      cndFederal = autoMap.get('cnd_federal') || buildCNDFederalManual(cleanedCnpj)
-      fgts = autoMap.get('fgts') || buildFGTSManual(cleanedCnpj)
-
-      errors.push(...autoResult.errors)
-    } catch (err) {
-      console.error('[certidoes] Auto-solve module error, falling back to manual:', err)
-      cndt = buildCNDTManual(cleanedCnpj)
-      cndFederal = buildCNDFederalManual(cleanedCnpj)
-      fgts = buildFGTSManual(cleanedCnpj)
-    }
-  } else {
-    cndt = buildCNDTManual(cleanedCnpj)
-    cndFederal = buildCNDFederalManual(cleanedCnpj)
-    fgts = buildFGTSManual(cleanedCnpj)
-  }
+  // 2. Captcha-protected certidões: manual links
+  // Automation is handled by VPS worker via POST /api/certidoes
+  const cndt = buildCNDTManual(cleanedCnpj)
+  const cndFederal = buildCNDFederalManual(cleanedCnpj)
+  const fgts = buildFGTSManual(cleanedCnpj)
 
   // 3. CND Estadual: always manual (too many state-specific forms)
   const cndEstadual = buildCNDEstadualManual(cleanedCnpj, options?.uf)

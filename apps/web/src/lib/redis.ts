@@ -1,45 +1,55 @@
-import IORedis from 'ioredis'
-
 /**
- * Shared Redis client for the web app.
- * Used for:
- * - Cache layer (tender queries, stats)
- * - Cache invalidation via pub/sub from workers
+ * In-memory cache layer for the web app.
  *
- * Reuses the same Redis instance as BullMQ workers.
+ * Replaces the previous Redis/ioredis dependency with a simple Map+TTL cache.
+ * On Vercel serverless, this cache lives for the duration of the warm instance
+ * (typically 5-15 minutes), which aligns well with the short TTLs used.
+ *
+ * Benefits:
+ * - Zero external dependency (no Upstash/Redis costs)
+ * - Zero latency (no network round-trip)
+ * - Graceful: cache misses just hit Supabase directly
+ *
+ * Trade-off: cache is per-instance, not shared across Vercel functions.
+ * This is acceptable because:
+ * - TTLs are short (1-10 min)
+ * - The app already handled Redis being unavailable gracefully
+ * - Supabase can handle the direct query load
  */
 
-let redis: IORedis | null = null
-
-/** Returns true if REDIS_URL is configured */
-export function isRedisAvailable(): boolean {
-  return !!process.env.REDIS_URL
+interface CacheEntry<T = unknown> {
+  value: T
+  expiresAt: number
 }
 
-export function getRedis(): IORedis {
-  if (!redis) {
-    const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379'
-    redis = new IORedis(redisUrl, {
-      maxRetriesPerRequest: 3,
-      lazyConnect: true,
-      connectTimeout: 5000,
-      // Reconnect with exponential backoff
-      retryStrategy(times) {
-        if (!process.env.REDIS_URL) return null // Don't retry if no Redis configured
-        if (times > 10) return null // Give up after 10 retries
-        return Math.min(times * 200, 5000)
-      },
-    })
+const cache = new Map<string, CacheEntry>()
 
-    redis.on('error', (err) => {
-      console.error('[Redis] Connection error:', err.message)
-    })
+// Periodic cleanup to prevent memory leaks in long-lived instances
+const CLEANUP_INTERVAL = 60_000 // 1 minute
+let cleanupTimer: ReturnType<typeof setInterval> | null = null
+
+function ensureCleanup() {
+  if (cleanupTimer) return
+  cleanupTimer = setInterval(() => {
+    const now = Date.now()
+    for (const [key, entry] of cache) {
+      if (entry.expiresAt <= now) {
+        cache.delete(key)
+      }
+    }
+    // If cache is empty, stop the timer
+    if (cache.size === 0 && cleanupTimer) {
+      clearInterval(cleanupTimer)
+      cleanupTimer = null
+    }
+  }, CLEANUP_INTERVAL)
+  // Don't block Node.js from exiting
+  if (cleanupTimer && typeof cleanupTimer === 'object' && 'unref' in cleanupTimer) {
+    cleanupTimer.unref()
   }
-
-  return redis
 }
 
-// ─── Cache Helpers ───────────────────────────────────────────────────────────
+// ─── Public API (same interface as before) ──────────────────────────────────
 
 const DEFAULT_TTL = 300 // 5 minutes
 const TENDER_DETAIL_TTL = 1800 // 30 minutes
@@ -47,62 +57,59 @@ const STATS_TTL = 600 // 10 minutes
 
 /**
  * Get a cached value, or compute and cache it.
- * Thread-safe: uses Redis SET NX pattern to avoid thundering herd.
+ * Uses in-memory Map with TTL expiration.
  */
 export async function cached<T>(
   key: string,
   fn: () => Promise<T>,
   ttl: number = DEFAULT_TTL,
 ): Promise<T> {
-  const r = getRedis()
+  const now = Date.now()
+  const entry = cache.get(key)
 
-  try {
-    const raw = await r.get(key)
-    if (raw !== null) {
-      return JSON.parse(raw) as T
-    }
-  } catch {
-    // Redis down — fall through to direct query
+  if (entry && entry.expiresAt > now) {
+    return entry.value as T
   }
 
   const result = await fn()
 
-  try {
-    await r.set(key, JSON.stringify(result), 'EX', ttl)
-  } catch {
-    // Redis down — ignore, still return fresh data
-  }
+  cache.set(key, {
+    value: result,
+    expiresAt: now + ttl * 1000,
+  })
+  ensureCleanup()
 
   return result
 }
 
 /**
- * Invalidate cache keys by pattern.
- * Workers call this after writing new data.
+ * Invalidate cache keys by pattern (supports * glob at the end).
  */
 export async function invalidateCache(pattern: string): Promise<number> {
-  const r = getRedis()
-  try {
-    const keys = await r.keys(pattern)
-    if (keys.length > 0) {
-      return await r.del(...keys)
-    }
-    return 0
-  } catch {
-    return 0
+  if (!pattern.includes('*')) {
+    // Exact key
+    const deleted = cache.has(pattern) ? 1 : 0
+    cache.delete(pattern)
+    return deleted
   }
+
+  // Glob pattern: "cache:tenders:*" → prefix match
+  const prefix = pattern.replace(/\*+$/, '')
+  let count = 0
+  for (const key of cache.keys()) {
+    if (key.startsWith(prefix)) {
+      cache.delete(key)
+      count++
+    }
+  }
+  return count
 }
 
 /**
  * Invalidate a specific cache key.
  */
 export async function invalidateKey(key: string): Promise<void> {
-  const r = getRedis()
-  try {
-    await r.del(key)
-  } catch {
-    // Ignore
-  }
+  cache.delete(key)
 }
 
 // ─── Cache Key Builders ──────────────────────────────────────────────────────

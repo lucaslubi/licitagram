@@ -27,7 +27,6 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "driver.js": "^1.4.0",
-    "ioredis": "^5.4.0",
     "lucide-react": "^0.460.0",
     "mapbox-gl": "^3.20.0",
     "next": "^14.2.0",
@@ -48,7 +47,6 @@
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.7",
-    "@types/ioredis": "^5.0.0",
     "@types/mapbox-gl": "^3.5.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",

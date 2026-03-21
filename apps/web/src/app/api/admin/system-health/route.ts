@@ -120,21 +120,8 @@ export async function GET() {
       .select('*', { count: 'exact', head: true })
       .eq('match_source', 'keyword')
 
-    // ─── 7. Redis / Upstash info ──────────────────────────────────────
-    let redisInfo = null
-    try {
-      const redisUrl = process.env.REDIS_URL || ''
-      if (redisUrl.includes('upstash')) {
-        // Extract host from rediss://default:xxx@host:port
-        const match = redisUrl.match(/@([^:]+):/)
-        if (match) {
-          const host = match[1]
-          redisInfo = { provider: 'Upstash', host, status: 'connected' }
-        }
-      }
-    } catch {
-      redisInfo = { provider: 'unknown', status: 'error' }
-    }
+    // ─── 7. Cache info (in-memory, no external Redis) ─────────────────
+    const redisInfo = { provider: 'In-Memory', status: 'active' }
 
     // ─── 8. Map cache status ──────────────────────────────────────────
     let mapCacheCount = 0

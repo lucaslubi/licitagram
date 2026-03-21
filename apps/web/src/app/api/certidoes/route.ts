@@ -1,18 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { fetchTCU, buildCNDEstadualManual } from '@/lib/certidoes'
-import { fetchCNDFederalAuto, fetchCNDTAuto, fetchFGTSAuto } from '@/lib/certidoes-auto'
+import {
+  fetchTCU,
+  buildCNDEstadualManual,
+  buildCNDTManual,
+  buildCNDFederalManual,
+  buildFGTSManual,
+} from '@/lib/certidoes'
+import type { CertidaoResult } from '@/lib/certidoes'
 
-// Worker needs time to process captchas
+// Vercel Pro: 120s max for waiting on VPS worker captcha solving
 export const maxDuration = 120
 
 /**
  * POST /api/certidoes
  *
- * 1. Runs TCU/CEIS/CNEP check synchronously
- * 2. Creates job for VPS worker (TST, Receita, FGTS)
- * 3. Polls job until complete (max 90s)
- * 4. Returns ALL results together
+ * Flow:
+ * 1. TCU/CEIS/CNEP — runs inline (instant HTTP call, no captcha)
+ * 2. CND Estadual — returns manual link (too many state variations)
+ * 3. TST, Receita, FGTS — dispatches job to VPS Puppeteer worker via
+ *    certidao_jobs table, then polls for results (max 100s)
+ * 4. Returns ALL results together (auto + manual fallbacks for timeouts)
  */
 export async function POST(req: NextRequest) {
   try {
@@ -44,10 +52,10 @@ export async function POST(req: NextRequest) {
 
     const cleanCnpj = company.cnpj.replace(/\D/g, '')
 
-    // 1. TCU/CEIS/CNEP — sync (instant)
+    // ── 1. TCU/CEIS/CNEP — sync (instant, no captcha) ──────────────────
     const tcu = await fetchTCU(cleanCnpj)
 
-    // Save TCU
+    // Save TCU result to company_documents
     if (tcu.situacao === 'regular' || tcu.situacao === 'irregular') {
       const { data: existing } = await supabase
         .from('company_documents')
@@ -73,11 +81,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 2. CND Estadual — manual
+    // ── 2. CND Estadual — always manual ─────────────────────────────────
     const cndEstadual = buildCNDEstadualManual(cleanCnpj, company.uf || undefined)
 
-    // 3. Create job for VPS worker
-    const { data: job } = await supabase
+    // ── 3. Dispatch job to VPS worker for TST + Receita + FGTS ──────────
+    const { data: job, error: insertErr } = await supabase
       .from('certidao_jobs')
       .insert({
         company_id: profile.company_id,
@@ -88,12 +96,19 @@ export async function POST(req: NextRequest) {
       .select('id')
       .single()
 
-    // 4. Wait for VPS worker to complete (poll every 3s, max 90s)
-    let workerCertidoes: Array<{ tipo: string; label: string; situacao: string; detalhes: string; numero: string | null; emissao: string | null; validade: string | null; pdf_url: string | null; consulta_url: string | null }> = []
+    if (insertErr) {
+      console.error('[API certidoes] Failed to create job:', insertErr.message)
+    }
+
+    // ── 4. Poll for VPS worker results (every 2s, max 100s) ─────────────
+    // Worker polls certidao_jobs every 15s, then runs 3 scrapers (~30s each)
+    // Total expected: ~15s pickup + ~90s scraping = ~105s worst case
+    let workerCertidoes: CertidaoResult[] = []
+    let jobStatus: 'completed' | 'failed' | 'timeout' = 'timeout'
 
     if (job?.id) {
-      const maxWait = 90_000
-      const pollInterval = 3_000
+      const maxWait = 100_000 // 100s (leaves 20s buffer for maxDuration=120)
+      const pollInterval = 2_000
       const start = Date.now()
 
       while (Date.now() - start < maxWait) {
@@ -101,22 +116,45 @@ export async function POST(req: NextRequest) {
 
         const { data: jobData } = await supabase
           .from('certidao_jobs')
-          .select('status, result_json')
+          .select('status, result_json, error_message')
           .eq('id', job.id)
           .single()
 
         if (jobData?.status === 'completed' && jobData.result_json?.certidoes) {
           workerCertidoes = jobData.result_json.certidoes
+          jobStatus = 'completed'
           break
         }
+
         if (jobData?.status === 'failed') {
+          jobStatus = 'failed'
+          console.error('[API certidoes] Worker job failed:', jobData.error_message)
+          // Check if there are partial results
+          if (jobData.result_json?.certidoes) {
+            workerCertidoes = jobData.result_json.certidoes
+          }
           break
         }
       }
     }
 
-    // 5. Combine ALL results
-    const allCertidoes = [tcu, ...workerCertidoes, cndEstadual]
+    // ── 5. Build manual fallbacks for any missing certidão types ────────
+    // If the worker didn't return a result for a type, add manual fallback
+    const workerTipos = new Set(workerCertidoes.map(c => c.tipo))
+
+    const manualFallbacks: CertidaoResult[] = []
+    if (!workerTipos.has('trabalhista')) {
+      manualFallbacks.push(buildCNDTManual(cleanCnpj))
+    }
+    if (!workerTipos.has('cnd_federal')) {
+      manualFallbacks.push(buildCNDFederalManual(cleanCnpj))
+    }
+    if (!workerTipos.has('fgts')) {
+      manualFallbacks.push(buildFGTSManual(cleanCnpj))
+    }
+
+    // ── 6. Combine ALL results ──────────────────────────────────────────
+    const allCertidoes = [tcu, ...workerCertidoes, ...manualFallbacks, cndEstadual]
     const saved = allCertidoes
       .filter(c => c.situacao === 'regular' || c.situacao === 'irregular')
       .map(c => c.tipo)
@@ -127,9 +165,13 @@ export async function POST(req: NextRequest) {
       razao_social: company.razao_social,
       certidoes: allCertidoes,
       saved,
-      errors: [],
+      errors: jobStatus === 'timeout'
+        ? ['VPS worker não respondeu a tempo. Certidões com captcha ficaram como link manual.']
+        : jobStatus === 'failed'
+          ? ['Erro no processamento automático. Certidões com captcha ficaram como link manual.']
+          : [],
       jobId: job?.id || null,
-      jobStatus: 'completed',
+      jobStatus,
     })
   } catch (err) {
     console.error('[API certidoes] Error:', err)

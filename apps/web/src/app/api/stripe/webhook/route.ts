@@ -69,16 +69,13 @@ export async function POST(request: NextRequest) {
             { onConflict: 'company_id' },
           )
 
-          // Invalidate plan context cookie and Redis cache
+          // Invalidate plan context cookie and in-memory cache
           // (Cookie invalidation happens on next middleware request via TTL)
-          // Redis: invalidate subscription cache for this company
           try {
-            const IORedis = (await import('ioredis')).default
-            const redis = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379')
-            await redis.del(`cache:sub:${profile.company_id}`)
-            await redis.quit()
+            const { invalidateKey } = await import('@/lib/redis')
+            await invalidateKey(`cache:sub:${profile.company_id}`)
           } catch {
-            // Redis unavailable — cookie TTL will handle invalidation
+            // Cache invalidation failed — cookie TTL will handle it
           }
         }
       }
