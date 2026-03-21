@@ -30,11 +30,13 @@ const extractionWorker = new Worker<ExtractionJobData>(
     // 2. Extract text from each PDF (free, no AI tokens)
     for (const doc of docs || []) {
       try {
-        const text = await extractTextFromPDF(doc.url)
+        let text: string | null = await extractTextFromPDF(doc.url)
         await supabase
           .from('tender_documents')
           .update({ texto_extraido: text, status: 'done' })
           .eq('id', doc.id)
+        // Free PDF text buffer after DB write to prevent memory leak
+        text = null
       } catch (err) {
         logger.error({ docId: doc.id, err }, 'PDF extraction failed')
         await supabase
@@ -43,6 +45,8 @@ const extractionWorker = new Worker<ExtractionJobData>(
           .eq('id', doc.id)
       }
     }
+    // Hint GC to reclaim PDF buffers after processing all docs
+    if (global.gc) global.gc()
 
     // 3. Extract dates/values from PDF text when API metadata is missing
     const { data: tender } = await supabase
@@ -142,6 +146,9 @@ const extractionWorker = new Worker<ExtractionJobData>(
       await supabase.from('tenders').update({ status: 'analyzed' }).eq('id', tenderId)
     }
 
+    // Free extracted text references before continuing pipeline
+    if (global.gc) global.gc()
+
     // 4. Classify tender CNAEs (AI-powered, uses Gemini Flash Lite)
     try {
       await classifyTenderCNAEs(tenderId)
@@ -209,12 +216,18 @@ const extractionWorker = new Worker<ExtractionJobData>(
       }
     }
 
-    // 8. Invalidate caches so web app sees fresh data
+    // Free matching data
+    newMatchesByCompany = new Map()
+
+    // 9. Invalidate caches so web app sees fresh data
     await invalidateTenderDetail(tenderId)
     await invalidateTenderCaches()
     await incrementStat('extractions-today')
 
     logger.info({ tenderId }, 'Extraction complete (PDF text + CNAE classification + CNAE-first matching)')
+
+    // Final GC pass to reclaim all transient buffers from this job
+    if (global.gc) global.gc()
   },
   {
     connection,
