@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-export const maxDuration = 30
+export const maxDuration = 60
 
 const VPS_LOGIN_URL = 'http://187.77.241.93:3999'
 
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(vpsBody),
-      signal: AbortSignal.timeout(25000),
+      signal: AbortSignal.timeout(55000),
     })
 
     const vpsData = await vpsRes.json()
