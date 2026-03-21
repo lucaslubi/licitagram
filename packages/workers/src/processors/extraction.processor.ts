@@ -231,7 +231,7 @@ const extractionWorker = new Worker<ExtractionJobData>(
   },
   {
     connection,
-    concurrency: 3,
+    concurrency: 5,
     limiter: { max: 30, duration: 60_000 },
     stalledInterval: 180_000,
     lockDuration: 300_000, // 5 min lock — fail job if processor hangs
