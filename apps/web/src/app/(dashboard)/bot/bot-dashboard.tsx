@@ -15,7 +15,7 @@ interface BotConfig {
   strategy: string
   min_decrease_value: number | null
   min_decrease_percent: number | null
-  enabled: boolean
+  is_active: boolean
   created_at: string
 }
 
@@ -114,7 +114,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
     portal: '',
     username: '',
     password: '',
-    strategy: 'moderate',
+    strategy: 'minimal_decrease',
     min_decrease_value: '',
     min_decrease_percent: '',
   })
@@ -174,7 +174,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
       portal: '',
       username: '',
       password: '',
-      strategy: 'moderate',
+      strategy: 'minimal_decrease',
       min_decrease_value: '',
       min_decrease_percent: '',
     })
@@ -402,9 +402,9 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                        config.enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                        config.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
                       }`}>
-                        {config.enabled ? 'Ativo' : 'Inativo'}
+                        {config.is_active ? 'Ativo' : 'Inativo'}
                       </span>
                       {connectedPortals.has(config.id) ? (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
@@ -763,7 +763,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none"
                   >
                     <option value="">Selecione...</option>
-                    {configs.filter(c => c.enabled).map(c => (
+                    {configs.filter(c => c.is_active).map(c => (
                       <option key={c.id} value={c.id}>
                         {PORTAL_OPTIONS.find(p => p.value === c.portal)?.label || c.portal} ({maskCpf(c.username)})
                       </option>

@@ -93,11 +93,10 @@ export async function POST(req: NextRequest) {
       config_id,
       pregao_id,
       portal: portal || config.portal,
-      strategy: strategy || config.strategy,
+      strategy_config: { type: strategy || config.strategy },
       min_price: min_price || null,
       max_bids: max_bids || null,
       status: 'pending',
-      bids_placed: 0,
     }
 
     const { data: session, error } = await supabase
@@ -181,9 +180,8 @@ export async function PATCH(req: NextRequest) {
     const updatePayload: Record<string, unknown> = { status: statusMap[action] }
 
     if (action === 'cancel') {
-      updatePayload.error_message = 'Cancelado pelo usuário'
       updatePayload.completed_at = new Date().toISOString()
-      updatePayload.result = { error: 'Cancelado pelo usuário' }
+      updatePayload.result = { error: 'Cancelado pelo usuario' }
     }
 
     const { data: updated, error } = await supabase
