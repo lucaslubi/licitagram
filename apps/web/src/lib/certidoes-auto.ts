@@ -55,6 +55,7 @@ async function solveHCaptcha(sitekey: string, pageurl: string): Promise<string |
   if (!TWO_CAPTCHA_KEY) return null
 
   try {
+    console.log(`[certidoes-auto] 2Captcha: solving hCaptcha sitekey=${sitekey.substring(0, 8)}...`)
     const { Solver } = await import('2captcha-ts')
     const solver = new Solver(TWO_CAPTCHA_KEY)
 
@@ -63,9 +64,12 @@ async function solveHCaptcha(sitekey: string, pageurl: string): Promise<string |
       pageurl,
     })
 
+    console.log(`[certidoes-auto] 2Captcha: hCaptcha solved, token length=${result?.data?.length || 0}`)
     return result?.data || null
   } catch (err) {
-    console.error('[certidoes-auto] 2Captcha hCaptcha solve error:', err)
+    const errMsg = err instanceof Error ? err.message : String(err)
+    console.error(`[certidoes-auto] 2Captcha hCaptcha error: ${errMsg}`)
+    // Common errors: ERROR_WRONG_USER_KEY, ERROR_ZERO_BALANCE, ERROR_CAPTCHA_UNSOLVABLE
     return null
   }
 }
@@ -461,10 +465,10 @@ export async function fetchCNDTAuto(cnpj: string): Promise<CertidaoResult> {
 
     console.log(`[certidoes-auto] TST: captcha solved: "${captchaAnswer}", submitting...`)
 
-    // Step 5: Submit via A4J AJAX POST
-    // RichFaces A4J.AJAX.Submit sends these parameters:
+    // Step 5: Submit via regular POST (not AJAX)
+    // The A4J AJAX returns XML partial-response which is hard to parse.
+    // Regular POST returns full HTML page with results.
     const submitParams: Record<string, string> = {
-      'AJAXREQUEST': containerId || '_viewRoot',
       'javax.faces.ViewState': viewState2,
       'gerarCertidaoForm': 'gerarCertidaoForm',
       'gerarCertidaoForm:cpfCnpj': cleanCnpj,
@@ -477,6 +481,7 @@ export async function fetchCNDTAuto(cnpj: string): Promise<CertidaoResult> {
 
     const submitBody = new URLSearchParams(submitParams)
 
+    // Try AJAX first (gets proper partial response)
     const submitRes = await fetch(`${baseUrl}/gerarCertidao.faces`, {
       method: 'POST',
       headers: {
@@ -495,9 +500,10 @@ export async function fetchCNDTAuto(cnpj: string): Promise<CertidaoResult> {
 
     const resultText = await submitRes.text()
     console.log(`[certidoes-auto] TST: submit response ${resultText.length} chars, status ${submitRes.status}`)
+    console.log(`[certidoes-auto] TST: response preview:`, resultText.substring(0, 500))
 
-    // Parse AJAX response (RichFaces returns partial XML or HTML)
-    return parseTSTResponse(resultText, baseUrl)
+    // Parse A4J AJAX response (XML partial-response or full HTML)
+    return parseTSTResponse(resultText, baseUrl, cleanCnpj)
   } catch (err) {
     console.error('[certidoes-auto] TST error:', err)
     return {
@@ -514,7 +520,7 @@ export async function fetchCNDTAuto(cnpj: string): Promise<CertidaoResult> {
   }
 }
 
-function parseTSTResponse(html: string, baseUrl: string): CertidaoResult {
+function parseTSTResponse(responseText: string, baseUrl: string, _cnpj: string): CertidaoResult {
   const base: Omit<CertidaoResult, 'situacao' | 'detalhes'> = {
     tipo: 'trabalhista',
     label: 'CNDT — Certidão Trabalhista (TST)',
@@ -525,68 +531,98 @@ function parseTSTResponse(html: string, baseUrl: string): CertidaoResult {
     consulta_url: `${baseUrl}/inicio.faces`,
   }
 
-  // Check for success messages
-  const hasEmitida = html.includes('EMITIDA com sucesso') || html.includes('Certidão EMITIDA')
-  const hasCertidaoNegativa = html.includes('Certidão Negativa') || html.includes('certidão negativa')
-  const hasCertidaoPositiva = html.includes('Certidão Positiva') || html.includes('certidão positiva')
+  // A4J AJAX responses are XML with <partial-response>
+  const isAjaxXml = responseText.includes('<partial-response')
 
-  // Check for download link / PDF
-  let pdfUrl: string | null = null
-  const pdfMatch = html.match(/href="([^"]*(?:\.pdf|download|certidao)[^"]*)"/)
-    || html.match(/window\.open\('([^']*(?:\.pdf|download|certidao)[^']*)'\)/)
-    || html.match(/fazerDownload[^"]*"([^"]*)"/)
-  if (pdfMatch?.[1]) {
-    pdfUrl = pdfMatch[1].startsWith('http') ? pdfMatch[1] : `${baseUrl}${pdfMatch[1]}`
-  }
-
-  // Extract certidão number
-  const numMatch = html.match(/(?:Certidão\s+n[ºo°]|N[úu]mero|Código)[:\s]*(\d[\d./-]+)/i)
-
-  // Extract validity
-  let validade: string | null = null
-  const valMatch = html.match(/(?:Validade|Válida?\s+até)[:\s]*(\d{2}\/\d{2}\/\d{4})/i)
-  if (valMatch?.[1]) {
-    const [d, m, y] = valMatch[1].split('/')
-    validade = `${y}-${m}-${d}`
-  }
-
-  if (hasEmitida || hasCertidaoNegativa) {
-    const isNegativa = hasCertidaoNegativa && !hasCertidaoPositiva
-
-    return {
-      ...base,
-      situacao: isNegativa ? 'regular' : 'irregular',
-      detalhes: isNegativa
-        ? 'Certidão Negativa de Débitos Trabalhistas emitida com sucesso'
-        : 'Certidão Positiva — existem débitos trabalhistas',
-      numero: numMatch?.[1]?.trim() || null,
-      validade,
-      pdf_url: pdfUrl,
+  if (isAjaxXml) {
+    // Check for server errors (wrong captcha causes NullPointerException)
+    if (responseText.includes('<error>') || responseText.includes('NullPointerException')) {
+      const errorMsg = responseText.match(/<error-name>([^<]*)/)
+      console.log('[certidoes-auto] TST: server error:', errorMsg?.[1])
+      return {
+        ...base,
+        situacao: 'manual',
+        detalhes: 'Erro no servidor do TST (captcha incorreto ou sessão expirada). Acesse o link.',
+        emissao: null,
+      }
     }
-  }
 
-  if (hasCertidaoPositiva) {
-    return {
-      ...base,
-      situacao: 'irregular',
-      detalhes: 'Certidão Positiva — existem débitos trabalhistas',
-      numero: numMatch?.[1]?.trim() || null,
-      validade,
-      pdf_url: pdfUrl,
+    // Extract CDATA content from <update> blocks
+    const cdataBlocks: string[] = []
+    const cdataPattern = /CDATA\[([\s\S]*?)\]\]/g
+    let cdataMatch = cdataPattern.exec(responseText)
+    while (cdataMatch !== null) {
+      cdataBlocks.push(cdataMatch[1])
+      cdataMatch = cdataPattern.exec(responseText)
     }
-  }
 
-  // Check for error messages
-  if (html.includes('incorret') || html.includes('inválid') || html.includes('captcha')) {
+    const allContent = cdataBlocks.join('\n')
+    console.log(`[certidoes-auto] TST: AJAX has ${cdataBlocks.length} CDATA blocks, ${allContent.length} chars`)
+
+    if (allContent.length > 0) {
+      return parseTSTContent(allContent, base, baseUrl)
+    }
+
+    // No CDATA but check for success update IDs
+    if (responseText.includes('divSucesso') || responseText.includes('mensagemSucesso')) {
+      return {
+        ...base,
+        situacao: 'regular',
+        detalhes: 'Certidão emitida com sucesso pelo TST',
+      }
+    }
+
+    console.log('[certidoes-auto] TST: AJAX response:', responseText.substring(0, 500))
     return {
       ...base,
       situacao: 'manual',
-      detalhes: 'Captcha incorreto ou sessão expirada. Acesse o link.',
+      detalhes: 'Resposta AJAX do TST sem dados. Acesse o link.',
       emissao: null,
     }
   }
 
-  // Check for "nada consta" or similar
+  // Full HTML response
+  return parseTSTContent(responseText, base, baseUrl)
+}
+
+function parseTSTContent(
+  html: string,
+  base: Omit<CertidaoResult, 'situacao' | 'detalhes'>,
+  baseUrl: string,
+): CertidaoResult {
+  // Extract certidão number and validity
+  const numMatch = html.match(/(?:Certid[ãa]o\s*n[ºo°]|N[úu]mero|C[óo]digo)[:\s]*([A-Z0-9][\d./-]+[A-Z0-9]*)/i)
+  const valMatch = html.match(/(?:Validade|V[áa]lida?\s+at[ée]|Vencimento)[:\s]*(\d{2}\/\d{2}\/\d{4})/i)
+
+  let validade: string | null = null
+  if (valMatch?.[1]) {
+    const parts = valMatch[1].split('/')
+    validade = `${parts[2]}-${parts[1]}-${parts[0]}`
+  }
+
+  // Check for PDF link
+  let pdfUrl: string | null = null
+  const pdfMatch = html.match(/href="([^"]*(?:\.pdf|download|certidao)[^"]*)"/)
+  if (pdfMatch?.[1]) {
+    pdfUrl = pdfMatch[1].startsWith('http') ? pdfMatch[1] : `${baseUrl}${pdfMatch[1]}`
+  }
+
+  // In A4J CDATA: "EMITIDA" means the certidão was issued successfully
+  if (html.includes('EMITIDA') || html.includes('emitida com sucesso')) {
+    const isPositiva = html.includes('Positiva')
+    return {
+      ...base,
+      situacao: isPositiva ? 'irregular' : 'regular',
+      detalhes: isPositiva
+        ? 'Certidão Positiva — existem débitos trabalhistas'
+        : 'Certidão Negativa de Débitos Trabalhistas emitida com sucesso',
+      numero: numMatch?.[1]?.trim() || null,
+      validade,
+      pdf_url: pdfUrl,
+    }
+  }
+
+  // "Nada consta"
   if (html.includes('nada consta') || html.includes('Nada Consta')) {
     return {
       ...base,
@@ -595,9 +631,27 @@ function parseTSTResponse(html: string, baseUrl: string): CertidaoResult {
     }
   }
 
-  // If we got a response but couldn't parse it, log and return manual
-  console.log('[certidoes-auto] TST: unrecognized response:', html.substring(0, 500))
+  // Captcha incorrect
+  if (html.includes('incorret') || html.includes('inv\u00E1lid')) {
+    return {
+      ...base,
+      situacao: 'manual',
+      detalhes: 'Captcha incorreto. Acesse o link para emitir manualmente.',
+      emissao: null,
+    }
+  }
 
+  // Generic error
+  if (html.includes('Ocorreu um erro') || html.includes('erro na emiss')) {
+    return {
+      ...base,
+      situacao: 'manual',
+      detalhes: 'Erro na emissão da certidão pelo TST. Acesse o link.',
+      emissao: null,
+    }
+  }
+
+  console.log('[certidoes-auto] TST: unrecognized content:', html.substring(0, 500))
   return {
     ...base,
     situacao: 'manual',
