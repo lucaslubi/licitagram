@@ -71,22 +71,64 @@ export async function scrapeReceita(cnpj: string): Promise<CertidaoResult> {
     }
 
     if (hcaptchaPresent) {
-      log.info('hCaptcha detected -- waiting for CapSolver extension to auto-solve')
+      log.info('hCaptcha detected -- solving via CapSolver API')
 
-      // Wait for the CapSolver extension to fill the h-captcha-response textarea
+      // Extract sitekey from iframe src or data-sitekey attribute
+      const sitekey = await page.evaluate(() => {
+        // Try data-sitekey first
+        const container = document.querySelector('[data-sitekey]')
+        if (container) return container.getAttribute('data-sitekey')
+        // Try iframe src
+        const iframe = document.querySelector('iframe[src*="hcaptcha"]') as HTMLIFrameElement
+        if (iframe) {
+          const m = iframe.src.match(/sitekey=([^&]+)/)
+          if (m) return m[1]
+        }
+        // Try hcaptcha render config
+        const hcDiv = document.querySelector('.h-captcha')
+        if (hcDiv) return hcDiv.getAttribute('data-sitekey')
+        return null
+      })
+
+      if (!sitekey) {
+        log.warn('hCaptcha detected but sitekey not found, trying page source')
+        // Try to find sitekey in page source
+        const pageContent = await page.content()
+        const skMatch = pageContent.match(/sitekey['":\s]+['"]([0-9a-f-]{36,})['"]/i)
+        if (!skMatch) {
+          log.warn('Could not extract hCaptcha sitekey from page')
+          return manualFallback
+        }
+        var finalSitekey = skMatch[1]
+      } else {
+        var finalSitekey = sitekey
+      }
+
+      log.info({ sitekey: finalSitekey }, 'Solving hCaptcha via CapSolver API')
+
       try {
-        await page.waitForFunction(
-          () => {
-            const textarea = document.querySelector(
-              'textarea[name="h-captcha-response"]',
-            ) as HTMLTextAreaElement | null
-            return textarea && textarea.value.length > 0
-          },
-          { timeout: CAPTCHA_TIMEOUT, polling: 2000 },
-        )
-        log.info('hCaptcha auto-solved by CapSolver extension')
-      } catch {
-        log.warn('CapSolver extension did not solve hCaptcha within timeout')
+        const { solveHCaptcha } = await import('../lib/captcha-solver')
+        const token = await solveHCaptcha(page.url(), finalSitekey)
+
+        if (!token) {
+          log.warn('CapSolver failed to solve hCaptcha')
+          return manualFallback
+        }
+
+        log.info('hCaptcha solved! Injecting token')
+
+        // Inject token into page
+        await page.evaluate((t: string) => {
+          const textarea = document.querySelector('textarea[name="h-captcha-response"]') as HTMLTextAreaElement
+          if (textarea) {
+            textarea.value = t
+            textarea.dispatchEvent(new Event('input', { bubbles: true }))
+          }
+          const gTextarea = document.querySelector('textarea[name="g-recaptcha-response"]') as HTMLTextAreaElement
+          if (gTextarea) gTextarea.value = t
+        }, token)
+      } catch (err) {
+        log.error({ err }, 'Error solving hCaptcha')
         return manualFallback
       }
     }

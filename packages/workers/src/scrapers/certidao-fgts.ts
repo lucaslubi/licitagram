@@ -29,13 +29,30 @@ export async function scrapeFGTS(cnpj: string): Promise<CertidaoResult> {
   try {
     page.setDefaultNavigationTimeout(60000)
 
-    // Set a realistic user-agent for better stealth
+    // Set realistic browser fingerprint for stealth
     await page.setUserAgent(
-      'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
     )
+    await page.setViewport({ width: 1366, height: 768 })
+    await page.setExtraHTTPHeaders({
+      'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+    })
 
     log.info({ cnpj: cleanCnpj }, 'Navigating to FGTS CRF portal')
-    await page.goto(FGTS_URL, { waitUntil: 'networkidle2', timeout: 30000 })
+    try {
+      await page.goto(FGTS_URL, { waitUntil: 'domcontentloaded', timeout: 45000 })
+      // Wait extra for JSF to render
+      await new Promise((r) => setTimeout(r, 5000))
+    } catch (navErr) {
+      log.warn({ err: navErr }, 'Navigation failed, trying without waitUntil')
+      try {
+        await page.goto(FGTS_URL, { timeout: 45000 })
+        await new Promise((r) => setTimeout(r, 8000))
+      } catch {
+        log.error('FGTS page completely unreachable')
+        return manualFallback
+      }
+    }
 
     // Step 1: Wait for JSF form with multiple selector attempts
     const cnpjInputSelectors = [
