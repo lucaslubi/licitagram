@@ -1,11 +1,13 @@
 import type { CertidaoResult } from './types'
 import { getBrowser } from '../lib/browser'
 import { logger } from '../lib/logger'
-import { solveHCaptcha } from '../lib/captcha-solver'
 
 const log = logger.child({ module: 'certidao-receita' })
 
 const RECEITA_URL = 'https://servicos.receitafederal.gov.br/servico/certidoes/#/home/cnpj'
+
+/** Maximum time to wait for CapSolver extension to auto-solve the captcha */
+const CAPTCHA_TIMEOUT = 120_000
 
 export async function scrapeReceita(cnpj: string): Promise<CertidaoResult> {
   const browser = await getBrowser()
@@ -55,115 +57,38 @@ export async function scrapeReceita(cnpj: string): Promise<CertidaoResult> {
       return manualFallback
     }
 
-    // Step 2: Type CNPJ (digits only \u2014 Angular app formats it)
+    // Step 2: Type CNPJ (digits only -- Angular app formats it)
     log.info({ selector: cnpjInput }, 'Typing CNPJ into Receita input')
     await page.type(cnpjInput, cleanCnpj, { delay: 30 })
 
-    // Step 3: Detect hCaptcha
-    let hcaptchaFrame: boolean
+    // Step 3: Wait for hCaptcha to appear and be auto-solved by CapSolver extension
+    let hcaptchaPresent = false
     try {
       await page.waitForSelector('iframe[src*="hcaptcha"]', { timeout: 8000 })
-      hcaptchaFrame = true
+      hcaptchaPresent = true
     } catch {
-      hcaptchaFrame = false
+      hcaptchaPresent = false
     }
 
-    if (hcaptchaFrame) {
-      log.info('hCaptcha detected on Receita Federal page')
+    if (hcaptchaPresent) {
+      log.info('hCaptcha detected -- waiting for CapSolver extension to auto-solve')
 
-      // Extract sitekey from hCaptcha (multiple strategies)
-      const sitekey = await page.evaluate(() => {
-        // 1. data-sitekey on div
-        const div = document.querySelector('[data-sitekey]')
-        if (div) return div.getAttribute('data-sitekey')
-
-        // 2. h-captcha div with data-sitekey
-        const hcDiv = document.querySelector('.h-captcha[data-sitekey]')
-        if (hcDiv) return hcDiv.getAttribute('data-sitekey')
-
-        // 3. iframe src parameter
-        const iframe = document.querySelector('iframe[src*="hcaptcha"]') as HTMLIFrameElement | null
-        if (iframe?.src) {
-          const match = iframe.src.match(/sitekey=([a-f0-9-]+)/i)
-          if (match) return match[1]
-        }
-
-        // 4. Check hcaptcha render config in window
-        const win = window as any
-        if (win.hcaptcha?._parms?.sitekey) return win.hcaptcha._parms.sitekey
-
-        // 5. Walk all iframes for hcaptcha ones and extract from src
-        const allIframes = document.querySelectorAll('iframe')
-        for (const f of allIframes) {
-          if (f.src.includes('hcaptcha') || f.src.includes('newassets')) {
-            const m = f.src.match(/sitekey=([a-f0-9-]+)/i)
-            if (m) return m[1]
-          }
-        }
-
-        // 6. Check Angular component config or script tags
-        const scripts = document.querySelectorAll('script')
-        for (const s of scripts) {
-          if (s.textContent?.includes('sitekey')) {
-            const m = s.textContent.match(/sitekey['":\s]+['"]([a-f0-9-]+)['"]/i)
-            if (m) return m[1]
-          }
-        }
-
-        // 7. Check meta tags
-        const meta = document.querySelector('meta[name*="captcha"]')
-        if (meta) return meta.getAttribute('content')
-
-        return null
-      })
-
-      // If still no sitekey, log the iframe src for debugging
-      if (!sitekey) {
-        const iframeSrc = await page.evaluate(() => {
-          const iframe = document.querySelector('iframe[src*="hcaptcha"]') as HTMLIFrameElement | null
-          return iframe?.src || 'no iframe found'
-        })
-        log.warn({ iframeSrc }, 'hCaptcha detected but sitekey not found - iframe src logged')
-
-      if (!sitekey) {
-        log.warn('hCaptcha detected but sitekey not found')
-        return manualFallback
-      }
-
-      // Try to solve hCaptcha via CapSolver
-      let token: string | null = null
+      // Wait for the CapSolver extension to fill the h-captcha-response textarea
       try {
-        token = await solveHCaptcha(sitekey, RECEITA_URL)
-      } catch (err) {
-        log.error({ err }, 'hCaptcha solving threw an error')
+        await page.waitForFunction(
+          () => {
+            const textarea = document.querySelector(
+              'textarea[name="h-captcha-response"]',
+            ) as HTMLTextAreaElement | null
+            return textarea && textarea.value.length > 0
+          },
+          { timeout: CAPTCHA_TIMEOUT, polling: 2000 },
+        )
+        log.info('hCaptcha auto-solved by CapSolver extension')
+      } catch {
+        log.warn('CapSolver extension did not solve hCaptcha within timeout')
         return manualFallback
       }
-
-      if (!token) {
-        log.warn('hCaptcha not solved (CapSolver failed)')
-        return manualFallback
-      }
-
-      // Inject hCaptcha token
-      log.info('Injecting hCaptcha token')
-      await page.evaluate((t: string) => {
-        // Set the hidden response textarea
-        const textarea = document.querySelector('[name="h-captcha-response"]') as HTMLTextAreaElement | null
-        if (textarea) textarea.value = t
-
-        // Also try the iframe-based hidden input
-        const resp = document.querySelector('[name="g-recaptcha-response"]') as HTMLTextAreaElement | null
-        if (resp) resp.value = t
-
-        // Trigger the hCaptcha callback if available
-        const win = window as unknown as Record<string, unknown>
-        if (typeof win.hcaptchaCallback === 'function') {
-          ;(win.hcaptchaCallback as (token: string) => void)(t)
-        }
-        if (typeof win.onHCaptchaSuccess === 'function') {
-          ;(win.onHCaptchaSuccess as (token: string) => void)(t)
-        }
-      }, token)
     }
 
     // Step 4: Click submit
@@ -206,8 +131,12 @@ export async function scrapeReceita(cnpj: string): Promise<CertidaoResult> {
     const bodyText = await page.evaluate(() => document.body.innerText)
 
     if (/negativa/i.test(bodyText) && !/positiva/i.test(bodyText)) {
-      const validadeMatch = bodyText.match(/[Vv][aá]lid[ao]\s*(?:at[eé])?\s*[:.]?\s*(\d{2}[/.]\d{2}[/.]\d{4})/i)
-      const numeroMatch = bodyText.match(/Certid[aã]o\s*(?:n[.ºo]*\s*)?[:.]?\s*([\dA-Z][\d.A-Z/-]+)/i)
+      const validadeMatch = bodyText.match(
+        /[Vv][a\u00e1]lid[ao]\s*(?:at[e\u00e9])?\s*[:.]?\s*(\d{2}[/.]\d{2}[/.]\d{4})/i,
+      )
+      const numeroMatch = bodyText.match(
+        /Certid[a\u00e3]o\s*(?:n[.\u00bao]*\s*)?[:.]?\s*([\dA-Z][\d.A-Z/-]+)/i,
+      )
       const today = new Date().toISOString().split('T')[0]
 
       return {

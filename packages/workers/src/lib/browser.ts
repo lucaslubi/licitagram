@@ -2,6 +2,7 @@ import puppeteer from 'puppeteer-extra'
 import StealthPlugin from 'puppeteer-extra-plugin-stealth'
 import type { Browser } from 'puppeteer-core'
 import { logger } from './logger'
+import { getCapSolverExtensionPath } from './capsolver-extension'
 
 puppeteer.use(StealthPlugin())
 
@@ -20,19 +21,35 @@ export async function getBrowser(): Promise<Browser> {
 
   const log = logger.child({ module: 'browser' })
 
+  // Load CapSolver extension for automatic captcha solving
+  let extensionArgs: string[] = []
+  try {
+    const extPath = await getCapSolverExtensionPath()
+    extensionArgs = [
+      `--disable-extensions-except=${extPath}`,
+      `--load-extension=${extPath}`,
+    ]
+    log.info({ extPath }, 'CapSolver extension loaded')
+  } catch (err) {
+    log.warn({ err }, 'CapSolver extension not available, captchas will use API fallback')
+  }
+
+  const allArgs = [...LAUNCH_ARGS, ...extensionArgs]
+
   try {
     // Production: use system Chromium
+    // Extensions require headless: 'new' (not headless: true)
     browser = await puppeteer.launch({
       executablePath: '/usr/bin/chromium-browser',
-      headless: true,
-      args: LAUNCH_ARGS,
+      headless: 'new' as any,
+      args: allArgs,
     }) as unknown as Browser
     log.info('Launched system Chromium at /usr/bin/chromium-browser')
   } catch {
     // Dev fallback: use puppeteer bundled Chromium
     browser = await puppeteer.launch({
-      headless: true,
-      args: LAUNCH_ARGS,
+      headless: 'new' as any,
+      args: allArgs,
     }) as unknown as Browser
     log.info('Launched bundled Chromium (dev fallback)')
   }
