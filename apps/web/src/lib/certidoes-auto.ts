@@ -1,13 +1,11 @@
 /**
- * Certidões — Automated Captcha-Solving Integration
+ * Certidões — Automated Government Integration
  *
- * Automates government certidão fetching by solving captchas:
+ * 1. Receita Federal (CND) — REST API, NO captcha needed!
+ * 2. TST (CNDT) — JSF form with image captcha → 2Captcha
+ * 3. Caixa (FGTS CRF) — JSF form, WAF-protected → manual fallback
  *
- * 1. TST (CNDT) — Custom image captcha → OCR (Tesseract.js) or 2Captcha
- * 2. Receita Federal (CND) — hCaptcha → 2Captcha
- * 3. Caixa (FGTS CRF) — Captcha → 2Captcha
- *
- * Falls back to manual links if captcha solving fails.
+ * Falls back to manual links if automation fails.
  */
 
 import type { CertidaoResult } from './certidoes'
@@ -20,31 +18,18 @@ const HEADERS: Record<string, string> = {
   'User-Agent':
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
   'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
-  Accept:
-    'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
 }
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
-/**
- * Check if automated captcha solving is available.
- */
 export function isAutoSolveAvailable(): boolean {
-  return !!TWO_CAPTCHA_KEY
+  return true // Receita Federal works without captcha now
 }
 
-// ─── 2Captcha Helpers ───────────────────────────────────────────────────────
+// ─── 2Captcha Helper ────────────────────────────────────────────────────────
 
-interface CaptchaSolution {
-  text?: string
-  token?: string
-}
-
-/**
- * Solve a normal image captcha via 2Captcha.
- */
 async function solveImageCaptcha(base64Image: string): Promise<string | null> {
   if (!TWO_CAPTCHA_KEY) return null
 
@@ -55,7 +40,8 @@ async function solveImageCaptcha(base64Image: string): Promise<string | null> {
     const result = await solver.imageCaptcha({
       body: base64Image,
       numeric: 0,
-      lang: 'pt',
+      min_len: 4,
+      max_len: 8,
     })
 
     return result?.data || null
@@ -65,172 +51,210 @@ async function solveImageCaptcha(base64Image: string): Promise<string | null> {
   }
 }
 
-/**
- * Solve hCaptcha via 2Captcha.
- */
-async function solveHCaptcha(siteKey: string, pageUrl: string): Promise<string | null> {
-  if (!TWO_CAPTCHA_KEY) return null
+// ─── Receita Federal (CND) — REST API ────────────────────────────────────────
+// New Angular SPA at servicos.receitafederal.gov.br — NO captcha!
+// API: POST api/Emissao with {ni, tipoContribuinte: "PJ", tipoContribuinteEnum: "CNPJ"}
+
+const RECEITA_BASE = 'https://servicos.receitafederal.gov.br/servico/certidoes'
+const RECEITA_MANUAL_URL = 'https://servicos.receitafederal.gov.br/servico/certidoes/#/home/cnpj'
+
+export async function fetchCNDFederalAuto(cnpj: string): Promise<CertidaoResult> {
+  const cleanCnpj = cnpj.replace(/\D/g, '')
 
   try {
-    const { Solver } = await import('2captcha-ts')
-    const solver = new Solver(TWO_CAPTCHA_KEY)
-
-    const result = await solver.hcaptcha({
-      sitekey: siteKey,
-      pageurl: pageUrl,
+    // Step 1: Verify the CNPJ is valid
+    const verifyRes = await fetch(`${RECEITA_BASE}/api/Emissao/verificar`, {
+      method: 'POST',
+      headers: {
+        ...HEADERS,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Origin: RECEITA_BASE,
+        Referer: `${RECEITA_BASE}/`,
+      },
+      body: JSON.stringify({
+        ni: cleanCnpj,
+        tipoContribuinte: 'PJ',
+        tipoContribuinteEnum: 'CNPJ',
+      }),
+      signal: AbortSignal.timeout(15_000),
     })
 
-    return result?.data || null
+    if (!verifyRes.ok) {
+      throw new Error(`Receita verificar HTTP ${verifyRes.status}`)
+    }
+
+    const verifyData = await verifyRes.json()
+    console.log('[certidoes-auto] Receita verificar response:', JSON.stringify(verifyData))
+
+    // Step 2: Emit the certidão
+    const emitRes = await fetch(`${RECEITA_BASE}/api/Emissao`, {
+      method: 'POST',
+      headers: {
+        ...HEADERS,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Origin: RECEITA_BASE,
+        Referer: `${RECEITA_BASE}/`,
+      },
+      body: JSON.stringify({
+        ni: cleanCnpj,
+        tipoContribuinte: 'PJ',
+        tipoContribuinteEnum: 'CNPJ',
+      }),
+      signal: AbortSignal.timeout(20_000),
+    })
+
+    if (!emitRes.ok) {
+      throw new Error(`Receita Emissao HTTP ${emitRes.status}`)
+    }
+
+    const emitData = await emitRes.json()
+    console.log('[certidoes-auto] Receita emissao response:', JSON.stringify(emitData))
+
+    // Parse the JSON response
+    return parseReceitaJSON(emitData)
   } catch (err) {
-    console.error('[certidoes-auto] 2Captcha hCaptcha solve error:', err)
-    return null
+    console.error('[certidoes-auto] Receita Federal error:', err)
+    return {
+      tipo: 'cnd_federal',
+      label: 'CND Federal (Receita/PGFN)',
+      situacao: 'manual',
+      detalhes: `Consulta automática indisponível: ${err instanceof Error ? err.message : 'erro'}. Acesse o link.`,
+      numero: null,
+      emissao: null,
+      validade: null,
+      pdf_url: null,
+      consulta_url: RECEITA_MANUAL_URL,
+    }
   }
 }
 
-/**
- * Try OCR with Tesseract.js (free, no API key needed).
- */
-async function solveWithOCR(base64Image: string): Promise<string | null> {
-  try {
-    const Tesseract = await import('tesseract.js')
-    const worker = await Tesseract.createWorker('eng')
-
-    // Preprocess with sharp for better OCR accuracy
-    const sharp = (await import('sharp')).default
-    const imgBuffer = Buffer.from(base64Image, 'base64')
-
-    const processed = await sharp(imgBuffer)
-      .greyscale()
-      .normalize()
-      .threshold(128)
-      .sharpen()
-      .toBuffer()
-
-    const {
-      data: { text },
-    } = await worker.recognize(processed)
-    await worker.terminate()
-
-    // Clean OCR result: remove whitespace and non-alphanumeric
-    const cleaned = text.replace(/[^a-zA-Z0-9]/g, '').trim()
-    return cleaned.length >= 4 ? cleaned : null
-  } catch (err) {
-    console.error('[certidoes-auto] OCR error:', err)
-    return null
+function parseReceitaJSON(data: Record<string, unknown>): CertidaoResult {
+  const base: Omit<CertidaoResult, 'situacao' | 'detalhes'> = {
+    tipo: 'cnd_federal',
+    label: 'CND Federal (Receita/PGFN)',
+    numero: null,
+    emissao: todayISO(),
+    validade: null,
+    pdf_url: null,
+    consulta_url: RECEITA_MANUAL_URL,
   }
-}
 
-// ─── TST (CNDT) — Automated ─────────────────────────────────────────────────
-// Flow: inicio.faces → gerarCertidao.faces (custom image captcha)
+  const status = (data.statusEmissao as string) || ''
+  const mensagem = (data.mensagem as Record<string, unknown>) || {}
+  const texto = (mensagem.texto as string) || ''
 
-/**
- * Extract JSF ViewState from HTML.
- */
-function extractViewState(html: string): string | null {
-  const match = html.match(/name="javax\.faces\.ViewState"\s+value="([^"]+)"/)
-  return match?.[1] || null
-}
+  // "Emitida" or similar = certidão emitted successfully
+  if (status === 'Emitida' || status === 'CertidaoEmitida') {
+    // Try to get certidão details from response
+    const certidao = (data.certidao as Record<string, unknown>) || {}
+    const codigoControle = (certidao.codigoControle as string) || null
+    const dataValidade = (certidao.dataValidade as string) || null
+    const tipo = (certidao.tipo as string) || ''
 
-/**
- * Extract captcha image (base64) and token from TST form.
- */
-function extractCaptchaData(html: string): { imageBase64: string | null; token: string | null } {
-  // The image is embedded as base64 data URI
-  const imgMatch = html.match(/id="idImgBase64"[^>]*src="data:image\/[^;]+;base64,([^"]+)"/)
-  const imageBase64 = imgMatch?.[1] || null
+    const isNegativa = tipo.toLowerCase().includes('negativa') && !tipo.toLowerCase().includes('positiva')
+    const isPositivaComEfeito = tipo.toLowerCase().includes('positiva') && tipo.toLowerCase().includes('efeito')
 
-  // Token is in a hidden input
-  const tokenMatch = html.match(/name="tokenDesafio"\s+value="([^"]*)"/)
-    || html.match(/id="tokenDesafio"\s+value="([^"]*)"/)
-  const token = tokenMatch?.[1] || null
-
-  return { imageBase64, token }
-}
-
-/**
- * Parse CNDT result from response HTML.
- */
-function parseCNDTResult(html: string): Partial<CertidaoResult> {
-  // Check for "Certidão Negativa" = regular
-  if (html.includes('Certidão Negativa de Débitos Trabalhistas') || html.includes('CNDT')) {
-    // Extract certidão number
-    const numMatch = html.match(/(?:Certidão\s+nº|N[úu]mero)[:\s]*(\d[\d./-]+)/i)
-    const numero = numMatch?.[1]?.trim() || null
-
-    // Extract validade
-    const valMatch = html.match(/(?:Validade|Válida?\s+até)[:\s]*(\d{2}\/\d{2}\/\d{4})/i)
     let validade: string | null = null
-    if (valMatch?.[1]) {
-      const [d, m, y] = valMatch[1].split('/')
-      validade = `${y}-${m}-${d}` // ISO format
+    if (dataValidade) {
+      // Could be ISO format or dd/MM/yyyy
+      if (dataValidade.includes('/')) {
+        const [d, m, y] = dataValidade.split('/')
+        validade = `${y}-${m}-${d}`
+      } else {
+        validade = dataValidade.slice(0, 10) // ISO date
+      }
     }
 
-    // Check if it's negative (regular) or positive (irregular)
-    const isNegativa = html.includes('Certidão Negativa') && !html.includes('Certidão Positiva')
-
     return {
-      situacao: isNegativa ? 'regular' : 'irregular',
+      ...base,
+      situacao: isNegativa || isPositivaComEfeito ? 'regular' : 'irregular',
       detalhes: isNegativa
-        ? 'Certidão Negativa de Débitos Trabalhistas emitida com sucesso'
-        : 'Certidão Positiva — existem débitos trabalhistas',
-      numero,
+        ? 'Certidão Negativa de Débitos emitida pela Receita Federal/PGFN'
+        : isPositivaComEfeito
+          ? 'Certidão Positiva com Efeitos de Negativa (débitos com exigibilidade suspensa)'
+          : 'Certidão Positiva — existem débitos junto à Receita Federal/PGFN',
+      numero: codigoControle,
       validade,
-      emissao: todayISO(),
     }
   }
 
-  // Check for error messages
-  if (html.includes('captcha') || html.includes('incorreto') || html.includes('inválido')) {
+  // "SemDireitoCertidao" = has pending issues
+  if (status === 'SemDireitoCertidao') {
     return {
-      situacao: 'error',
-      detalhes: 'Captcha incorreto ou sessão expirada',
+      ...base,
+      situacao: 'irregular',
+      detalhes: texto || 'Contribuinte possui pendências que impedem a emissão da certidão',
+    }
+  }
+
+  // "CertidaoValida" = already has a valid certidão (from verificar)
+  if (status === 'CertidaoValida' || data.status === 'Emitida') {
+    return {
+      ...base,
+      situacao: 'regular',
+      detalhes: 'Certidão válida encontrada na Receita Federal',
+    }
+  }
+
+  // Unknown response — try to extract info from texto
+  if (texto) {
+    return {
+      ...base,
+      situacao: 'manual',
+      detalhes: texto,
     }
   }
 
   return {
-    situacao: 'error',
-    detalhes: 'Não foi possível interpretar a resposta do TST',
+    ...base,
+    situacao: 'manual',
+    detalhes: `Resposta não reconhecida: ${status || JSON.stringify(data).substring(0, 100)}`,
   }
 }
 
-/**
- * Attempt automated CNDT fetch via TST.
- * Strategy: OCR first (free), fallback to 2Captcha.
- */
+// ─── TST (CNDT) — JSF with Image Captcha ─────────────────────────────────────
+// Flow: GET inicio.faces → POST (submit "Emitir Certidão") → gerarCertidao.faces
+// The form uses a custom image captcha (NOT reCAPTCHA), solvable with 2Captcha
+
+function extractViewState(html: string): string | null {
+  const match = html.match(/name="javax\.faces\.ViewState"\s+value="([^"]+)"/)
+    || html.match(/value="([^"]+)"\s+name="javax\.faces\.ViewState"/)
+  return match?.[1] || null
+}
+
 export async function fetchCNDTAuto(cnpj: string): Promise<CertidaoResult> {
   const cleanCnpj = cnpj.replace(/\D/g, '')
   const baseUrl = 'https://cndt-certidao.tst.jus.br'
 
   try {
-    // Step 1: Load the initial page to get session cookie
+    // Step 1: GET inicio.faces to get session + ViewState
     const initRes = await fetch(`${baseUrl}/inicio.faces`, {
       method: 'GET',
-      headers: HEADERS,
+      headers: {
+        ...HEADERS,
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      },
       redirect: 'follow',
       signal: AbortSignal.timeout(15_000),
     })
 
-    if (!initRes.ok) {
-      throw new Error(`TST inicio.faces HTTP ${initRes.status}`)
-    }
+    if (!initRes.ok) throw new Error(`TST inicio.faces HTTP ${initRes.status}`)
 
-    // Extract cookies from response
     const cookies = initRes.headers.getSetCookie?.() || []
     const cookieStr = cookies.map((c) => c.split(';')[0]).join('; ')
-
     const initHtml = await initRes.text()
     const viewState1 = extractViewState(initHtml)
 
-    if (!viewState1) {
-      throw new Error('ViewState not found on inicio.faces')
-    }
+    if (!viewState1) throw new Error('ViewState not found on inicio.faces')
 
-    // Step 2: Navigate to gerarCertidao.faces
-    // The TST form requires submitting the initial page first
+    // Step 2: POST to inicio.faces clicking "Emitir Certidão"
+    // From Chrome inspection: button name is "formulario:btnEmitirCertidao" (submit type)
     const navBody = new URLSearchParams({
       'javax.faces.ViewState': viewState1,
       'formulario': 'formulario',
-      'formulario:btnConsultar': 'Consultar',
+      'formulario:btnEmitirCertidao': 'Emitir Certidão',
     })
 
     const navRes = await fetch(`${baseUrl}/inicio.faces`, {
@@ -240,200 +264,114 @@ export async function fetchCNDTAuto(cnpj: string): Promise<CertidaoResult> {
         'Content-Type': 'application/x-www-form-urlencoded',
         Cookie: cookieStr,
         Referer: `${baseUrl}/inicio.faces`,
+        Origin: baseUrl,
       },
       body: navBody.toString(),
-      redirect: 'follow',
+      redirect: 'manual', // Don't follow redirect, capture Location
       signal: AbortSignal.timeout(15_000),
     })
 
-    const navHtml = await navRes.text()
+    // Get cookies from POST response too
+    const navCookies = navRes.headers.getSetCookie?.() || []
+    const allCookies = [...cookies, ...navCookies]
+    const fullCookieStr = [...new Set(allCookies.map((c) => c.split(';')[0]))].join('; ')
 
-    // Check if we landed on the certidão form
-    const formHtml = navHtml.includes('gerarCertidaoForm') ? navHtml : null
+    // Follow redirect or check for form in response
+    let formHtml: string
 
-    if (!formHtml) {
-      // Maybe we need to follow another redirect or the form is in a different page
-      const certRes = await fetch(`${baseUrl}/gerarCertidao.faces`, {
+    if (navRes.status >= 300 && navRes.status < 400) {
+      const location = navRes.headers.get('location') || `${baseUrl}/gerarCertidao.faces`
+      const redirectUrl = location.startsWith('http') ? location : `${baseUrl}${location}`
+      const certRes = await fetch(redirectUrl, {
         method: 'GET',
         headers: {
           ...HEADERS,
-          Cookie: cookieStr,
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          Cookie: fullCookieStr,
           Referer: `${baseUrl}/inicio.faces`,
         },
-        redirect: 'follow',
         signal: AbortSignal.timeout(15_000),
       })
-
-      if (!certRes.ok) {
-        throw new Error(`TST gerarCertidao.faces HTTP ${certRes.status}`)
+      formHtml = await certRes.text()
+    } else {
+      formHtml = await navRes.text()
+      // If response doesn't have the form, try GET gerarCertidao.faces
+      if (!formHtml.includes('gerarCertidaoForm')) {
+        const certRes = await fetch(`${baseUrl}/gerarCertidao.faces`, {
+          method: 'GET',
+          headers: {
+            ...HEADERS,
+            Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            Cookie: fullCookieStr,
+            Referer: `${baseUrl}/inicio.faces`,
+          },
+          signal: AbortSignal.timeout(15_000),
+        })
+        formHtml = await certRes.text()
       }
-
-      const certHtml = await certRes.text()
-      return await processTSTForm(certHtml, cleanCnpj, cookieStr, baseUrl)
     }
 
-    return await processTSTForm(formHtml, cleanCnpj, cookieStr, baseUrl)
-  } catch (err) {
-    console.error('[certidoes-auto] TST fetch error:', err)
-    // Fallback to manual link instead of showing error
-    return {
-      tipo: 'trabalhista',
-      label: 'CNDT — Certidão Trabalhista (TST)',
-      situacao: 'manual',
-      detalhes: 'Consulta automática indisponível. Acesse o link para emitir manualmente.',
-      numero: null,
-      emissao: null,
-      validade: null,
-      pdf_url: null,
-      consulta_url: 'https://cndt-certidao.tst.jus.br/inicio.faces',
-    }
-  }
-}
-
-async function processTSTForm(
-  html: string,
-  cnpj: string,
-  cookies: string,
-  baseUrl: string,
-): Promise<CertidaoResult> {
-  const viewState = extractViewState(html)
-  const { imageBase64, token } = extractCaptchaData(html)
-
-  if (!viewState || !imageBase64) {
-    throw new Error('Could not extract captcha form data from TST')
-  }
-
-  // Try OCR first (free)
-  let captchaAnswer = await solveWithOCR(imageBase64)
-
-  // If OCR fails or looks unreliable, try 2Captcha
-  if (!captchaAnswer && TWO_CAPTCHA_KEY) {
-    captchaAnswer = await solveImageCaptcha(imageBase64)
-  }
-
-  if (!captchaAnswer) {
-    return {
-      tipo: 'trabalhista',
-      label: 'CNDT — Certidão Trabalhista (TST)',
-      situacao: 'manual',
-      detalhes: 'Não foi possível resolver o captcha automaticamente. Use o link para consulta manual.',
-      numero: null,
-      emissao: null,
-      validade: null,
-      pdf_url: null,
-      consulta_url: 'https://cndt-certidao.tst.jus.br/inicio.faces',
-    }
-  }
-
-  // Submit the form
-  const formBody = new URLSearchParams({
-    'javax.faces.ViewState': viewState,
-    'gerarCertidaoForm': 'gerarCertidaoForm',
-    'gerarCertidaoForm:cpfCnpj': cnpj,
-    'resposta': captchaAnswer,
-    'tokenDesafio': token || '',
-    'gerarCertidaoForm:btnEmitirCertidao': 'Emitir Certidão',
-  })
-
-  const submitRes = await fetch(`${baseUrl}/gerarCertidao.faces`, {
-    method: 'POST',
-    headers: {
-      ...HEADERS,
-      'Content-Type': 'application/x-www-form-urlencoded',
-      Cookie: cookies,
-      Referer: `${baseUrl}/gerarCertidao.faces`,
-    },
-    body: formBody.toString(),
-    redirect: 'follow',
-    signal: AbortSignal.timeout(20_000),
-  })
-
-  const resultHtml = await submitRes.text()
-  const parsed = parseCNDTResult(resultHtml)
-
-  // Check for PDF link
-  let pdfUrl: string | null = null
-  const pdfMatch = resultHtml.match(/href="([^"]*\.pdf[^"]*)"/)
-  if (pdfMatch?.[1]) {
-    pdfUrl = pdfMatch[1].startsWith('http') ? pdfMatch[1] : `${baseUrl}${pdfMatch[1]}`
-  }
-
-  return {
-    tipo: 'trabalhista',
-    label: 'CNDT — Certidão Trabalhista (TST)',
-    situacao: parsed.situacao || 'error',
-    detalhes: parsed.detalhes || 'Resultado não identificado',
-    numero: parsed.numero || null,
-    emissao: parsed.emissao || todayISO(),
-    validade: parsed.validade || null,
-    pdf_url: pdfUrl,
-    consulta_url: `https://cndt-certidao.tst.jus.br/inicio.faces`,
-  }
-}
-
-// ─── Receita Federal (CND) — Automated ──────────────────────────────────────
-// Uses hCaptcha → requires 2Captcha
-
-// Receita Federal CND URLs
-const RECEITA_CND_URL = 'https://solucoes.receita.fazenda.gov.br/Servicos/certidaointernet/PJ/Emitir'
-// hCaptcha sitekey — extracted from the rendered page
-const RECEITA_HCAPTCHA_SITEKEY = 'e03e1b68-3adc-4715-871f-c1e55f498fb8'
-
-export async function fetchCNDFederalAuto(cnpj: string): Promise<CertidaoResult> {
-  const cleanCnpj = cnpj.replace(/\D/g, '')
-
-  if (!TWO_CAPTCHA_KEY) {
-    return {
-      tipo: 'cnd_federal',
-      label: 'CND Federal (Receita/PGFN)',
-      situacao: 'manual',
-      detalhes: 'Chave 2Captcha não configurada. Use o link para consulta manual.',
-      numero: null,
-      emissao: null,
-      validade: null,
-      pdf_url: null,
-      consulta_url: 'https://solucoes.receita.fazenda.gov.br/Servicos/certidaointernet/PJ/Emitir',
-    }
-  }
-
-  try {
-    // Solve hCaptcha
-    const hCaptchaToken = await solveHCaptcha(RECEITA_HCAPTCHA_SITEKEY, RECEITA_CND_URL)
-
-    if (!hCaptchaToken) {
-      throw new Error('hCaptcha solve failed')
+    if (!formHtml.includes('gerarCertidaoForm')) {
+      throw new Error('Could not reach gerarCertidao form')
     }
 
-    // Load the page first to get any hidden tokens
-    const pageRes = await fetch(RECEITA_CND_URL, {
-      method: 'GET',
-      headers: HEADERS,
-      signal: AbortSignal.timeout(15_000),
-    })
+    // Step 3: Extract form data
+    const viewState2 = extractViewState(formHtml)
+    if (!viewState2) throw new Error('ViewState not found on gerarCertidao')
 
-    const pageHtml = await pageRes.text()
-    const cookies = pageRes.headers.getSetCookie?.() || []
-    const cookieStr = cookies.map((c) => c.split(';')[0]).join('; ')
+    // Extract captcha image (base64 embedded)
+    const imgMatch = formHtml.match(/id="idImgBase64"[^>]*src="data:image\/[^;]+;base64,\s*([^"]+)"/)
+    if (!imgMatch?.[1]) throw new Error('Captcha image not found')
+    const captchaBase64 = imgMatch[1].trim()
 
-    // Extract __RequestVerificationToken (ASP.NET)
-    const tokenMatch = pageHtml.match(/name="__RequestVerificationToken"\s+value="([^"]+)"/)
-    const verificationToken = tokenMatch?.[1] || ''
+    // Extract tokenDesafio
+    const tokenMatch = formHtml.match(/name="tokenDesafio"[^>]*value="([^"]*)"/)
+      || formHtml.match(/id="tokenDesafio"[^>]*value="([^"]*)"/)
+    const tokenDesafio = tokenMatch?.[1] || ''
 
-    // Submit with hCaptcha token
+    // Step 4: Solve captcha with 2Captcha
+    if (!TWO_CAPTCHA_KEY) {
+      return {
+        tipo: 'trabalhista',
+        label: 'CNDT — Certidão Trabalhista (TST)',
+        situacao: 'manual',
+        detalhes: 'Chave 2Captcha necessária para resolver captcha do TST.',
+        numero: null, emissao: null, validade: null, pdf_url: null,
+        consulta_url: `${baseUrl}/inicio.faces`,
+      }
+    }
+
+    const captchaAnswer = await solveImageCaptcha(captchaBase64)
+    if (!captchaAnswer) {
+      return {
+        tipo: 'trabalhista',
+        label: 'CNDT — Certidão Trabalhista (TST)',
+        situacao: 'manual',
+        detalhes: 'Captcha não resolvido. Acesse o link para emitir manualmente.',
+        numero: null, emissao: null, validade: null, pdf_url: null,
+        consulta_url: `${baseUrl}/inicio.faces`,
+      }
+    }
+
+    // Step 5: Submit the form
     const formBody = new URLSearchParams({
-      NI: cleanCnpj,
-      'h-captcha-response': hCaptchaToken,
-      'g-recaptcha-response': hCaptchaToken, // Some forms accept both names
-      __RequestVerificationToken: verificationToken,
+      'javax.faces.ViewState': viewState2,
+      'gerarCertidaoForm': 'gerarCertidaoForm',
+      'gerarCertidaoForm:cpfCnpj': cleanCnpj,
+      'gerarCertidaoForm:podeFazerDownload': 'false',
+      'resposta': captchaAnswer,
+      'tokenDesafio': tokenDesafio,
+      'gerarCertidaoForm:btnEmitirCertidao': 'Emitir Certidão',
     })
 
-    const submitRes = await fetch(RECEITA_CND_URL, {
+    const submitRes = await fetch(`${baseUrl}/gerarCertidao.faces`, {
       method: 'POST',
       headers: {
         ...HEADERS,
         'Content-Type': 'application/x-www-form-urlencoded',
-        Cookie: cookieStr,
-        Referer: RECEITA_CND_URL,
+        Cookie: fullCookieStr,
+        Referer: `${baseUrl}/gerarCertidao.faces`,
+        Origin: baseUrl,
       },
       body: formBody.toString(),
       redirect: 'follow',
@@ -442,76 +380,66 @@ export async function fetchCNDFederalAuto(cnpj: string): Promise<CertidaoResult>
 
     const resultHtml = await submitRes.text()
 
-    // Parse the result
-    return parseReceitaResult(resultHtml)
+    // Parse result
+    if (resultHtml.includes('Certidão Negativa') || resultHtml.includes('CNDT')) {
+      const numMatch = resultHtml.match(/(?:Certidão\s+n[ºo°]|N[úu]mero)[:\s]*(\d[\d./-]+)/i)
+      const valMatch = resultHtml.match(/(?:Validade|Válida?\s+até)[:\s]*(\d{2}\/\d{2}\/\d{4})/i)
+
+      let validade: string | null = null
+      if (valMatch?.[1]) {
+        const [d, m, y] = valMatch[1].split('/')
+        validade = `${y}-${m}-${d}`
+      }
+
+      const isNegativa = resultHtml.includes('Certidão Negativa') && !resultHtml.includes('Certidão Positiva')
+
+      // Check for PDF download link
+      let pdfUrl: string | null = null
+      const pdfMatch = resultHtml.match(/href="([^"]*\.pdf[^"]*)"/)
+        || resultHtml.match(/window\.open\('([^']*\.pdf[^']*)'\)/)
+      if (pdfMatch?.[1]) {
+        pdfUrl = pdfMatch[1].startsWith('http') ? pdfMatch[1] : `${baseUrl}${pdfMatch[1]}`
+      }
+
+      return {
+        tipo: 'trabalhista',
+        label: 'CNDT — Certidão Trabalhista (TST)',
+        situacao: isNegativa ? 'regular' : 'irregular',
+        detalhes: isNegativa
+          ? 'Certidão Negativa de Débitos Trabalhistas emitida com sucesso'
+          : 'Certidão Positiva — existem débitos trabalhistas',
+        numero: numMatch?.[1]?.trim() || null,
+        emissao: todayISO(),
+        validade,
+        pdf_url: pdfUrl,
+        consulta_url: `${baseUrl}/inicio.faces`,
+      }
+    }
+
+    // Captcha wrong or session expired
+    if (resultHtml.includes('incorret') || resultHtml.includes('inválid') || resultHtml.includes('captcha')) {
+      throw new Error('Captcha incorreto — sessão expirada')
+    }
+
+    throw new Error('Resposta do TST não reconhecida')
   } catch (err) {
-    console.error('[certidoes-auto] Receita Federal error:', err)
+    console.error('[certidoes-auto] TST error:', err)
     return {
-      tipo: 'cnd_federal',
-      label: 'CND Federal (Receita/PGFN)',
+      tipo: 'trabalhista',
+      label: 'CNDT — Certidão Trabalhista (TST)',
       situacao: 'manual',
-      detalhes: 'Consulta automática indisponível. Acesse o link para emitir manualmente.',
+      detalhes: `Consulta automática indisponível: ${err instanceof Error ? err.message : 'erro'}. Acesse o link.`,
       numero: null,
       emissao: null,
       validade: null,
       pdf_url: null,
-      consulta_url: 'https://solucoes.receita.fazenda.gov.br/Servicos/certidaointernet/PJ/Emitir',
+      consulta_url: 'https://cndt-certidao.tst.jus.br/inicio.faces',
     }
   }
 }
 
-function parseReceitaResult(html: string): CertidaoResult {
-  const base: Omit<CertidaoResult, 'situacao' | 'detalhes'> = {
-    tipo: 'cnd_federal',
-    label: 'CND Federal (Receita/PGFN)',
-    numero: null,
-    emissao: todayISO(),
-    validade: null,
-    pdf_url: null,
-    consulta_url: 'https://solucoes.receita.fazenda.gov.br/Servicos/certidaointernet/PJ/Emitir',
-  }
-
-  // Check for Certidão Negativa
-  if (html.includes('Certidão Negativa') || html.includes('CERTIDÃO NEGATIVA')) {
-    const numMatch = html.match(/Código de Controle[:\s]*(\w[\w.-]+)/i)
-    const valMatch = html.match(/Válida?\s+até[:\s]*(\d{2}\/\d{2}\/\d{4})/i)
-
-    let validade: string | null = null
-    if (valMatch?.[1]) {
-      const [d, m, y] = valMatch[1].split('/')
-      validade = `${y}-${m}-${d}`
-    }
-
-    return {
-      ...base,
-      situacao: 'regular',
-      detalhes: 'Certidão Negativa de Débitos emitida pela Receita Federal/PGFN',
-      numero: numMatch?.[1] || null,
-      validade,
-    }
-  }
-
-  // Check for Certidão Positiva
-  if (html.includes('Certidão Positiva') || html.includes('CERTIDÃO POSITIVA')) {
-    const isComEfeito = html.includes('com Efeitos de Negativa') || html.includes('COM EFEITOS DE NEGATIVA')
-    return {
-      ...base,
-      situacao: isComEfeito ? 'regular' : 'irregular',
-      detalhes: isComEfeito
-        ? 'Certidão Positiva com Efeitos de Negativa (débitos com exigibilidade suspensa)'
-        : 'Certidão Positiva — existem débitos junto à Receita Federal/PGFN',
-    }
-  }
-
-  return {
-    ...base,
-    situacao: 'error',
-    detalhes: 'Não foi possível interpretar a resposta da Receita Federal',
-  }
-}
-
-// ─── FGTS (Caixa) — Automated ───────────────────────────────────────────────
-// JSF form — NO captcha, just CNPJ + UF submission
+// ─── FGTS (Caixa) — JSF Form ────────────────────────────────────────────────
+// WAF blocks server-side requests (403). Fall back to manual.
 
 const FGTS_URL = 'https://consulta-crf.caixa.gov.br/consultacrf/pages/consultaEmpregador.jsf'
 
@@ -519,7 +447,7 @@ export async function fetchFGTSAuto(cnpj: string): Promise<CertidaoResult> {
   const cleanCnpj = cnpj.replace(/\D/g, '')
 
   try {
-    // Step 1: Load the form page to get session + ViewState
+    // Step 1: Load page
     const pageRes = await fetch(FGTS_URL, {
       method: 'GET',
       headers: {
@@ -536,12 +464,10 @@ export async function fetchFGTSAuto(cnpj: string): Promise<CertidaoResult> {
     const pageHtml = await pageRes.text()
     const cookies = pageRes.headers.getSetCookie?.() || []
     const cookieStr = cookies.map((c) => c.split(';')[0]).join('; ')
-
     const viewState = extractViewState(pageHtml)
     if (!viewState) throw new Error('ViewState not found on FGTS page')
 
-    // Step 2: Submit the form — no captcha needed
-    // Form fields from WebFetch analysis: mainForm with inscricao + UF
+    // Step 2: Submit form — no captcha
     const formBody = new URLSearchParams({
       'javax.faces.ViewState': viewState,
       'mainForm': 'mainForm',
@@ -550,15 +476,8 @@ export async function fetchFGTSAuto(cnpj: string): Promise<CertidaoResult> {
       'mainForm:uf': '',
       'mainForm:_link_hidden_': '',
       'mainForm:j_idcl': '',
+      'mainForm:btnConsultar': 'Consultar',
     })
-
-    // Try to find the actual submit button name
-    const submitMatch = pageHtml.match(/id="(mainForm:[^"]*)"[^>]*(?:type="submit"|onclick)[^>]*(?:Consultar|consultar)/i)
-    if (submitMatch?.[1]) {
-      formBody.set(submitMatch[1], submitMatch[1])
-    } else {
-      formBody.set('mainForm:btnConsultar', 'Consultar')
-    }
 
     const submitRes = await fetch(FGTS_URL, {
       method: 'POST',
@@ -576,7 +495,6 @@ export async function fetchFGTSAuto(cnpj: string): Promise<CertidaoResult> {
 
     const resultHtml = await submitRes.text()
 
-    // Parse FGTS result
     if (resultHtml.includes('Regular') || resultHtml.includes('CRF') || resultHtml.includes('Certificado de Regularidade')) {
       const numMatch = resultHtml.match(/(?:CRF|Certificado)[^0-9]*(\d[\d./-]+)/i)
       const valMatch = resultHtml.match(/Válid[oa]\s+até[:\s]*(\d{2}\/\d{2}\/\d{4})/i)
@@ -614,18 +532,7 @@ export async function fetchFGTSAuto(cnpj: string): Promise<CertidaoResult> {
       }
     }
 
-    // If we can't parse the result, fallback to manual
-    return {
-      tipo: 'fgts',
-      label: 'CRF FGTS (Caixa)',
-      situacao: 'manual',
-      detalhes: 'Resultado não interpretado. Acesse o link para consulta manual.',
-      numero: null,
-      emissao: null,
-      validade: null,
-      pdf_url: null,
-      consulta_url: FGTS_URL,
-    }
+    throw new Error('Resultado FGTS não interpretado')
   } catch (err) {
     console.error('[certidoes-auto] FGTS error:', err)
     return {
@@ -644,13 +551,9 @@ export async function fetchFGTSAuto(cnpj: string): Promise<CertidaoResult> {
 
 // ─── Main Auto-Consulta ─────────────────────────────────────────────────────
 
-/**
- * Attempt to fetch all certidões automatically.
- * Falls back to manual for each one that fails.
- */
 export async function consultarCertidoesAuto(
   cnpj: string,
-  options?: { uf?: string; municipio?: string },
+  _options?: { uf?: string; municipio?: string },
 ): Promise<{
   certidoes: CertidaoResult[]
   errors: string[]
@@ -660,15 +563,14 @@ export async function consultarCertidoesAuto(
   let autoCount = 0
 
   // Run all fetches in parallel
-  const [cndt, cndFederal, fgts] = await Promise.allSettled([
-    fetchCNDTAuto(cnpj),
+  const [cndFederal, cndt, fgts] = await Promise.allSettled([
     fetchCNDFederalAuto(cnpj),
+    fetchCNDTAuto(cnpj),
     fetchFGTSAuto(cnpj),
   ])
 
   const certidoes: CertidaoResult[] = []
 
-  // Helper: when Promise rejects, return manual fallback
   const manualFallback = (tipo: string, label: string, url: string): CertidaoResult => ({
     tipo: tipo as CertidaoResult['tipo'],
     label,
@@ -678,7 +580,15 @@ export async function consultarCertidoesAuto(
     consulta_url: url,
   })
 
-  // Process CNDT
+  // CND Federal (Receita) — should work without captcha
+  if (cndFederal.status === 'fulfilled') {
+    certidoes.push(cndFederal.value)
+    if (cndFederal.value.situacao === 'regular' || cndFederal.value.situacao === 'irregular') autoCount++
+  } else {
+    certidoes.push(manualFallback('cnd_federal', 'CND Federal (Receita/PGFN)', RECEITA_MANUAL_URL))
+  }
+
+  // CNDT (TST) — uses 2Captcha
   if (cndt.status === 'fulfilled') {
     certidoes.push(cndt.value)
     if (cndt.value.situacao === 'regular' || cndt.value.situacao === 'irregular') autoCount++
@@ -686,15 +596,7 @@ export async function consultarCertidoesAuto(
     certidoes.push(manualFallback('trabalhista', 'CNDT — Certidão Trabalhista (TST)', 'https://cndt-certidao.tst.jus.br/inicio.faces'))
   }
 
-  // Process CND Federal
-  if (cndFederal.status === 'fulfilled') {
-    certidoes.push(cndFederal.value)
-    if (cndFederal.value.situacao === 'regular' || cndFederal.value.situacao === 'irregular') autoCount++
-  } else {
-    certidoes.push(manualFallback('cnd_federal', 'CND Federal (Receita/PGFN)', RECEITA_CND_URL))
-  }
-
-  // Process FGTS
+  // FGTS (Caixa) — may be blocked by WAF
   if (fgts.status === 'fulfilled') {
     certidoes.push(fgts.value)
     if (fgts.value.situacao === 'regular' || fgts.value.situacao === 'irregular') autoCount++
