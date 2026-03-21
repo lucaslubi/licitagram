@@ -117,6 +117,7 @@ export async function fetchCNDTAuto(cnpj: string): Promise<CertidaoResult> {
   const cleanCnpj = cnpj.replace(/\D/g, '')
   const formattedCnpj = formatCnpj(cleanCnpj)
   const baseUrl = 'https://cndt-certidao.tst.jus.br'
+  const MAX_ATTEMPTS = 2 // Retry once if captcha is wrong (~90% accuracy → ~99% with retry)
 
   try {
     if (!TWO_CAPTCHA_KEY) {
@@ -154,17 +155,8 @@ export async function fetchCNDTAuto(cnpj: string): Promise<CertidaoResult> {
     if (!formName) throw new Error('Form name not found on inicio.faces')
     if (!btnName) throw new Error('Button name not found on inicio.faces')
 
-    console.log(`[certidoes-auto] TST: form=${formName}, btn=${btnName}`)
-
-    // Step 2: POST to inicio.faces clicking "Emitir Certidão"
-    const navBody = new URLSearchParams({
-      'javax.faces.ViewState': viewState1,
-      [formName]: formName,
-      [btnName]: 'Emitir Certidão',
-    })
-
+    // Step 2: POST to inicio.faces → navigate to gerarCertidao
     const cookieStr1 = cookies1.map((c) => c.split(';')[0]).join('; ')
-
     const navRes = await fetch(`${baseUrl}/inicio.faces`, {
       method: 'POST',
       headers: {
@@ -174,117 +166,74 @@ export async function fetchCNDTAuto(cnpj: string): Promise<CertidaoResult> {
         Referer: `${baseUrl}/inicio.faces`,
         Origin: baseUrl,
       },
-      body: navBody.toString(),
+      body: new URLSearchParams({
+        'javax.faces.ViewState': viewState1,
+        [formName]: formName,
+        [btnName]: 'Emitir Certidão',
+      }).toString(),
       redirect: 'follow',
       signal: AbortSignal.timeout(15_000),
     })
 
-    // Merge cookies from both responses
     const cookies2 = navRes.headers.getSetCookie?.() || []
     const allCookies = [...cookies1, ...cookies2]
     const cookieStr = [...new Set(allCookies.map((c) => c.split(';')[0]))].join('; ')
-
     const gerarHtml = await navRes.text()
 
     if (!gerarHtml.includes('gerarCertidaoForm')) {
       throw new Error('Could not reach gerarCertidao form')
     }
 
-    const viewState2 = extractViewState(gerarHtml)
+    let viewState2 = extractViewState(gerarHtml)
     if (!viewState2) throw new Error('ViewState not found on gerarCertidao')
-
     const containerId = extractContainerId(gerarHtml)
-    console.log(`[certidoes-auto] TST: on gerarCertidao, containerId=${containerId}`)
 
-    // Step 3: GET /api to get captcha image + tokenDesafio
-    console.log('[certidoes-auto] TST: fetching captcha from /api...')
-    const captchaRes = await fetch(`${baseUrl}/api`, {
-      method: 'GET',
-      headers: {
-        ...HEADERS,
-        Accept: 'application/json',
-        Cookie: cookieStr,
-        Referer: `${baseUrl}/gerarCertidao.faces`,
-      },
-      signal: AbortSignal.timeout(15_000),
-    })
+    // Steps 3-5: Captcha solve + submit loop (retry on failure)
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      console.log(`[certidoes-auto] TST: attempt ${attempt}/${MAX_ATTEMPTS}`)
 
-    if (!captchaRes.ok) throw new Error(`TST /api HTTP ${captchaRes.status}`)
+      // Step 3: GET /api for captcha
+      const captchaRes = await fetch(`${baseUrl}/api`, {
+        method: 'GET',
+        headers: { ...HEADERS, Accept: 'application/json', Cookie: cookieStr },
+        signal: AbortSignal.timeout(15_000),
+      })
+      if (!captchaRes.ok) throw new Error(`TST /api HTTP ${captchaRes.status}`)
 
-    const captchaData = await captchaRes.json() as {
-      tokenDesafio: string
-      imagem: number[]
-      audio?: number[]
-      mensagem?: string
-    }
+      const captchaData = await captchaRes.json() as {
+        tokenDesafio: string; imagem: number[]; audio?: number[]
+      }
+      if (!captchaData.imagem || !captchaData.tokenDesafio) {
+        throw new Error('Captcha data incomplete')
+      }
 
-    if (!captchaData.imagem || !captchaData.tokenDesafio) {
-      throw new Error('Captcha data incomplete from /api')
-    }
+      const base64Image = Buffer.from(new Uint8Array(captchaData.imagem)).toString('base64')
+      console.log(`[certidoes-auto] TST: captcha ${captchaData.imagem.length} bytes, solving...`)
 
-    // Convert image byte array to base64
-    const imageBytes = new Uint8Array(captchaData.imagem)
-    const base64Image = Buffer.from(imageBytes).toString('base64')
+      // Step 4: Solve with 2Captcha
+      const captchaAnswer = await solveImageCaptcha(base64Image)
+      if (!captchaAnswer) {
+        console.log('[certidoes-auto] TST: 2Captcha failed to solve')
+        if (attempt < MAX_ATTEMPTS) continue
+        throw new Error('Captcha não resolvido pelo 2Captcha')
+      }
 
-    console.log(`[certidoes-auto] TST: captcha image ${imageBytes.length} bytes, solving...`)
+      console.log(`[certidoes-auto] TST: solved="${captchaAnswer}", submitting...`)
 
-    // Step 4: Solve captcha with 2Captcha
-    const captchaAnswer = await solveImageCaptcha(base64Image)
-    if (!captchaAnswer) {
-      throw new Error('Captcha não resolvido pelo 2Captcha')
-    }
+      // Step 5: A4J AJAX submit
+      const ajaxBody = new URLSearchParams({
+        'AJAXREQUEST': containerId || '_viewRoot',
+        'javax.faces.ViewState': viewState2,
+        'gerarCertidaoForm': 'gerarCertidaoForm',
+        'gerarCertidaoForm:cpfCnpj': formattedCnpj,
+        'gerarCertidaoForm:podeFazerDownload': 'false',
+        'resposta': captchaAnswer.toLowerCase(),
+        'tokenDesafio': captchaData.tokenDesafio,
+        'gerarCertidaoForm:btnEmitirCertidao': 'gerarCertidaoForm:btnEmitirCertidao',
+        'emailUsuario': '',
+      })
 
-    console.log(`[certidoes-auto] TST: captcha solved: "${captchaAnswer}", submitting...`)
-
-    // Step 5: Submit the form
-    // Use formatted CNPJ (XX.XXX.XXX/XXXX-XX) as the form expects maxlength=18
-    const submitParams: Record<string, string> = {
-      'javax.faces.ViewState': viewState2,
-      'gerarCertidaoForm': 'gerarCertidaoForm',
-      'gerarCertidaoForm:cpfCnpj': formattedCnpj,
-      'gerarCertidaoForm:podeFazerDownload': 'false',
-      'resposta': captchaAnswer.toLowerCase(), // TST uses text-transform: lowercase
-      'tokenDesafio': captchaData.tokenDesafio,
-      'gerarCertidaoForm:btnEmitirCertidao': 'gerarCertidaoForm:btnEmitirCertidao',
-      'emailUsuario': '',
-    }
-
-    console.log(`[certidoes-auto] TST: submitting with CNPJ=${formattedCnpj}, answer="${captchaAnswer.toLowerCase()}"`)
-
-    // Try A4J AJAX submit first (required for btnEmitirCertidao which is type="button")
-    const ajaxParams = {
-      ...submitParams,
-      'AJAXREQUEST': containerId || '_viewRoot',
-    }
-
-    const submitBody = new URLSearchParams(ajaxParams)
-
-    const submitRes = await fetch(`${baseUrl}/gerarCertidao.faces`, {
-      method: 'POST',
-      headers: {
-        ...HEADERS,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        Cookie: cookieStr,
-        Referer: `${baseUrl}/gerarCertidao.faces`,
-        Origin: baseUrl,
-        'Faces-Request': 'partial/ajax',
-        'X-Requested-With': 'XMLHttpRequest',
-      },
-      body: submitBody.toString(),
-      redirect: 'follow',
-      signal: AbortSignal.timeout(25_000),
-    })
-
-    const resultText = await submitRes.text()
-    console.log(`[certidoes-auto] TST: response ${resultText.length} chars, status ${submitRes.status}`)
-    console.log(`[certidoes-auto] TST: response:`, resultText.substring(0, 800))
-
-    // If AJAX returned an error, retry as regular POST
-    if (resultText.includes('NullPointerException') || resultText.includes('<error>')) {
-      console.log('[certidoes-auto] TST: AJAX failed, trying regular POST...')
-
-      const regularBody = new URLSearchParams(submitParams)
-      const regularRes = await fetch(`${baseUrl}/gerarCertidao.faces`, {
+      const submitRes = await fetch(`${baseUrl}/gerarCertidao.faces`, {
         method: 'POST',
         headers: {
           ...HEADERS,
@@ -292,18 +241,49 @@ export async function fetchCNDTAuto(cnpj: string): Promise<CertidaoResult> {
           Cookie: cookieStr,
           Referer: `${baseUrl}/gerarCertidao.faces`,
           Origin: baseUrl,
+          'Faces-Request': 'partial/ajax',
+          'X-Requested-With': 'XMLHttpRequest',
         },
-        body: regularBody.toString(),
-        redirect: 'follow',
+        body: ajaxBody.toString(),
         signal: AbortSignal.timeout(25_000),
       })
 
-      const regularText = await regularRes.text()
-      console.log(`[certidoes-auto] TST: regular POST response ${regularText.length} chars`)
-      return parseTSTResponse(regularText, baseUrl, cleanCnpj)
+      const resultText = await submitRes.text()
+      console.log(`[certidoes-auto] TST: response ${resultText.length} chars`)
+      console.log(`[certidoes-auto] TST: preview:`, resultText.substring(0, 300))
+
+      // NullPointerException = captcha wrong (TST server bug)
+      if (resultText.includes('NullPointerException') || resultText.includes('<error>')) {
+        console.log(`[certidoes-auto] TST: captcha rejected (attempt ${attempt})`)
+
+        if (attempt < MAX_ATTEMPTS) {
+          // Need fresh ViewState for retry — reload gerarCertidao page
+          const reloadRes = await fetch(`${baseUrl}/gerarCertidao.faces`, {
+            method: 'GET',
+            headers: { ...HEADERS, Cookie: cookieStr, Accept: 'text/html' },
+            signal: AbortSignal.timeout(15_000),
+          })
+          const reloadHtml = await reloadRes.text()
+          const newVS = extractViewState(reloadHtml)
+          if (newVS) viewState2 = newVS
+          continue
+        }
+
+        return {
+          tipo: 'trabalhista',
+          label: 'CNDT — Certidão Trabalhista (TST)',
+          situacao: 'manual',
+          detalhes: `Captcha não aceito após ${MAX_ATTEMPTS} tentativas. Acesse o link.`,
+          numero: null, emissao: null, validade: null, pdf_url: null,
+          consulta_url: `${baseUrl}/inicio.faces`,
+        }
+      }
+
+      // Success! Parse the response
+      return parseTSTResponse(resultText, baseUrl, cleanCnpj)
     }
 
-    return parseTSTResponse(resultText, baseUrl, cleanCnpj)
+    throw new Error('Todas as tentativas de captcha falharam')
   } catch (err) {
     console.error('[certidoes-auto] TST error:', err)
     return {
