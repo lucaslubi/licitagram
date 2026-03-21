@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { consultarCertidoes } from '@/lib/certidoes'
+import { fetchTCU, buildCNDEstadualManual, type ConsultaResult } from '@/lib/certidoes'
 
-// Allow up to 60s for captcha solving (2Captcha takes 20-30s)
-export const maxDuration = 60
+// TCU check is fast (sync fetch), no need for long timeout
+export const maxDuration = 30
 
 /**
  * POST /api/certidoes
  *
- * Fetches certidões directly from government sources (TST, TCU, Receita, Caixa).
- * No third-party API needed — zero cost.
- * Saves results to company_documents and returns the consultation result.
+ * 1. Runs TCU/CEIS/CNEP check synchronously (instant, no captcha)
+ * 2. Enqueues a background job for TST, Receita, FGTS (Puppeteer on VPS)
+ * 3. Returns TCU result immediately + jobId for polling
  */
 export async function POST(req: NextRequest) {
   try {
@@ -42,81 +42,75 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'CNPJ não cadastrado' }, { status: 400 })
     }
 
-    // Optional: check which certidões to fetch (default: all)
+    const cleanCnpj = company.cnpj.replace(/\D/g, '')
+
+    // 1. TCU/CEIS/CNEP — sync (instant, no captcha)
+    const tcu = await fetchTCU(cleanCnpj)
+
+    // Save TCU result if successful
+    if (tcu.situacao === 'regular' || tcu.situacao === 'irregular') {
+      const { data: existing } = await supabase
+        .from('company_documents')
+        .select('id')
+        .eq('company_id', profile.company_id)
+        .eq('tipo', 'tcu')
+        .maybeSingle()
+
+      const doc = {
+        company_id: profile.company_id,
+        tipo: 'tcu',
+        descricao: `[Auto] ${tcu.detalhes}`,
+        numero: tcu.numero,
+        validade: tcu.validade,
+        arquivo_url: tcu.consulta_url,
+        updated_at: new Date().toISOString(),
+      }
+
+      if (existing) {
+        await supabase.from('company_documents').update(doc).eq('id', existing.id)
+      } else {
+        await supabase.from('company_documents').insert(doc)
+      }
+    }
+
+    // 2. CND Estadual — always manual
+    const cndEstadual = buildCNDEstadualManual(cleanCnpj, company.uf || undefined)
+
+    // 3. Enqueue background job for TST, Receita, FGTS (Puppeteer worker on VPS)
     const body = await req.json().catch(() => ({}))
     const tipos: string[] | undefined = body.tipos
-    const autoSolve: boolean = body.autoSolve !== false // default: true
 
-    // Fetch certidões directly from government sources
-    // With autoSolve=true, will attempt to solve captchas via OCR/2Captcha
-    const result = await consultarCertidoes(company.cnpj, {
-      uf: company.uf || undefined,
-      municipio: company.municipio || undefined,
-      autoSolve,
-    })
+    const { data: job, error: jobError } = await supabase
+      .from('certidao_jobs')
+      .insert({
+        company_id: profile.company_id,
+        cnpj: cleanCnpj,
+        status: 'pending',
+        progress: {},
+      })
+      .select('id')
+      .single()
 
-    result.razao_social = company.razao_social
+    if (jobError) {
+      console.error('[API certidoes] Failed to create job:', jobError)
+    }
 
-    // Filter by requested tipos if specified
-    let certidoes = result.certidoes
+    // Build immediate response with TCU + manual links + jobId
+    let certidoes = [tcu, cndEstadual]
     if (tipos && tipos.length > 0) {
       certidoes = certidoes.filter(c => tipos.includes(c.tipo))
     }
 
-    // Save only auto-consulted certidões (not manual ones)
-    const saved: string[] = []
-    for (const cert of certidoes) {
-      // Only save certidões that were actually consulted (not manual links)
-      if (cert.situacao === 'error' || cert.situacao === 'manual') continue
-
-      const docTipo = cert.tipo
-      const descricao = cert.detalhes
-      const numero = cert.numero
-      const validade = cert.validade
-      const arquivoUrl = cert.pdf_url || cert.consulta_url
-
-      // Check if document of this type already exists
-      const { data: existing } = await supabase
-        .from('company_documents')
-        .select('id, validade')
-        .eq('company_id', profile.company_id)
-        .eq('tipo', docTipo)
-        .maybeSingle()
-
-      if (existing) {
-        await supabase
-          .from('company_documents')
-          .update({
-            descricao: `[Auto] ${descricao}`,
-            numero,
-            validade,
-            arquivo_url: arquivoUrl,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', existing.id)
-        saved.push(docTipo)
-      } else {
-        await supabase
-          .from('company_documents')
-          .insert({
-            company_id: profile.company_id,
-            tipo: docTipo,
-            descricao: `[Auto] ${descricao}`,
-            numero,
-            validade,
-            arquivo_url: arquivoUrl,
-          })
-        saved.push(docTipo)
-      }
-    }
-
     return NextResponse.json({
       success: true,
-      consultado_em: result.consultado_em,
-      razao_social: result.razao_social,
+      consultado_em: new Date().toISOString(),
+      razao_social: company.razao_social,
       certidoes,
-      saved,
-      errors: result.errors,
+      saved: tcu.situacao !== 'error' && tcu.situacao !== 'manual' ? ['tcu'] : [],
+      errors: tcu.situacao === 'error' ? [tcu.detalhes] : [],
+      // Async job for TST, Receita, FGTS
+      jobId: job?.id || null,
+      jobStatus: 'pending',
     })
   } catch (err) {
     console.error('[API certidoes] Error:', err)

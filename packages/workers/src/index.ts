@@ -18,7 +18,7 @@ import type { Worker } from 'bullmq'
 const queuesArg = process.argv.find(a => a.startsWith('--queues='))?.split('=')[1]
   || (process.argv.indexOf('--queues') >= 0 ? process.argv[process.argv.indexOf('--queues') + 1] : null)
 
-const ALL_GROUPS = ['scraping', 'extraction', 'matching', 'alerts', 'telegram', 'whatsapp', 'enrichment', 'notification', 'analysis']
+const ALL_GROUPS = ['scraping', 'extraction', 'matching', 'alerts', 'telegram', 'whatsapp', 'enrichment', 'notification', 'analysis', 'certidoes']
 const selectedGroups = queuesArg ? queuesArg.split(',').map(g => g.trim()) : ALL_GROUPS
 const isFullMode = !queuesArg
 
@@ -91,6 +91,12 @@ async function loadWorkers(): Promise<Worker[]> {
     workers.push(resultsScrapingWorker, competitionAnalysisWorker, contactEnrichmentWorker, fornecedorEnrichmentWorker, documentExpiryWorker, aiCompetitorClassifierWorker, proactiveSupplierScrapingWorker, competitorRelevanceWorker)
   }
 
+  // Certidoes: Puppeteer-based certidao automation (polls certidao_jobs table)
+  if (isFullMode || selectedGroups.includes('certidoes')) {
+    const { certidoesWorker } = await import('./processors/certidoes.processor')
+    workers.push(certidoesWorker)
+  }
+
   if (isFullMode || selectedGroups.includes('analysis')) {
     const { competitionAnalysisWorker } = await import('./processors/competition-analysis.processor')
     const { contactEnrichmentWorker } = await import('./processors/contact-enrichment.processor')
@@ -125,6 +131,7 @@ import { aiCompetitorClassifierQueue } from './queues/ai-competitor-classifier.q
 import { proactiveSupplierScrapingQueue } from './queues/proactive-supplier-scraping.queue'
 import { competitorRelevanceQueue } from './queues/competitor-relevance.queue'
 import { dailyAuditQueue } from './queues/daily-audit.queue'
+import { certidoesQueue } from './queues/certidoes.queue'
 
 async function setupRepeatableJobs() {
   const today = formatDatePNCP(new Date())
@@ -367,6 +374,19 @@ async function setupRepeatableJobs() {
     },
   )
   logger.info('Proactive supplier scraping scheduled (every 4h)')
+
+  // Schedule certidoes poller every 15 seconds (polls certidao_jobs table for pending work)
+  await certidoesQueue.add(
+    'poll',
+    {},
+    {
+      repeat: { every: 15_000 },
+      removeOnComplete: true,
+      removeOnFail: true,
+      jobId: 'certidoes-poll-15s',
+    },
+  )
+  logger.info('Certidoes poller scheduled (every 15s)')
 
   // Trigger immediate map cache refresh on startup
   mapCacheQueue.add('refresh-map-startup', {}).catch((err) => {
@@ -772,6 +792,15 @@ async function main() {
       logger.error({ err }, 'Failed to enqueue startup competitor relevance analysis')
     })
     logger.info('Enrichment startup jobs enqueued (full materialization + fornecedor + results + AI classifier + proactive suppliers + relevance)')
+  }
+
+  // ─── Certidoes group: autonomous certidao polling ──────────────────────────
+  if (selectedGroups.includes('certidoes')) {
+    await certidoesQueue.add(
+      'poll', {},
+      { repeat: { every: 15_000 }, removeOnComplete: true, removeOnFail: true, jobId: 'certidoes-poll-15s-dedicated' },
+    )
+    logger.info('Certidoes dedicated poller scheduled (every 15s)')
   }
 
   // Semantic matching: embed tenders + profile companies + run sweep (non-blocking)

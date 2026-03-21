@@ -1,7 +1,7 @@
 /**
  * PM2 Ecosystem Configuration — Licitagram Workers (Parallel Mode)
  *
- * 7 independent worker processes running in parallel:
+ * 8 independent worker processes running in parallel:
  *   - worker-scraping:    PNCP, comprasgov, ARP, legado scrapers
  *   - worker-extraction:  PDF extraction, document processing
  *   - worker-matching:    keyword, AI triage, semantic matching
@@ -9,6 +9,7 @@
  *   - worker-telegram:    Telegram message delivery (rate limited by Telegram API)
  *   - worker-whatsapp:    WhatsApp message delivery via Evolution API (1 msg/s)
  *   - worker-enrichment:  results scraping, competitor stats, contact/CNAE enrichment
+ *   - worker-certidoes:   Puppeteer-based certidao automation
  *
  * Usage:
  *   pm2 start ecosystem.config.js          # Start all 6 workers + metrics
@@ -112,6 +113,18 @@ module.exports = {
       node_args: '--max-old-space-size=512 --expose-gc',
       out_file: '/var/log/licitagram/worker-enrichment-out.log',
       error_file: '/var/log/licitagram/worker-enrichment-err.log',
+    },
+
+    // ─── Certidoes: Puppeteer-based certidao automation ──────────────
+    {
+      ...baseConfig,
+      name: 'worker-certidoes',
+      script: SCRIPT,
+      args: '--queues certidoes',
+      node_args: '--max-old-space-size=512 --expose-gc',
+      max_memory_restart: '600M',
+      out_file: '/var/log/licitagram/worker-certidoes-out.log',
+      error_file: '/var/log/licitagram/worker-certidoes-err.log',
     },
 
     // ─── Queue metrics (lightweight monitoring) ────────────────────────

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
 interface CertidaoResultItem {
@@ -23,26 +23,78 @@ interface ConsultaResponse {
   saved: string[]
   errors: string[]
   error?: string
+  jobId?: string | null
+  jobStatus?: string
+}
+
+interface JobStatusResponse {
+  jobId: string
+  status: 'pending' | 'processing' | 'completed' | 'failed'
+  progress: Record<string, unknown>
+  result: { certidoes: CertidaoResultItem[] } | null
+  error: string | null
 }
 
 const SITUACAO_CONFIG: Record<string, { label: string; icon: string; color: string }> = {
   regular: { label: 'Regular', icon: '\u2705', color: 'text-emerald-700 bg-emerald-50 border-emerald-200' },
   irregular: { label: 'Irregular', icon: '\u274C', color: 'text-red-700 bg-red-50 border-red-200' },
   error: { label: 'Erro', icon: '\u26A0\uFE0F', color: 'text-amber-700 bg-amber-50 border-amber-200' },
-  pending: { label: 'Pendente', icon: '\u23F3', color: 'text-gray-600 bg-gray-50 border-gray-200' },
+  pending: { label: 'Processando', icon: '\u23F3', color: 'text-blue-600 bg-blue-50 border-blue-200' },
   manual: { label: 'Consulta Manual', icon: '\uD83D\uDD17', color: 'text-blue-700 bg-blue-50 border-blue-200' },
 }
 
 export function ConsultaCertidoes({ cnpj }: { cnpj: string; hasApiKey?: boolean }) {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<ConsultaResponse | null>(null)
+  const [asyncCertidoes, setAsyncCertidoes] = useState<CertidaoResultItem[]>([])
+  const [jobStatus, setJobStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const router = useRouter()
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current)
+    }
+  }, [])
+
+  const pollJobStatus = useCallback((jobId: string) => {
+    setJobStatus('pending')
+
+    pollingRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/certidoes/status?jobId=${jobId}`)
+        if (!res.ok) return
+
+        const data: JobStatusResponse = await res.json()
+        setJobStatus(data.status)
+
+        if (data.status === 'completed' && data.result?.certidoes) {
+          setAsyncCertidoes(data.result.certidoes)
+          if (pollingRef.current) clearInterval(pollingRef.current)
+          pollingRef.current = null
+          router.refresh()
+        } else if (data.status === 'failed') {
+          if (pollingRef.current) clearInterval(pollingRef.current)
+          pollingRef.current = null
+        }
+      } catch {
+        // Silent fail on poll — will retry
+      }
+    }, 3000)
+  }, [router])
 
   async function handleConsultar() {
     setLoading(true)
     setError(null)
     setResult(null)
+    setAsyncCertidoes([])
+    setJobStatus(null)
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current)
+      pollingRef.current = null
+    }
 
     try {
       const res = await fetch('/api/certidoes', {
@@ -59,6 +111,12 @@ export function ConsultaCertidoes({ cnpj }: { cnpj: string; hasApiKey?: boolean 
       }
 
       setResult(data)
+
+      // Start polling if there's an async job
+      if (data.jobId) {
+        pollJobStatus(data.jobId)
+      }
+
       router.refresh()
     } catch {
       setError('Erro de conexao. Tente novamente.')
@@ -67,9 +125,11 @@ export function ConsultaCertidoes({ cnpj }: { cnpj: string; hasApiKey?: boolean 
     }
   }
 
-  // Split results
-  const autoResults = result?.certidoes.filter(c => c.situacao !== 'manual') || []
-  const manualResults = result?.certidoes.filter(c => c.situacao === 'manual') || []
+  // Combine sync + async results
+  const allCertidoes = [...(result?.certidoes || []), ...asyncCertidoes]
+  const autoResults = allCertidoes.filter(c => c.situacao !== 'manual')
+  const manualResults = allCertidoes.filter(c => c.situacao === 'manual')
+  const isPolling = jobStatus === 'pending' || jobStatus === 'processing'
 
   return (
     <div className="space-y-4">
@@ -78,21 +138,21 @@ export function ConsultaCertidoes({ cnpj }: { cnpj: string; hasApiKey?: boolean 
         <div>
           <h3 className="font-semibold text-gray-800">Consulta de Certidoes para Habilitacao</h3>
           <p className="text-sm text-gray-500">
-            Verifica sancoes e emite certidoes automaticamente quando possivel. Captchas sao resolvidos via OCR/2Captcha.
+            Verifica sancoes automaticamente. Certidoes com captcha sao emitidas pelo servidor via Puppeteer.
           </p>
         </div>
         <button
           onClick={handleConsultar}
-          disabled={loading}
+          disabled={loading || isPolling}
           className="flex items-center gap-2 px-4 py-2.5 bg-brand text-white rounded-lg hover:bg-brand/90 disabled:opacity-60 text-sm font-medium shadow-sm transition-all whitespace-nowrap"
         >
-          {loading ? (
+          {loading || isPolling ? (
             <>
               <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
-              Consultando...
+              {isPolling ? 'Processando...' : 'Consultando...'}
             </>
           ) : (
             <>
@@ -105,16 +165,23 @@ export function ConsultaCertidoes({ cnpj }: { cnpj: string; hasApiKey?: boolean 
         </button>
       </div>
 
-      {/* Loading */}
-      {loading && (
+      {/* Loading / Polling */}
+      {(loading || isPolling) && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
           <p className="text-sm text-blue-700 flex items-center gap-2">
             <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
-            Consultando certidoes para CNPJ {formatCnpj(cnpj)} — verificando sancoes, resolvendo captchas...
+            {isPolling
+              ? 'Emitindo certidoes via servidor (captchas sendo resolvidos automaticamente)...'
+              : `Consultando certidoes para CNPJ ${formatCnpj(cnpj)}...`}
           </p>
+          {isPolling && (
+            <p className="text-xs text-blue-500 mt-1">
+              Isso pode levar 1-2 minutos. Nao feche esta pagina.
+            </p>
+          )}
         </div>
       )}
 
@@ -136,7 +203,7 @@ export function ConsultaCertidoes({ cnpj }: { cnpj: string; hasApiKey?: boolean 
             <div className="flex items-center gap-3">
               {result.saved.length > 0 && (
                 <span className="text-xs text-emerald-600 font-medium">
-                  {result.saved.length} certidao(oes) salva(s)
+                  {result.saved.length + asyncCertidoes.filter(c => c.situacao === 'regular' || c.situacao === 'irregular').length} certidao(oes) salva(s)
                 </span>
               )}
               {autoResults.length > 0 && (
@@ -147,7 +214,7 @@ export function ConsultaCertidoes({ cnpj }: { cnpj: string; hasApiKey?: boolean 
             </div>
           </div>
 
-          {/* Automatic results (TCU, solved captchas, etc.) */}
+          {/* Automatic results */}
           {autoResults.map((cert) => {
             const config = SITUACAO_CONFIG[cert.situacao] || SITUACAO_CONFIG.pending
             return (
@@ -201,15 +268,48 @@ export function ConsultaCertidoes({ cnpj }: { cnpj: string; hasApiKey?: boolean 
             )
           })}
 
-          {/* Manual links section — only show if there are manual ones */}
-          {manualResults.length > 0 && (
+          {/* Pending async certidões indicator */}
+          {isPolling && (
+            <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4">
+              <div className="flex items-center gap-2">
+                <svg className="animate-spin h-4 w-4 text-blue-500" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                <p className="text-sm text-blue-700 font-medium">Emitindo certidoes automaticamente...</p>
+              </div>
+              <div className="grid grid-cols-3 gap-2 mt-3">
+                {['CNDT (TST)', 'CND Federal', 'CRF FGTS'].map(name => (
+                  <div key={name} className="text-xs text-blue-500 flex items-center gap-1">
+                    <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    {name}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Job failed */}
+          {jobStatus === 'failed' && asyncCertidoes.length === 0 && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+              <p className="text-sm text-amber-700">
+                Algumas certidoes nao puderam ser emitidas automaticamente. Use os links manuais abaixo.
+              </p>
+            </div>
+          )}
+
+          {/* Manual links section */}
+          {manualResults.length > 0 && !isPolling && (
             <div className="rounded-lg border border-gray-200 bg-white p-4">
               <h4 className="font-medium text-sm text-gray-700 mb-3 flex items-center gap-1.5">
                 <span>\uD83D\uDCCB</span>
                 Emitir Certidoes (consulta manual)
               </h4>
               <p className="text-xs text-gray-500 mb-3">
-                Estas certidoes nao puderam ser emitidas automaticamente (captcha nao resolvido ou site indisponivel).
+                Estas certidoes nao puderam ser emitidas automaticamente.
                 Clique no link para abrir o site do governo e emitir manualmente.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
