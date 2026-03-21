@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { consultarCertidoes } from '@/lib/certidoes'
 
+// Allow up to 60s for captcha solving (2Captcha takes 20-30s)
+export const maxDuration = 60
+
 /**
  * POST /api/certidoes
  *

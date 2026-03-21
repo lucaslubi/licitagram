@@ -11,6 +11,9 @@
     },
     "src/app/api/analyze/**/*.ts": {
       "maxDuration": 60
+    },
+    "src/app/api/certidoes/**/*.ts": {
+      "maxDuration": 60
     }
   }
 }
