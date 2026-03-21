@@ -20,6 +20,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/pipeline', label: 'Pipeline' },
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/competitors', label: 'Concorrentes', requiredFeature: 'competitive_intel' },
+  { href: '/bot', label: 'Robo', requiredFeature: 'bidding_bot' },
   { href: '/documents', label: 'Certidões', requiredFeature: 'compliance_checker' },
   { href: '/archive', label: 'Arquivo' },
   // --- separator ---

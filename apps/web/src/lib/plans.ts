@@ -146,6 +146,7 @@ export async function getCompanyFeatures(companyId: string): Promise<PlanFeature
       multi_cnpj: false,
       api_integration: false,
       proposal_generator: false,
+      bidding_bot: false,
       priority_support: false,
     }
   }
@@ -159,6 +160,7 @@ export async function getCompanyFeatures(companyId: string): Promise<PlanFeature
       multi_cnpj: false,
       api_integration: false,
       proposal_generator: false,
+      bidding_bot: false,
       priority_support: false,
     }
   }

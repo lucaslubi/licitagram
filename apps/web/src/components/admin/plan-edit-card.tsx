@@ -16,6 +16,7 @@ const FEATURE_LABELS: Record<keyof PlanFeatures, string> = {
   multi_cnpj: 'Multi CNPJ',
   api_integration: 'API',
   proposal_generator: 'Gerador Proposta',
+  bidding_bot: 'Robô de Lances',
   priority_support: 'Suporte Prioritário',
 }
 

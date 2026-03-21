@@ -9,6 +9,7 @@ export interface PlanFeatures {
   multi_cnpj: boolean
   api_integration: boolean
   proposal_generator: boolean
+  bidding_bot: boolean
   priority_support: boolean
 }
 
@@ -101,6 +102,7 @@ export const DEFAULT_FEATURES: PlanFeatures = {
   multi_cnpj: false,
   api_integration: false,
   proposal_generator: false,
+  bidding_bot: false,
   priority_support: false,
 }
 
