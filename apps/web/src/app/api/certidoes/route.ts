@@ -1,27 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { fetchTCU, buildCNDEstadualManual, type ConsultaResult } from '@/lib/certidoes'
+import { fetchTCU, buildCNDEstadualManual } from '@/lib/certidoes'
+import { fetchCNDFederalAuto, fetchCNDTAuto, fetchFGTSAuto } from '@/lib/certidoes-auto'
 
-// TCU check is fast (sync fetch), no need for long timeout
-export const maxDuration = 30
+// Worker needs time to process captchas
+export const maxDuration = 120
 
 /**
  * POST /api/certidoes
  *
- * 1. Runs TCU/CEIS/CNEP check synchronously (instant, no captcha)
- * 2. Enqueues a background job for TST, Receita, FGTS (Puppeteer on VPS)
- * 3. Returns TCU result immediately + jobId for polling
+ * 1. Runs TCU/CEIS/CNEP check synchronously
+ * 2. Creates job for VPS worker (TST, Receita, FGTS)
+ * 3. Polls job until complete (max 90s)
+ * 4. Returns ALL results together
  */
 export async function POST(req: NextRequest) {
   try {
-    // Auth
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
     }
 
-    // Get company data
     const { data: profile } = await supabase
       .from('users')
       .select('company_id')
@@ -44,10 +44,10 @@ export async function POST(req: NextRequest) {
 
     const cleanCnpj = company.cnpj.replace(/\D/g, '')
 
-    // 1. TCU/CEIS/CNEP — sync (instant, no captcha)
+    // 1. TCU/CEIS/CNEP — sync (instant)
     const tcu = await fetchTCU(cleanCnpj)
 
-    // Save TCU result if successful
+    // Save TCU
     if (tcu.situacao === 'regular' || tcu.situacao === 'irregular') {
       const { data: existing } = await supabase
         .from('company_documents')
@@ -73,14 +73,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 2. CND Estadual — always manual
+    // 2. CND Estadual — manual
     const cndEstadual = buildCNDEstadualManual(cleanCnpj, company.uf || undefined)
 
-    // 3. Enqueue background job for TST, Receita, FGTS (Puppeteer worker on VPS)
-    const body = await req.json().catch(() => ({}))
-    const tipos: string[] | undefined = body.tipos
-
-    const { data: job, error: jobError } = await supabase
+    // 3. Create job for VPS worker
+    const { data: job } = await supabase
       .from('certidao_jobs')
       .insert({
         company_id: profile.company_id,
@@ -91,26 +88,48 @@ export async function POST(req: NextRequest) {
       .select('id')
       .single()
 
-    if (jobError) {
-      console.error('[API certidoes] Failed to create job:', jobError)
+    // 4. Wait for VPS worker to complete (poll every 3s, max 90s)
+    let workerCertidoes: Array<{ tipo: string; label: string; situacao: string; detalhes: string; numero: string | null; emissao: string | null; validade: string | null; pdf_url: string | null; consulta_url: string | null }> = []
+
+    if (job?.id) {
+      const maxWait = 90_000
+      const pollInterval = 3_000
+      const start = Date.now()
+
+      while (Date.now() - start < maxWait) {
+        await new Promise(r => setTimeout(r, pollInterval))
+
+        const { data: jobData } = await supabase
+          .from('certidao_jobs')
+          .select('status, result_json')
+          .eq('id', job.id)
+          .single()
+
+        if (jobData?.status === 'completed' && jobData.result_json?.certidoes) {
+          workerCertidoes = jobData.result_json.certidoes
+          break
+        }
+        if (jobData?.status === 'failed') {
+          break
+        }
+      }
     }
 
-    // Build immediate response with TCU + manual links + jobId
-    let certidoes = [tcu, cndEstadual]
-    if (tipos && tipos.length > 0) {
-      certidoes = certidoes.filter(c => tipos.includes(c.tipo))
-    }
+    // 5. Combine ALL results
+    const allCertidoes = [tcu, ...workerCertidoes, cndEstadual]
+    const saved = allCertidoes
+      .filter(c => c.situacao === 'regular' || c.situacao === 'irregular')
+      .map(c => c.tipo)
 
     return NextResponse.json({
       success: true,
       consultado_em: new Date().toISOString(),
       razao_social: company.razao_social,
-      certidoes,
-      saved: tcu.situacao !== 'error' && tcu.situacao !== 'manual' ? ['tcu'] : [],
-      errors: tcu.situacao === 'error' ? [tcu.detalhes] : [],
-      // Async job for TST, Receita, FGTS
+      certidoes: allCertidoes,
+      saved,
+      errors: [],
       jobId: job?.id || null,
-      jobStatus: 'pending',
+      jobStatus: 'completed',
     })
   } catch (err) {
     console.error('[API certidoes] Error:', err)
