@@ -62,51 +62,75 @@ export async function fetchCNDFederalAuto(cnpj: string): Promise<CertidaoResult>
   const cleanCnpj = cnpj.replace(/\D/g, '')
 
   try {
+    // Step 0: Load the SPA page to get session cookies
+    const pageRes = await fetch(`${RECEITA_BASE}/`, {
+      method: 'GET',
+      headers: {
+        ...HEADERS,
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      },
+      redirect: 'follow',
+      signal: AbortSignal.timeout(15_000),
+    })
+
+    // Extract session cookies
+    const pageCookies = pageRes.headers.getSetCookie?.() || []
+    const cookieStr = pageCookies.map((c) => c.split(';')[0]).join('; ')
+    console.log('[certidoes-auto] Receita cookies:', cookieStr ? 'present' : 'none')
+
+    const apiHeaders = {
+      ...HEADERS,
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      Origin: 'https://servicos.receitafederal.gov.br',
+      Referer: `${RECEITA_BASE}/`,
+      ...(cookieStr ? { Cookie: cookieStr } : {}),
+    }
+
+    const body = JSON.stringify({
+      ni: cleanCnpj,
+      tipoContribuinte: 'PJ',
+      tipoContribuinteEnum: 'CNPJ',
+    })
+
     // Step 1: Verify the CNPJ is valid
     const verifyRes = await fetch(`${RECEITA_BASE}/api/Emissao/verificar`, {
       method: 'POST',
-      headers: {
-        ...HEADERS,
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        Origin: RECEITA_BASE,
-        Referer: `${RECEITA_BASE}/`,
-      },
-      body: JSON.stringify({
-        ni: cleanCnpj,
-        tipoContribuinte: 'PJ',
-        tipoContribuinteEnum: 'CNPJ',
-      }),
+      headers: apiHeaders,
+      body,
       signal: AbortSignal.timeout(15_000),
     })
 
     if (!verifyRes.ok) {
-      throw new Error(`Receita verificar HTTP ${verifyRes.status}`)
+      // Try without cookies — maybe it works
+      const retryRes = await fetch(`${RECEITA_BASE}/api/Emissao/verificar`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body,
+        signal: AbortSignal.timeout(15_000),
+      })
+      if (!retryRes.ok) {
+        const errText = await retryRes.text().catch(() => '')
+        throw new Error(`Receita verificar HTTP ${retryRes.status}: ${errText.substring(0, 200)}`)
+      }
+      const retryData = await retryRes.json()
+      console.log('[certidoes-auto] Receita verificar (retry) response:', JSON.stringify(retryData))
     }
-
-    const verifyData = await verifyRes.json()
-    console.log('[certidoes-auto] Receita verificar response:', JSON.stringify(verifyData))
 
     // Step 2: Emit the certidão
     const emitRes = await fetch(`${RECEITA_BASE}/api/Emissao`, {
       method: 'POST',
-      headers: {
-        ...HEADERS,
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        Origin: RECEITA_BASE,
-        Referer: `${RECEITA_BASE}/`,
-      },
-      body: JSON.stringify({
-        ni: cleanCnpj,
-        tipoContribuinte: 'PJ',
-        tipoContribuinteEnum: 'CNPJ',
-      }),
+      headers: apiHeaders,
+      body,
       signal: AbortSignal.timeout(20_000),
     })
 
     if (!emitRes.ok) {
-      throw new Error(`Receita Emissao HTTP ${emitRes.status}`)
+      const errText = await emitRes.text().catch(() => '')
+      throw new Error(`Receita Emissao HTTP ${emitRes.status}: ${errText.substring(0, 200)}`)
     }
 
     const emitData = await emitRes.json()
