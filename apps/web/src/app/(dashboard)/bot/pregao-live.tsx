@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 
 // ─── TYPES ───────────────────────────────────────────────────────────────────
 
@@ -25,6 +25,12 @@ interface EstadoDisputa {
   lances_max: number
   tempo_restante?: string
   status_robo: 'ativo' | 'pausado' | 'standby' | 'encerrado'
+}
+
+interface PregaoLiveProps {
+  sessionId?: string
+  sessions?: any[]
+  configs?: any[]
 }
 
 // ─── MOCK DATA ────────────────────────────────────────────────────────────────
@@ -51,6 +57,39 @@ const estadoInicial: EstadoDisputa = {
 }
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+
+/** Convert a bot_action from the DB into a Lance object */
+function actionToLance(action: any): Lance | null {
+  if (action.action_type !== 'bid') return null
+  const d = action.details || {}
+  return {
+    id: action.id,
+    tempo: action.created_at
+      ? new Date(action.created_at).toLocaleTimeString('pt-BR', { hour12: false })
+      : '',
+    valor: d.valor || d.value || 0,
+    tipo: d.tipo || (d.executado_por === 'manual' ? 'nosso' : d.executado_por === 'robo' ? 'nosso' : 'concorrente'),
+    executado_por: d.executado_por || 'sistema',
+    posicao_apos: d.posicao_apos || d.posicao || 0,
+    empresa: d.empresa || undefined,
+  }
+}
+
+/** Map session status to robot status */
+function sessionStatusToRoboStatus(status: string): 'ativo' | 'pausado' | 'standby' | 'encerrado' {
+  switch (status) {
+    case 'active': return 'ativo'
+    case 'paused': return 'pausado'
+    case 'pending': return 'standby'
+    case 'completed':
+    case 'failed':
+    case 'cancelled':
+      return 'encerrado'
+    default: return 'standby'
+  }
+}
 
 // ─── COMPONENTS ──────────────────────────────────────────────────────────────
 
@@ -94,14 +133,26 @@ function PosicaoIndicator({ pos, total }: { pos: number; total: number }) {
 
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
 
-export default function PregaoLive() {
+export default function PregaoLive({ sessionId: initialSessionId, sessions = [], configs = [] }: PregaoLiveProps) {
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(initialSessionId || null)
+  const [demoMode, setDemoMode] = useState(!initialSessionId && sessions.length === 0)
   const [estado, setEstado] = useState<EstadoDisputa>(estadoInicial)
-  const [lances, setLances] = useState<Lance[]>(lancesMock)
+  const [lances, setLances] = useState<Lance[]>(demoMode ? lancesMock : [])
   const [manualValue, setManualValue] = useState('')
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'warning' | 'error' } | null>(null)
   const [clock, setClock] = useState('')
   const feedRef = useRef<HTMLDivElement>(null)
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // Get active/pending sessions for the dropdown
+  const activeSessions = sessions.filter((s: any) =>
+    ['pending', 'active', 'paused'].includes(s.status)
+  )
+
+  // Get selected session data
+  const selectedSession = sessions.find((s: any) => s.id === selectedSessionId)
+
+  // Clock
   useEffect(() => {
     const tick = () => setClock(new Date().toLocaleTimeString('pt-BR', { hour12: false }))
     tick()
@@ -109,9 +160,125 @@ export default function PregaoLive() {
     return () => clearInterval(id)
   }, [])
 
-  // Simular novos lances chegando
+  // ─── REAL DATA POLLING ─────────────────────────────────────────────────────
+  const pollRealData = useCallback(async () => {
+    if (!selectedSessionId || demoMode) return
+
+    try {
+      // Fetch actions for this session
+      const actionsRes = await fetch(`/api/bot/actions?sessionId=${selectedSessionId}`)
+      if (actionsRes.ok) {
+        const { actions } = await actionsRes.json()
+        const bidActions = (actions || [])
+          .map(actionToLance)
+          .filter(Boolean)
+          .reverse() // API returns desc, we want asc
+
+        if (bidActions.length > 0) {
+          setLances(bidActions)
+
+          // Update estado from real data
+          const nossos = bidActions.filter((l: Lance) => l.tipo === 'nosso')
+          const lastNosso = nossos[nossos.length - 1]
+          const lastLance = bidActions[bidActions.length - 1]
+
+          setEstado(prev => ({
+            ...prev,
+            nosso_lance: lastNosso?.valor || prev.nosso_lance,
+            melhor_lance: lastLance?.valor || prev.melhor_lance,
+            nossa_posicao: lastNosso?.posicao_apos || prev.nossa_posicao,
+            lances_executados: nossos.length,
+          }))
+        }
+      }
+
+      // Fetch session status
+      const sessionsRes = await fetch('/api/bot/sessions')
+      if (sessionsRes.ok) {
+        const { sessions: freshSessions } = await sessionsRes.json()
+        const currentSession = (freshSessions || []).find((s: any) => s.id === selectedSessionId)
+        if (currentSession) {
+          const roboStatus = sessionStatusToRoboStatus(currentSession.status)
+          setEstado(prev => ({
+            ...prev,
+            status_robo: roboStatus,
+            fase: roboStatus === 'encerrado' ? 'encerrado' : prev.fase,
+            max_bids: currentSession.max_bids || prev.lances_max,
+            total_concorrentes: currentSession.progress?.total_concorrentes || prev.total_concorrentes,
+          }))
+        }
+      }
+    } catch (err) {
+      console.error('Poll error:', err)
+    }
+  }, [selectedSessionId, demoMode])
+
+  // Setup polling when a real session is selected
   useEffect(() => {
-    if (estado.fase !== 'lances' || estado.status_robo === 'encerrado') return
+    if (pollRef.current) {
+      clearInterval(pollRef.current)
+      pollRef.current = null
+    }
+
+    if (selectedSessionId && !demoMode) {
+      // Initial fetch
+      pollRealData()
+      // Poll every 3 seconds
+      pollRef.current = setInterval(pollRealData, 3000)
+    }
+
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current)
+        pollRef.current = null
+      }
+    }
+  }, [selectedSessionId, demoMode, pollRealData])
+
+  // When session selection changes, update state
+  useEffect(() => {
+    if (!selectedSessionId) {
+      if (!demoMode) {
+        setDemoMode(true)
+      }
+      return
+    }
+
+    const session = sessions.find((s: any) => s.id === selectedSessionId)
+    if (!session) return
+
+    setDemoMode(false)
+
+    // Initialize estado from session data
+    const progress = session.progress || {}
+    const strategyConfig = session.strategy_config || session.strategy || {}
+
+    setEstado({
+      fase: session.status === 'completed' || session.status === 'failed' ? 'encerrado' :
+            session.status === 'active' ? 'lances' : 'aguardando',
+      nosso_lance: progress.nosso_lance || progress.last_bid?.valor || 0,
+      melhor_lance: progress.melhor_lance || progress.last_bid?.valor || 0,
+      nossa_posicao: progress.nossa_posicao || 1,
+      total_concorrentes: progress.total_concorrentes || 5,
+      lances_executados: session.bids_placed || 0,
+      lances_max: session.max_bids || strategyConfig.decrementos_max || 20,
+      status_robo: sessionStatusToRoboStatus(session.status),
+    })
+
+    // Load existing actions as lances
+    if (session.bot_actions && session.bot_actions.length > 0) {
+      const bidLances = session.bot_actions
+        .map(actionToLance)
+        .filter(Boolean)
+      setLances(bidLances.length > 0 ? bidLances : [])
+    } else {
+      setLances([])
+    }
+  }, [selectedSessionId, sessions])
+
+  // ─── DEMO MODE SIMULATION ─────────────────────────────────────────────────
+  useEffect(() => {
+    if (!demoMode || estado.fase !== 'lances' || estado.status_robo === 'encerrado') return
 
     const id = setInterval(() => {
       const isNosso = Math.random() > 0.6
@@ -150,7 +317,7 @@ export default function PregaoLive() {
     }, 4000 + Math.random() * 4000)
 
     return () => clearInterval(id)
-  }, [estado.fase, estado.status_robo])
+  }, [demoMode, estado.fase, estado.status_robo])
 
   // Auto-scroll feed
   useEffect(() => {
@@ -166,15 +333,80 @@ export default function PregaoLive() {
     return () => clearTimeout(t)
   }, [toast])
 
-  const toggleRobo = () => {
+  // ─── ACTIONS ───────────────────────────────────────────────────────────────
+
+  const toggleRobo = async () => {
     const next = estado.status_robo === 'ativo' ? 'pausado' : 'ativo'
+
+    // If real session, PATCH the session
+    if (selectedSessionId && !demoMode) {
+      try {
+        const action = next === 'ativo' ? 'resume' : 'pause'
+        const res = await fetch('/api/bot/sessions', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: selectedSessionId, action }),
+        })
+        if (!res.ok) {
+          setToast({ msg: 'Erro ao atualizar status do robô', type: 'error' })
+          return
+        }
+      } catch (err) {
+        setToast({ msg: 'Erro de conexão', type: 'error' })
+        return
+      }
+    }
+
     setEstado(p => ({ ...p, status_robo: next }))
     setToast({ msg: next === 'ativo' ? '🤖 Robô retomado' : '⏸ Robô pausado — modo manual ativo', type: 'warning' })
   }
 
-  const darLanceManual = () => {
+  const handleEncerrar = async () => {
+    if (selectedSessionId && !demoMode) {
+      try {
+        await fetch('/api/bot/sessions', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: selectedSessionId, action: 'cancel' }),
+        })
+      } catch (err) {
+        console.error('Error cancelling session:', err)
+      }
+    }
+    setEstado(p => ({ ...p, fase: 'encerrado', status_robo: 'encerrado' }))
+  }
+
+  const darLanceManual = async () => {
     const val = parseFloat(manualValue.replace(/\D/g, ''))
     if (!val || val < estado.melhor_lance * 0.7) return
+
+    // If real session, create a bot_action
+    if (selectedSessionId && !demoMode) {
+      try {
+        const res = await fetch('/api/bot/actions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            session_id: selectedSessionId,
+            action_type: 'bid',
+            details: {
+              valor: val,
+              tipo: 'nosso',
+              executado_por: 'manual',
+              posicao_apos: val < estado.melhor_lance ? 1 : 2,
+              empresa: null,
+            },
+          }),
+        })
+        if (!res.ok) {
+          setToast({ msg: 'Erro ao enviar lance', type: 'error' })
+          return
+        }
+      } catch (err) {
+        setToast({ msg: 'Erro de conexão ao enviar lance', type: 'error' })
+        return
+      }
+    }
 
     const novoLance: Lance = {
       id: String(Date.now()),
@@ -196,8 +428,25 @@ export default function PregaoLive() {
     setToast({ msg: `✓ Lance manual de ${fmt(val)} executado`, type: 'success' })
   }
 
+  const toggleDemoMode = () => {
+    if (demoMode) {
+      // Switching to real — clear demo data
+      setDemoMode(false)
+      if (!selectedSessionId) {
+        setLances([])
+        setEstado({ ...estadoInicial, status_robo: 'standby', fase: 'aguardando', lances_executados: 0, nosso_lance: 0, melhor_lance: 0 })
+      }
+    } else {
+      // Switching to demo
+      setDemoMode(true)
+      setSelectedSessionId(null)
+      setLances(lancesMock)
+      setEstado(estadoInicial)
+    }
+  }
+
   const diferenca = estado.nosso_lance - estado.melhor_lance
-  const progressPct = (estado.lances_executados / estado.lances_max) * 100
+  const progressPct = estado.lances_max > 0 ? (estado.lances_executados / estado.lances_max) * 100 : 0
 
   const s: Record<string, React.CSSProperties> = {
     root: {
@@ -280,6 +529,12 @@ export default function PregaoLive() {
       background: bg, border: `1px solid ${color}44`,
       color, fontSize: 11, fontWeight: 700, letterSpacing: 1,
     }),
+    select: {
+      background: '#ffffff08', border: '1px solid #ffffff12',
+      borderRadius: 6, padding: '8px 12px',
+      color: '#f1f5f9', fontSize: 11, fontFamily: '"IBM Plex Mono", monospace',
+      outline: 'none', cursor: 'pointer',
+    },
   }
 
   return (
@@ -315,7 +570,38 @@ export default function PregaoLive() {
           <div style={{ width: 8, height: 8, borderRadius: '50%', background: estado.fase === 'lances' ? '#22c55e' : '#ef4444', animation: 'pulse 1s infinite' }} />
           <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 3, color: '#64748b' }}>LICITAGRAM</span>
           <span style={{ color: '#1e293b' }}>|</span>
-          <span style={{ fontSize: 10, color: '#94a3b8' }}>Câmara Municipal · Pregão Eletrônico · PNCP</span>
+
+          {/* Session selector or title */}
+          {activeSessions.length > 0 && !demoMode ? (
+            <select
+              style={s.select}
+              value={selectedSessionId || ''}
+              onChange={(e) => setSelectedSessionId(e.target.value || null)}
+            >
+              <option value="">Selecione uma sessão...</option>
+              {activeSessions.map((sess: any) => (
+                <option key={sess.id} value={sess.id}>
+                  {sess.pregao_id?.slice(0, 20) || sess.id.slice(0, 8)} — {sess.status}
+                  {sess.portal ? ` (${sess.portal})` : ''}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span style={{ fontSize: 10, color: '#94a3b8' }}>
+              {demoMode ? 'Modo Demo · Simulação' : 'Nenhuma sessão ativa'}
+            </span>
+          )}
+
+          {/* Demo mode toggle */}
+          <button
+            style={{
+              ...s.btn(demoMode ? '#3b82f6' : '#475569', demoMode ? '#3b82f618' : 'transparent'),
+              fontSize: 9, padding: '6px 12px',
+            }}
+            onClick={toggleDemoMode}
+          >
+            {demoMode ? '● DEMO' : '○ DEMO'}
+          </button>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
           <StatusBadge status={estado.status_robo} />
@@ -332,9 +618,10 @@ export default function PregaoLive() {
           <div style={s.metricGrid}>
             <div style={{ ...s.metricCard, border: '1px solid #f9731622' }}>
               <div style={s.metricLabel}>Nosso lance</div>
-              <div style={{ ...s.metricValue, color: '#f97316' }}>{fmt(estado.nosso_lance)}</div>
+              <div style={{ ...s.metricValue, color: '#f97316' }}>{estado.nosso_lance > 0 ? fmt(estado.nosso_lance) : '—'}</div>
               <div style={s.metricSub}>
-                {diferenca === 0 ? '= melhor lance' : `${fmt(Math.abs(diferenca))} ${diferenca > 0 ? 'acima' : 'abaixo'} do melhor`}
+                {estado.nosso_lance === 0 ? 'Aguardando lances' :
+                 diferenca === 0 ? '= melhor lance' : `${fmt(Math.abs(diferenca))} ${diferenca > 0 ? 'acima' : 'abaixo'} do melhor`}
               </div>
             </div>
 
@@ -344,7 +631,7 @@ export default function PregaoLive() {
 
             <div style={{ ...s.metricCard, border: '1px solid #3b82f622' }}>
               <div style={s.metricLabel}>Melhor lance</div>
-              <div style={{ ...s.metricValue, color: '#3b82f6' }}>{fmt(estado.melhor_lance)}</div>
+              <div style={{ ...s.metricValue, color: '#3b82f6' }}>{estado.melhor_lance > 0 ? fmt(estado.melhor_lance) : '—'}</div>
               <div style={s.metricSub}>Menor valor da disputa</div>
             </div>
           </div>
@@ -379,8 +666,8 @@ export default function PregaoLive() {
             <div style={{ fontSize: 9, color: '#334155', letterSpacing: 2, marginBottom: 12 }}>FASE DA DISPUTA</div>
             <div style={{ display: 'flex', gap: 8 }}>
               {(['Abertura', 'Lances', 'Negociação', 'Resultado'] as const).map((fase, i) => {
-                const ativo = i === 1
-                const done = i === 0
+                const ativo = (estado.fase === 'lances' && i === 1) || (estado.fase === 'aguardando' && i === 0) || (estado.fase === 'encerrado' && i === 3)
+                const done = (estado.fase === 'lances' && i === 0) || (estado.fase === 'encerrado' && i < 3)
                 return (
                   <div key={fase} style={{
                     flex: 1, padding: '8px 4px', borderRadius: 6, textAlign: 'center',
@@ -407,7 +694,7 @@ export default function PregaoLive() {
                 {estado.status_robo === 'ativo' ? '⏸ PAUSAR ROBÔ' : '▶ RETOMAR ROBÔ'}
               </button>
               <button style={s.btn('#ef4444', 'transparent')}
-                onClick={() => setEstado(p => ({ ...p, fase: 'encerrado', status_robo: 'encerrado' }))}>
+                onClick={handleEncerrar}>
                 ■ ENCERRAR
               </button>
             </div>
@@ -444,6 +731,15 @@ export default function PregaoLive() {
           </div>
 
           <div ref={feedRef} style={s.feed}>
+            {lances.length === 0 && !demoMode && (
+              <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+                <div style={{ fontSize: 11, color: '#334155', marginBottom: 8 }}>Nenhum lance registrado</div>
+                <div style={{ fontSize: 10, color: '#1e293b' }}>
+                  {selectedSessionId ? 'Aguardando lances do robô...' : 'Selecione uma sessão ou ative o modo Demo'}
+                </div>
+              </div>
+            )}
+
             {lances.map((l, i) => (
               <div key={l.id} style={s.lanceRow(l.tipo)}>
                 {/* Indicador */}
@@ -487,7 +783,9 @@ export default function PregaoLive() {
             {estado.fase === 'lances' && (
               <div style={{ padding: '12px 20px', display: 'flex', gap: 8, alignItems: 'center' }}>
                 <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#f97316', animation: 'pulse 1s infinite' }} />
-                <span style={{ fontSize: 9, color: '#334155' }}>Aguardando próximo lance...</span>
+                <span style={{ fontSize: 9, color: '#334155' }}>
+                  {demoMode ? 'Simulação ativa...' : selectedSessionId ? 'Polling a cada 3s...' : 'Aguardando sessão...'}
+                </span>
               </div>
             )}
 

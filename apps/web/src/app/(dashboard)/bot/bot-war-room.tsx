@@ -9,11 +9,13 @@ interface Props {
   configs: Record<string, unknown>[]
   sessions: Record<string, unknown>[]
   companyId: string
+  tenders?: Record<string, unknown>[]
+  competitors?: Record<string, unknown>[]
 }
 
 type View = 'dashboard' | 'pregao' | 'live'
 
-export function BotWarRoom({ configs, sessions, companyId }: Props) {
+export function BotWarRoom({ configs, sessions, companyId, tenders, competitors }: Props) {
   const [view, setView] = useState<View>('dashboard')
 
   return (
@@ -59,13 +61,21 @@ export function BotWarRoom({ configs, sessions, companyId }: Props) {
 
       {view === 'pregao' && (
         <div className="-mx-4 -mt-4 sm:-mx-6 lg:-mx-8">
-          <SalaDoRegao />
+          <SalaDoRegao
+            tenders={tenders as any}
+            competitors={competitors as any}
+            configs={configs as any}
+            companyId={companyId}
+          />
         </div>
       )}
 
       {view === 'live' && (
         <div className="-mx-4 -mt-4 sm:-mx-6 lg:-mx-8">
-          <PregaoLive />
+          <PregaoLive
+            sessions={sessions as any}
+            configs={configs as any}
+          />
         </div>
       )}
     </div>

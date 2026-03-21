@@ -124,16 +124,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Erro ao criar acao' }, { status: 500 })
     }
 
-    // If it's a bid, update session bids_placed count
+    // If it's a bid, update session progress
     if (action_type === 'bid') {
-      await supabase.rpc('increment_bids_placed', { session_uuid: session_id }).catch(() => {
-        // Fallback: manual update if rpc doesn't exist
-        supabase
+      try {
+        await supabase
           .from('bot_sessions')
-          .update({ progress: { last_bid: details } })
+          .update({ progress: { last_bid: details, updated_at: new Date().toISOString() } })
           .eq('id', session_id)
-          .then(() => {})
-      })
+      } catch {
+        // Non-critical, ignore
+      }
     }
 
     return NextResponse.json({ action }, { status: 201 })

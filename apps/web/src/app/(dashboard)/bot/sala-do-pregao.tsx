@@ -67,7 +67,15 @@ interface Strategy {
   aguardar_segundos: number
 }
 
-// ─── MOCK DATA ────────────────────────────────────────────────────────────────
+interface SalaDoRegaoProps {
+  tenderId?: string
+  tenders?: any[]
+  competitors?: any[]
+  configs?: any[]
+  companyId?: string
+}
+
+// ─── MOCK DATA (fallback) ────────────────────────────────────────────────────
 
 const mockHabilitados: Habilitado[] = [
   {
@@ -137,6 +145,84 @@ const mockSuggestion: PriceSuggestion = {
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 const pct = (v: number) => `${Math.round(v * 100)}%`
+
+/** Convert raw competitors from DB into Habilitado format */
+function competitorsToHabilitados(competitors: any[]): Habilitado[] {
+  return competitors.map((c) => ({
+    cnpj: c.cnpj || '00.000.000/0001-00',
+    razao_social: c.nome || 'Empresa não identificada',
+    porte: 'DEMAIS' as const,
+    uf: '',
+    win_rate: 0,
+    total_participacoes: 0,
+    total_vitorias: 0,
+    valor_medio_ganho: c.valor_proposta ? Number(c.valor_proposta) : 0,
+    desconto_medio: 0,
+    modalidades: [],
+    ultima_participacao: c.created_at ? c.created_at.slice(0, 10) : '',
+    ganhou_neste_orgao: c.situacao === 'vencedor',
+  }))
+}
+
+/** Calculate difficulty score from competitor data */
+function calculateDifficulty(habilitados: Habilitado[], valorEstimado: number): DifficultyScore {
+  const n = habilitados.length
+  const avgWinRate = n > 0 ? habilitados.reduce((s, h) => s + h.win_rate, 0) / n : 0
+  const hasLarge = habilitados.some(h => h.porte === 'DEMAIS')
+  const avgDiscount = n > 0 ? habilitados.reduce((s, h) => s + h.desconto_medio, 0) / n : 0
+  const aggressive = avgDiscount > 20
+
+  let score = 20 // base
+  if (n > 5) score += 15
+  else if (n > 3) score += 10
+  if (avgWinRate > 0.7) score += 20
+  else if (avgWinRate > 0.4) score += 10
+  if (hasLarge) score += 15
+  if (aggressive) score += 15
+  score = Math.min(100, Math.max(0, score))
+
+  const nivel = score >= 75 ? 'muito difícil' : score >= 50 ? 'difícil' : score >= 25 ? 'moderado' : 'fácil'
+
+  const recomendacoes: Record<string, string> = {
+    'fácil': 'Poucos concorrentes e baixo nível de competitividade. Boa oportunidade para lance conservador.',
+    'moderado': 'Competição moderada. Recomenda-se atenção ao posicionamento e lances estratégicos.',
+    'difícil': 'Disputa acirrada. Defina seu lance mínimo com cuidado e ative o robô para contra-ataques precisos.',
+    'muito difícil': 'Competição extremamente forte. Presença de empresas dominantes. Avalie se o custo-benefício vale a disputa.',
+  }
+
+  return {
+    score,
+    nivel,
+    n_concorrentes: n,
+    win_rate_medio: Math.round(avgWinRate * 100),
+    presenca_grande: hasLarge,
+    descontos_agressivos: aggressive,
+    recomendacao: recomendacoes[nivel],
+  }
+}
+
+/** Generate price suggestion based on competitor data and estimated value */
+function calculateSuggestion(habilitados: Habilitado[], valorEstimado: number): PriceSuggestion {
+  if (!valorEstimado || valorEstimado <= 0) {
+    return mockSuggestion
+  }
+
+  const avgDiscount = habilitados.length > 0
+    ? habilitados.reduce((s, h) => s + h.desconto_medio, 0) / habilitados.length
+    : 15
+
+  const sugerido = Math.round(valorEstimado * (1 - avgDiscount / 100))
+  const minimo = Math.round(valorEstimado * 0.7)
+  const maximo = Math.round(valorEstimado * 0.95)
+
+  return {
+    lance_sugerido: sugerido,
+    faixa_minima: minimo,
+    faixa_maxima: maximo,
+    baseado_em: habilitados.length,
+    historico: [],
+  }
+}
 
 function WinRateBadge({ rate }: { rate: number }) {
   const pct = Math.round(rate * 100)
@@ -243,15 +329,27 @@ function DifficultyGauge({ score, nivel }: { score: number; nivel: string }) {
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
-export default function SalaDoRegao() {
-  const [habilitados] = useState<Habilitado[]>(mockHabilitados)
-  const [difficulty] = useState<DifficultyScore>(mockDifficulty)
-  const [suggestion] = useState<PriceSuggestion>(mockSuggestion)
+export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], competitors = [], configs = [], companyId }: SalaDoRegaoProps) {
+  const [selectedTenderId, setSelectedTenderId] = useState<string | null>(initialTenderId || null)
+  const [habilitados, setHabilitados] = useState<Habilitado[]>([])
+  const [difficulty, setDifficulty] = useState<DifficultyScore>(mockDifficulty)
+  const [suggestion, setSuggestion] = useState<PriceSuggestion>(mockSuggestion)
   const [expandedCnpj, setExpandedCnpj] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [confirmed, setConfirmed] = useState(false)
+  const [clock, setClock] = useState('')
+  const [isDemo, setIsDemo] = useState(false)
+
+  // Get the selected tender data
+  const selectedTender = tenders.find((t: any) => t.id === selectedTenderId)
+  const tenderTitle = selectedTender?.objeto || 'Contratação de empresa especializada para serviços técnicos de TI junto à Câmara Municipal'
+  const valorEstimado = selectedTender?.valor_estimado ? Number(selectedTender.valor_estimado) : 225000
+
+  // Strategy state - initialize with computed values
   const [strategy, setStrategy] = useState<Strategy>({
-    valor_referencia: 225000,
-    lance_inicial: suggestion.lance_sugerido,
-    lance_minimo: suggestion.faixa_minima,
+    valor_referencia: valorEstimado,
+    lance_inicial: Math.round(valorEstimado * 0.85),
+    lance_minimo: Math.round(valorEstimado * 0.7),
     modo: 'conservador',
     robo_ativo: false,
     decrementos_max: 20,
@@ -259,9 +357,49 @@ export default function SalaDoRegao() {
     posicao_alvo: 1,
     aguardar_segundos: 30,
   })
-  const [loading, setLoading] = useState(true)
-  const [confirmed, setConfirmed] = useState(false)
-  const [clock, setClock] = useState('')
+
+  // When tender selection changes, recompute everything
+  useEffect(() => {
+    if (!selectedTenderId || tenders.length === 0) {
+      // No real tender selected — use mock data
+      setHabilitados(mockHabilitados)
+      setDifficulty(mockDifficulty)
+      setSuggestion(mockSuggestion)
+      setIsDemo(true)
+      return
+    }
+
+    setIsDemo(false)
+    const tender = tenders.find((t: any) => t.id === selectedTenderId)
+    const tenderComps = competitors.filter((c: any) => c.tender_id === selectedTenderId)
+    const ve = tender?.valor_estimado ? Number(tender.valor_estimado) : 225000
+
+    if (tenderComps.length > 0) {
+      const habs = competitorsToHabilitados(tenderComps)
+      setHabilitados(habs)
+      setDifficulty(calculateDifficulty(habs, ve))
+      setSuggestion(calculateSuggestion(habs, ve))
+    } else {
+      // No competitors found — use mock as fallback
+      setHabilitados(mockHabilitados)
+      setDifficulty(mockDifficulty)
+      setSuggestion(mockSuggestion)
+      setIsDemo(true)
+    }
+
+    // Update strategy with new tender values
+    const sug = tenderComps.length > 0
+      ? calculateSuggestion(competitorsToHabilitados(tenderComps), ve)
+      : mockSuggestion
+
+    setStrategy(prev => ({
+      ...prev,
+      valor_referencia: ve,
+      lance_inicial: sug.lance_sugerido,
+      lance_minimo: sug.faixa_minima,
+    }))
+    setConfirmed(false)
+  }, [selectedTenderId, tenders, competitors])
 
   useEffect(() => {
     const t = setTimeout(() => setLoading(false), 1800)
@@ -277,6 +415,46 @@ export default function SalaDoRegao() {
     const id = setInterval(tick, 1000)
     return () => clearInterval(id)
   }, [])
+
+  // Create a real bot_session when strategy is confirmed
+  const handleConfirmStrategy = async () => {
+    if (confirmed) return
+
+    // If we have a real tender and configs, create a session
+    if (selectedTenderId && configs.length > 0 && companyId && !isDemo) {
+      try {
+        const config = configs[0] // Use first available config
+        const res = await fetch('/api/bot/sessions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            config_id: config.id,
+            pregao_id: selectedTender?.pncp_id || selectedTenderId,
+            tender_id: selectedTenderId,
+            portal: config.portal || 'comprasnet',
+            min_price: strategy.lance_minimo,
+            max_bids: strategy.decrementos_max,
+            strategy: {
+              modo: strategy.modo,
+              lance_inicial: strategy.lance_inicial,
+              lance_minimo: strategy.lance_minimo,
+              decremento_percent: strategy.decremento_percent,
+              posicao_alvo: strategy.posicao_alvo,
+              aguardar_segundos: strategy.aguardar_segundos,
+              robo_ativo: strategy.robo_ativo,
+            },
+          }),
+        })
+        if (!res.ok) {
+          console.error('Failed to create session:', await res.text())
+        }
+      } catch (err) {
+        console.error('Failed to create bot session:', err)
+      }
+    }
+
+    setConfirmed(true)
+  }
 
   const margem = strategy.valor_referencia > 0
     ? Math.round(((strategy.valor_referencia - strategy.lance_minimo) / strategy.valor_referencia) * 100)
@@ -309,8 +487,10 @@ export default function SalaDoRegao() {
     },
     headerLeft: { display: 'flex', alignItems: 'center', gap: 20 },
     headerBadge: {
-      background: '#ef444422', color: '#ef4444',
-      border: '1px solid #ef444455', borderRadius: 4,
+      background: isDemo ? '#3b82f622' : '#ef444422',
+      color: isDemo ? '#3b82f6' : '#ef4444',
+      border: `1px solid ${isDemo ? '#3b82f655' : '#ef444455'}`,
+      borderRadius: 4,
       padding: '3px 12px', fontSize: 10, fontWeight: 700,
       letterSpacing: 2, animation: 'pulse 2s infinite',
     },
@@ -404,6 +584,13 @@ export default function SalaDoRegao() {
       transition: 'all 0.2s',
     },
     histTable: { width: '100%', borderCollapse: 'collapse' as const, fontSize: 11 },
+    select: {
+      background: '#ffffff08', border: '1px solid #ffffff12',
+      borderRadius: 6, padding: '10px 14px',
+      color: '#f1f5f9', fontSize: 12, fontFamily: '"IBM Plex Mono", monospace',
+      outline: 'none', width: '100%', boxSizing: 'border-box' as const,
+      cursor: 'pointer',
+    },
   }
 
   if (loading) {
@@ -458,19 +645,38 @@ export default function SalaDoRegao() {
             <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', animation: 'pulse 1.5s infinite' }} />
             <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, color: '#f97316' }}>SALA DO PREGÃO</span>
           </div>
-          <div style={s.headerBadge}>AO VIVO</div>
-          <div style={s.tenderTitle}>
-            Contratação de empresa especializada para serviços técnicos de TI junto à Câmara Municipal
-          </div>
+          <div style={s.headerBadge}>{isDemo ? 'DEMO' : 'AO VIVO'}</div>
+
+          {/* Tender selector or title */}
+          {tenders.length > 0 ? (
+            <select
+              style={{ ...s.select, maxWidth: 480 }}
+              value={selectedTenderId || ''}
+              onChange={(e) => setSelectedTenderId(e.target.value || null)}
+            >
+              <option value="">Selecione um pregão...</option>
+              {tenders.map((t: any) => (
+                <option key={t.id} value={t.id}>
+                  {t.objeto?.slice(0, 80) || 'Pregão sem título'} {t.valor_estimado ? `(${fmt(Number(t.valor_estimado))})` : ''}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div style={s.tenderTitle}>{tenderTitle}</div>
+          )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
           <div style={{ fontSize: 10, color: '#475569', textAlign: 'right' }}>
             <div>ABERTURA</div>
-            <div style={{ color: '#94a3b8', fontWeight: 700 }}>27/03/2026 · 10:00</div>
+            <div style={{ color: '#94a3b8', fontWeight: 700 }}>
+              {selectedTender?.data_abertura
+                ? new Date(selectedTender.data_abertura).toLocaleDateString('pt-BR') + ' · ' + new Date(selectedTender.data_abertura).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                : '27/03/2026 · 10:00'}
+            </div>
           </div>
           <div style={{ fontSize: 10, color: '#475569', textAlign: 'right' }}>
             <div>VALOR EST.</div>
-            <div style={{ color: '#f1f5f9', fontWeight: 700 }}>{fmt(225000)}</div>
+            <div style={{ color: '#f1f5f9', fontWeight: 700 }}>{fmt(valorEstimado)}</div>
           </div>
           <div style={{ fontSize: 10, color: '#475569', textAlign: 'right' }}>
             <div>HORA</div>
@@ -511,8 +717,8 @@ export default function SalaDoRegao() {
                     </div>
                     <div style={s.habilitadoMeta}>
                       <PorteBadge porte={h.porte} />
-                      <span style={s.metaChip}>{h.uf}</span>
-                      <span style={s.metaChip}>·</span>
+                      {h.uf && <span style={s.metaChip}>{h.uf}</span>}
+                      {h.uf && <span style={s.metaChip}>·</span>}
                       <span style={s.metaChip}>{h.total_participacoes} participações</span>
                       <span style={s.metaChip}>·</span>
                       <span style={s.metaChip}>desc. médio {h.desconto_medio}%</span>
@@ -604,7 +810,7 @@ export default function SalaDoRegao() {
             <div>
               <div style={{ fontSize: 9, color: '#334155', letterSpacing: 2, marginBottom: 10 }}>SUGESTÃO DE LANCE</div>
               <div style={{ fontSize: 9, color: '#475569', marginBottom: 12 }}>
-                Baseado em {suggestion.baseado_em} licitações similares encerradas
+                Baseado em {suggestion.baseado_em} {isDemo ? 'licitações similares encerradas' : 'concorrentes analisados'}
               </div>
 
               {/* RANGE BAR */}
@@ -619,7 +825,7 @@ export default function SalaDoRegao() {
                     position: 'absolute', top: -3, width: 12, height: 12,
                     borderRadius: '50%', background: '#f97316',
                     border: '2px solid #08090e',
-                    left: `${20 + (suggestion.lance_sugerido - suggestion.faixa_minima) / (suggestion.faixa_maxima - suggestion.faixa_minima) * 70}%`,
+                    left: `${20 + (suggestion.lance_sugerido - suggestion.faixa_minima) / (Math.max(suggestion.faixa_maxima - suggestion.faixa_minima, 1)) * 70}%`,
                     transform: 'translateX(-50%)',
                   }} />
                 </div>
@@ -642,30 +848,32 @@ export default function SalaDoRegao() {
             </div>
 
             {/* HISTÓRICO SIMILARES */}
-            <div>
-              <div style={{ fontSize: 9, color: '#334155', letterSpacing: 2, marginBottom: 10 }}>LICITAÇÕES SIMILARES ENCERRADAS</div>
-              <table style={s.histTable}>
-                <thead>
-                  <tr>
-                    {['Data', 'Val. Est.', 'Vencedor', 'Desc.'].map(h => (
-                      <th key={h} style={{ textAlign: 'left', fontSize: 9, color: '#334155', fontWeight: 600, padding: '0 0 8px', letterSpacing: 1 }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {suggestion.historico.map((h, i) => (
-                    <tr key={i} style={{ borderTop: '1px solid #ffffff04' }}>
-                      <td style={{ padding: '7px 0', fontSize: 10, color: '#475569' }}>{h.data}</td>
-                      <td style={{ padding: '7px 0', fontSize: 10, color: '#64748b' }}>{fmt(h.valor_estimado)}</td>
-                      <td style={{ padding: '7px 0', fontSize: 11, color: '#94a3b8', fontWeight: 700 }}>{fmt(h.lance_vencedor)}</td>
-                      <td style={{ padding: '7px 0', fontSize: 11, color: h.desconto_percent > 20 ? '#f97316' : '#22c55e', fontWeight: 700 }}>
-                        -{h.desconto_percent}%
-                      </td>
+            {suggestion.historico.length > 0 && (
+              <div>
+                <div style={{ fontSize: 9, color: '#334155', letterSpacing: 2, marginBottom: 10 }}>LICITAÇÕES SIMILARES ENCERRADAS</div>
+                <table style={s.histTable}>
+                  <thead>
+                    <tr>
+                      {['Data', 'Val. Est.', 'Vencedor', 'Desc.'].map(h => (
+                        <th key={h} style={{ textAlign: 'left', fontSize: 9, color: '#334155', fontWeight: 600, padding: '0 0 8px', letterSpacing: 1 }}>{h}</th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {suggestion.historico.map((h, i) => (
+                      <tr key={i} style={{ borderTop: '1px solid #ffffff04' }}>
+                        <td style={{ padding: '7px 0', fontSize: 10, color: '#475569' }}>{h.data}</td>
+                        <td style={{ padding: '7px 0', fontSize: 10, color: '#64748b' }}>{fmt(h.valor_estimado)}</td>
+                        <td style={{ padding: '7px 0', fontSize: 11, color: '#94a3b8', fontWeight: 700 }}>{fmt(h.lance_vencedor)}</td>
+                        <td style={{ padding: '7px 0', fontSize: 11, color: h.desconto_percent > 20 ? '#f97316' : '#22c55e', fontWeight: 700 }}>
+                          -{h.desconto_percent}%
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
 
@@ -798,6 +1006,7 @@ export default function SalaDoRegao() {
                 { k: 'Margem protegida', v: `${margem}% sobre o est.`, color: '#22c55e' },
                 { k: 'Modo', v: strategy.modo.toUpperCase(), color: '#a855f7' },
                 { k: 'Robô', v: strategy.robo_ativo ? 'ATIVADO' : 'DESATIVADO', color: strategy.robo_ativo ? '#f97316' : '#475569' },
+                { k: 'Pregão', v: isDemo ? 'DEMO' : (selectedTender?.pncp_id || 'N/A'), color: isDemo ? '#3b82f6' : '#94a3b8' },
               ].map(row => (
                 <div key={row.k} style={s.summaryRow}>
                   <span style={s.summaryKey}>{row.k}</span>
@@ -809,7 +1018,7 @@ export default function SalaDoRegao() {
             {/* CTA */}
             <button
               style={s.ctaBtn}
-              onClick={() => setConfirmed(true)}
+              onClick={handleConfirmStrategy}
             >
               {confirmed
                 ? '✓ ESTRATÉGIA CONFIRMADA'
@@ -821,7 +1030,10 @@ export default function SalaDoRegao() {
 
             {confirmed && (
               <div style={{ textAlign: 'center', fontSize: 10, color: '#22c55e', letterSpacing: 1, animation: 'pulse 2s infinite' }}>
-                Aguardando abertura da fase de lances · {strategy.robo_ativo ? 'Robô em standby' : 'Modo manual'}
+                {isDemo
+                  ? 'Modo demo — conecte um pregão real para criar sessão'
+                  : `Aguardando abertura da fase de lances · ${strategy.robo_ativo ? 'Robô em standby' : 'Modo manual'}`
+                }
               </div>
             )}
 
