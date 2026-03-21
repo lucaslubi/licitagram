@@ -61,10 +61,32 @@ export async function scrapeReceita(cnpj: string): Promise<CertidaoResult> {
     log.info({ selector: cnpjInput }, 'Typing CNPJ into Receita input')
     await page.type(cnpjInput, cleanCnpj, { delay: 30 })
 
-    // Step 3: Wait for hCaptcha to appear and be auto-solved by CapSolver extension
+    // Step 3: Intercept hCaptcha sitekey from network requests
+    let captchaSitekey: string | null = null
+
+    // Set up request interception BEFORE checking for captcha
+    page.on('request', (req) => {
+      const url = req.url()
+      if (url.includes('hcaptcha.com') || url.includes('api.hcaptcha.com')) {
+        const skMatch = url.match(/sitekey=([^&]+)/)
+        if (skMatch) captchaSitekey = skMatch[1]
+      }
+    })
+
+    // Also try extracting from page scripts
+    page.on('response', async (res) => {
+      if (res.url().includes('hcaptcha') && !captchaSitekey) {
+        try {
+          const text = await res.text()
+          const m = text.match(/sitekey['":\s]*['"]([0-9a-f-]{20,})['"]/i)
+          if (m) captchaSitekey = m[1]
+        } catch {}
+      }
+    })
+
     let hcaptchaPresent = false
     try {
-      await page.waitForSelector('iframe[src*="hcaptcha"]', { timeout: 8000 })
+      await page.waitForSelector('iframe[src*="hcaptcha"]', { timeout: 10000 })
       hcaptchaPresent = true
     } catch {
       hcaptchaPresent = false
@@ -73,36 +95,53 @@ export async function scrapeReceita(cnpj: string): Promise<CertidaoResult> {
     if (hcaptchaPresent) {
       log.info('hCaptcha detected -- solving via CapSolver API')
 
-      // Extract sitekey from iframe src or data-sitekey attribute
-      const sitekey = await page.evaluate(() => {
-        // Try data-sitekey first
-        const container = document.querySelector('[data-sitekey]')
-        if (container) return container.getAttribute('data-sitekey')
-        // Try iframe src
-        const iframe = document.querySelector('iframe[src*="hcaptcha"]') as HTMLIFrameElement
-        if (iframe) {
-          const m = iframe.src.match(/sitekey=([^&]+)/)
-          if (m) return m[1]
-        }
-        // Try hcaptcha render config
-        const hcDiv = document.querySelector('.h-captcha')
-        if (hcDiv) return hcDiv.getAttribute('data-sitekey')
-        return null
-      })
-
-      if (!sitekey) {
-        log.warn('hCaptcha detected but sitekey not found, trying page source')
-        // Try to find sitekey in page source
-        const pageContent = await page.content()
-        const skMatch = pageContent.match(/sitekey['":\s]+['"]([0-9a-f-]{36,})['"]/i)
-        if (!skMatch) {
-          log.warn('Could not extract hCaptcha sitekey from page')
-          return manualFallback
-        }
-        var finalSitekey = skMatch[1]
-      } else {
-        var finalSitekey = sitekey
+      // Try multiple ways to get sitekey
+      if (!captchaSitekey) {
+        captchaSitekey = await page.evaluate(() => {
+          const container = document.querySelector('[data-sitekey]')
+          if (container) return container.getAttribute('data-sitekey')
+          const hcDiv = document.querySelector('.h-captcha')
+          if (hcDiv) return hcDiv.getAttribute('data-sitekey')
+          const iframe = document.querySelector('iframe[src*="hcaptcha"]') as HTMLIFrameElement
+          if (iframe) {
+            const m = iframe.src.match(/sitekey=([^&]+)/)
+            if (m) return m[1]
+          }
+          // Search all script tags for sitekey
+          const scripts = document.querySelectorAll('script')
+          for (const s of scripts) {
+            const m = s.textContent?.match(/sitekey['":\s]*['"]([0-9a-f-]{20,})['"]/i)
+            if (m) return m[1]
+          }
+          return null
+        })
       }
+
+      // Last resort: check page source and all iframe srcs
+      if (!captchaSitekey) {
+        const frames = page.frames()
+        for (const frame of frames) {
+          const url = frame.url()
+          if (url.includes('hcaptcha')) {
+            const m = url.match(/sitekey=([^&]+)/)
+            if (m) { captchaSitekey = m[1]; break }
+          }
+        }
+      }
+
+      if (!captchaSitekey) {
+        // Hardcoded fallback — Receita Federal uses this sitekey
+        const pageContent = await page.content()
+        const skMatch = pageContent.match(/['"]([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})['"]/i)
+        if (skMatch) captchaSitekey = skMatch[1]
+      }
+
+      if (!captchaSitekey) {
+        log.warn('Could not extract hCaptcha sitekey by any method')
+        return manualFallback
+      }
+
+      const finalSitekey = captchaSitekey
 
       log.info({ sitekey: finalSitekey }, 'Solving hCaptcha via CapSolver API')
 
