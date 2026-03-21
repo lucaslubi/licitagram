@@ -11,8 +11,15 @@ from datetime import datetime
 from dotenv import load_dotenv
 
 # Load .env FIRST (before any other imports that need env vars)
-_env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), '.env')
-load_dotenv(_env_path)
+# Try multiple locations for .env
+for _env_candidate in [
+    os.path.join(os.getcwd(), '.env'),
+    '/opt/licitagram/.env',
+    os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), '.env'),
+]:
+    if os.path.exists(_env_candidate):
+        load_dotenv(_env_candidate)
+        break
 
 # Add parent to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
