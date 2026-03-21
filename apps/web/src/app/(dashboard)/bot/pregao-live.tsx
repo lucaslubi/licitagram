@@ -27,6 +27,14 @@ interface EstadoDisputa {
   status_robo: 'ativo' | 'pausado' | 'standby' | 'encerrado'
 }
 
+interface AILiveInsight {
+  tipo: string
+  icone: string
+  titulo: string
+  descricao: string
+  acao_sugerida: string
+}
+
 interface PregaoLiveProps {
   sessionId?: string
   sessions?: any[]
@@ -143,6 +151,11 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
   const [clock, setClock] = useState('')
   const feedRef = useRef<HTMLDivElement>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [aiInsights, setAiInsights] = useState<AILiveInsight[]>([])
+  const [aiInsightIndex, setAiInsightIndex] = useState(0)
+  const aiTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const lastAiFetchRef = useRef(0)
+  const lancesCountRef = useRef(0)
 
   // Get active/pending sessions for the dropdown
   const activeSessions = sessions.filter((s: any) =>
@@ -332,6 +345,79 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
     const t = setTimeout(() => setToast(null), 4000)
     return () => clearTimeout(t)
   }, [toast])
+
+  // ─── AI INSIGHTS ──────────────────────────────────────────────────────────
+
+  // Fetch AI insights when new bids come in or every 30s
+  useEffect(() => {
+    if (estado.fase !== 'lances') return
+
+    const shouldFetch =
+      lances.length !== lancesCountRef.current ||
+      Date.now() - lastAiFetchRef.current > 30000
+
+    if (!shouldFetch) return
+
+    lancesCountRef.current = lances.length
+    lastAiFetchRef.current = Date.now()
+
+    const fetchAiInsights = async () => {
+      try {
+        const res = await fetch('/api/bot/ai-insights', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'ao-vivo',
+            tender: {
+              objeto: selectedSession?.pregao_id || 'Pregão em andamento',
+              valor_estimado: 0,
+            },
+            lances: lances.slice(-10).map(l => ({
+              valor: l.valor,
+              tipo: l.tipo,
+              empresa: l.empresa || (l.tipo === 'nosso' ? 'NOSSA EMPRESA' : 'Concorrente'),
+            })),
+            nossa_posicao: estado.nossa_posicao,
+            nosso_lance: estado.nosso_lance,
+            melhor_lance: estado.melhor_lance,
+          }),
+        })
+
+        if (res.ok) {
+          const data = await res.json()
+          if (data.insights && data.insights.length > 0) {
+            setAiInsights(data.insights)
+            setAiInsightIndex(0)
+          }
+        }
+      } catch {
+        // silently skip
+      }
+    }
+
+    fetchAiInsights()
+  }, [lances.length, estado.fase])
+
+  // Auto-rotate through AI insights every 6s
+  useEffect(() => {
+    if (aiTimerRef.current) {
+      clearInterval(aiTimerRef.current)
+      aiTimerRef.current = null
+    }
+
+    if (aiInsights.length > 1) {
+      aiTimerRef.current = setInterval(() => {
+        setAiInsightIndex(prev => (prev + 1) % aiInsights.length)
+      }, 6000)
+    }
+
+    return () => {
+      if (aiTimerRef.current) {
+        clearInterval(aiTimerRef.current)
+        aiTimerRef.current = null
+      }
+    }
+  }, [aiInsights.length])
 
   // ─── ACTIONS ───────────────────────────────────────────────────────────────
 
@@ -543,6 +629,8 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
         @keyframes glow { 0%,100%{box-shadow:0 0 0 0 #f9731640} 50%{box-shadow:0 0 0 12px transparent} }
         @keyframes slideIn { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
+        @keyframes shimmer { from{background-position:200% 0} to{background-position:-200% 0} }
+        @keyframes fadeSlideIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
         ::-webkit-scrollbar { width: 3px; }
         ::-webkit-scrollbar-thumb { background: #1e293b; }
@@ -720,6 +808,68 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
               Pressione Enter ou clique em Enviar para dar um lance manual
             </div>
           </div>
+
+          {/* AI INSIGHTS BAR */}
+          {aiInsights.length > 0 && (
+            <div style={{
+              background: '#0f1018',
+              border: '1px solid #a855f722',
+              borderRadius: 10,
+              padding: '14px 18px',
+              position: 'relative',
+              overflow: 'hidden',
+            }}>
+              <div style={{
+                position: 'absolute', top: 0, left: 0, right: 0, height: 2,
+                background: 'linear-gradient(90deg, #a855f7, #3b82f6, #a855f7)',
+                backgroundSize: '200% 100%',
+                animation: 'shimmer 2s linear infinite',
+              }} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 10, animation: 'pulse 1.5s infinite' }}>🧠</span>
+                  <span style={{ fontSize: 8, color: '#a855f7', letterSpacing: 2, fontWeight: 700 }}>INSIGHT IA</span>
+                </div>
+                {aiInsights.length > 1 && (
+                  <div style={{ display: 'flex', gap: 3 }}>
+                    {aiInsights.map((_, i) => (
+                      <div key={i} style={{
+                        width: 4, height: 4, borderRadius: '50%',
+                        background: i === aiInsightIndex ? '#a855f7' : '#ffffff12',
+                        transition: 'background 0.3s',
+                      }} />
+                    ))}
+                  </div>
+                )}
+              </div>
+              {(() => {
+                const ins = aiInsights[aiInsightIndex]
+                if (!ins) return null
+                const colorMap: Record<string, string> = {
+                  alerta: '#f97316',
+                  oportunidade: '#22c55e',
+                  estrategia: '#3b82f6',
+                  risco: '#ef4444',
+                }
+                const color = colorMap[ins.tipo] || '#a855f7'
+                return (
+                  <div key={aiInsightIndex} style={{ animation: 'fadeSlideIn 0.3s ease-out' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                      <span style={{ fontSize: 14, flexShrink: 0, marginTop: -1 }}>{ins.icone}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 11, color, fontWeight: 700, marginBottom: 3, letterSpacing: 0.3 }}>
+                          {ins.titulo}
+                        </div>
+                        <div style={{ fontSize: 10, color: '#94a3b8', lineHeight: 1.5 }}>
+                          {ins.descricao}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>
+          )}
 
         </div>
 

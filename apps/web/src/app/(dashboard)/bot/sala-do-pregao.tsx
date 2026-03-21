@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 
 // ─── TYPES ───────────────────────────────────────────────────────────────────
 
@@ -65,6 +65,20 @@ interface Strategy {
   decremento_percent: number
   posicao_alvo: number
   aguardar_segundos: number
+}
+
+interface AIInsight {
+  tipo: 'alerta' | 'oportunidade' | 'estrategia' | 'risco'
+  icone: string
+  titulo: string
+  descricao: string
+  acao_sugerida: string
+}
+
+interface AIInsightsData {
+  insights: AIInsight[]
+  resumo: string
+  score_confianca: number
 }
 
 interface SalaDoRegaoProps {
@@ -339,6 +353,9 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
   const [confirmed, setConfirmed] = useState(false)
   const [clock, setClock] = useState('')
   const [isDemo, setIsDemo] = useState(false)
+  const [aiInsights, setAiInsights] = useState<AIInsightsData | null>(null)
+  const [aiLoading, setAiLoading] = useState(false)
+  const aiRequestRef = useRef(0)
 
   // Get the selected tender data
   const selectedTender = tenders.find((t: any) => t.id === selectedTenderId)
@@ -415,6 +432,63 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
     const id = setInterval(tick, 1000)
     return () => clearInterval(id)
   }, [])
+
+  // Fetch AI insights when tender/competitors change
+  useEffect(() => {
+    if (loading) return
+
+    const requestId = ++aiRequestRef.current
+    setAiInsights(null)
+    setAiLoading(true)
+
+    const fetchInsights = async () => {
+      try {
+        const selectedT = tenders.find((t: any) => t.id === selectedTenderId)
+        const res = await fetch('/api/bot/ai-insights', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'pre-disputa',
+            tender: {
+              objeto: selectedT?.objeto || 'Contratação de empresa especializada para serviços técnicos de TI',
+              orgao_nome: selectedT?.orgao_nome || selectedT?.orgao || 'Órgão não identificado',
+              valor_estimado: valorEstimado,
+              modalidade_nome: selectedT?.modalidade_nome || 'Pregão Eletrônico',
+            },
+            competitors: habilitados.map(h => ({
+              razao_social: h.razao_social,
+              win_rate: h.win_rate,
+              total_participacoes: h.total_participacoes,
+              valor_medio_ganho: h.valor_medio_ganho,
+              desconto_medio: h.desconto_medio,
+            })),
+            strategy: {
+              lance_inicial: strategy.lance_inicial,
+              lance_minimo: strategy.lance_minimo,
+              modo: strategy.modo,
+            },
+          }),
+        })
+
+        if (requestId !== aiRequestRef.current) return // stale request
+
+        if (res.ok) {
+          const data = await res.json()
+          setAiInsights(data)
+        }
+      } catch {
+        // silently skip
+      } finally {
+        if (requestId === aiRequestRef.current) {
+          setAiLoading(false)
+        }
+      }
+    }
+
+    // Debounce slightly to avoid rapid calls
+    const timer = setTimeout(fetchInsights, 500)
+    return () => clearTimeout(timer)
+  }, [habilitados, selectedTenderId, loading])
 
   // Create a real bot_session when strategy is confirmed
   const handleConfirmStrategy = async () => {
@@ -632,6 +706,7 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
       <style>{`
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
         @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+        @keyframes spin { to{transform:rotate(360deg)} }
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
@@ -804,6 +879,92 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
             <div style={s.recommendation}>
               <div style={{ fontSize: 9, color: '#f97316', letterSpacing: 2, marginBottom: 6 }}>⚡ RECOMENDAÇÃO DA IA</div>
               <div style={{ fontSize: 11, lineHeight: 1.7 }}>{difficulty.recomendacao}</div>
+            </div>
+
+            {/* AI INSIGHTS */}
+            <div>
+              <div style={{ fontSize: 9, color: '#a855f7', letterSpacing: 2, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ display: 'inline-block', animation: aiLoading ? 'pulse 1s infinite' : 'none' }}>🧠</span>
+                INSIGHTS IA
+                {aiInsights && (
+                  <span style={{
+                    fontSize: 9, color: '#475569', fontWeight: 400, letterSpacing: 0,
+                  }}>
+                    — Confiança: {aiInsights.score_confianca}%
+                  </span>
+                )}
+              </div>
+
+              {aiLoading && (
+                <div style={{
+                  background: '#a855f708', border: '1px solid #a855f722',
+                  borderRadius: 8, padding: '16px',
+                  display: 'flex', alignItems: 'center', gap: 12,
+                }}>
+                  <div style={{
+                    width: 20, height: 20, borderRadius: '50%',
+                    border: '2px solid #a855f744',
+                    borderTopColor: '#a855f7',
+                    animation: 'spin 0.8s linear infinite',
+                  }} />
+                  <div>
+                    <div style={{ fontSize: 11, color: '#a855f7', fontWeight: 600, marginBottom: 2 }}>Analisando concorrentes...</div>
+                    <div style={{ fontSize: 9, color: '#475569' }}>A IA está processando dados dos habilitados</div>
+                  </div>
+                </div>
+              )}
+
+              {aiInsights && !aiLoading && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {aiInsights.insights.map((ins, i) => {
+                    const borderColors: Record<string, string> = {
+                      alerta: '#f97316',
+                      oportunidade: '#22c55e',
+                      estrategia: '#3b82f6',
+                      risco: '#ef4444',
+                    }
+                    const borderColor = borderColors[ins.tipo] || '#475569'
+
+                    return (
+                      <div key={i} style={{
+                        background: '#ffffff04',
+                        borderLeft: `3px solid ${borderColor}`,
+                        borderRadius: '0 6px 6px 0',
+                        padding: '10px 12px',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                          <span style={{ fontSize: 12 }}>{ins.icone}</span>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: borderColor, letterSpacing: 0.3 }}>
+                            {ins.titulo}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 10, color: '#94a3b8', lineHeight: 1.6, marginBottom: 6 }}>
+                          {ins.descricao}
+                        </div>
+                        {ins.acao_sugerida && (
+                          <div style={{
+                            fontSize: 9, color: '#cbd5e1', letterSpacing: 0.5,
+                            background: `${borderColor}0a`, padding: '4px 8px',
+                            borderRadius: 4, display: 'inline-block',
+                          }}>
+                            → {ins.acao_sugerida}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+
+                  {/* RESUMO */}
+                  <div style={{
+                    background: '#a855f708', border: '1px solid #a855f722',
+                    borderRadius: 6, padding: '8px 12px',
+                    fontSize: 10, color: '#a855f7', lineHeight: 1.6,
+                    fontStyle: 'italic',
+                  }}>
+                    {aiInsights.resumo}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* SUGESTÃO DE PREÇO */}
