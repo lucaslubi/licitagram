@@ -174,13 +174,21 @@ export async function PATCH(req: NextRequest) {
 
     const statusMap: Record<string, string> = {
       pause: 'paused',
-      resume: 'active',
-      cancel: 'cancelled',
+      resume: 'pending',  // worker polls for 'pending' status
+      cancel: 'failed',
+    }
+
+    const updatePayload: Record<string, unknown> = { status: statusMap[action] }
+
+    if (action === 'cancel') {
+      updatePayload.error_message = 'Cancelado pelo usuário'
+      updatePayload.completed_at = new Date().toISOString()
+      updatePayload.result = { error: 'Cancelado pelo usuário' }
     }
 
     const { data: updated, error } = await supabase
       .from('bot_sessions')
-      .update({ status: statusMap[action] })
+      .update(updatePayload)
       .eq('id', id)
       .select()
       .single()
