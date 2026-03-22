@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import * as http from 'http'
 import * as os from 'os'
 import { execFileSync } from 'child_process'
