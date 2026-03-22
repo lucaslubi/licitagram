@@ -27,48 +27,60 @@ export async function GET(req: NextRequest) {
   const page = parseInt(url.searchParams.get('page') || '1')
   const limit = parseInt(url.searchParams.get('limit') || '50')
 
-  let query = supabase
-    .from('drive_files')
-    .select('*, tenders(titulo, orgao)', { count: 'exact' })
-    .eq('company_id', company.id)
+  try {
+    let query = supabase
+      .from('drive_files')
+      .select('*', { count: 'exact' })
+      .eq('company_id', company.id)
 
-  if (folder !== 'all') query = query.eq('folder', folder)
-  if (category && category !== 'all') query = query.eq('category', category)
-  if (tenderId) query = query.eq('tender_id', tenderId)
-  if (starred === 'true') query = query.eq('is_starred', true)
-  if (search) query = query.or(`file_name.ilike.%${search}%,description.ilike.%${search}%`)
+    if (folder !== 'all') query = query.eq('folder', folder)
+    if (category && category !== 'all') query = query.eq('category', category)
+    if (tenderId) query = query.eq('tender_id', tenderId)
+    if (starred === 'true') query = query.eq('is_starred', true)
+    if (search) query = query.or(`file_name.ilike.%${search}%,description.ilike.%${search}%`)
 
-  const ascending = sortOrder === 'asc'
-  query = query.order(sortBy, { ascending })
-    .range((page - 1) * limit, page * limit - 1)
+    const ascending = sortOrder === 'asc'
+    query = query.order(sortBy === 'created_at' ? 'created_at' : sortBy, { ascending })
+      .range((page - 1) * limit, page * limit - 1)
 
-  const { data: files, count, error } = await query
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    const { data: files, count, error } = await query
+    if (error) {
+      console.error('Drive query error:', error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
 
-  // Get usage stats
-  const { data: usage } = await supabase
-    .from('drive_usage')
-    .select('*')
-    .eq('company_id', company.id)
-    .single()
+    // Get usage stats (may not exist if no files yet)
+    let usage = { total_files: 0, total_bytes: 0, total_folders: 0 }
+    try {
+      const { data: usageData } = await supabase
+        .from('drive_usage')
+        .select('*')
+        .eq('company_id', company.id)
+        .single()
+      if (usageData) usage = usageData
+    } catch { /* no files yet, use defaults */ }
 
-  // Get distinct folders
-  const { data: folders } = await supabase
-    .from('drive_files')
-    .select('folder')
-    .eq('company_id', company.id)
-    .order('folder')
+    // Get distinct folders
+    const { data: folderData } = await supabase
+      .from('drive_files')
+      .select('folder')
+      .eq('company_id', company.id)
+      .order('folder')
 
-  const uniqueFolders = [...new Set((folders || []).map(f => f.folder))]
+    const uniqueFolders = [...new Set((folderData || []).map((f: any) => f.folder))]
 
-  return NextResponse.json({
-    files: files || [],
-    total: count || 0,
-    usage: usage || { total_files: 0, total_bytes: 0 },
-    folders: uniqueFolders,
-    page,
-    limit,
-  })
+    return NextResponse.json({
+      files: files || [],
+      total: count || 0,
+      usage,
+      folders: uniqueFolders,
+      page,
+      limit,
+    })
+  } catch (e: any) {
+    console.error('Drive GET error:', e)
+    return NextResponse.json({ error: e.message || 'Internal error' }, { status: 500 })
+  }
 }
 
 // POST - Upload file
