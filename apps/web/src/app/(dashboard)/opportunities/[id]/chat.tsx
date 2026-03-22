@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import ReactMarkdown from 'react-markdown'
-import { FileDown, Copy, Check } from 'lucide-react'
+import { FileDown, Copy, Check, CloudUpload } from 'lucide-react'
+import { saveToDrive } from '@/lib/drive-utils'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -89,6 +90,8 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
   const [userHasScrolled, setUserHasScrolled] = useState(false)
   const [pdfExporting, setPdfExporting] = useState<number | null>(null)
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
+  const [driveSaving, setDriveSaving] = useState<number | null>(null)
+  const [driveSaved, setDriveSaved] = useState<number | null>(null)
 
   // When loading starts (new message), scroll to show the TOP of the AI response
   // Do NOT continuously scroll as content streams in
@@ -563,6 +566,82 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
     })
   }
 
+  async function handleSaveToDrive(content: string, index: number) {
+    setDriveSaving(index)
+    try {
+      // Parse markdown into sections (same logic as PDF export)
+      const lines = content.split('\n')
+      const sections: Array<{ heading: string; content: string; type: 'text' | 'bullet'; items?: string[] }> = []
+      let currentHeading = 'Analise'
+      let currentLines: string[] = []
+
+      for (const line of lines) {
+        const headingMatch = line.match(/^#{1,3}\s+(.+)/)
+        if (headingMatch) {
+          if (currentLines.length > 0) {
+            const items = currentLines.filter(l => l.match(/^[-\u2022*]\s/))
+            if (items.length > 2) {
+              sections.push({ heading: currentHeading, content: '', type: 'bullet', items: items.map(l => l.replace(/^[-\u2022*]\s+/, '')) })
+            } else {
+              sections.push({ heading: currentHeading, content: currentLines.join('\n'), type: 'text' })
+            }
+          }
+          currentHeading = headingMatch[1].replace(/\*\*/g, '')
+          currentLines = []
+        } else if (line.trim()) {
+          currentLines.push(line.replace(/\*\*/g, '').replace(/\*/g, ''))
+        }
+      }
+      if (currentLines.length > 0) {
+        const items = currentLines.filter(l => l.match(/^[-\u2022*]\s/))
+        if (items.length > 2) {
+          sections.push({ heading: currentHeading, content: '', type: 'bullet', items: items.map(l => l.replace(/^[-\u2022*]\s+/, '')) })
+        } else {
+          sections.push({ heading: currentHeading, content: currentLines.join('\n'), type: 'text' })
+        }
+      }
+      if (sections.length === 0) {
+        sections.push({ heading: 'Analise', content, type: 'text' })
+      }
+
+      // Generate PDF blob via the same API
+      const response = await fetch('/api/consultant/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: 'Analise do Edital',
+          subtitle: 'Consultor IA Licitagram',
+          sections,
+          metadata: {
+            date: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }),
+          },
+        }),
+      })
+      if (!response.ok) throw new Error('PDF generation failed')
+      const blob = await response.blob()
+
+      const fileName = `licitagram-analise-edital-${new Date().toISOString().split('T')[0]}.pdf`
+      const result = await saveToDrive({
+        file: blob,
+        fileName,
+        category: 'consultor',
+        description: 'Analise do Edital - Consultor IA',
+        tenderId,
+        tags: ['consultor', 'analise', 'edital'],
+      })
+
+      if (result.success) {
+        setDriveSaved(index)
+        setTimeout(() => setDriveSaved(null), 3000)
+      } else {
+        alert(result.error || 'Erro ao salvar no Drive.')
+      }
+    } catch {
+      alert('Erro ao salvar no Drive. Tente novamente.')
+    }
+    setDriveSaving(null)
+  }
+
   function onFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files
     if (files) {
@@ -832,6 +911,24 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
                           <FileDown className="w-3 h-3" />
                         )}
                         PDF
+                      </button>
+                      <button
+                        onClick={() => handleSaveToDrive(msg.content, i)}
+                        disabled={driveSaving === i}
+                        className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-500 hover:text-brand bg-gray-50 hover:bg-brand/5 border border-gray-200 hover:border-brand/20 rounded-md px-2 py-1 transition-colors disabled:opacity-50"
+                        title="Salvar no Drive"
+                      >
+                        {driveSaving === i ? (
+                          <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                        ) : driveSaved === i ? (
+                          <Check className="w-3 h-3 text-emerald-500" />
+                        ) : (
+                          <CloudUpload className="w-3 h-3" />
+                        )}
+                        {driveSaved === i ? <span className="text-emerald-500">Salvo</span> : 'Drive'}
                       </button>
                       <button
                         onClick={() => handleCopy(msg.content, i)}

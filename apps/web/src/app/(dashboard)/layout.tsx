@@ -25,7 +25,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/competitors', label: 'Concorrentes', requiredFeature: 'competitive_intel' },
   { href: '/bot', label: 'Robo', requiredFeature: 'bidding_bot' },
   { href: '/documents', label: 'Certidões', requiredFeature: 'compliance_checker' },
-  { href: '/archive', label: 'Arquivo' },
+  { href: '/drive', label: 'Drive' },
   // --- separator ---
   { href: '/company', label: 'Empresa', separator: true },
   { href: '/billing', label: 'Plano' },

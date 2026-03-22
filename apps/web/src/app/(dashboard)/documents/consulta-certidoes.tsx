@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { GuidedCertidao } from './guided-certidao'
+import { saveToDrive } from '@/lib/drive-utils'
 
 interface CertidaoResultItem {
   tipo: string
@@ -51,6 +52,8 @@ export function ConsultaCertidoes({ cnpj }: { cnpj: string; hasApiKey?: boolean 
   const [jobStatus, setJobStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [guidedPortal, setGuidedPortal] = useState<'receita' | 'fgts' | null>(null)
+  const [driveSaving, setDriveSaving] = useState<string | null>(null)
+  const [driveSaved, setDriveSaved] = useState<string | null>(null)
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const router = useRouter()
 
@@ -88,6 +91,33 @@ export function ConsultaCertidoes({ cnpj }: { cnpj: string; hasApiKey?: boolean 
       }
     }, 3000)
   }, [router])
+
+  async function handleSaveCertidaoDrive(cert: CertidaoResultItem) {
+    if (!cert.pdf_url) return
+    setDriveSaving(cert.tipo)
+    try {
+      const res = await fetch(cert.pdf_url)
+      if (!res.ok) throw new Error('Falha ao baixar PDF')
+      const blob = await res.blob()
+      const fileName = `certidao-${cert.tipo}-${new Date().toISOString().split('T')[0]}.pdf`
+      const result = await saveToDrive({
+        file: blob,
+        fileName,
+        category: 'certidao',
+        description: cert.label,
+        tags: ['certidao', cert.tipo],
+      })
+      if (result.success) {
+        setDriveSaved(cert.tipo)
+        setTimeout(() => setDriveSaved(null), 3000)
+      } else {
+        alert(result.error || 'Erro ao salvar no Drive.')
+      }
+    } catch {
+      alert('Erro ao salvar certidao no Drive.')
+    }
+    setDriveSaving(null)
+  }
 
   async function handleConsultar() {
     setLoading(true)
@@ -265,6 +295,30 @@ export function ConsultaCertidoes({ cnpj }: { cnpj: string; hasApiKey?: boolean 
                       </svg>
                       Baixar PDF
                     </a>
+                  )}
+                  {cert.pdf_url && (
+                    <button
+                      onClick={() => handleSaveCertidaoDrive(cert)}
+                      disabled={driveSaving === cert.tipo}
+                      className="text-xs opacity-70 hover:opacity-100 flex items-center gap-1 disabled:opacity-50"
+                      title="Salvar no Drive"
+                    >
+                      {driveSaving === cert.tipo ? (
+                        <svg className="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                      ) : driveSaved === cert.tipo ? (
+                        <svg className="h-3 w-3 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : (
+                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                      )}
+                      {driveSaved === cert.tipo ? <span className="text-emerald-500">Salvo</span> : 'Salvar no Drive'}
+                    </button>
                   )}
                   {cert.consulta_url && (
                     <a
