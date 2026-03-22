@@ -1,5 +1,7 @@
 import React from 'react'
-import { Document, Page, Text, View } from '@react-pdf/renderer'
+import { Document, Page, Text, View, Image } from '@react-pdf/renderer'
+// Logo — fetched at PDF render time from the live site
+const LOGO_URL = 'https://licitagram.com/logo.png'
 import { styles, COLORS } from './styles'
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -193,7 +195,7 @@ function ReportHeader({
   return (
     <View fixed>
       <View style={styles.header}>
-        <Text style={styles.headerBrand}>LICITAGRAM</Text>
+        <Image src={LOGO_URL} style={{ width: 120, height: 30, objectFit: 'contain' }} />
         <View style={styles.headerRight}>
           <Text style={styles.headerTitle}>{title}</Text>
           {subtitle && <Text style={styles.headerSubtitle}>{subtitle}</Text>}
