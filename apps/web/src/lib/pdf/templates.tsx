@@ -195,7 +195,7 @@ function ReportHeader({
   return (
     <View fixed>
       <View style={styles.header}>
-        <Image src={LOGO_URL} style={{ width: 120, height: 30, objectFit: 'contain' }} />
+        <Image src={LOGO_URL} style={{ width: 180, height: 45, objectFit: 'contain' }} />
         <View style={styles.headerRight}>
           <Text style={styles.headerTitle}>{title}</Text>
           {subtitle && <Text style={styles.headerSubtitle}>{subtitle}</Text>}
