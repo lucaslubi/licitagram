@@ -7,13 +7,14 @@ export async function GET(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // Get user's company
-  const { data: company } = await supabase
-    .from('companies')
-    .select('id')
-    .eq('user_id', user.id)
+  // Get user's company via users table
+  const { data: profile } = await supabase
+    .from('users')
+    .select('company_id')
+    .eq('id', user.id)
     .single()
-  if (!company) return NextResponse.json({ error: 'No company' }, { status: 400 })
+  if (!profile?.company_id) return NextResponse.json({ error: 'No company' }, { status: 400 })
+  const company = { id: profile.company_id }
 
   const url = new URL(req.url)
   const folder = url.searchParams.get('folder') || '/'
@@ -76,12 +77,13 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: company } = await supabase
-    .from('companies')
-    .select('id')
-    .eq('user_id', user.id)
+  const { data: profile } = await supabase
+    .from('users')
+    .select('company_id')
+    .eq('id', user.id)
     .single()
-  if (!company) return NextResponse.json({ error: 'No company' }, { status: 400 })
+  if (!profile?.company_id) return NextResponse.json({ error: 'No company' }, { status: 400 })
+  const company = { id: profile.company_id }
 
   const formData = await req.formData()
   const file = formData.get('file') as File
