@@ -16,7 +16,7 @@ interface DriveFile {
   description: string | null
   folder: string | null
   tags: string[] | null
-  starred: boolean
+  is_starred: boolean
   storage_path: string
   tender_id: string | null
   tender_name: string | null
@@ -216,16 +216,16 @@ export function DriveManager({ companyId, companyName }: DriveManagerProps) {
   // ── Stats ─────────────────────────────────────────────────────────────────
   const totalSize = files.reduce((sum, f) => sum + f.file_size, 0)
   const categoriesUsed = new Set(files.map((f) => f.category)).size
-  const starredCount = files.filter((f) => f.starred).length
+  const starredCount = files.filter((f) => f.is_starred).length
 
   // ── Actions ───────────────────────────────────────────────────────────────
-  async function handleStar(fileId: string, starred: boolean) {
+  async function handleStar(fileId: string, is_starred: boolean) {
     await fetch('/api/drive', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: fileId, starred: !starred }),
+      body: JSON.stringify({ id: fileId, is_starred: !is_starred }),
     })
-    setFiles((prev) => prev.map((f) => (f.id === fileId ? { ...f, starred: !starred } : f)))
+    setFiles((prev) => prev.map((f) => (f.id === fileId ? { ...f, is_starred: !is_starred } : f)))
   }
 
   async function handleDelete(fileId: string) {
@@ -252,7 +252,12 @@ export function DriveManager({ companyId, companyName }: DriveManagerProps) {
   }
 
   async function handleDownload(fileId: string) {
-    window.open(`/api/drive/download?id=${fileId}`, '_blank')
+    try {
+      const res = await fetch(`/api/drive/download?id=${fileId}`)
+      const data = await res.json()
+      if (data.url) window.open(data.url, '_blank')
+      else alert('Erro ao gerar link de download')
+    } catch { alert('Erro ao baixar arquivo') }
     setMenuOpenId(null)
   }
 
@@ -286,7 +291,12 @@ export function DriveManager({ companyId, companyName }: DriveManagerProps) {
         formData.append('category', uploadCategory)
         if (uploadDescription) formData.append('description', uploadDescription)
 
-        await fetch('/api/drive', { method: 'POST', body: formData })
+        const uploadRes = await fetch('/api/drive', { method: 'POST', body: formData })
+        if (!uploadRes.ok) {
+          const err = await uploadRes.json().catch(() => ({ error: 'Upload failed' }))
+          console.error('Upload error:', err)
+          alert(`Erro no upload de ${uploadFiles[i].name}: ${err.error || 'Erro desconhecido'}`)
+        }
         setUploadProgress(Math.round(((i + 1) / uploadFiles.length) * 100))
       }
 
