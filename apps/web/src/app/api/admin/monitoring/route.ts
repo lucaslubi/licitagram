@@ -60,7 +60,7 @@ async function fetchVpsData(): Promise<VpsResponse | null> {
       headers['Authorization'] = `Bearer ${MONITORING_AUTH_TOKEN}`
     }
 
-    const res = await fetch(VPS_MONITORING_URL, {
+    const res = await fetch(`${VPS_MONITORING_URL}/metrics`, {
       headers,
       signal: AbortSignal.timeout(15_000),
     })
