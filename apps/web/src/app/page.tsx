@@ -2,41 +2,6 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { MobileMenu } from '@/components/mobile-menu'
 
-const FEATURES = [
-  {
-    title: 'Mapa de Inteligência',
-    description: 'O único instrumento de visualização de compras públicas do seu tipo no mundo. Veja onde o dinheiro do governo está e onde você vai ganhar.',
-  },
-  {
-    title: 'Oportunidades Super Quentes',
-    description: 'Acima de 85% de probabilidade de vitória — calculada com base no seu CNPJ, setor, histórico e capacidades técnicas.',
-  },
-  {
-    title: 'Dossiê Pré-Pregão',
-    description: 'Antes de qualquer disputa, acesse o histórico completo de cada concorrente: padrão de lances, win rate e vínculos societários.',
-  },
-  {
-    title: 'Detecção de Fraude',
-    description: 'Cruzamento automático com 64 milhões de entidades corporativas. Identifica cartéis, empresas de fachada e conluio.',
-  },
-  {
-    title: 'Consultor IA por Edital',
-    description: 'Cada edital tem um especialista esperando sua pergunta. Sem baixar nada, com exportação em PDF profissional.',
-  },
-  {
-    title: 'Certidões Automáticas',
-    description: 'Conexão direta com Receita Federal, FGTS, TST e mais. Verifica habilitação completa com um clique.',
-  },
-  {
-    title: 'Agente Autônomo de Disputa',
-    description: 'Configure sua estratégia e limite. O agente executa cada lance com precisão cirúrgica e para quando você definir.',
-  },
-  {
-    title: 'Drive Institucional',
-    description: 'Toda análise, consulta e PDF exportado vai para o repositório da sua empresa. Conhecimento que nunca se perde.',
-  },
-]
-
 const PLANS = [
   {
     name: 'Monitoramento',
@@ -138,6 +103,19 @@ const FAQ = [
   },
 ]
 
+const COMPARISON_ROWS: [string, string | boolean, string | boolean, string | boolean][] = [
+  ['Mapeamento de R$ 1,5 tri', 'Exclusivo', false, false],
+  ['Mapa de calor georreferenciado', 'Exclusivo', false, false],
+  ['Score de probabilidade por empresa', 'Exclusivo', false, false],
+  ['Motor de correlação 64M entidades', 'Exclusivo', false, false],
+  ['Detecção de cartel', 'Exclusivo', false, false],
+  ['Agente autônomo de disputa', true, 'Parcial', false],
+  ['Consultor IA com PDF', 'Exclusivo', false, false],
+  ['Certidões automáticas', 'Exclusivo', false, false],
+  ['Drive institucional', true, false, false],
+  ['Monitoramento multi-portal', true, true, false],
+]
+
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-[#FAFAF8]">
@@ -148,14 +126,20 @@ export default function LandingPage() {
             <Image src="/logo.png" alt="Licitagram" width={232} height={52} className="h-10 sm:h-[3.27rem] w-auto" />
           </div>
           <nav className="hidden md:flex items-center gap-8">
-            <a href="#features" className="text-body-sm text-[#69695D] hover:text-[#26292E] transition-all duration-150 ease-in-out">
-              Features
+            <a href="#inteligencia" className="text-body-sm text-[#69695D] hover:text-[#26292E] transition-all duration-150 ease-in-out">
+              Inteligência
+            </a>
+            <a href="#mapa" className="text-body-sm text-[#69695D] hover:text-[#26292E] transition-all duration-150 ease-in-out">
+              Mapa
             </a>
             <a href="#pricing" className="text-body-sm text-[#69695D] hover:text-[#26292E] transition-all duration-150 ease-in-out">
               Preços
             </a>
-            <a href="#testimonials" className="text-body-sm text-[#69695D] hover:text-[#26292E] transition-all duration-150 ease-in-out">
-              Depoimentos
+            <a href="#plataforma" className="text-body-sm text-[#69695D] hover:text-[#26292E] transition-all duration-150 ease-in-out">
+              Plataforma
+            </a>
+            <a href="#governos" className="text-body-sm text-[#69695D] hover:text-[#26292E] transition-all duration-150 ease-in-out">
+              Para Governos
             </a>
             <a href="#faq" className="text-body-sm text-[#69695D] hover:text-[#26292E] transition-all duration-150 ease-in-out">
               FAQ
@@ -220,7 +204,7 @@ export default function LandingPage() {
                 </svg>
               </Link>
               <a
-                href="#features"
+                href="#inteligencia"
                 className="inline-flex items-center justify-center px-6 sm:px-8 py-3 sm:py-3.5 border border-white/20 text-[#9C9C90] rounded-[1000px] text-body-sm sm:text-body font-medium hover:border-white/40 hover:text-white transition-all duration-150 ease-in-out"
               >
                 Ver a plataforma ao vivo
@@ -255,7 +239,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Problem / Pain section ── */}
+      {/* ── 1. Manifesto / "Por que existimos" ── */}
       <section className="py-20 sm:py-28 bg-[#FAFAF8]">
         <div className="max-w-4xl mx-auto px-4 text-center">
           <p className="text-overline uppercase text-[#F43E01] tracking-widest mb-4">Por que existimos</p>
@@ -269,33 +253,277 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── How it works (3 steps) ── */}
+      {/* ── 2. Mapa de Inteligência (dark bg) ── */}
+      <section id="mapa" className="py-20 sm:py-28 bg-[#26292E]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-3xl mx-auto text-center mb-16">
+            <p className="text-overline uppercase text-[#F43E01] tracking-widest mb-4">Feature exclusivo · O único do mundo</p>
+            <h2 className="text-display-lg text-white text-balance mb-6">
+              Veja onde o dinheiro do governo está.{' '}
+              <span className="text-[#69695D]">E exatamente onde você vai ganhar.</span>
+            </h2>
+            <p className="text-body-lg text-[#9C9C90] leading-relaxed">
+              O Mapa de Inteligência é o único instrumento de visualização de compras públicas do seu tipo no mundo. Em uma tela, você vê o Brasil inteiro: cada estado iluminado pelo volume de oportunidades compatíveis com o seu perfil.
+            </p>
+          </div>
+
+          {/* Oportunidades Super Quentes */}
+          <div className="max-w-4xl mx-auto mb-16">
+            <div className="p-8 rounded-[20px] border border-white/[0.08] bg-[#2D2F33]">
+              <div className="flex items-center gap-3 mb-4">
+                <span className="inline-flex text-caption px-3 py-1.5 rounded-[1000px] bg-[#F43E01]/10 text-[#F43E01] font-semibold">
+                  85%+ de probabilidade
+                </span>
+              </div>
+              <h3 className="text-heading font-semibold text-white mb-3">Oportunidades Super Quentes</h3>
+              <p className="text-body-sm text-[#9C9C90] leading-relaxed">
+                Acima de 85% de probabilidade de vitória — calculada com base no seu CNPJ, setor, histórico e capacidades técnicas. O sistema destaca automaticamente as disputas onde sua empresa tem vantagem real.
+              </p>
+            </div>
+          </div>
+
+          {/* Features grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 max-w-5xl mx-auto">
+            {[
+              {
+                title: 'Calor por relevância',
+                desc: 'Cada região brilha de acordo com a densidade de oportunidades compatíveis com o seu perfil.',
+              },
+              {
+                title: 'Ranking de estados',
+                desc: 'Saiba quais estados concentram mais editais para o seu setor — e onde seus concorrentes são mais fracos.',
+              },
+              {
+                title: 'Inteligência geográfica',
+                desc: 'Identifique rotas de expansão: estados com alta demanda e baixa concorrência no seu nicho.',
+              },
+            ].map((item) => (
+              <div
+                key={item.title}
+                className="group p-6 rounded-[20px] border border-white/[0.08] bg-[#2D2F33] hover:border-[#F43E01]/30 hover:bg-[#2D2F33]/80 transition-all duration-[250ms] ease-in-out"
+              >
+                <h3 className="font-semibold text-white mb-2 text-body">{item.title}</h3>
+                <p className="text-body-sm text-[#9C9C90] leading-relaxed">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── 3. Três Camadas de Inteligência (light bg) ── */}
+      <section id="inteligencia" className="py-20 sm:py-28 bg-[#FAFAF8]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-3xl mx-auto text-center mb-16">
+            <p className="text-overline uppercase text-[#F43E01] tracking-widest mb-4">Por que não há comparação possível</p>
+            <h2 className="text-display-lg text-[#26292E] text-balance">
+              Três camadas de inteligência{' '}
+              <span className="text-[#69695D]">que não existem em lugar nenhum.</span>
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            {[
+              {
+                layer: 'Camada 1',
+                title: 'O maior banco de dados de compras públicas do Brasil',
+                desc: 'Agregamos em tempo real dados de todos os portais federais, estaduais e municipais. R$ 1,5 trilhão mapeado e crescendo a cada segundo.',
+              },
+              {
+                layer: 'Camada 2',
+                title: 'Motor de correlação com 64M entidades',
+                desc: 'Cruzamos cada licitação com 64 milhões de entidades corporativas. Detectamos cartéis, empresas de fachada, vínculos societários ocultos e padrões de conluio.',
+              },
+              {
+                layer: 'Camada 3',
+                title: 'Sistema autônomo que pensa, age e evolui',
+                desc: 'Agentes de IA que monitoram, analisam, geram dossiês, executam lances e aprendem com cada resultado. Inteligência que trabalha para você 24/7.',
+              },
+            ].map((item) => (
+              <div key={item.layer} className="relative group">
+                <div className="p-8 rounded-[20px] border border-black/[0.08] bg-white hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.1),0_2px_8px_-2px_rgba(0,0,0,0.06)] hover:border-[#F43E01]/20 transition-all duration-[250ms] ease-in-out">
+                  <span className="text-overline text-[#F43E01] font-mono">{item.layer}</span>
+                  <h3 className="text-heading font-semibold text-[#26292E] mt-3 mb-3">{item.title}</h3>
+                  <p className="text-body-sm text-[#69695D] leading-relaxed">{item.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── 4. Sala de Operações (warm bg) ── */}
+      <section id="plataforma" className="py-20 sm:py-28 bg-[#F3F3EE]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-3xl mx-auto text-center mb-16">
+            <p className="text-overline uppercase text-[#F43E01] tracking-widest mb-4">Funcionalidade exclusiva no mercado</p>
+            <h2 className="text-display-lg text-[#26292E] text-balance mb-6">
+              Antes de entrar em qualquer disputa,{' '}
+              <span className="text-[#69695D]">você já sabe o resultado provável.</span>
+            </h2>
+            <p className="text-body-lg text-[#69695D] leading-relaxed max-w-2xl mx-auto">
+              A Sala de Operações é o centro de comando da sua estratégia. Antes de cada pregão, você recebe um dossiê completo com o histórico de cada concorrente, padrão de lances, win rate e vínculos societários.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            {[
+              {
+                title: 'Dossiê Pré-Pregão',
+                desc: 'Histórico completo de cada concorrente: padrão de lances, preços praticados, win rate e vínculos societários.',
+              },
+              {
+                title: 'Análise de Concorrentes',
+                desc: 'Saiba quem vai disputar antes do pregão começar. Conheça suas fraquezas e prepare uma estratégia superior.',
+              },
+              {
+                title: 'Agente Autônomo de Disputa',
+                desc: 'Configure sua estratégia e limite. O agente executa cada lance com precisão cirúrgica e para quando você definir.',
+              },
+            ].map((item) => (
+              <div key={item.title} className="relative group">
+                <div className="p-8 rounded-[20px] border border-black/[0.08] bg-white hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.1),0_2px_8px_-2px_rgba(0,0,0,0.06)] hover:border-[#F43E01]/20 transition-all duration-[250ms] ease-in-out">
+                  <h3 className="text-heading font-semibold text-[#26292E] mb-3">{item.title}</h3>
+                  <p className="text-body-sm text-[#69695D] leading-relaxed">{item.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── 5. Compliance e Certidões (dark bg) ── */}
+      <section className="py-20 sm:py-28 bg-[#26292E]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-3xl mx-auto text-center mb-16">
+            <p className="text-overline uppercase text-[#F43E01] tracking-widest mb-4">Verificação automática · Sem sair da plataforma</p>
+            <h2 className="text-display-lg text-white text-balance mb-6">
+              Você está apto para licitar agora?{' '}
+              <span className="text-[#69695D]">A resposta leva três segundos.</span>
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 max-w-5xl mx-auto">
+            {[
+              'Certidão Negativa de Débitos Federais',
+              'Regularidade FGTS',
+              'Certidão Negativa de Débitos Trabalhistas (TST)',
+              'CNDT — Certidão de Débitos Tributários',
+              'Consulta de Impedimentos e Sanções',
+              'Validação de CNAEs compatíveis',
+            ].map((item) => (
+              <div key={item} className="flex items-start gap-3 p-5 rounded-[20px] border border-white/[0.08] bg-[#2D2F33]">
+                <svg className="w-5 h-5 text-[#F43E01] shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                <span className="text-body-sm text-[#CECEBF]">{item}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── 6. Consultor IA (light bg) ── */}
+      <section className="py-20 sm:py-28 bg-[#FAFAF8]">
+        <div className="max-w-4xl mx-auto px-4 text-center">
+          <p className="text-overline uppercase text-[#F43E01] tracking-widest mb-4">Presente em cada licitação · Exclusivo</p>
+          <h2 className="text-display-lg text-[#26292E] text-balance mb-6">
+            Cada edital tem um especialista{' '}
+            <span className="text-[#69695D]">esperando sua pergunta.</span>
+          </h2>
+          <p className="text-body-lg text-[#69695D] max-w-2xl mx-auto leading-relaxed mb-12">
+            O Consultor de IA lê o edital inteiro e responde qualquer dúvida sobre cláusulas, exigências técnicas, prazos e riscos. Sem baixar nada, sem sair da plataforma. E toda análise pode ser exportada em PDF profissional com a identidade da sua empresa.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+            {[
+              {
+                title: 'Análise instantânea',
+                desc: 'Pergunte sobre qualquer cláusula ou exigência do edital e receba respostas fundamentadas em segundos.',
+              },
+              {
+                title: 'Exportação em PDF',
+                desc: 'Gere relatórios profissionais com a identidade visual da sua empresa, prontos para apresentar à diretoria.',
+              },
+              {
+                title: 'Histórico completo',
+                desc: 'Todas as consultas ficam salvas no Drive Licitagram. Conhecimento que se acumula e nunca se perde.',
+              },
+            ].map((item) => (
+              <div key={item.title} className="p-8 rounded-[20px] border border-black/[0.08] bg-white hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.1),0_2px_8px_-2px_rgba(0,0,0,0.06)] hover:border-[#F43E01]/20 transition-all duration-[250ms] ease-in-out">
+                <h3 className="text-heading font-semibold text-[#26292E] mb-3">{item.title}</h3>
+                <p className="text-body-sm text-[#69695D] leading-relaxed">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── 7. Drive Licitagram (warm bg) ── */}
+      <section className="py-20 sm:py-28 bg-[#F3F3EE]">
+        <div className="max-w-4xl mx-auto px-4 text-center">
+          <p className="text-overline uppercase text-[#F43E01] tracking-widest mb-4">Memória institucional · Sempre acessível</p>
+          <h2 className="text-display-lg text-[#26292E] text-balance mb-6">
+            Tudo que a sua empresa produz{' '}
+            <span className="text-[#69695D]">nunca se perde.</span>
+          </h2>
+          <p className="text-body-lg text-[#69695D] max-w-2xl mx-auto leading-relaxed mb-12">
+            Cada análise, consulta ao Consultor IA, dossiê pré-pregão e PDF exportado vai automaticamente para o repositório institucional da sua empresa. É a memória do seu departamento de licitações, organizada e pesquisável.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+            {[
+              {
+                title: 'Organização automática',
+                desc: 'Documentos organizados por licitação, data e tipo — sem esforço manual.',
+              },
+              {
+                title: 'Busca inteligente',
+                desc: 'Encontre qualquer documento ou análise anterior em segundos com busca por conteúdo.',
+              },
+              {
+                title: 'Acesso compartilhado',
+                desc: 'Toda a equipe acessa o mesmo repositório. Conhecimento que pertence à empresa, não à pessoa.',
+              },
+            ].map((item) => (
+              <div key={item.title} className="p-8 rounded-[20px] border border-black/[0.08] bg-white hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.1),0_2px_8px_-2px_rgba(0,0,0,0.06)] hover:border-[#F43E01]/20 transition-all duration-[250ms] ease-in-out">
+                <h3 className="text-heading font-semibold text-[#26292E] mb-3">{item.title}</h3>
+                <p className="text-body-sm text-[#69695D] leading-relaxed">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── 8. Como Funciona (4 steps) ── */}
       <section className="py-20 sm:py-28 bg-[#F3F3EE]">
         <div className="max-w-4xl mx-auto px-4 text-center mb-4">
           <p className="text-overline uppercase text-[#F43E01] tracking-widest mb-4">Como funciona</p>
           <h2 className="text-display-lg text-[#26292E] text-balance">
-            Do cadastro à proposta,{' '}
-            <span className="text-[#69695D]">em 3 passos simples.</span>
+            Do cadastro à vitória,{' '}
+            <span className="text-[#69695D]">em 4 passos.</span>
           </h2>
         </div>
 
-        <div className="max-w-5xl mx-auto px-4 mt-16">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="max-w-6xl mx-auto px-4 mt-16">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {[
               {
                 step: '01',
-                title: 'Cadastre sua empresa',
-                desc: 'Informe CNPJ, CNAEs, área de atuação e documentos. Buscamos os dados automaticamente na Receita Federal.',
+                title: 'Perfil',
+                desc: 'Informe seu CNPJ e o sistema busca automaticamente CNAEs, área de atuação e dados na Receita Federal.',
               },
               {
                 step: '02',
-                title: 'IA encontra matches',
-                desc: 'Nossa IA analisa milhares de editais e calcula um score de compatibilidade para cada um.',
+                title: 'Descoberta contínua',
+                desc: 'A IA monitora 24/7 todos os portais e calcula um score de compatibilidade para cada edital.',
               },
               {
                 step: '03',
-                title: 'Receba e decida',
-                desc: 'Alertas no Telegram, pipeline de oportunidades e análise de compliance para decidir rápido.',
+                title: 'Inteligência antes da disputa',
+                desc: 'Receba o dossiê completo de cada oportunidade: concorrentes, histórico de preços e probabilidade de vitória.',
+              },
+              {
+                step: '04',
+                title: 'Execução com precisão',
+                desc: 'O agente autônomo executa sua estratégia de lances com precisão cirúrgica. Você define os limites, ele executa.',
               },
             ].map((item) => (
               <div key={item.step} className="relative group">
@@ -310,35 +538,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Features grid (dark section, no icons) ── */}
-      <section id="features" className="py-20 sm:py-28 bg-[#26292E]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-3xl mx-auto text-center mb-16">
-            <p className="text-overline uppercase text-[#F43E01] tracking-widest mb-4">Features</p>
-            <h2 className="text-display-lg text-white text-balance">
-              Tudo que você precisa{' '}
-              <span className="text-[#69695D]">para licitar.</span>
-            </h2>
-            <p className="text-body-lg text-[#9C9C90] mt-6">
-              Do monitoramento à proposta, o Licitagram cobre todo o ciclo de licitações com ferramentas inteligentes.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-            {FEATURES.map((feature) => (
-              <div
-                key={feature.title}
-                className="group p-6 rounded-[20px] border border-white/[0.08] bg-[#2D2F33] hover:border-[#F43E01]/30 hover:bg-[#2D2F33]/80 transition-all duration-[250ms] ease-in-out"
-              >
-                <h3 className="font-semibold text-white mb-2 text-body">{feature.title}</h3>
-                <p className="text-body-sm text-[#9C9C90] leading-relaxed">{feature.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* ── Portals (warm bg) ── */}
-      <section className="py-20 sm:py-28 bg-[#F3F3EE]">
+      <section className="py-20 sm:py-28 bg-[#FAFAF8]">
         <div className="max-w-5xl mx-auto px-4 text-center">
           <p className="text-overline uppercase text-[#F43E01] tracking-widest mb-4">Portais integrados</p>
           <h2 className="text-display text-[#26292E] text-balance mb-12">
@@ -363,7 +564,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Testimonials ── */}
-      <section id="testimonials" className="py-20 sm:py-28 bg-[#FAFAF8]">
+      <section id="testimonials" className="py-20 sm:py-28 bg-[#F3F3EE]">
         <div className="max-w-6xl mx-auto px-4">
           <div className="text-center mb-16">
             <p className="text-overline uppercase text-[#F43E01] tracking-widest mb-4">Depoimentos</p>
@@ -402,13 +603,13 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Comparison Table ── */}
-      <section className="py-20 sm:py-28 bg-[#F3F3EE]">
+      {/* ── 9. Comparison Table (3 columns) ── */}
+      <section className="py-20 sm:py-28 bg-[#FAFAF8]">
         <div className="max-w-4xl mx-auto px-4">
           <div className="text-center mb-16">
             <p className="text-overline uppercase text-[#F43E01] tracking-widest mb-4">Comparativo</p>
             <h2 className="text-display text-[#26292E] text-balance">
-              Licitagram vs. método tradicional
+              Licitagram vs. Outros vs. Manual
             </h2>
           </div>
           <div className="overflow-x-auto">
@@ -417,24 +618,18 @@ export default function LandingPage() {
                 <tr className="border-b border-black/[0.08]">
                   <th className="text-body-sm font-semibold text-[#26292E] text-left py-4 pr-4">Funcionalidade</th>
                   <th className="text-body-sm font-semibold text-[#F43E01] text-center py-4 px-4">Licitagram</th>
+                  <th className="text-body-sm font-semibold text-[#69695D] text-center py-4 px-4">Outros</th>
                   <th className="text-body-sm font-semibold text-[#69695D] text-center py-4 pl-4">Manual</th>
                 </tr>
               </thead>
               <tbody className="text-body-sm">
-                {[
-                  ['Monitoramento multi-portal', true, false],
-                  ['Análise com IA', true, false],
-                  ['Score de compatibilidade', true, false],
-                  ['Alertas em tempo real', true, false],
-                  ['Compliance automático', true, false],
-                  ['Inteligência competitiva', true, false],
-                  ['Gestão de certidões', true, false],
-                  ['Disponível 24/7', true, false],
-                ].map(([feature, licitagram, manual]) => (
+                {COMPARISON_ROWS.map(([feature, licitagram, outros, manual]) => (
                   <tr key={feature as string} className="border-b border-black/[0.04]">
                     <td className="py-3.5 pr-4 text-[#26292E]">{feature as string}</td>
                     <td className="py-3.5 px-4 text-center">
-                      {licitagram ? (
+                      {licitagram === 'Exclusivo' ? (
+                        <span className="inline-flex text-caption px-2.5 py-1 rounded-[1000px] bg-[#F43E01]/10 text-[#F43E01] font-semibold">Exclusivo</span>
+                      ) : licitagram === true ? (
                         <svg className="w-5 h-5 text-[#F43E01] mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
@@ -442,9 +637,20 @@ export default function LandingPage() {
                         <span className="text-[#CECEBF]">&mdash;</span>
                       )}
                     </td>
+                    <td className="py-3.5 px-4 text-center">
+                      {outros === 'Parcial' ? (
+                        <span className="text-[#9C9C90] text-caption">Parcial</span>
+                      ) : outros === true ? (
+                        <svg className="w-5 h-5 text-[#69695D] mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : (
+                        <span className="text-[#CECEBF]">&mdash;</span>
+                      )}
+                    </td>
                     <td className="py-3.5 pl-4 text-center">
-                      {manual ? (
-                        <svg className="w-5 h-5 text-[#F43E01] mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      {manual === true ? (
+                        <svg className="w-5 h-5 text-[#69695D] mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
                       ) : (
@@ -459,13 +665,15 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Pricing (warm bg) ── */}
-      <section id="pricing" className="py-20 sm:py-28 bg-[#FAFAF8]">
+      {/* ── 10. Pricing (updated text) ── */}
+      <section id="pricing" className="py-20 sm:py-28 bg-[#F3F3EE]">
         <div className="max-w-6xl mx-auto px-4">
           <div className="text-center mb-16">
-            <p className="text-overline uppercase text-[#F43E01] tracking-widest mb-4">Planos</p>
-            <h2 className="text-display text-[#26292E] text-balance mb-4">Planos e Preços</h2>
-            <p className="text-body-lg text-[#69695D]">Escolha o plano ideal para o tamanho do seu negócio.</p>
+            <p className="text-overline uppercase text-[#F43E01] tracking-widest mb-4">Escolha sua posição</p>
+            <h2 className="text-display text-[#26292E] text-balance mb-4">
+              Inteligência que escala com o seu nível de ambição.
+            </h2>
+            <p className="text-body-lg text-[#69695D]">14 dias gratuitos em qualquer plano. Sem compromisso.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {PLANS.map((plan) => (
@@ -514,7 +722,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── FAQ ── */}
-      <section id="faq" className="py-20 sm:py-28 bg-[#F3F3EE]">
+      <section id="faq" className="py-20 sm:py-28 bg-[#FAFAF8]">
         <div className="max-w-3xl mx-auto px-4">
           <div className="text-center mb-16">
             <p className="text-overline uppercase text-[#F43E01] tracking-widest mb-4">FAQ</p>
@@ -543,12 +751,84 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── CTA Section (Orange block) ── */}
+      {/* ── 11. Detecção de Fraude — Para Governos (dark bg) ── */}
+      <section id="governos" className="py-20 sm:py-28 bg-[#26292E]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-3xl mx-auto text-center mb-16">
+            <p className="text-overline uppercase text-[#F43E01] tracking-widest mb-4">Para governos, TCEs e órgãos de controle</p>
+            <h2 className="text-display-lg text-white text-balance mb-6">
+              A mesma inteligência que você usa para ganhar{' '}
+              <span className="text-[#69695D]">é a que usamos para garantir que o jogo seja justo.</span>
+            </h2>
+            <p className="text-body-lg text-[#9C9C90] leading-relaxed max-w-2xl mx-auto">
+              Nosso motor de correlação com 64 milhões de entidades é a ferramenta mais poderosa de compliance e detecção de fraudes em licitações da América Latina.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 max-w-5xl mx-auto">
+            {[
+              {
+                title: 'Tribunais de Contas (TCEs)',
+                desc: 'Detecção de cartéis, empresas de fachada e conluio em licitações estaduais e municipais.',
+              },
+              {
+                title: 'Órgãos de Controle',
+                desc: 'Análise de vínculos societários ocultos e padrões de fraude em contratações públicas.',
+              },
+              {
+                title: 'Bancos e Instituições Financeiras',
+                desc: 'Compliance de fornecedores governamentais e análise de risco em operações de crédito vinculadas a contratos públicos.',
+              },
+              {
+                title: 'Ministérios Públicos',
+                desc: 'Investigação de superfaturamento e direcionamento em processos licitatórios.',
+              },
+              {
+                title: 'Controladorias',
+                desc: 'Auditoria preventiva com cruzamento automático de dados corporativos e históricos de licitações.',
+              },
+              {
+                title: 'Empresas Públicas',
+                desc: 'Verificação de idoneidade de fornecedores e monitoramento de risco contratual.',
+              },
+            ].map((item) => (
+              <div
+                key={item.title}
+                className="group p-6 rounded-[20px] border border-white/[0.08] bg-[#2D2F33] hover:border-[#F43E01]/30 hover:bg-[#2D2F33]/80 transition-all duration-[250ms] ease-in-out"
+              >
+                <h3 className="font-semibold text-white mb-2 text-body">{item.title}</h3>
+                <p className="text-body-sm text-[#9C9C90] leading-relaxed">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── 12. Expansão ── */}
+      <section className="py-20 sm:py-28 bg-[#F3F3EE]">
+        <div className="max-w-4xl mx-auto px-4 text-center">
+          <p className="text-overline uppercase text-[#F43E01] tracking-widest mb-4">Visão de longo prazo</p>
+          <h2 className="text-display-lg text-[#26292E] text-balance mb-6">
+            Brasil primeiro.{' '}
+            <span className="text-[#69695D]">América Latina a seguir.</span>
+          </h2>
+          <p className="text-body-lg text-[#69695D] max-w-2xl mx-auto leading-relaxed mb-12">
+            Estamos construindo a infraestrutura de inteligência de compras governamentais para todo o continente. O Brasil é o começo.
+          </p>
+          <div className="flex flex-wrap justify-center gap-4 sm:gap-6 text-4xl sm:text-5xl">
+            {['🇧🇷', '🇲🇽', '🇨🇴', '🇨🇱', '🇦🇷', '🇵🇪', '🇺🇾', '🇧🇴', '🇦🇴', '🇨🇻'].map((flag, i) => (
+              <span key={i} className="inline-block hover:scale-110 transition-transform duration-150 ease-in-out">{flag}</span>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── 13. CTA Section (Orange block) ── */}
       <section className="py-20 sm:py-28 bg-[#F43E01] relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.08),transparent_60%)]" />
         <div className="relative max-w-3xl mx-auto px-4 text-center">
           <h2 className="text-display-lg text-white text-balance mb-6">
-            Pare de perder licitações por falta de informação
+            Seus concorrentes ainda procuram licitações em portais. Você já pode ver onde o dinheiro está.
           </h2>
           <p className="text-body-lg text-white/70 mb-10">
             Junte-se a empresas que já encontram as melhores oportunidades com IA.
@@ -565,7 +845,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Footer (dark) ── */}
+      {/* ── 14. Footer (dark) ── */}
       <footer className="py-16 bg-[#26292E] text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-10">
@@ -574,22 +854,28 @@ export default function LandingPage() {
                 <Image src="/logo.png" alt="Licitagram" width={140} height={32} className="h-8 w-auto brightness-0 invert" />
               </div>
               <p className="text-body-sm text-[#9C9C90] leading-relaxed">
-                Inteligência artificial para licitações públicas.
+                O maior sistema privado de inteligência de compras governamentais da América Latina.
               </p>
             </div>
             <div>
               <h4 className="text-overline uppercase text-[#69695D] mb-4 tracking-widest">Produto</h4>
               <ul className="space-y-3 text-body-sm">
-                <li><a href="#features" className="text-[#CECEBF] hover:text-white transition-all duration-150 ease-in-out">Features</a></li>
-                <li><a href="#pricing" className="text-[#CECEBF] hover:text-white transition-all duration-150 ease-in-out">Preços</a></li>
-                <li><Link href="/login" className="text-[#CECEBF] hover:text-white transition-all duration-150 ease-in-out">Entrar</Link></li>
+                <li><a href="#inteligencia" className="text-[#CECEBF] hover:text-white transition-all duration-150 ease-in-out">Inteligência</a></li>
+                <li><a href="#mapa" className="text-[#CECEBF] hover:text-white transition-all duration-150 ease-in-out">Mapa</a></li>
+                <li><a href="#plataforma" className="text-[#CECEBF] hover:text-white transition-all duration-150 ease-in-out">Sala de Operações</a></li>
+                <li><a href="#faq" className="text-[#CECEBF] hover:text-white transition-all duration-150 ease-in-out">Consultor de IA</a></li>
+                <li><span className="text-[#CECEBF]">Drive</span></li>
+                <li><a href="#pricing" className="text-[#CECEBF] hover:text-white transition-all duration-150 ease-in-out">Planos</a></li>
+                <li><span className="text-[#69695D]">API (em breve)</span></li>
               </ul>
             </div>
             <div>
-              <h4 className="text-overline uppercase text-[#69695D] mb-4 tracking-widest">Recursos</h4>
+              <h4 className="text-overline uppercase text-[#69695D] mb-4 tracking-widest">Plataforma</h4>
               <ul className="space-y-3 text-body-sm">
-                <li><span className="text-[#69695D]">Blog (em breve)</span></li>
-                <li><span className="text-[#69695D]">API Docs (em breve)</span></li>
+                <li><a href="#governos" className="text-[#CECEBF] hover:text-white transition-all duration-150 ease-in-out">Para TCEs</a></li>
+                <li><span className="text-[#CECEBF]">Para bancos</span></li>
+                <li><span className="text-[#CECEBF]">Para empresas</span></li>
+                <li><span className="text-[#69695D]">Status</span></li>
               </ul>
             </div>
             <div>
@@ -597,11 +883,13 @@ export default function LandingPage() {
               <ul className="space-y-3 text-body-sm">
                 <li><span className="text-[#69695D]">Termos de Uso</span></li>
                 <li><span className="text-[#69695D]">Política de Privacidade</span></li>
+                <li><Link href="/login" className="text-[#CECEBF] hover:text-white transition-all duration-150 ease-in-out">Entrar</Link></li>
               </ul>
             </div>
           </div>
-          <div className="mt-12 pt-8 border-t border-white/[0.08] text-center">
-            <p className="text-caption text-[#69695D]">&copy; 2026 Licitagram. Todos os direitos reservados.</p>
+          <div className="mt-12 pt-8 border-t border-white/[0.08] text-center space-y-2">
+            <p className="text-caption text-[#69695D]">&copy; 2026 Licitagram · ZeepCode Group Technology LLC · Florida, USA</p>
+            <p className="text-caption text-[#69695D]">Serving Brazil · Expanding LatAm</p>
           </div>
         </div>
       </footer>
