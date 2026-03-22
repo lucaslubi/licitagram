@@ -139,5 +139,20 @@ module.exports = {
       out_file: '/var/log/licitagram/queue-metrics-out.log',
       error_file: '/var/log/licitagram/queue-metrics-err.log',
     },
+
+    // ─── Monitoring HTTP server (port 3998) ──────────────────────────────
+    {
+      ...baseConfig,
+      name: 'monitoring-server',
+      script: path.join(WORKERS, 'dist/monitoring-server.js'),
+      node_args: '--max-old-space-size=128',
+      max_memory_restart: '150M',
+      env: {
+        NODE_ENV: 'production',
+        MONITORING_PORT: '3998',
+      },
+      out_file: '/var/log/licitagram/monitoring-server-out.log',
+      error_file: '/var/log/licitagram/monitoring-server-err.log',
+    },
   ],
 }
