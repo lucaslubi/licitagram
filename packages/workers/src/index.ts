@@ -65,7 +65,8 @@ async function loadWorkers(): Promise<Worker[]> {
     const { pipelineHealthWorker } = await import('./processors/pipeline-health.processor')
     const { outcomeCheckWorker } = await import('./processors/outcome-check.processor')
     const { dailyAuditWorker } = await import('./processors/daily-audit.processor')
-    workers.push(pendingNotificationsWorker, hotAlertsWorker, mapCacheWorker, pipelineHealthWorker, outcomeCheckWorker, dailyAuditWorker)
+    const { aiHealingWorker } = await import('./processors/ai-healing.processor')
+    workers.push(pendingNotificationsWorker, hotAlertsWorker, mapCacheWorker, pipelineHealthWorker, outcomeCheckWorker, dailyAuditWorker, aiHealingWorker)
   }
 
   if (selectedGroups.includes('telegram')) {
@@ -132,6 +133,7 @@ import { proactiveSupplierScrapingQueue } from './queues/proactive-supplier-scra
 import { competitorRelevanceQueue } from './queues/competitor-relevance.queue'
 import { dailyAuditQueue } from './queues/daily-audit.queue'
 import { certidoesQueue } from './queues/certidoes.queue'
+import { aiHealingQueue } from './queues/ai-healing.queue'
 
 async function setupRepeatableJobs() {
   const today = formatDatePNCP(new Date())
@@ -341,6 +343,28 @@ async function setupRepeatableJobs() {
     },
   )
   logger.info('Daily audit scheduled (3 AM BRT / 06:00 UTC)')
+
+  // Schedule AI healing check every 10 minutes (autonomous infrastructure healing)
+  await aiHealingQueue.add(
+    'health-check',
+    {},
+    {
+      repeat: { every: 10 * 60 * 1000 },
+      jobId: 'ai-healing-10m-repeat',
+    },
+  )
+  logger.info('AI healing check scheduled (every 10m)')
+
+  // Schedule daily healing report at 6 AM BRT (09:00 UTC)
+  await aiHealingQueue.add(
+    'daily-report',
+    {},
+    {
+      repeat: { pattern: '0 9 * * *' },
+      jobId: 'ai-healing-daily-report-6am-brt',
+    },
+  )
+  logger.info('AI healing daily report scheduled (6 AM BRT / 09:00 UTC)')
 
   // Schedule outcome prompt check every 6 hours (won/lost outcome capture)
   await outcomePromptQueue.add(

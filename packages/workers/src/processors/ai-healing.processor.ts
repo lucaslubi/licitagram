@@ -1,0 +1,800 @@
+/**
+ * 🏥 AI-Powered Autonomous Healing System
+ *
+ * Runs every 10 minutes. Monitors infrastructure, detects issues,
+ * fixes routine problems automatically, and asks admin for approval
+ * on critical decisions via Telegram.
+ *
+ * Healing levels:
+ *   AUTONOMOUS       — fix without asking (restart crashed worker, clear stuck queue, clean logs)
+ *   APPROVAL_REQUIRED — ask admin via Telegram before acting (scale workers, change config, delete data)
+ *   REPORT_ONLY      — just report, no action (unknown issues, performance trends)
+ *
+ * Flow:
+ *   1. Collect system metrics (PM2, queues, RAM, CPU, disk)
+ *   2. Rule-based detection (fast, no AI cost)
+ *   3. AI analysis for complex/ambiguous issues (LLM)
+ *   4. Execute autonomous actions or request approval
+ *   5. Log everything to healing_actions table
+ */
+import { Worker, Queue, type Job } from 'bullmq'
+import { connection } from '../queues/connection'
+import { supabase } from '../lib/supabase'
+import { logger } from '../lib/logger'
+import { callLLM, parseJsonResponse } from '../ai/llm-client'
+import { sendHealingAlert, sendHealingReport } from '../lib/healing-telegram'
+import { exec } from 'child_process'
+import { promisify } from 'util'
+
+const execAsync = promisify(exec)
+
+// ─── Types ──────────────────────────────────────────────────────────────────
+
+type HealingSeverity = 'autonomous' | 'approval_required' | 'report_only'
+
+interface DetectedIssue {
+  action_type: string
+  severity: HealingSeverity
+  description: string
+  details: Record<string, unknown>
+  action_command?: string
+  triggered_by: 'system' | 'ai' | 'admin'
+}
+
+interface PM2Process {
+  name: string
+  pm_id: number
+  status: string
+  cpu: number
+  memory: number
+  restarts: number
+  uptime: number
+}
+
+interface SystemMetrics {
+  pm2: PM2Process[]
+  queues: Record<string, { waiting: number; active: number; failed: number; delayed: number }>
+  ram: { total: number; used: number; available: number; percentUsed: number }
+  cpu: { loadAvg1: number; loadAvg5: number; cores: number }
+  disk: { total: string; used: string; available: string; percentUsed: number }
+}
+
+// ─── Metric Collection ──────────────────────────────────────────────────────
+
+async function collectPM2Metrics(): Promise<PM2Process[]> {
+  try {
+    const { stdout } = await execAsync('pm2 jlist')
+    const processes = JSON.parse(stdout) as Array<{
+      name: string
+      pm_id: number
+      pm2_env: { status: string; restart_time: number; pm_uptime: number }
+      monit: { cpu: number; memory: number }
+    }>
+    return processes.map(p => ({
+      name: p.name,
+      pm_id: p.pm_id,
+      status: p.pm2_env.status,
+      cpu: p.monit.cpu,
+      memory: p.monit.memory,
+      restarts: p.pm2_env.restart_time,
+      uptime: p.pm2_env.pm_uptime,
+    }))
+  } catch (err) {
+    logger.warn({ err }, 'Healing: failed to collect PM2 metrics')
+    return []
+  }
+}
+
+async function collectRAMMetrics(): Promise<SystemMetrics['ram']> {
+  try {
+    const { stdout } = await execAsync("free -b | awk '/^Mem:/ {print $2, $3, $7}'")
+    const [total, used, available] = stdout.trim().split(/\s+/).map(Number)
+    return { total, used, available, percentUsed: Math.round((used / total) * 100) }
+  } catch {
+    return { total: 0, used: 0, available: 0, percentUsed: 0 }
+  }
+}
+
+async function collectCPUMetrics(): Promise<SystemMetrics['cpu']> {
+  try {
+    const { stdout: loadStr } = await execAsync("cat /proc/loadavg | awk '{print $1, $2}'")
+    const [loadAvg1, loadAvg5] = loadStr.trim().split(/\s+/).map(Number)
+    const { stdout: coresStr } = await execAsync('nproc')
+    const cores = parseInt(coresStr.trim()) || 2
+    return { loadAvg1, loadAvg5, cores }
+  } catch {
+    return { loadAvg1: 0, loadAvg5: 0, cores: 2 }
+  }
+}
+
+async function collectDiskMetrics(): Promise<SystemMetrics['disk']> {
+  try {
+    const { stdout } = await execAsync("df -h / | tail -1 | awk '{print $2, $3, $4, $5}'")
+    const [total, used, available, pct] = stdout.trim().split(/\s+/)
+    return { total, used, available, percentUsed: parseInt(pct) || 0 }
+  } catch {
+    return { total: '0', used: '0', available: '0', percentUsed: 0 }
+  }
+}
+
+const MONITORED_QUEUES = [
+  'scraping', 'extraction', 'matching', 'notification', 'notification-whatsapp',
+  'pending-notifications', 'hot-alerts', 'ai-triage', 'semantic-matching',
+  'competition-analysis', 'results-scraping', 'fornecedor-enrichment',
+  'contact-enrichment', 'proactive-supplier-scraping', 'ai-competitor-classifier',
+  'competitor-relevance', 'map-cache', 'pipeline-health', 'daily-audit',
+  'comprasgov-scraping', 'comprasgov-arp', 'comprasgov-legado', 'outcome-prompt',
+  'certidoes',
+]
+
+async function collectQueueMetrics(): Promise<SystemMetrics['queues']> {
+  const queues: SystemMetrics['queues'] = {}
+  for (const name of MONITORED_QUEUES) {
+    try {
+      const q = new Queue(name, { connection })
+      const [waiting, active, failed, delayed] = await Promise.all([
+        q.getWaitingCount(),
+        q.getActiveCount(),
+        q.getFailedCount(),
+        q.getDelayedCount(),
+      ])
+      queues[name] = { waiting, active, failed, delayed }
+    } catch {
+      // Queue may not exist yet
+    }
+  }
+  return queues
+}
+
+async function collectAllMetrics(): Promise<SystemMetrics> {
+  const [pm2, queues, ram, cpu, disk] = await Promise.all([
+    collectPM2Metrics(),
+    collectQueueMetrics(),
+    collectRAMMetrics(),
+    collectCPUMetrics(),
+    collectDiskMetrics(),
+  ])
+  return { pm2, queues, ram, cpu, disk }
+}
+
+// ─── Rule-Based Detection ───────────────────────────────────────────────────
+
+function detectIssuesFromRules(metrics: SystemMetrics): DetectedIssue[] {
+  const issues: DetectedIssue[] = []
+
+  // --- PM2 Worker issues ---
+  for (const proc of metrics.pm2) {
+    // Crashed worker
+    if (proc.status !== 'online') {
+      issues.push({
+        action_type: 'restart_worker',
+        severity: 'autonomous',
+        description: `Worker "${proc.name}" está ${proc.status}. Reiniciando automaticamente.`,
+        details: { worker: proc.name, status: proc.status, pm_id: proc.pm_id },
+        action_command: `pm2 restart ${proc.name}`,
+        triggered_by: 'system',
+      })
+    }
+
+    // High restart count (> 10 restarts AND uptime < 1h = restart loop)
+    if (proc.restarts > 10 && proc.uptime < 60 * 60 * 1000) {
+      issues.push({
+        action_type: 'restart_worker_delayed',
+        severity: 'autonomous',
+        description: `Worker "${proc.name}" reiniciou ${proc.restarts}x na última hora. Reiniciando com delay.`,
+        details: { worker: proc.name, restarts: proc.restarts, uptime: proc.uptime },
+        action_command: `pm2 restart ${proc.name} --cron-restart="*/5 * * * *"`,
+        triggered_by: 'system',
+      })
+    }
+
+    // Single worker using > 500MB RAM
+    if (proc.memory > 500 * 1024 * 1024) {
+      issues.push({
+        action_type: 'restart_worker',
+        severity: 'autonomous',
+        description: `Worker "${proc.name}" usando ${Math.round(proc.memory / 1024 / 1024)}MB RAM. Reiniciando para liberar memória.`,
+        details: { worker: proc.name, memoryMB: Math.round(proc.memory / 1024 / 1024) },
+        action_command: `pm2 restart ${proc.name}`,
+        triggered_by: 'system',
+      })
+    }
+  }
+
+  // --- Queue backlogs ---
+  for (const [queueName, stats] of Object.entries(metrics.queues)) {
+    // Large backlog with no active workers = stuck
+    if (stats.waiting > 5000 && stats.active === 0) {
+      if (stats.waiting > 20000) {
+        issues.push({
+          action_type: 'scale_workers',
+          severity: 'approval_required',
+          description: `Fila "${queueName}" tem ${stats.waiting.toLocaleString()} jobs parados sem workers ativos. Escalar workers?`,
+          details: { queue: queueName, waiting: stats.waiting, active: stats.active },
+          triggered_by: 'system',
+        })
+      } else {
+        issues.push({
+          action_type: 'restart_queue_worker',
+          severity: 'autonomous',
+          description: `Fila "${queueName}" tem ${stats.waiting.toLocaleString()} jobs e 0 active. Reiniciando worker responsável.`,
+          details: { queue: queueName, waiting: stats.waiting },
+          action_command: getRestartCommandForQueue(queueName),
+          triggered_by: 'system',
+        })
+      }
+    }
+
+    // Excessive failed jobs
+    if (stats.failed > 500) {
+      issues.push({
+        action_type: 'clean_failed_jobs',
+        severity: 'autonomous',
+        description: `Fila "${queueName}" tem ${stats.failed} jobs falhados. Limpando jobs antigos.`,
+        details: { queue: queueName, failed: stats.failed },
+        triggered_by: 'system',
+      })
+    }
+  }
+
+  // --- RAM ---
+  if (metrics.ram.percentUsed > 95) {
+    issues.push({
+      action_type: 'critical_ram',
+      severity: 'approval_required',
+      description: `RAM crítica: ${metrics.ram.percentUsed}% usado (${Math.round(metrics.ram.available / 1024 / 1024)}MB livre). Matar workers não essenciais?`,
+      details: { percentUsed: metrics.ram.percentUsed, availableMB: Math.round(metrics.ram.available / 1024 / 1024) },
+      triggered_by: 'system',
+    })
+  } else if (metrics.ram.percentUsed > 85) {
+    // Find the highest-memory PM2 process and restart it
+    const highestMem = [...metrics.pm2].sort((a, b) => b.memory - a.memory)[0]
+    if (highestMem) {
+      issues.push({
+        action_type: 'restart_worker',
+        severity: 'autonomous',
+        description: `RAM alta: ${metrics.ram.percentUsed}%. Reiniciando "${highestMem.name}" (${Math.round(highestMem.memory / 1024 / 1024)}MB) para liberar memória.`,
+        details: { percentUsed: metrics.ram.percentUsed, worker: highestMem.name, memoryMB: Math.round(highestMem.memory / 1024 / 1024) },
+        action_command: `pm2 restart ${highestMem.name}`,
+        triggered_by: 'system',
+      })
+    }
+  }
+
+  // --- Disk ---
+  if (metrics.disk.percentUsed > 95) {
+    issues.push({
+      action_type: 'critical_disk',
+      severity: 'approval_required',
+      description: `Disco crítico: ${metrics.disk.percentUsed}% usado (${metrics.disk.available} livre). Limpar dados antigos?`,
+      details: { percentUsed: metrics.disk.percentUsed, available: metrics.disk.available },
+      triggered_by: 'system',
+    })
+  } else if (metrics.disk.percentUsed > 80) {
+    issues.push({
+      action_type: 'clean_logs',
+      severity: 'autonomous',
+      description: `Disco ${metrics.disk.percentUsed}% usado. Limpando logs antigos e arquivos temporários.`,
+      details: { percentUsed: metrics.disk.percentUsed, available: metrics.disk.available },
+      action_command: 'find /root/.pm2/logs -name "*.log" -mtime +3 -delete && pm2 flush',
+      triggered_by: 'system',
+    })
+  }
+
+  // --- CPU ---
+  const cpuThreshold = metrics.cpu.cores * 1.5
+  if (metrics.cpu.loadAvg1 > cpuThreshold) {
+    issues.push({
+      action_type: 'high_cpu',
+      severity: 'report_only',
+      description: `CPU alta: load ${metrics.cpu.loadAvg1.toFixed(1)} (${metrics.cpu.cores} cores). Monitorando.`,
+      details: { loadAvg1: metrics.cpu.loadAvg1, loadAvg5: metrics.cpu.loadAvg5, cores: metrics.cpu.cores },
+      triggered_by: 'system',
+    })
+  }
+
+  return issues
+}
+
+// Map queue names to PM2 worker restart commands
+function getRestartCommandForQueue(queueName: string): string {
+  const WORKER_MAP: Record<string, string> = {
+    'scraping': 'worker-scraping',
+    'comprasgov-scraping': 'worker-scraping',
+    'comprasgov-arp': 'worker-scraping',
+    'comprasgov-legado': 'worker-scraping',
+    'extraction': 'worker-extraction',
+    'matching': 'worker-matching',
+    'ai-triage': 'worker-matching',
+    'semantic-matching': 'worker-matching',
+    'notification': 'worker-telegram',
+    'notification-whatsapp': 'worker-whatsapp',
+    'pending-notifications': 'worker-alerts',
+    'hot-alerts': 'worker-alerts',
+    'map-cache': 'worker-alerts',
+    'pipeline-health': 'worker-alerts',
+    'outcome-prompt': 'worker-alerts',
+    'daily-audit': 'worker-alerts',
+    'competition-analysis': 'worker-enrichment',
+    'results-scraping': 'worker-enrichment',
+    'fornecedor-enrichment': 'worker-enrichment',
+    'contact-enrichment': 'worker-enrichment',
+    'proactive-supplier-scraping': 'worker-enrichment',
+    'ai-competitor-classifier': 'worker-enrichment',
+    'competitor-relevance': 'worker-enrichment',
+  }
+  const workerName = WORKER_MAP[queueName] || 'worker-alerts'
+  return `pm2 restart ${workerName}`
+}
+
+// ─── AI Analysis (for complex issues rules can't handle) ────────────────────
+
+async function runAIAnalysis(metrics: SystemMetrics, recentActions: Record<string, unknown>[]): Promise<DetectedIssue[]> {
+  try {
+    // Build a compact summary to minimize token usage
+    const metricsSummary = {
+      pm2: metrics.pm2.map(p => ({
+        name: p.name, status: p.status, cpu: p.cpu,
+        memMB: Math.round(p.memory / 1024 / 1024), restarts: p.restarts,
+      })),
+      queues: Object.fromEntries(
+        Object.entries(metrics.queues).filter(([, s]) => s.waiting > 0 || s.failed > 0),
+      ),
+      ram: { pct: metrics.ram.percentUsed, freeMB: Math.round(metrics.ram.available / 1024 / 1024) },
+      cpu: { load1: metrics.cpu.loadAvg1, cores: metrics.cpu.cores },
+      disk: { pct: metrics.disk.percentUsed, free: metrics.disk.available },
+    }
+
+    const response = await callLLM({
+      task: 'classification',
+      system: `Você é um engenheiro de infraestrutura analisando o sistema Licitagram.
+Analise as métricas e identifique problemas que regras simples não detectariam:
+- Padrões de degradação progressiva
+- Correlações entre métricas (ex: RAM alta + filas crescendo = leak)
+- Anomalias sutis
+
+Responda APENAS em JSON válido:
+{
+  "issues": [
+    {
+      "action_type": "string (ex: investigate_memory_leak, optimize_batching, etc)",
+      "severity": "autonomous | approval_required | report_only",
+      "description": "string em português",
+      "autonomous": boolean
+    }
+  ]
+}
+
+Se não houver problemas além dos óbvios, retorne { "issues": [] }.
+NÃO repita problemas que regras simples já detectam (worker crashed, RAM > 85%, etc).`,
+      prompt: `Métricas atuais:\n${JSON.stringify(metricsSummary, null, 2)}\n\nÚltimas 10 ações de healing:\n${JSON.stringify(recentActions.slice(0, 10), null, 2)}`,
+      maxRetries: 1,
+      jsonMode: true,
+    })
+
+    const parsed = parseJsonResponse<{
+      issues: Array<{
+        action_type: string
+        severity: HealingSeverity
+        description: string
+        autonomous?: boolean
+      }>
+    }>(response)
+
+    return (parsed.issues || []).map(issue => ({
+      action_type: issue.action_type,
+      severity: issue.severity || 'report_only',
+      description: issue.description,
+      details: { aiGenerated: true },
+      triggered_by: 'ai' as const,
+    }))
+  } catch (err) {
+    logger.warn({ err }, 'Healing: AI analysis failed (non-critical)')
+    return []
+  }
+}
+
+// ─── Action Execution ───────────────────────────────────────────────────────
+
+async function executeAction(issue: DetectedIssue): Promise<{ success: boolean; result: string }> {
+  // Special handling by action type
+  switch (issue.action_type) {
+    case 'clean_failed_jobs': {
+      const queueName = (issue.details.queue as string) || ''
+      try {
+        const q = new Queue(queueName, { connection })
+        const failedJobs = await q.getFailed(0, 500)
+        let cleaned = 0
+        for (const job of failedJobs) {
+          const age = Date.now() - (job.finishedOn || 0)
+          if (age > 12 * 60 * 60 * 1000) {
+            await job.remove()
+            cleaned++
+          }
+        }
+        return { success: true, result: `Removidos ${cleaned} jobs falhados da fila ${queueName}` }
+      } catch (err) {
+        return { success: false, result: `Erro ao limpar jobs: ${(err as Error).message}` }
+      }
+    }
+
+    case 'restart_worker':
+    case 'restart_worker_delayed':
+    case 'restart_queue_worker':
+    case 'clean_logs': {
+      if (!issue.action_command) return { success: false, result: 'Sem comando definido' }
+      try {
+        const { stdout, stderr } = await execAsync(issue.action_command)
+        return { success: true, result: stdout || stderr || 'Comando executado com sucesso' }
+      } catch (err) {
+        return { success: false, result: `Erro: ${(err as Error).message}` }
+      }
+    }
+
+    case 'critical_ram': {
+      // Kill non-essential workers (enrichment first)
+      try {
+        await execAsync('pm2 stop worker-enrichment')
+        return { success: true, result: 'Worker-enrichment parado para liberar RAM' }
+      } catch (err) {
+        return { success: false, result: `Erro: ${(err as Error).message}` }
+      }
+    }
+
+    case 'critical_disk': {
+      try {
+        await execAsync('find /root/.pm2/logs -name "*.log" -mtime +1 -delete && pm2 flush')
+        // Clean old system_metrics (older than 30 days)
+        await supabase
+          .from('system_metrics')
+          .delete()
+          .lt('recorded_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+        return { success: true, result: 'Logs limpos e métricas antigas removidas' }
+      } catch (err) {
+        return { success: false, result: `Erro: ${(err as Error).message}` }
+      }
+    }
+
+    case 'scale_workers': {
+      // Scale up by adding more PM2 instances
+      const queueName = (issue.details.queue as string) || ''
+      const workerCommand = getRestartCommandForQueue(queueName).replace('restart', 'scale')
+      try {
+        // Start a new instance instead of scaling (PM2 cluster mode isn't used)
+        const pmName = workerCommand.split(' ').pop() || ''
+        await execAsync(`pm2 restart ${pmName}`)
+        return { success: true, result: `Worker ${pmName} reiniciado para processar backlog` }
+      } catch (err) {
+        return { success: false, result: `Erro: ${(err as Error).message}` }
+      }
+    }
+
+    default:
+      return { success: false, result: `Tipo de ação "${issue.action_type}" não tem handler definido` }
+  }
+}
+
+// ─── Logging to Supabase ────────────────────────────────────────────────────
+
+async function logHealingAction(
+  issue: DetectedIssue,
+  status: string,
+  result: string | null,
+  telegramMessageId: string | null,
+): Promise<number> {
+  const { data, error } = await supabase
+    .from('healing_actions')
+    .insert({
+      action_type: issue.action_type,
+      severity: issue.severity,
+      description: issue.description,
+      details: issue.details,
+      status,
+      result,
+      triggered_by: issue.triggered_by,
+      telegram_message_id: telegramMessageId,
+      executed_at: status === 'executed' ? new Date().toISOString() : null,
+    })
+    .select('id')
+    .single()
+
+  if (error) {
+    logger.error({ error }, 'Healing: failed to log action to Supabase')
+    return 0
+  }
+  return data?.id || 0
+}
+
+// ─── Daily Report ───────────────────────────────────────────────────────────
+
+async function generateDailyReport() {
+  logger.info('📊 Generating daily healing report...')
+
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+
+  // Fetch last 24h of healing actions
+  const { data: actions } = await supabase
+    .from('healing_actions')
+    .select('*')
+    .gte('created_at', since)
+    .order('created_at', { ascending: false })
+
+  const allActions = (actions || []) as Record<string, unknown>[]
+
+  // Pipeline stats
+  const [tendersResult, matchesResult, notificationsResult] = await Promise.all([
+    supabase.from('tenders').select('id', { count: 'exact', head: true }).gte('created_at', since),
+    supabase.from('matches').select('id', { count: 'exact', head: true }).gte('created_at', since),
+    supabase.from('notification_logs').select('id', { count: 'exact', head: true }).gte('created_at', since),
+  ])
+  const pipelineStats = {
+    editais: tendersResult.count ?? 0,
+    matches: matchesResult.count ?? 0,
+    notificacoes: notificationsResult.count ?? 0,
+  }
+
+  // System status
+  const metrics = await collectAllMetrics()
+  const onlineWorkers = metrics.pm2.filter(p => p.status === 'online').length
+
+  const now = new Date()
+  const dateStr = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+
+  // Categorize actions
+  const autonomousActions = allActions.filter(a => a.severity === 'autonomous' && a.status === 'executed')
+  const pendingActions = allActions.filter(a => a.status === 'pending')
+  const failedActions = allActions.filter(a => a.status === 'failed')
+
+  let report = `🏥 <b>Relatório de Saúde — Licitagram</b>\n`
+  report += `📅 ${dateStr}\n\n`
+
+  report += `📊 <b>Métricas 24h</b>\n`
+  report += `• Editais processados: ${pipelineStats.editais.toLocaleString()}\n`
+  report += `• Matches gerados: ${pipelineStats.matches.toLocaleString()}\n`
+  report += `• Notificações enviadas: ${pipelineStats.notificacoes.toLocaleString()}\n`
+  report += `• Workers: ${onlineWorkers}/${metrics.pm2.length} online\n`
+  report += `• RAM: ${metrics.ram.percentUsed}% | Disco: ${metrics.disk.percentUsed}%\n\n`
+
+  report += `🔧 <b>Ações Autônomas: ${autonomousActions.length}</b>\n`
+  if (autonomousActions.length > 0) {
+    for (const a of autonomousActions.slice(0, 10)) {
+      report += `✅ ${a.description}\n`
+    }
+    if (autonomousActions.length > 10) {
+      report += `<i>... e mais ${autonomousActions.length - 10} ações</i>\n`
+    }
+  } else {
+    report += `<i>Nenhuma ação necessária</i>\n`
+  }
+  report += '\n'
+
+  if (pendingActions.length > 0) {
+    report += `⚠️ <b>Pendente de Aprovação: ${pendingActions.length}</b>\n`
+    for (const a of pendingActions) {
+      report += `⏳ ${a.description}\n`
+    }
+    report += '\n'
+  }
+
+  if (failedActions.length > 0) {
+    report += `❌ <b>Ações Falhadas: ${failedActions.length}</b>\n`
+    for (const a of failedActions.slice(0, 5)) {
+      report += `• ${a.action_type}: ${a.result || 'sem detalhes'}\n`
+    }
+    report += '\n'
+  }
+
+  // AI trend analysis
+  try {
+    const aiSummary = await callLLM({
+      task: 'summary',
+      system: `Você é um engenheiro DevOps analisando o sistema Licitagram.
+Gere uma análise curta (3-5 linhas) com:
+1. Estado geral do sistema
+2. Tendências observadas
+3. 1-2 sugestões de próximas ações
+
+Responda em texto puro (sem markdown, sem JSON). Seja conciso e direto.`,
+      prompt: `Ações de healing (24h): ${JSON.stringify(allActions.slice(0, 20).map(a => ({
+        type: a.action_type, severity: a.severity, desc: a.description, status: a.status,
+      })))}
+Pipeline: ${JSON.stringify(pipelineStats)}
+RAM: ${metrics.ram.percentUsed}%, Disco: ${metrics.disk.percentUsed}%, Workers: ${onlineWorkers}/${metrics.pm2.length}`,
+      maxRetries: 1,
+    })
+    report += `🧠 <b>Análise IA</b>\n${aiSummary.trim()}\n`
+  } catch {
+    report += `🧠 <b>Análise IA</b>\n<i>Análise indisponível</i>\n`
+  }
+
+  await sendHealingReport(report)
+  logger.info({ autonomousActions: autonomousActions.length, pipelineStats }, 'Daily healing report sent')
+}
+
+// ─── Main Processor ─────────────────────────────────────────────────────────
+
+async function processHealing(job: Job) {
+  // Route by job name
+  if (job.name === 'daily-report') {
+    return generateDailyReport()
+  }
+
+  // Default: health check (runs every 10 min)
+  const startTime = Date.now()
+  logger.info('🏥 Healing check starting...')
+
+  // Step 1: Collect metrics
+  const metrics = await collectAllMetrics()
+  logger.info({
+    pm2Count: metrics.pm2.length,
+    queueCount: Object.keys(metrics.queues).length,
+    ramPct: metrics.ram.percentUsed,
+    diskPct: metrics.disk.percentUsed,
+    cpuLoad: metrics.cpu.loadAvg1,
+  }, 'Healing: metrics collected')
+
+  // Step 2: Rule-based detection
+  const ruleIssues = detectIssuesFromRules(metrics)
+
+  // Step 3: AI analysis (only if no critical rule-based issues to save costs)
+  let aiIssues: DetectedIssue[] = []
+  const hasCriticalRuleIssues = ruleIssues.some(i => i.severity === 'approval_required')
+  if (!hasCriticalRuleIssues) {
+    // Fetch recent actions for context
+    const { data: recentActions } = await supabase
+      .from('healing_actions')
+      .select('action_type, severity, description, status, created_at')
+      .order('created_at', { ascending: false })
+      .limit(10)
+
+    aiIssues = await runAIAnalysis(metrics, (recentActions || []) as Record<string, unknown>[])
+  }
+
+  const allIssues = [...ruleIssues, ...aiIssues]
+
+  if (allIssues.length === 0) {
+    logger.info({ durationMs: Date.now() - startTime }, 'Healing: no issues detected')
+    return { status: 'healthy', issues: 0 }
+  }
+
+  logger.info({ issueCount: allIssues.length }, 'Healing: issues detected, processing...')
+
+  let autonomous = 0
+  let approvalRequired = 0
+  let reportOnly = 0
+
+  for (const issue of allIssues) {
+    switch (issue.severity) {
+      case 'autonomous': {
+        // Execute immediately
+        const { success, result } = await executeAction(issue)
+        const status = success ? 'executed' : 'failed'
+        await logHealingAction(issue, status, result, null)
+
+        // Send notification (no approval needed)
+        const emoji = success ? '✅' : '❌'
+        await sendHealingAlert(
+          `${emoji} <b>Ação Autônoma</b>\n\n${issue.description}\n\n<i>Resultado: ${result}</i>`,
+          0,
+          false,
+        )
+        autonomous++
+        logger.info({ actionType: issue.action_type, success, result }, 'Healing: autonomous action')
+        break
+      }
+
+      case 'approval_required': {
+        // Log as pending, send Telegram with approval buttons
+        const actionId = await logHealingAction(issue, 'pending', null, null)
+        if (actionId > 0) {
+          const msgId = await sendHealingAlert(
+            `🔔 <b>Aprovação Necessária</b>\n\n${issue.description}\n\n<i>Ação: ${issue.action_type}</i>\n<i>ID: #${actionId}</i>`,
+            actionId,
+            true,
+          )
+          // Update with telegram message ID for tracking
+          if (msgId) {
+            await supabase
+              .from('healing_actions')
+              .update({ telegram_message_id: msgId })
+              .eq('id', actionId)
+          }
+        }
+        approvalRequired++
+        logger.info({ actionType: issue.action_type, actionId }, 'Healing: approval requested')
+        break
+      }
+
+      case 'report_only': {
+        await logHealingAction(issue, 'executed', issue.description, null)
+        reportOnly++
+        logger.info({ actionType: issue.action_type }, 'Healing: report-only issue logged')
+        break
+      }
+    }
+  }
+
+  const summary = {
+    status: 'processed',
+    total: allIssues.length,
+    autonomous,
+    approvalRequired,
+    reportOnly,
+    durationMs: Date.now() - startTime,
+  }
+
+  logger.info(summary, 'Healing check complete')
+  return summary
+}
+
+// ─── Approval Handler (called from Telegram bot callback) ───────────────────
+
+export async function executeHealingApproval(actionId: number, approved: boolean): Promise<string> {
+  const { data: action, error } = await supabase
+    .from('healing_actions')
+    .select('*')
+    .eq('id', actionId)
+    .single()
+
+  if (error || !action) {
+    return `Ação #${actionId} não encontrada.`
+  }
+
+  if (action.status !== 'pending') {
+    return `Ação #${actionId} já foi ${action.status}.`
+  }
+
+  if (!approved) {
+    await supabase
+      .from('healing_actions')
+      .update({ status: 'rejected', executed_at: new Date().toISOString() })
+      .eq('id', actionId)
+    return `Ação #${actionId} rejeitada.`
+  }
+
+  // Execute the approved action
+  const issue: DetectedIssue = {
+    action_type: action.action_type,
+    severity: action.severity,
+    description: action.description,
+    details: action.details || {},
+    action_command: action.details?.action_command as string | undefined,
+    triggered_by: 'admin',
+  }
+
+  const { success, result } = await executeAction(issue)
+
+  await supabase
+    .from('healing_actions')
+    .update({
+      status: success ? 'executed' : 'failed',
+      result,
+      triggered_by: 'admin',
+      executed_at: new Date().toISOString(),
+    })
+    .eq('id', actionId)
+
+  return success
+    ? `✅ Ação #${actionId} executada: ${result}`
+    : `❌ Ação #${actionId} falhou: ${result}`
+}
+
+// ─── Worker ─────────────────────────────────────────────────────────────────
+
+export const aiHealingWorker = new Worker(
+  'ai-healing',
+  processHealing,
+  {
+    connection,
+    concurrency: 1,
+    limiter: { max: 1, duration: 5 * 60 * 1000 }, // At most 1 run per 5 min
+  },
+)
+
+aiHealingWorker.on('failed', (job, err) => {
+  logger.error({ jobId: job?.id, err: err.message }, 'Healing processor failed')
+})
+
+aiHealingWorker.on('completed', (job) => {
+  logger.info({ jobId: job.id }, 'Healing check completed')
+})

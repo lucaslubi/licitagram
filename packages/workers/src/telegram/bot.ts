@@ -143,6 +143,25 @@ if (bot) {
     await ctx.editMessageText(`✅ Score mínimo atualizado para ${score}+\n\nVocê receberá alertas apenas para licitações com score acima de ${score}.`)
   })
 
+  // ─── Healing System Callbacks ───────────────────────────────────────────
+  bot.callbackQuery(/^healing_(approve|reject)_(\d+)$/, async (ctx) => {
+    const action = ctx.match[1] // 'approve' or 'reject'
+    const actionId = parseInt(ctx.match[2])
+    const approved = action === 'approve'
+
+    logger.info({ actionId, approved, chatId: ctx.chat?.id }, 'Healing callback received')
+
+    try {
+      const { executeHealingApproval } = await import('../processors/ai-healing.processor')
+      const result = await executeHealingApproval(actionId, approved)
+      await ctx.answerCallbackQuery({ text: approved ? '✅ Aprovado!' : '❌ Rejeitado.' })
+      await ctx.editMessageText(result, { parse_mode: 'HTML' })
+    } catch (err) {
+      logger.error({ err, actionId }, 'Healing callback failed')
+      await ctx.answerCallbackQuery({ text: 'Erro ao processar. Tente novamente.' })
+    }
+  })
+
   bot.command('status', async (ctx) => {
     const { data: user } = await supabase
       .from('users')

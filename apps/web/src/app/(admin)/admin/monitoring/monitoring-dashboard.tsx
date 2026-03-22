@@ -55,6 +55,21 @@ interface HistoryData {
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
+ * SPARKLINE HISTORY TYPES
+ * ════════════════════════════════════════════════════════════════════════════ */
+
+const SPARKLINE_MAX_POINTS = 60 // 5 minutes at 5s intervals
+
+interface SparklinePoint {
+  memory: number
+  cpu: number
+}
+
+interface QueueSparklinePoint {
+  waiting: number
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
  * HELPERS
  * ════════════════════════════════════════════════════════════════════════════ */
 
@@ -88,6 +103,263 @@ function statusBadgeClasses(status: string): string {
 
 function mbToGb(mb: number): number {
   return mb / 1024
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+ * ECG STYLES — injected once via useEffect
+ * ════════════════════════════════════════════════════════════════════════════ */
+
+const ECG_STYLE_ID = 'ecg-sparkline-styles'
+
+function useEcgStyles() {
+  useEffect(() => {
+    if (document.getElementById(ECG_STYLE_ID)) return
+    const style = document.createElement('style')
+    style.id = ECG_STYLE_ID
+    style.textContent = [
+      '@keyframes ecg-glow-green { 0%, 100% { filter: drop-shadow(0 0 2px #00ff8844); } 50% { filter: drop-shadow(0 0 6px #00ff88aa); } }',
+      '@keyframes ecg-glow-cyan { 0%, 100% { filter: drop-shadow(0 0 2px #00ccff44); } 50% { filter: drop-shadow(0 0 6px #00ccffaa); } }',
+      '@keyframes ecg-glow-orange { 0%, 100% { filter: drop-shadow(0 0 2px #ff990044); } 50% { filter: drop-shadow(0 0 6px #ff9900aa); } }',
+      '@keyframes ecg-scanline { 0% { opacity: 0.03; } 50% { opacity: 0.06; } 100% { opacity: 0.03; } }',
+    ].join('\n')
+    document.head.appendChild(style)
+    return () => { style.remove() }
+  }, [])
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+ * ECG SPARKLINE COMPONENT — hospital monitor style
+ * ════════════════════════════════════════════════════════════════════════════ */
+
+function EcgSparkline({
+  data,
+  lines,
+  width = 200,
+  height = 40,
+}: {
+  data: number[][]  // array of arrays, one per line
+  lines: Array<{ color: string; label: string; glowAnim: string }>
+  width?: number
+  height?: number
+}) {
+  const pad = { top: 4, right: 28, bottom: 4, left: 24 }
+  const cW = width - pad.left - pad.right
+  const cH = height - pad.top - pad.bottom
+
+  // Find global max across all lines
+  let gMax = 1
+  for (const lineData of data) {
+    for (const v of lineData) {
+      if (v > gMax) gMax = v
+    }
+  }
+
+  const toX = (i: number, total: number) => {
+    if (total <= 1) return pad.left
+    return pad.left + (i / (total - 1)) * cW
+  }
+  const toY = (v: number) => pad.top + cH - (v / gMax) * cH
+
+  // Grid lines (horizontal dotted)
+  const gridLines = [0, 0.25, 0.5, 0.75, 1]
+
+  return (
+    <div className="relative rounded overflow-hidden" style={{ background: '#0a0a0f' }}>
+      {/* Scanline overlay */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.02) 2px, rgba(255,255,255,0.02) 4px)',
+          animation: 'ecg-scanline 4s ease-in-out infinite',
+          zIndex: 2,
+        }}
+      />
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="w-full"
+        style={{ height, display: 'block' }}
+      >
+        {/* Grid lines */}
+        {gridLines.map((f) => (
+          <line
+            key={f}
+            x1={pad.left}
+            x2={width - pad.right}
+            y1={pad.top + cH * (1 - f)}
+            y2={pad.top + cH * (1 - f)}
+            stroke="rgba(255,255,255,0.06)"
+            strokeWidth={0.5}
+            strokeDasharray="2,3"
+          />
+        ))}
+
+        {/* Lines */}
+        {data.map((lineData, lineIdx) => {
+          if (lineData.length < 2) return null
+          const line = lines[lineIdx]
+          const pts = lineData.map((v, i) => `${toX(i, lineData.length)},${toY(v)}`).join(' ')
+          const lastVal = lineData[lineData.length - 1]
+          const isHigh = lastVal > gMax * 0.75
+
+          // Area fill polygon
+          const areaPoints = `${toX(0, lineData.length)},${toY(0)} ${pts} ${toX(lineData.length - 1, lineData.length)},${toY(0)}`
+
+          return (
+            <g key={lineIdx} style={isHigh ? { animation: `${line.glowAnim} 1s ease-in-out infinite` } : undefined}>
+              {/* Area fill */}
+              <polygon
+                points={areaPoints}
+                fill={line.color}
+                fillOpacity={0.08}
+              />
+              {/* Main line */}
+              <polyline
+                points={pts}
+                fill="none"
+                stroke={line.color}
+                strokeWidth={1.2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{
+                  filter: isHigh ? `drop-shadow(0 0 4px ${line.color})` : `drop-shadow(0 0 1px ${line.color}55)`,
+                }}
+              />
+              {/* Current value dot */}
+              <circle
+                cx={toX(lineData.length - 1, lineData.length)}
+                cy={toY(lastVal)}
+                r={1.5}
+                fill={line.color}
+                style={{
+                  filter: `drop-shadow(0 0 3px ${line.color})`,
+                }}
+              />
+              {/* Current value text on the right */}
+              <text
+                x={width - pad.right + 3}
+                y={toY(lastVal) + 3}
+                fontSize={7}
+                fill={line.color}
+                fontFamily="monospace"
+                opacity={0.9}
+              >
+                {lastVal > 0 ? (lastVal >= 100 ? lastVal.toFixed(0) : lastVal.toFixed(1)) : '\u2014'}
+              </text>
+            </g>
+          )
+        })}
+
+        {/* Labels in corners */}
+        {lines.map((line, i) => (
+          <text
+            key={`label-${i}`}
+            x={pad.left + 1}
+            y={pad.top + 7 + i * 10}
+            fontSize={6}
+            fill={line.color}
+            fontFamily="monospace"
+            fontWeight="bold"
+            opacity={0.7}
+          >
+            {line.label}
+          </text>
+        ))}
+      </svg>
+    </div>
+  )
+}
+
+/* Queue sparkline — single line, orange */
+function QueueEcgSparkline({ data, width = 200, height = 32 }: {
+  data: number[]
+  width?: number
+  height?: number
+}) {
+  const pad = { top: 3, right: 24, bottom: 3, left: 20 }
+  const cW = width - pad.left - pad.right
+  const cH = height - pad.top - pad.bottom
+
+  let gMax = 1
+  for (const v of data) {
+    if (v > gMax) gMax = v
+  }
+
+  const toX = (i: number) => {
+    if (data.length <= 1) return pad.left
+    return pad.left + (i / (data.length - 1)) * cW
+  }
+  const toY = (v: number) => pad.top + cH - (v / gMax) * cH
+
+  if (data.length < 2) {
+    return (
+      <div className="rounded overflow-hidden flex items-center justify-center" style={{ background: '#0a0a0f', height }}>
+        <span style={{ color: '#ff990066', fontSize: 8, fontFamily: 'monospace' }}>Sem dados</span>
+      </div>
+    )
+  }
+
+  const pts = data.map((v, i) => `${toX(i)},${toY(v)}`).join(' ')
+  const areaPoints = `${toX(0)},${toY(0)} ${pts} ${toX(data.length - 1)},${toY(0)}`
+  const lastVal = data[data.length - 1]
+  const isHigh = lastVal > gMax * 0.75
+
+  return (
+    <div className="relative rounded overflow-hidden" style={{ background: '#0a0a0f' }}>
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.02) 2px, rgba(255,255,255,0.02) 4px)',
+          zIndex: 2,
+        }}
+      />
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full" style={{ height, display: 'block' }}>
+        {/* Grid */}
+        {[0, 0.5, 1].map((f) => (
+          <line
+            key={f}
+            x1={pad.left}
+            x2={width - pad.right}
+            y1={pad.top + cH * (1 - f)}
+            y2={pad.top + cH * (1 - f)}
+            stroke="rgba(255,255,255,0.06)"
+            strokeWidth={0.5}
+            strokeDasharray="2,3"
+          />
+        ))}
+        {/* Area */}
+        <polygon points={areaPoints} fill="#ff9900" fillOpacity={0.08} />
+        {/* Line */}
+        <polyline
+          points={pts}
+          fill="none"
+          stroke="#ff9900"
+          strokeWidth={1.2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{
+            filter: isHigh ? 'drop-shadow(0 0 4px #ff9900)' : 'drop-shadow(0 0 1px #ff990055)',
+            animation: isHigh ? 'ecg-glow-orange 1s ease-in-out infinite' : undefined,
+          }}
+        />
+        {/* Dot */}
+        <circle
+          cx={toX(data.length - 1)}
+          cy={toY(lastVal)}
+          r={1.5}
+          fill="#ff9900"
+          style={{ filter: 'drop-shadow(0 0 3px #ff9900)' }}
+        />
+        {/* Label */}
+        <text x={pad.left + 1} y={pad.top + 6} fontSize={5.5} fill="#ff9900" fontFamily="monospace" fontWeight="bold" opacity={0.7}>
+          FILA
+        </text>
+        {/* Value */}
+        <text x={width - pad.right + 2} y={toY(lastVal) + 3} fontSize={6.5} fill="#ff9900" fontFamily="monospace" opacity={0.9}>
+          {formatNumber(lastVal)}
+        </text>
+      </svg>
+    </div>
+  )
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -257,6 +529,13 @@ export function MonitoringDashboard() {
   const [actionMessage, setActionMessage] = useState<string | null>(null)
   const tickRef = useRef(0)
 
+  // ─── Inject ECG CSS keyframes ─────────────────────────────────────
+  useEcgStyles()
+
+  // ─── Sparkline history (last 60 data points = 5 min at 5s intervals) ──
+  const [workerSparkHistory, setWorkerSparkHistory] = useState<Record<string, SparklinePoint[]>>({})
+  const [queueSparkHistory, setQueueSparkHistory] = useState<Record<string, QueueSparklinePoint[]>>({})
+
   // ─── Fetch live data ─────────────────────────────────────────────
   const fetchData = useCallback(async () => {
     try {
@@ -266,6 +545,33 @@ export function MonitoringDashboard() {
       setData(json)
       setLastRefresh(new Date())
       setError(null)
+
+      // Append sparkline data points
+      const monData = json as MonitoringData
+
+      // Worker sparklines
+      setWorkerSparkHistory((prev) => {
+        const next = { ...prev }
+        for (const w of monData.workers) {
+          const arr = next[w.name] ? [...next[w.name]] : []
+          arr.push({ memory: w.memory, cpu: w.cpu })
+          if (arr.length > SPARKLINE_MAX_POINTS) arr.shift()
+          next[w.name] = arr
+        }
+        return next
+      })
+
+      // Queue sparklines
+      setQueueSparkHistory((prev) => {
+        const next = { ...prev }
+        for (const [qName, qStats] of Object.entries(monData.queues)) {
+          const arr = next[qName] ? [...next[qName]] : []
+          arr.push({ waiting: qStats.wait })
+          if (arr.length > SPARKLINE_MAX_POINTS) arr.shift()
+          next[qName] = arr
+        }
+        return next
+      })
     } catch (err) {
       setError(String(err))
     } finally {
@@ -474,7 +780,7 @@ export function MonitoringDashboard() {
         />
         <SummaryCard
           title="CPU Load"
-          value={cpuLoad > 0 ? cpuLoad.toFixed(2) : '—'}
+          value={cpuLoad > 0 ? cpuLoad.toFixed(2) : '\u2014'}
           status={cpuLoad > 8 ? 'error' : cpuLoad > 4 ? 'warning' : 'ok'}
           icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}
         />
@@ -484,64 +790,83 @@ export function MonitoringDashboard() {
       <section>
         <h2 className="text-lg font-semibold text-gray-800 mb-3">Workers PM2</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-          {workers.map((w) => (
-            <div key={w.name} className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <span className="relative flex h-2.5 w-2.5">
-                    {w.status === 'online' && <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${statusColor(w.status)} opacity-75`} />}
-                    <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${statusColor(w.status)}`} />
-                  </span>
-                  <span className="text-sm font-medium text-gray-900 truncate">{w.name}</span>
+          {workers.map((w) => {
+            const sparkData = workerSparkHistory[w.name] || []
+            const memoryLine = sparkData.map((p) => p.memory)
+            const cpuLine = sparkData.map((p) => p.cpu)
+
+            return (
+              <div key={w.name} className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="relative flex h-2.5 w-2.5">
+                      {w.status === 'online' && <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${statusColor(w.status)} opacity-75`} />}
+                      <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${statusColor(w.status)}`} />
+                    </span>
+                    <span className="text-sm font-medium text-gray-900 truncate">{w.name}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {w.restarts > 5 && (
+                      <span className="text-[10px] px-1.5 py-0.5 bg-red-100 text-red-700 rounded-full font-mono">{w.restarts}x</span>
+                    )}
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${statusBadgeClasses(w.status)}`}>{w.status}</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  {w.restarts > 5 && (
-                    <span className="text-[10px] px-1.5 py-0.5 bg-red-100 text-red-700 rounded-full font-mono">{w.restarts}x</span>
+
+                {/* ECG Sparkline Monitor */}
+                <div className="mb-3">
+                  <EcgSparkline
+                    data={[memoryLine, cpuLine]}
+                    lines={[
+                      { color: '#00ff88', label: 'MEM', glowAnim: 'ecg-glow-green' },
+                      { color: '#00ccff', label: 'CPU', glowAnim: 'ecg-glow-cyan' },
+                    ]}
+                    width={200}
+                    height={40}
+                  />
+                </div>
+
+                <div className="space-y-2 text-xs">
+                  <div>
+                    <div className="flex justify-between text-gray-500 mb-0.5">
+                      <span>Memoria</span>
+                      <span className="font-mono text-gray-700">{w.memory > 0 ? `${w.memory.toFixed(0)} MB` : '\u2014'}</span>
+                    </div>
+                    <MiniBar value={w.memory} max={512} color="bg-blue-500" />
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-gray-500 mb-0.5">
+                      <span>CPU</span>
+                      <span className="font-mono text-gray-700">{w.cpu > 0 ? `${w.cpu.toFixed(1)}%` : '\u2014'}</span>
+                    </div>
+                    <MiniBar value={w.cpu} max={100} color="bg-purple-500" />
+                  </div>
+                  <div className="flex justify-between text-gray-500 pt-1">
+                    <span>Uptime</span>
+                    <span className="font-mono text-gray-700">{w.uptime || '\u2014'}</span>
+                  </div>
+                  {w.pid > 0 && (
+                    <div className="flex justify-between text-gray-500">
+                      <span>PID</span>
+                      <span className="font-mono text-gray-700">{w.pid}</span>
+                    </div>
                   )}
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${statusBadgeClasses(w.status)}`}>{w.status}</span>
-                </div>
-              </div>
-
-              <div className="space-y-2 text-xs">
-                <div>
-                  <div className="flex justify-between text-gray-500 mb-0.5">
-                    <span>Memoria</span>
-                    <span className="font-mono text-gray-700">{w.memory > 0 ? `${w.memory.toFixed(0)} MB` : '—'}</span>
-                  </div>
-                  <MiniBar value={w.memory} max={512} color="bg-blue-500" />
-                </div>
-                <div>
-                  <div className="flex justify-between text-gray-500 mb-0.5">
-                    <span>CPU</span>
-                    <span className="font-mono text-gray-700">{w.cpu > 0 ? `${w.cpu.toFixed(1)}%` : '—'}</span>
-                  </div>
-                  <MiniBar value={w.cpu} max={100} color="bg-purple-500" />
-                </div>
-                <div className="flex justify-between text-gray-500 pt-1">
-                  <span>Uptime</span>
-                  <span className="font-mono text-gray-700">{w.uptime || '—'}</span>
-                </div>
-                {w.pid > 0 && (
                   <div className="flex justify-between text-gray-500">
-                    <span>PID</span>
-                    <span className="font-mono text-gray-700">{w.pid}</span>
+                    <span>Restarts</span>
+                    <span className={`font-mono ${w.restarts > 5 ? 'text-red-600 font-bold' : 'text-gray-700'}`}>{w.restarts}</span>
                   </div>
-                )}
-                <div className="flex justify-between text-gray-500">
-                  <span>Restarts</span>
-                  <span className={`font-mono ${w.restarts > 5 ? 'text-red-600 font-bold' : 'text-gray-700'}`}>{w.restarts}</span>
                 </div>
-              </div>
 
-              <button
-                onClick={() => handleAction('restart_worker', w.name)}
-                disabled={actionLoading === `restart_worker:${w.name}`}
-                className="mt-3 w-full text-xs py-1.5 px-3 bg-gray-50 hover:bg-red-50 text-gray-600 hover:text-red-700 rounded-lg border border-gray-200 hover:border-red-300 transition-colors disabled:opacity-50"
-              >
-                {actionLoading === `restart_worker:${w.name}` ? 'Reiniciando...' : 'Forcar Restart'}
-              </button>
-            </div>
-          ))}
+                <button
+                  onClick={() => handleAction('restart_worker', w.name)}
+                  disabled={actionLoading === `restart_worker:${w.name}`}
+                  className="mt-3 w-full text-xs py-1.5 px-3 bg-gray-50 hover:bg-red-50 text-gray-600 hover:text-red-700 rounded-lg border border-gray-200 hover:border-red-300 transition-colors disabled:opacity-50"
+                >
+                  {actionLoading === `restart_worker:${w.name}` ? 'Reiniciando...' : 'Forcar Restart'}
+                </button>
+              </div>
+            )
+          })}
         </div>
       </section>
 
@@ -552,6 +877,7 @@ export function MonitoringDashboard() {
           {chartQueues.map((qName) => {
             const queueData = queues[qName]
             const chartData = getQueueChartData(qName)
+            const qSparkData = (queueSparkHistory[qName] || []).map((p) => p.waiting)
 
             return (
               <div key={qName} className="bg-white rounded-xl border border-gray-200 p-4">
@@ -564,6 +890,11 @@ export function MonitoringDashboard() {
                   >
                     {actionLoading === `drain_queue:${qName}` ? '...' : 'Limpar Fila'}
                   </button>
+                </div>
+
+                {/* ECG Queue Sparkline — tempo real */}
+                <div className="mb-2">
+                  <QueueEcgSparkline data={qSparkData} width={200} height={32} />
                 </div>
 
                 <div className="bg-gray-50 rounded-lg p-1 mb-3">
