@@ -59,6 +59,7 @@ export interface Subscription {
   stripe_subscription_id: string | null
   current_period_start: string | null
   current_period_end: string | null
+  max_companies: number
   created_at: string
   updated_at: string
 }
@@ -111,3 +112,20 @@ export const PLAN_CTX_COOKIE = 'x-plan-ctx'
 
 /** Plan context TTL in milliseconds (5 minutes) */
 export const PLAN_CTX_TTL_MS = 5 * 60 * 1000
+
+// ─── Multi-Company Types ────────────────────────────────────────────────────
+
+export interface UserCompany {
+  id: string
+  user_id: string
+  company_id: string
+  role: 'admin' | 'user' | 'viewer'
+  is_default: boolean
+  created_at: string
+  company?: {
+    id: string
+    cnpj: string
+    razao_social: string
+    nome_fantasia: string | null
+  }
+}

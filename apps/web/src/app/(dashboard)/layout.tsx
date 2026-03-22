@@ -5,6 +5,9 @@ import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
 import { createClient } from '@/lib/supabase/server'
 import { DashboardSidebar } from '@/components/dashboard-sidebar'
 import { DashboardAiWrapper } from '@/components/dashboard-ai-wrapper'
+import { CompanyProvider } from '@/contexts/company-context'
+import { CompanySwitcher } from './company-switcher'
+import { getUserCompanies } from '@/actions/multi-company'
 import type { PlanFeatureKey } from '@licitagram/shared'
 
 interface NavItem {
@@ -60,31 +63,47 @@ export default async function DashboardLayout({
     hasWhatsapp = !!wpData?.whatsapp_verified
   }
 
-  return (
-    <div className="flex h-screen bg-gray-50 font-roboto">
-      <DashboardSidebar
-        navItems={visibleNavItems}
-        isAdmin={!!user.isPlatformAdmin}
-        userName={userName}
-        userEmail={userEmail}
-        userInitial={userInitial}
-        planName={planName}
-      />
+  // ── Multi-company support ──────────────────────────────────────────────
+  const multiCnpjEnabled = hasFeature(user, 'multi_cnpj')
+  const maxCompanies = user.subscription?.max_companies || 1
+  const userCompanies = await getUserCompanies()
 
-      {/* Main content — add top padding on mobile for the fixed top bar */}
-      <main className="flex-1 overflow-auto bg-gray-50">
-        <div className="pt-14 md:pt-0 h-full">
-          <DashboardAiWrapper
-            onboardingCompleted={user.onboardingCompleted}
-            userUfs={user.ufsInteresse}
-            userKeywords={user.palavrasChaveFiltro}
-            hasTelegram={!!user.telegramChatId}
-            hasWhatsapp={hasWhatsapp}
-          >
-            <div className="p-4 md:p-8 h-full">{children}</div>
-          </DashboardAiWrapper>
-        </div>
-      </main>
-    </div>
+  // Show company switcher if user has multi_cnpj OR already has >1 company
+  const showSwitcher = multiCnpjEnabled || userCompanies.length > 1
+
+  return (
+    <CompanyProvider
+      initialCompanies={userCompanies}
+      defaultCompanyId={user.companyId}
+      maxCompanies={maxCompanies}
+      multiCnpjEnabled={multiCnpjEnabled}
+    >
+      <div className="flex h-screen bg-gray-50 font-roboto">
+        <DashboardSidebar
+          navItems={visibleNavItems}
+          isAdmin={!!user.isPlatformAdmin}
+          userName={userName}
+          userEmail={userEmail}
+          userInitial={userInitial}
+          planName={planName}
+          companySwitcher={showSwitcher ? <CompanySwitcher /> : undefined}
+        />
+
+        {/* Main content — add top padding on mobile for the fixed top bar */}
+        <main className="flex-1 overflow-auto bg-gray-50">
+          <div className="pt-14 md:pt-0 h-full">
+            <DashboardAiWrapper
+              onboardingCompleted={user.onboardingCompleted}
+              userUfs={user.ufsInteresse}
+              userKeywords={user.palavrasChaveFiltro}
+              hasTelegram={!!user.telegramChatId}
+              hasWhatsapp={hasWhatsapp}
+            >
+              <div className="p-4 md:p-8 h-full">{children}</div>
+            </DashboardAiWrapper>
+          </div>
+        </main>
+      </div>
+    </CompanyProvider>
   )
 }

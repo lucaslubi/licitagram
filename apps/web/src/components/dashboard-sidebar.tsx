@@ -21,6 +21,7 @@ interface DashboardSidebarProps {
   userEmail: string
   userInitial: string
   planName: string | null
+  companySwitcher?: React.ReactNode
 }
 
 const COLLAPSED_KEY = 'sidebar-collapsed'
@@ -40,6 +41,7 @@ export function DashboardSidebar({
   userEmail,
   userInitial,
   planName,
+  companySwitcher,
 }: DashboardSidebarProps) {
   const [open, setOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
@@ -102,6 +104,14 @@ export function DashboardSidebar({
       </div>
 
       <div className="mx-4 h-px bg-gray-700" />
+
+      {/* Company Switcher (Enterprise multi-CNPJ) */}
+      {companySwitcher && (
+        <>
+          {companySwitcher}
+          <div className="mx-4 h-px bg-gray-700" />
+        </>
+      )}
 
       <nav className={`flex-1 ${collapsed ? 'p-1.5' : 'p-3'} space-y-0.5 mt-2`}>
         {navItems.map((item) => {
