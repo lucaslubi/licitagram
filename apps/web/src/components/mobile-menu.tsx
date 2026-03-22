@@ -4,23 +4,24 @@ import { useState } from 'react'
 import Link from 'next/link'
 
 const NAV_LINKS = [
-  { href: '#features', label: 'Features' },
-  { href: '#pricing', label: 'Preços' },
-  { href: '#testimonials', label: 'Depoimentos' },
-  { href: '#faq', label: 'FAQ' },
+  { href: '#inteligencia', label: 'Inteligencia' },
+  { href: '#mapa', label: 'Mapa' },
+  { href: '#plataforma', label: 'Plataforma' },
+  { href: '#pricing', label: 'Precos' },
+  { href: '#governos', label: 'Para Governos' },
 ]
 
 export function MobileMenu() {
   const [open, setOpen] = useState(false)
 
   return (
-    <div className="md:hidden">
+    <div className="lg:hidden">
       {/* Hamburger button */}
       <button
         onClick={() => setOpen(!open)}
         aria-label={open ? 'Fechar menu' : 'Abrir menu'}
         aria-expanded={open}
-        className="p-2 -mr-2 text-[#69695D] hover:text-[#26292E] transition-colors"
+        className="p-2 -mr-2 text-white/60 hover:text-white transition-colors"
       >
         {open ? (
           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -38,37 +39,37 @@ export function MobileMenu() {
         <>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 top-16 bg-black/20 z-40"
+            className="fixed inset-0 top-[72px] bg-black/60 z-40 backdrop-blur-sm"
             onClick={() => setOpen(false)}
             aria-hidden="true"
           />
           {/* Menu panel */}
-          <div className="absolute top-16 left-0 right-0 z-50 border-b border-black/[0.08] bg-[#FAFAF8] shadow-lg">
-            <nav className="max-w-7xl mx-auto px-4 py-4 flex flex-col gap-1">
+          <div className="absolute top-[72px] left-0 right-0 z-50 bg-[#0A0A0F] border-t border-white/[0.08]">
+            <nav className="max-w-7xl mx-auto px-6 py-6 flex flex-col gap-1">
               {NAV_LINKS.map((link) => (
                 <a
                   key={link.href}
                   href={link.href}
                   onClick={() => setOpen(false)}
-                  className="px-4 py-3 rounded-lg text-body font-medium text-[#69695D] hover:text-[#26292E] hover:bg-black/[0.04] transition-colors"
+                  className="px-4 py-3 rounded-lg text-[15px] font-medium text-white/60 hover:text-white hover:bg-white/[0.04] transition-colors"
                 >
                   {link.label}
                 </a>
               ))}
-              <hr className="my-2 border-black/[0.08]" />
+              <hr className="my-3 border-white/[0.08]" />
               <Link
                 href="/login"
                 onClick={() => setOpen(false)}
-                className="px-4 py-3 rounded-lg text-body font-medium text-[#69695D] hover:text-[#26292E] hover:bg-black/[0.04] transition-colors"
+                className="px-4 py-3 rounded-lg text-[15px] font-medium text-white/60 hover:text-white hover:bg-white/[0.04] transition-colors"
               >
                 Entrar
               </Link>
               <Link
                 href="/register"
                 onClick={() => setOpen(false)}
-                className="mx-4 mt-2 mb-1 text-center py-3 bg-[#F43E01] text-white rounded-[1000px] text-body font-medium hover:bg-[#C23101] transition-colors"
+                className="mx-4 mt-3 mb-1 text-center py-3.5 bg-[#F43E01] text-white rounded-full text-[15px] font-semibold hover:bg-[#D63600] transition-colors"
               >
-                Criar Conta
+                Solicitar acesso
               </Link>
             </nav>
           </div>
