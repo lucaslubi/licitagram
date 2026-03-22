@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Sparkles, X, Send, MessageCircle, FileDown } from 'lucide-react'
+import { Sparkles, X, Send, MessageCircle, FileDown, Copy, Check } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { useConsultantContext } from '@/contexts/consultant-context'
 
@@ -34,6 +34,8 @@ export function AiConsultant() {
   const [loading, setLoading] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const [userHasScrolled, setUserHasScrolled] = useState(false)
+  const [pdfExporting, setPdfExporting] = useState<number | null>(null)
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const lastAssistantRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -194,6 +196,77 @@ export function AiConsultant() {
     }
   }
 
+  async function handleExportMessagePdf(content: string, index: number) {
+    setPdfExporting(index)
+    try {
+      const lines = content.split('\n')
+      const sections: Array<{ heading: string; content: string; type: 'text' | 'bullet'; items?: string[] }> = []
+      let currentHeading = 'Resposta'
+      let currentLines: string[] = []
+
+      for (const line of lines) {
+        const headingMatch = line.match(/^#{1,3}\s+(.+)/)
+        if (headingMatch) {
+          if (currentLines.length > 0) {
+            const items = currentLines.filter(l => l.match(/^[-•*]\s/))
+            if (items.length > 2) {
+              sections.push({ heading: currentHeading, content: '', type: 'bullet', items: items.map(l => l.replace(/^[-•*]\s+/, '')) })
+            } else {
+              sections.push({ heading: currentHeading, content: currentLines.join('\n'), type: 'text' })
+            }
+          }
+          currentHeading = headingMatch[1].replace(/\*\*/g, '')
+          currentLines = []
+        } else if (line.trim()) {
+          currentLines.push(line.replace(/\*\*/g, '').replace(/\*/g, ''))
+        }
+      }
+      if (currentLines.length > 0) {
+        const items = currentLines.filter(l => l.match(/^[-•*]\s/))
+        if (items.length > 2) {
+          sections.push({ heading: currentHeading, content: '', type: 'bullet', items: items.map(l => l.replace(/^[-•*]\s+/, '')) })
+        } else {
+          sections.push({ heading: currentHeading, content: currentLines.join('\n'), type: 'text' })
+        }
+      }
+      if (sections.length === 0) {
+        sections.push({ heading: 'Resposta', content, type: 'text' })
+      }
+
+      const response = await fetch('/api/consultant/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: 'Consultor IA Licitagram',
+          sections,
+          metadata: {
+            date: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }),
+          },
+        }),
+      })
+      if (!response.ok) throw new Error('PDF generation failed')
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `licitagram-consultor-${new Date().toISOString().split('T')[0]}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch {
+      alert('Erro ao gerar o PDF. Tente novamente.')
+    }
+    setPdfExporting(null)
+  }
+
+  function handleCopyMessage(content: string, index: number) {
+    navigator.clipboard.writeText(content).then(() => {
+      setCopiedIndex(index)
+      setTimeout(() => setCopiedIndex(null), 2000)
+    })
+  }
+
   const suggestedQuestions = pageContext.suggestedQuestions || []
 
   return (
@@ -301,6 +374,47 @@ export function AiConsultant() {
                         <FileDown className="w-3.5 h-3.5" />
                         Baixar PDF
                       </button>
+                    )}
+
+                    {/* Action buttons for completed assistant messages */}
+                    {!isUser && cleanContent && !loading && (
+                      <div className="flex items-center gap-1 mt-2 pt-1.5 border-t border-gray-100">
+                        {!pdfPayload && (
+                          <button
+                            onClick={() => handleExportMessagePdf(cleanContent, i)}
+                            disabled={pdfExporting === i}
+                            className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-400 hover:text-[#F97316] rounded px-1.5 py-0.5 transition-colors disabled:opacity-50"
+                            title="Exportar como PDF"
+                          >
+                            {pdfExporting === i ? (
+                              <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                              </svg>
+                            ) : (
+                              <FileDown className="w-3 h-3" />
+                            )}
+                            PDF
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleCopyMessage(cleanContent, i)}
+                          className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-400 hover:text-[#F97316] rounded px-1.5 py-0.5 transition-colors"
+                          title="Copiar texto"
+                        >
+                          {copiedIndex === i ? (
+                            <>
+                              <Check className="w-3 h-3 text-emerald-500" />
+                              <span className="text-emerald-500">Copiado</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3 h-3" />
+                              Copiar
+                            </>
+                          )}
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>

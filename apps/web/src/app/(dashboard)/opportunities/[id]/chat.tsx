@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import ReactMarkdown from 'react-markdown'
+import { FileDown, Copy, Check } from 'lucide-react'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -81,25 +82,32 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
   const [dragOver, setDragOver] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
+  const lastAssistantRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dragCounterRef = useRef(0)
+  const [userHasScrolled, setUserHasScrolled] = useState(false)
+  const [pdfExporting, setPdfExporting] = useState<number | null>(null)
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
 
-  // Scroll only inside the chat messages container — never the page
+  // When loading starts (new message), scroll to show the TOP of the AI response
+  // Do NOT continuously scroll as content streams in
   useEffect(() => {
-    const container = messagesContainerRef.current
-    if (container) {
-      requestAnimationFrame(() => {
-        // Save page scroll position so the page doesn't jump during streaming
-        const pageScrollY = window.scrollY
-        container.scrollTop = container.scrollHeight
-        // Restore page position if the browser moved it
-        if (window.scrollY !== pageScrollY) {
-          window.scrollTo({ top: pageScrollY })
-        }
-      })
-    }
-  }, [messages])
+    if (!loading || userHasScrolled) return
+    // Scroll the last assistant message into view at the top
+    lastAssistantRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [loading]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset userHasScrolled when user sends a new message (loading goes true)
+  useEffect(() => {
+    if (loading) setUserHasScrolled(false)
+  }, [loading])
+
+  // Detect manual user scroll during streaming
+  const handleContainerScroll = useCallback(() => {
+    if (!loading) return
+    setUserHasScrolled(true)
+  }, [loading])
 
   useEffect(() => {
     if (!loading && started) inputRef.current?.focus()
@@ -225,6 +233,11 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
       if (allMessages.length === 0) setExtractingDocs(true)
 
       setMessages((prev) => [...prev, { role: 'assistant', content: '' }])
+
+      // Scroll to show user message + start of AI response
+      setTimeout(() => {
+        lastAssistantRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 50)
 
       try {
         const historyForApi = updatedMessages.filter((m) => m.content.trim() !== '').slice(0, -1)
@@ -393,6 +406,11 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
     setLoading(true)
     setMessages((prev) => [...prev, { role: 'assistant', content: '' }])
 
+    // Scroll to show start of AI response
+    setTimeout(() => {
+      lastAssistantRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 50)
+
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -469,6 +487,80 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
 
   function removeDoc(name: string) {
     setUploadedDocs((prev) => prev.filter((d) => d.name !== name))
+  }
+
+  async function handleExportPdf(content: string, index: number) {
+    setPdfExporting(index)
+    try {
+      // Parse markdown content into sections for the PDF template
+      const lines = content.split('\n')
+      const sections: Array<{ heading: string; content: string; type: 'text' | 'bullet'; items?: string[] }> = []
+      let currentHeading = 'Análise'
+      let currentLines: string[] = []
+
+      for (const line of lines) {
+        const headingMatch = line.match(/^#{1,3}\s+(.+)/)
+        if (headingMatch) {
+          if (currentLines.length > 0) {
+            const items = currentLines.filter(l => l.match(/^[-•*]\s/))
+            if (items.length > 2) {
+              sections.push({ heading: currentHeading, content: '', type: 'bullet', items: items.map(l => l.replace(/^[-•*]\s+/, '')) })
+            } else {
+              sections.push({ heading: currentHeading, content: currentLines.join('\n'), type: 'text' })
+            }
+          }
+          currentHeading = headingMatch[1].replace(/\*\*/g, '')
+          currentLines = []
+        } else if (line.trim()) {
+          currentLines.push(line.replace(/\*\*/g, '').replace(/\*/g, ''))
+        }
+      }
+      if (currentLines.length > 0) {
+        const items = currentLines.filter(l => l.match(/^[-•*]\s/))
+        if (items.length > 2) {
+          sections.push({ heading: currentHeading, content: '', type: 'bullet', items: items.map(l => l.replace(/^[-•*]\s+/, '')) })
+        } else {
+          sections.push({ heading: currentHeading, content: currentLines.join('\n'), type: 'text' })
+        }
+      }
+
+      if (sections.length === 0) {
+        sections.push({ heading: 'Análise', content, type: 'text' })
+      }
+
+      const response = await fetch('/api/consultant/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: 'Análise do Edital',
+          subtitle: 'Consultor IA Licitagram',
+          sections,
+          metadata: {
+            date: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }),
+          },
+        }),
+      })
+      if (!response.ok) throw new Error('PDF generation failed')
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `licitagram-analise-edital-${new Date().toISOString().split('T')[0]}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch {
+      alert('Erro ao gerar o PDF. Tente novamente.')
+    }
+    setPdfExporting(null)
+  }
+
+  function handleCopy(content: string, index: number) {
+    navigator.clipboard.writeText(content).then(() => {
+      setCopiedIndex(index)
+      setTimeout(() => setCopiedIndex(null), 2000)
+    })
   }
 
   function onFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
@@ -668,54 +760,102 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
         {docChips}
 
         {/* Messages — tall area for primary feature */}
-        <div ref={messagesContainerRef} className="h-[350px] md:h-[500px] overflow-y-auto overscroll-contain space-y-4 border rounded-xl p-4 bg-gray-50/50">
-          {messages.map((msg, i) => (
-            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+        <div ref={messagesContainerRef} onScroll={handleContainerScroll} className="h-[350px] md:h-[500px] overflow-y-auto overscroll-contain space-y-4 border rounded-xl p-4 bg-gray-50/50">
+          {messages.map((msg, i) => {
+            const isAssistant = msg.role === 'assistant'
+            const isLastAssistant = isAssistant && i === messages.length - 1
+
+            return (
               <div
-                className={`max-w-[90%] rounded-xl text-sm ${
-                  msg.role === 'user'
-                    ? 'bg-brand text-white px-4 py-2.5 whitespace-pre-wrap'
-                    : 'bg-white border border-gray-200 shadow-sm px-4 py-3 text-gray-900'
-                }`}
+                key={i}
+                ref={isLastAssistant ? lastAssistantRef : undefined}
+                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
-                {msg.role === 'user' && msg.content === INITIAL_PROMPT ? (
-                  <span className="italic text-white/80 inline-flex items-center gap-1.5">
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-                    </svg>
-                    Análise estratégica do edital
-                  </span>
-                ) : msg.role === 'assistant' && msg.content ? (
-                  <div className="prose prose-sm prose-gray max-w-none prose-headings:text-gray-900 prose-headings:font-semibold prose-headings:mt-4 prose-headings:mb-2 prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-strong:text-gray-900 prose-table:text-xs prose-th:bg-gray-50 prose-th:px-2 prose-th:py-1 prose-td:px-2 prose-td:py-1 prose-th:border prose-td:border">
-                    <ReactMarkdown>{msg.content}</ReactMarkdown>
-                  </div>
-                ) : msg.content ? (
-                  <span className="whitespace-pre-wrap">{msg.content}</span>
-                ) : (
-                  <div className="w-full space-y-2">
-                    <div className="flex items-center gap-2">
-                      <svg className="w-4 h-4 animate-spin text-brand shrink-0" viewBox="0 0 24 24" fill="none">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                <div
+                  className={`max-w-[90%] rounded-xl text-sm ${
+                    msg.role === 'user'
+                      ? 'bg-brand text-white px-4 py-2.5 whitespace-pre-wrap'
+                      : 'bg-white border border-gray-200 shadow-sm px-4 py-3 text-gray-900'
+                  }`}
+                >
+                  {msg.role === 'user' && msg.content === INITIAL_PROMPT ? (
+                    <span className="italic text-white/80 inline-flex items-center gap-1.5">
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
                       </svg>
-                      <span className="text-xs text-gray-600 transition-all duration-300">
-                        {PROGRESS_MESSAGES[progressStep]}
-                      </span>
+                      Análise estratégica do edital
+                    </span>
+                  ) : isAssistant && msg.content ? (
+                    <div className="prose prose-sm prose-gray max-w-none prose-headings:text-gray-900 prose-headings:font-semibold prose-headings:mt-4 prose-headings:mb-2 prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-strong:text-gray-900 prose-table:text-xs prose-th:bg-gray-50 prose-th:px-2 prose-th:py-1 prose-td:px-2 prose-td:py-1 prose-th:border prose-td:border">
+                      <ReactMarkdown>{msg.content}</ReactMarkdown>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
-                      <div
-                        className="bg-gradient-to-r from-brand to-orange-400 h-full rounded-full transition-all duration-1000 ease-out"
-                        style={{ width: `${Math.min(((progressStep + 1) / PROGRESS_MESSAGES.length) * 100, 95)}%` }}
-                      />
+                  ) : msg.content ? (
+                    <span className="whitespace-pre-wrap">{msg.content}</span>
+                  ) : (
+                    <div className="w-full space-y-2">
+                      <div className="flex items-center gap-2">
+                        <svg className="w-4 h-4 animate-spin text-brand shrink-0" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                        <span className="text-xs text-gray-600 transition-all duration-300">
+                          {PROGRESS_MESSAGES[progressStep]}
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                        <div
+                          className="bg-gradient-to-r from-brand to-orange-400 h-full rounded-full transition-all duration-1000 ease-out"
+                          style={{ width: `${Math.min(((progressStep + 1) / PROGRESS_MESSAGES.length) * 100, 95)}%` }}
+                        />
+                      </div>
+                      <p className="text-[10px] text-gray-400">
+                        {progressStep < 3 ? 'Preparando análise...' : progressStep < 6 ? 'Processando documentos...' : 'Quase pronto...'}
+                      </p>
                     </div>
-                    <p className="text-[10px] text-gray-400">
-                      {progressStep < 3 ? 'Preparando análise...' : progressStep < 6 ? 'Processando documentos...' : 'Quase pronto...'}
-                    </p>
-                  </div>
-                )}
+                  )}
+
+                  {/* Action buttons for completed assistant messages */}
+                  {isAssistant && msg.content && !loading && (
+                    <div className="flex items-center gap-1 mt-2 pt-2 border-t border-gray-100">
+                      <button
+                        onClick={() => handleExportPdf(msg.content, i)}
+                        disabled={pdfExporting === i}
+                        className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-500 hover:text-brand bg-gray-50 hover:bg-brand/5 border border-gray-200 hover:border-brand/20 rounded-md px-2 py-1 transition-colors disabled:opacity-50"
+                        title="Exportar como PDF"
+                      >
+                        {pdfExporting === i ? (
+                          <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                        ) : (
+                          <FileDown className="w-3 h-3" />
+                        )}
+                        PDF
+                      </button>
+                      <button
+                        onClick={() => handleCopy(msg.content, i)}
+                        className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-500 hover:text-brand bg-gray-50 hover:bg-brand/5 border border-gray-200 hover:border-brand/20 rounded-md px-2 py-1 transition-colors"
+                        title="Copiar texto"
+                      >
+                        {copiedIndex === i ? (
+                          <>
+                            <Check className="w-3 h-3 text-emerald-500" />
+                            <span className="text-emerald-500">Copiado</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3 h-3" />
+                            Copiar
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
 
         {error && <p className="text-xs text-red-600 bg-red-50 p-2 rounded">{error}</p>}

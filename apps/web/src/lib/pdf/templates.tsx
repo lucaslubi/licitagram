@@ -209,12 +209,41 @@ function ReportFooter() {
   return (
     <View style={styles.footer} fixed>
       <Text style={styles.footerText}>
-        Gerado por Licitagram AI — licitagram.com.br
+        Gerado por Licitagram — https://licitagram.com
       </Text>
       <Text
         style={styles.footerPage}
         render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`}
       />
+    </View>
+  )
+}
+
+function Watermark() {
+  return (
+    <View
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}
+      fixed
+    >
+      <Text
+        style={{
+          fontSize: 60,
+          color: '#F9731610',
+          fontFamily: 'Helvetica-Bold',
+          letterSpacing: 12,
+          transform: 'rotate(-45deg)',
+        }}
+      >
+        LICITAGRAM
+      </Text>
     </View>
   )
 }
@@ -282,6 +311,7 @@ export function LicitagramReport({ title, subtitle, sections, metadata }: Report
       creator="Licitagram"
     >
       <Page size="A4" style={styles.page}>
+        <Watermark />
         <ReportHeader
           title={title}
           subtitle={subtitle || metadata?.company}
