@@ -47,21 +47,22 @@ export function AddCompanyDialog({ onClose }: AddCompanyDialogProps) {
     setLookingUp(true)
     setError(null)
 
-    fetch(`https://receitaws.com.br/v1/cnpj/${cleanCnpj}`, {
-      headers: { Accept: 'application/json' },
-    })
-      .then((r) => r.json())
+    fetch(`https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`)
+      .then((r) => {
+        if (!r.ok) throw new Error('CNPJ não encontrado')
+        return r.json()
+      })
       .then((data) => {
         if (cancelled) return
-        if (data.status === 'ERROR') {
-          setError(data.message || 'CNPJ não encontrado')
+        if (data.message) {
+          setError(data.message)
         } else {
-          setCompanyName(data.nome || '')
-          setFantasia(data.fantasia || '')
+          setCompanyName(data.razao_social || '')
+          setFantasia(data.nome_fantasia || '')
         }
       })
       .catch(() => {
-        if (!cancelled) setError('Erro ao consultar CNPJ')
+        if (!cancelled) setError('Erro ao consultar CNPJ. Verifique o número e tente novamente.')
       })
       .finally(() => {
         if (!cancelled) setLookingUp(false)
