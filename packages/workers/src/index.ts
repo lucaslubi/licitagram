@@ -2,7 +2,7 @@ import 'dotenv/config'
 import { logger } from './lib/logger'
 import { scrapingQueue } from './queues/scraping.queue'
 import { extractionQueue } from './queues/extraction.queue'
-import { runKeywordMatchingSweep } from './processors/keyword-matcher'
+import { runKeywordMatchingSweep, runKeywordMatchingForCompany } from './processors/keyword-matcher'
 import { batchClassifyTenders } from './ai/cnae-classifier'
 import { formatDatePNCP, fetchDocumentos } from './scrapers/pncp-client'
 import { supabase } from './lib/supabase'
@@ -615,27 +615,51 @@ async function main() {
           )
         } else if (channel === 'licitagram:company-saved') {
           const { companyId } = JSON.parse(message)
-          logger.info({ companyId }, 'Company saved — generating terms + keyword matching + AI triage')
+          const pipelineStart = Date.now()
+          logger.info({ companyId }, 'Company saved — running instant matching pipeline')
 
-          // 0. Auto-generate comprehensive search terms using AI
+          // Step 1: Generate AI search terms
           try {
             const { generateCompanyTerms } = await import('./processors/ai-triage.processor')
             const newTerms = await generateCompanyTerms(companyId)
             if (newTerms.length > 0) {
-              logger.info({ companyId, count: newTerms.length }, 'AI generated new search terms for company')
+              logger.info({ companyId, count: newTerms.length }, 'Step 1: AI generated search terms')
             }
           } catch (err) {
-            logger.warn({ companyId, err }, 'Term generation failed (non-critical)')
+            logger.warn({ companyId, err }, 'Step 1: Term generation failed (continuing)')
           }
 
-          // 1. Run keyword matching sweep for all tenders against this company
+          // Step 2: Profile company + generate embedding
+          let hasEmbedding = false
           try {
-            await runKeywordMatchingSweep()
+            const { profileCompany } = await import('./processors/company-profiler')
+            hasEmbedding = await profileCompany(companyId)
+            logger.info({ companyId, hasEmbedding }, 'Step 2: Company profiled')
           } catch (err) {
-            logger.error({ companyId, err }, 'Background keyword matching failed')
+            logger.warn({ companyId, err }, 'Step 2: Profiling failed (continuing)')
           }
 
-          // 2. Enqueue AI triage for all keyword matches of this company
+          // Step 3: CNAE-filtered keyword matching (20x faster than full sweep)
+          let keywordMatchCount = 0
+          try {
+            keywordMatchCount = await runKeywordMatchingForCompany(companyId)
+            logger.info({ companyId, keywordMatchCount }, 'Step 3: CNAE-filtered keyword matching done')
+          } catch (err) {
+            logger.error({ companyId, err }, 'Step 3: Keyword matching failed')
+          }
+
+          // Step 4: Semantic matching (if company has embedding)
+          if (hasEmbedding) {
+            try {
+              const { runSemanticMatching } = await import('./processors/semantic-matcher')
+              const stats = await runSemanticMatching(companyId)
+              logger.info({ companyId, ...stats }, 'Step 4: Semantic matching done')
+            } catch (err) {
+              logger.warn({ companyId, err }, 'Step 4: Semantic matching failed (continuing)')
+            }
+          }
+
+          // Step 5: Enqueue AI triage for all matches
           try {
             const { aiTriageQueue } = await import('./queues/ai-triage.queue')
             const PAGE = 1000
@@ -646,7 +670,7 @@ async function main() {
                 .from('matches')
                 .select('id')
                 .eq('company_id', companyId)
-                .eq('match_source', 'keyword')
+                .in('match_source', ['keyword', 'semantic'])
                 .range(offset, offset + PAGE - 1)
               if (!page || page.length === 0) break
               allMatchIds.push(...page.map(m => m.id))
@@ -664,11 +688,23 @@ async function main() {
                   { jobId: `company-save-triage-${companyId}-${i}-${Date.now()}` },
                 )
               }
-              logger.info({ companyId, matchCount: allMatchIds.length }, 'Enqueued AI triage for company matches')
+              logger.info({ companyId, matchCount: allMatchIds.length }, 'Step 5: AI triage enqueued')
             }
           } catch (err) {
-            logger.error({ companyId, err }, 'Failed to enqueue AI triage after company save')
+            logger.error({ companyId, err }, 'Step 5: Failed to enqueue AI triage')
           }
+
+          // Step 6: Refresh map cache
+          try {
+            const { refreshMapCacheForCompany } = await import('./processors/map-cache.processor')
+            const mapRows = await refreshMapCacheForCompany(companyId)
+            logger.info({ companyId, mapRows }, 'Step 6: Map cache refreshed')
+          } catch (err) {
+            logger.error({ companyId, err }, 'Step 6: Map cache refresh failed')
+          }
+
+          const elapsed = ((Date.now() - pipelineStart) / 1000).toFixed(1)
+          logger.info({ companyId, elapsed: `${elapsed}s`, keywordMatchCount }, 'Pipeline complete')
         }
       } catch (err) {
         logger.error({ err, channel }, 'Failed to process Redis event')
