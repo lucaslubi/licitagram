@@ -38,7 +38,7 @@ async function embedWithJina(texts: string[]): Promise<number[][]> {
       'Authorization': `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: 'jina-embeddings-v3',
+      model: 'jina-embeddings-v5-text-small',
       input: texts,
       dimensions: EMBEDDING_DIM,
       task: 'text-matching',
