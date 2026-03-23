@@ -31,6 +31,8 @@ function getScoreBgClass(score: number): string {
   return 'bg-red-100 text-red-800'
 }
 
+type SheetPosition = 'collapsed' | 'half' | 'full'
+
 export function IntelligenceMap({
   ufData,
   matchMarkers: initialMarkers,
@@ -47,6 +49,49 @@ export function IntelligenceMap({
   const [scoreFilter, setScoreFilter] = useState(60)
   const [minValor, setMinValor] = useState(0)
   const [regionFilter, setRegionFilter] = useState<Set<string>>(new Set(REGIONS))
+
+  // Mobile detection
+  const [isMobile, setIsMobile] = useState(false)
+  const [sheetPosition, setSheetPosition] = useState<SheetPosition>('half')
+  const touchStartY = useRef<number>(0)
+  const touchStartSheetPos = useRef<SheetPosition>('half')
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768)
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
+  // Sheet height calculation
+  const sheetHeight = useMemo(() => {
+    switch (sheetPosition) {
+      case 'collapsed': return '80px'
+      case 'half': return '50vh'
+      case 'full': return 'calc(100vh - 40px)'
+    }
+  }, [sheetPosition])
+
+  // Touch handlers for drag
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY
+    touchStartSheetPos.current = sheetPosition
+  }, [sheetPosition])
+
+  const onTouchEnd = useCallback((e: React.TouchEvent) => {
+    const deltaY = touchStartY.current - e.changedTouches[0].clientY
+    const threshold = 50
+
+    if (deltaY > threshold) {
+      // Swiped up — expand
+      if (touchStartSheetPos.current === 'collapsed') setSheetPosition('half')
+      else if (touchStartSheetPos.current === 'half') setSheetPosition('full')
+    } else if (deltaY < -threshold) {
+      // Swiped down — collapse
+      if (touchStartSheetPos.current === 'full') setSheetPosition('half')
+      else if (touchStartSheetPos.current === 'half') setSheetPosition('collapsed')
+    }
+  }, [])
 
   // Matches are pre-triaged by the background AI worker — use directly
   const matchMarkers = initialMarkers
@@ -359,10 +404,313 @@ export function IntelligenceMap({
     [filteredMarkers],
   )
 
+  // ─── Sidebar content (shared between desktop sidebar and mobile sheet) ───
+  const sidebarContent = (
+    <>
+      {/* Header metrics — always reflect filtered data */}
+      <div className={`border-b border-gray-100 bg-gray-50 ${isMobile ? 'p-3' : 'p-4'}`}>
+        <h2 className={`font-bold text-gray-900 ${isMobile ? 'text-base mb-2' : 'text-lg mb-3'}`}>Mapa de Inteligencia</h2>
+        <div className="grid grid-cols-3 gap-2">
+          <div className="text-center">
+            <p className={`font-bold text-brand ${isMobile ? 'text-lg' : 'text-xl'}`}>{filteredMarkers.length}</p>
+            <p className="text-[10px] text-gray-500 uppercase tracking-wide">Oportunidades</p>
+          </div>
+          <div className="text-center">
+            <p className={`font-bold text-emerald-600 ${isMobile ? 'text-lg' : 'text-xl'}`}>
+              {formatCompactBRL(filteredMarkers.reduce((s, m) => s + (m.valor || 0), 0))}
+            </p>
+            <p className="text-[10px] text-gray-500 uppercase tracking-wide">Valor Total</p>
+          </div>
+          <div className="text-center">
+            <p className={`font-bold text-amber-600 ${isMobile ? 'text-lg' : 'text-xl'}`}>
+              {filteredUfStats.length > 0 ? filteredUfStats[0].uf : '-'}
+            </p>
+            <p className="text-[10px] text-gray-500 uppercase tracking-wide">
+              {filteredUfStats.length > 0 ? `${filteredUfStats[0].count} matches` : 'Melhor UF'}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className={`border-b border-gray-100 ${isMobile ? 'p-3' : 'p-4'}`}>
+        <div className="mb-3">
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-xs font-medium text-gray-600">
+              Score minimo: {scoreFilter > 0 ? scoreFilter : 'Todos'}
+            </label>
+            {scoreFilter > 60 && (
+              <button
+                onClick={() => setScoreFilter(60)}
+                className="text-[10px] text-brand hover:underline"
+              >
+                Resetar
+              </button>
+            )}
+          </div>
+          <input
+            type="range"
+            min={60}
+            max={100}
+            step={5}
+            value={scoreFilter}
+            onChange={(e) => setScoreFilter(Number(e.target.value))}
+            className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-brand"
+          />
+          <div className="flex justify-between text-[9px] text-gray-400 mt-0.5">
+            <span>60</span>
+            <span>70</span>
+            <span>80</span>
+            <span>90</span>
+            <span>100</span>
+          </div>
+        </div>
+        <div className="mb-3">
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-xs font-medium text-gray-600">
+              Valor minimo: {minValor > 0 ? `R$ ${(minValor >= 1_000_000 ? (minValor / 1_000_000).toFixed(1) + 'M' : minValor >= 1_000 ? (minValor / 1_000).toFixed(0) + 'K' : minValor.toString())}` : 'Todos'}
+            </label>
+            {minValor > 0 && (
+              <button
+                onClick={() => setMinValor(0)}
+                className="text-[10px] text-brand hover:underline"
+              >
+                Resetar
+              </button>
+            )}
+          </div>
+          <select
+            value={minValor}
+            onChange={(e) => setMinValor(Number(e.target.value))}
+            className="w-full text-xs border border-gray-200 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-brand"
+          >
+            <option value={0}>Todos os valores</option>
+            <option value={10000}>Acima de R$ 10K</option>
+            <option value={50000}>Acima de R$ 50K</option>
+            <option value={100000}>Acima de R$ 100K</option>
+            <option value={500000}>Acima de R$ 500K</option>
+            <option value={1000000}>Acima de R$ 1M</option>
+            <option value={5000000}>Acima de R$ 5M</option>
+            <option value={10000000}>Acima de R$ 10M</option>
+            <option value={50000000}>Acima de R$ 50M</option>
+            <option value={100000000}>Acima de R$ 100M</option>
+          </select>
+        </div>
+        <div>
+          <label className="text-xs font-medium text-gray-600 mb-1 block">Regioes</label>
+          <div className="flex flex-wrap gap-1.5">
+            {REGIONS.map((r) => (
+              <button
+                key={r}
+                onClick={() => toggleRegion(r)}
+                className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
+                  regionFilter.has(r)
+                    ? 'bg-brand text-white'
+                    : 'bg-gray-100 text-gray-400'
+                }`}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Content: ranking or detail */}
+      <div className={isMobile ? 'p-3' : 'p-4'}>
+        {selectedUf && selectedUfData ? (
+          /* UF Detail Panel */
+          <div>
+            <button
+              onClick={resetView}
+              className="text-xs text-brand hover:underline mb-3 flex items-center gap-1"
+            >
+              &larr; Voltar ao ranking
+            </button>
+
+            <h3 className="text-lg font-bold mb-3">{selectedUfData.name} ({selectedUf})</h3>
+
+            {/* Metrics grid — uses filtered stats so numbers match the list below */}
+            {selectedUfFilteredStats ? (
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="bg-gray-50 rounded-lg p-2.5">
+                  <p className="text-xs text-gray-500">Oportunidades</p>
+                  <p className="text-lg font-bold">{selectedUfFilteredStats.count}</p>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-2.5">
+                  <p className="text-xs text-gray-500">Valor Total</p>
+                  <p className="text-lg font-bold">{formatCompactBRL(selectedUfFilteredStats.totalValue)}</p>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-2.5">
+                  <p className="text-xs text-gray-500">Score Medio</p>
+                  <p className="text-lg font-bold">
+                    <span className={selectedUfFilteredStats.avgScore >= 70 ? 'text-emerald-600' : selectedUfFilteredStats.avgScore >= 50 ? 'text-amber-600' : 'text-red-500'}>
+                      {selectedUfFilteredStats.avgScore}
+                    </span>
+                  </p>
+                </div>
+                <div className={`rounded-lg p-2.5 ${selectedUfFilteredStats.hotCount > 0 ? 'bg-orange-50 border border-orange-200' : 'bg-gray-50'}`}>
+                  <p className={`text-xs ${selectedUfFilteredStats.hotCount > 0 ? 'text-orange-600' : 'text-gray-500'}`}>
+                    {selectedUfFilteredStats.hotCount > 0 ? '🔥 Super Quentes' : 'Maior Score'}
+                  </p>
+                  <p className="text-lg font-bold">
+                    {selectedUfFilteredStats.hotCount > 0 ? (
+                      <span className="text-orange-600">{selectedUfFilteredStats.hotCount}</span>
+                    ) : (
+                      <span className={selectedUfFilteredStats.maxScore >= 70 ? 'text-emerald-600' : selectedUfFilteredStats.maxScore >= 50 ? 'text-amber-600' : 'text-red-500'}>
+                        {selectedUfFilteredStats.maxScore}
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400 mb-4">Nenhuma oportunidade com os filtros atuais</p>
+            )}
+
+            {/* List all matches in this UF */}
+            <h4 className="text-sm font-semibold text-gray-700 mb-2">
+              {selectedUfMarkers.length} oportunidade{selectedUfMarkers.length !== 1 ? 's' : ''}
+            </h4>
+            <div className="space-y-2">
+              {selectedUfMarkers.map((m: MatchMarker) => (
+                <Link
+                  key={m.matchId}
+                  href={`/opportunities/${m.matchId}`}
+                  className={`block p-3 rounded-lg transition-colors ${
+                    m.isHot
+                      ? 'bg-orange-50 border border-orange-200 hover:bg-orange-100 ring-1 ring-orange-300/50'
+                      : 'bg-gray-50 hover:bg-gray-100'
+                  }`}
+                  onMouseEnter={() => setSelectedMatch(m)}
+                >
+                  {m.isHot && (
+                    <div className="flex items-center gap-1 mb-1.5">
+                      <span className="text-[10px] font-bold text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded-full">
+                        🔥 SUPER QUENTE
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex items-start gap-2">
+                    <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
+                      <span
+                        className={`inline-flex items-center justify-center w-9 h-9 rounded-full text-xs font-bold text-white ${
+                          m.isHot
+                            ? 'ring-2 ring-orange-400'
+                            : m.matchSource === 'ai' || m.matchSource === 'ai_triage' || m.matchSource === 'semantic' ? 'ring-2 ring-blue-400' : ''
+                        }`}
+                        style={{
+                          background: m.isHot
+                            ? 'linear-gradient(135deg, #f97316, #ef4444)'
+                            : getMatchColor(m.score),
+                        }}
+                      >
+                        {m.isHot ? '🔥' : m.score}
+                      </span>
+                      <span className={`text-[8px] font-medium ${
+                        m.isHot ? 'text-orange-600' :
+                        m.matchSource === 'ai' || m.matchSource === 'ai_triage' || m.matchSource === 'semantic' ? 'text-blue-600' : 'text-gray-400'
+                      }`}>
+                        {m.isHot && m.competitionScore != null ? `C:${m.competitionScore}` : m.matchSource === 'ai' || m.matchSource === 'ai_triage' || m.matchSource === 'semantic' ? 'IA' : 'est.'}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-xs font-medium leading-snug line-clamp-2 ${m.isHot ? 'text-orange-900' : 'text-gray-900'}`}>
+                        {m.objeto}
+                      </p>
+                      {m.isHot && m.competitionScore != null && (
+                        <span className={`inline-block text-[9px] font-medium px-1.5 py-0.5 rounded-full mt-0.5 ${
+                          m.competitionScore >= 75 ? 'bg-green-100 text-green-700' :
+                          m.competitionScore >= 50 ? 'bg-yellow-100 text-yellow-700' :
+                          'bg-red-100 text-red-700'
+                        }`}>
+                          {m.competitionScore >= 75 ? 'Baixa competicao' :
+                           m.competitionScore >= 50 ? 'Competicao moderada' :
+                           'Mercado disputado'}
+                        </span>
+                      )}
+                      <p className="text-[10px] text-gray-500 mt-1 truncate">{m.orgao}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        {m.municipio && (
+                          <span className="text-[10px] text-blue-500">{m.municipio}</span>
+                        )}
+                        {m.valor && (
+                          <span className={`text-[10px] font-medium ${m.isHot ? 'text-orange-700 font-bold' : 'text-emerald-600'}`}>
+                            {m.isHot
+                              ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(m.valor)
+                              : formatCompactBRL(m.valor)}
+                          </span>
+                        )}
+                        {m.modalidade && (
+                          <span className="text-[10px] text-gray-400">{m.modalidade}</span>
+                        )}
+                        {m.dataEncerramento ? (() => {
+                          const d = Math.ceil((new Date(m.dataEncerramento!).getTime() - Date.now()) / 86400000)
+                          return d <= 3 ? (
+                            <span className="text-[10px] text-red-600 font-medium">⏰ {d <= 0 ? 'HOJE' : `${d}d`}</span>
+                          ) : null
+                        })() : (
+                          <span className="text-[10px] text-amber-600">⚠️ Prazo</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+              {selectedUfMarkers.length === 0 && (
+                <p className="text-sm text-gray-400 text-center py-4">
+                  Nenhuma oportunidade encontrada com os filtros atuais
+                </p>
+              )}
+            </div>
+          </div>
+        ) : (
+          /* Ranking by UF — computed from filtered markers */
+          <div>
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">
+              Ranking por Estado ({filteredUfStats.length} UFs)
+            </h3>
+            <div className="space-y-1.5">
+              {filteredUfStats.slice(0, 15).map((d, index) => (
+                <button
+                  key={d.uf}
+                  onClick={() => selectUf(d.uf)}
+                  className="w-full flex items-center gap-2 p-2.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
+                >
+                  <span className="text-xs text-gray-400 w-4">{index + 1}</span>
+                  <span className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 bg-gray-700">
+                    {d.uf}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900">{d.name}</p>
+                    <p className="text-[10px] text-gray-500">
+                      {d.count} oportunidade{d.count !== 1 ? 's' : ''} &middot; {formatCompactBRL(d.totalValue)}
+                    </p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-xs font-bold" style={{ color: getMatchColor(d.avgScore) }}>
+                      {d.avgScore}
+                    </p>
+                    <p className="text-[9px] text-gray-400">score medio</p>
+                  </div>
+                </button>
+              ))}
+              {filteredUfStats.length === 0 && (
+                <p className="text-sm text-gray-400 text-center py-8">
+                  Nenhuma oportunidade encontrada com os filtros atuais
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  )
+
   return (
-    <div className="flex flex-col md:flex-row h-full w-full">
-      {/* Map — extra padding-bottom hides Mapbox attribution */}
-      <div className="relative flex-1 min-h-[50vh] md:min-h-0 overflow-hidden">
+    <div className="flex flex-col md:flex-row h-full w-full relative">
+      {/* Map — full viewport on mobile, flex-1 on desktop */}
+      <div className={`relative flex-1 ${isMobile ? 'h-full' : 'min-h-0'} overflow-hidden`}>
         <div className="absolute inset-0" style={{ bottom: '-30px' }}>
           <MapGL
             ref={mapRef}
@@ -378,7 +726,7 @@ export function IntelligenceMap({
             interactiveLayerIds={[]}
             style={{ width: '100%', height: '100%' }}
           >
-            <NavigationControl position="top-right" />
+            <NavigationControl position={isMobile ? 'top-left' : 'top-right'} />
 
             {/* Choropleth base (subtle) */}
             {geoJson && (
@@ -463,18 +811,18 @@ export function IntelligenceMap({
                 anchor="bottom"
                 offset={15}
                 className="!p-0"
-                maxWidth="300px"
+                maxWidth={isMobile ? '240px' : '300px'}
                 style={{ zIndex: 40 }}
               >
-                <div className="p-3 min-w-[220px]">
+                <div className={isMobile ? 'p-2 min-w-[180px]' : 'p-3 min-w-[220px]'}>
                   {selectedMatch.isHot && (
-                    <div className="pb-2 border-b border-orange-200 bg-gradient-to-r from-orange-500 to-red-500 -m-3 mb-2 p-2 rounded-t">
-                      <p className="text-xs font-bold text-white">🔥 SUPER QUENTE</p>
+                    <div className={`pb-2 border-b border-orange-200 bg-gradient-to-r from-orange-500 to-red-500 ${isMobile ? '-m-2 mb-2 p-1.5' : '-m-3 mb-2 p-2'} rounded-t`}>
+                      <p className={`font-bold text-white ${isMobile ? 'text-[10px]' : 'text-xs'}`}>🔥 SUPER QUENTE</p>
                     </div>
                   )}
                   {selectedGroup && selectedGroup.length > 1 && (
                     <div className="mb-2 pb-2 border-b border-gray-200">
-                      <p className="text-xs font-semibold text-gray-700">
+                      <p className={`font-semibold text-gray-700 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
                         {selectedGroup.length} oportunidades em {selectedMatch.municipio || selectedMatch.uf}
                       </p>
                     </div>
@@ -483,11 +831,11 @@ export function IntelligenceMap({
                     <div key={match.matchId} className={idx > 0 ? 'mt-2 pt-2 border-t border-gray-100' : ''}>
                       <div className="flex items-center gap-2 mb-1">
                         <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${getScoreBgClass(match.score)}`}
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full font-bold ${isMobile ? 'text-[10px]' : 'text-xs'} ${getScoreBgClass(match.score)}`}
                         >
                           {match.score}
                         </span>
-                        <span className={`text-[9px] font-medium px-1 py-0.5 rounded ${
+                        <span className={`font-medium px-1 py-0.5 rounded ${isMobile ? 'text-[8px]' : 'text-[9px]'} ${
                           match.matchSource === 'ai' || match.matchSource === 'ai_triage' || match.matchSource === 'semantic'
                             ? 'bg-blue-100 text-blue-700'
                             : 'bg-gray-100 text-gray-500'
@@ -495,16 +843,16 @@ export function IntelligenceMap({
                           {match.matchSource === 'ai' || match.matchSource === 'ai_triage' || match.matchSource === 'semantic' ? 'IA' : 'estimado'}
                         </span>
                         {!selectedGroup && (
-                          <span className="text-xs text-gray-500">
+                          <span className={`text-gray-500 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
                             {match.municipio ? `${match.municipio}/${match.uf}` : match.uf}
                           </span>
                         )}
                       </div>
-                      <p className="text-xs font-medium text-gray-900 leading-snug line-clamp-2 mb-1">
+                      <p className={`font-medium text-gray-900 leading-snug line-clamp-2 mb-1 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
                         {match.objeto}
                       </p>
-                      <p className="text-[10px] text-gray-500 truncate mb-1">{match.orgao}</p>
-                      <div className="flex items-center gap-3 text-[10px]">
+                      <p className={`text-gray-500 truncate mb-1 ${isMobile ? 'text-[9px]' : 'text-[10px]'}`}>{match.orgao}</p>
+                      <div className={`flex items-center gap-3 ${isMobile ? 'text-[9px]' : 'text-[10px]'}`}>
                         {match.valor && (
                           <span className="font-medium text-emerald-600">
                             {formatCompactBRL(match.valor)}
@@ -524,14 +872,14 @@ export function IntelligenceMap({
                       </div>
                       <Link
                         href={`/opportunities/${match.matchId}`}
-                        className="mt-1 block text-xs font-medium text-brand hover:underline"
+                        className={`mt-1 block font-medium text-brand hover:underline ${isMobile ? 'text-[10px]' : 'text-xs'}`}
                       >
                         Ver detalhes &rarr;
                       </Link>
                     </div>
                   ))}
                   {selectedGroup && selectedGroup.length > 5 && (
-                    <p className="mt-2 pt-2 border-t border-gray-100 text-[10px] text-gray-500 text-center">
+                    <p className={`mt-2 pt-2 border-t border-gray-100 text-gray-500 text-center ${isMobile ? 'text-[9px]' : 'text-[10px]'}`}>
                       +{selectedGroup.length - 5} mais oportunidades — clique no estado para ver todas
                     </p>
                   )}
@@ -541,10 +889,14 @@ export function IntelligenceMap({
           </MapGL>
         </div>
 
-        {/* Legend */}
-        <div className="absolute bottom-2 left-4 z-[50]">
-          <Card className="bg-black/70 border-white/10 p-3 text-white">
-            <p className="text-xs font-semibold mb-2">Score do Match</p>
+        {/* Legend — repositioned on mobile */}
+        <div className={`absolute z-[50] ${
+          isMobile
+            ? 'top-14 left-2'
+            : 'bottom-2 left-4'
+        }`}>
+          <Card className={`bg-black/70 border-white/10 text-white ${isMobile ? 'p-2' : 'p-3'}`}>
+            <p className={`font-semibold mb-2 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>Score do Match</p>
             <div className="flex items-center gap-1 mb-1">
               {[
                 { color: '#10B981', label: '80+' },
@@ -553,328 +905,88 @@ export function IntelligenceMap({
               ].map((item) => (
                 <div key={item.label} className="flex items-center gap-1">
                   <div
-                    className="w-3 h-3 rounded-full border border-white/30"
+                    className={`rounded-full border border-white/30 ${isMobile ? 'w-2.5 h-2.5' : 'w-3 h-3'}`}
                     style={{ backgroundColor: item.color }}
                   />
-                  <span className="text-[10px] text-gray-300">{item.label}</span>
+                  <span className={`text-gray-300 ${isMobile ? 'text-[8px]' : 'text-[10px]'}`}>{item.label}</span>
                 </div>
               ))}
             </div>
             <div className="flex items-center gap-1.5 mt-1.5">
-              <div className="w-3 h-3 rounded-full border-2 border-blue-400 bg-gray-500" />
-              <span className="text-[9px] text-gray-300">Verificado por IA</span>
+              <div className={`rounded-full border-2 border-blue-400 bg-gray-500 ${isMobile ? 'w-2.5 h-2.5' : 'w-3 h-3'}`} />
+              <span className={`text-gray-300 ${isMobile ? 'text-[8px]' : 'text-[9px]'}`}>Verificado por IA</span>
             </div>
             <div className="flex items-center gap-1.5 mt-1">
-              <div className="w-3 h-3 rounded-full border-2 border-yellow-400" style={{ background: 'linear-gradient(135deg, #f97316, #ef4444)' }} />
-              <span className="text-[9px] text-gray-300">🔥 Super Quente</span>
+              <div className={`rounded-full border-2 border-yellow-400 ${isMobile ? 'w-2.5 h-2.5' : 'w-3 h-3'}`} style={{ background: 'linear-gradient(135deg, #f97316, #ef4444)' }} />
+              <span className={`text-gray-300 ${isMobile ? 'text-[8px]' : 'text-[9px]'}`}>🔥 Super Quente</span>
             </div>
-            <p className="text-[9px] text-gray-400 mt-1">
+            <p className={`text-gray-400 mt-1 ${isMobile ? 'text-[8px]' : 'text-[9px]'}`}>
               {filteredMarkers.length} matches no mapa
             </p>
           </Card>
         </div>
       </div>
 
-      {/* Sidebar */}
-      <div className="w-full md:w-[30%] md:min-w-[320px] md:max-w-[400px] h-1/3 md:h-full overflow-y-auto bg-white border-t md:border-t-0 md:border-l border-gray-200">
-        {/* Header metrics — always reflect filtered data */}
-        <div className="p-4 border-b border-gray-100 bg-gray-50">
-          <h2 className="text-lg font-bold text-gray-900 mb-3">Mapa de Inteligencia</h2>
-          <div className="grid grid-cols-3 gap-2">
-            <div className="text-center">
-              <p className="text-xl font-bold text-brand">{filteredMarkers.length}</p>
-              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Oportunidades</p>
-            </div>
-            <div className="text-center">
-              <p className="text-xl font-bold text-emerald-600">
-                {formatCompactBRL(filteredMarkers.reduce((s, m) => s + (m.valor || 0), 0))}
-              </p>
-              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Valor Total</p>
-            </div>
-            <div className="text-center">
-              <p className="text-xl font-bold text-amber-600">
-                {filteredUfStats.length > 0 ? filteredUfStats[0].uf : '-'}
-              </p>
-              <p className="text-[10px] text-gray-500 uppercase tracking-wide">
-                {filteredUfStats.length > 0 ? `${filteredUfStats[0].count} matches` : 'Melhor UF'}
-              </p>
-            </div>
+      {/* Desktop Sidebar */}
+      {!isMobile && (
+        <div className="w-full md:w-[30%] md:min-w-[320px] md:max-w-[400px] h-full overflow-y-auto bg-white border-l border-gray-200">
+          {sidebarContent}
+        </div>
+      )}
+
+      {/* Mobile Bottom Sheet */}
+      {isMobile && (
+        <div
+          className="fixed bottom-0 left-0 right-0 z-[100] bg-white rounded-t-2xl shadow-[0_-4px_20px_rgba(0,0,0,0.15)] flex flex-col"
+          style={{
+            height: sheetHeight,
+            transition: 'height 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            maxHeight: 'calc(100vh - 40px)',
+          }}
+        >
+          {/* Drag handle */}
+          <div
+            className="flex-shrink-0 flex items-center justify-center py-2 cursor-grab active:cursor-grabbing"
+            onTouchStart={onTouchStart}
+            onTouchEnd={onTouchEnd}
+            style={{ touchAction: 'none' }}
+          >
+            <div className="w-10 h-1 rounded-full bg-gray-300" />
+          </div>
+
+          {/* Scrollable content */}
+          <div className="flex-1 overflow-y-auto overscroll-contain">
+            {sidebarContent}
           </div>
         </div>
+      )}
 
-        {/* Filters */}
-        <div className="p-4 border-b border-gray-100">
-          <div className="mb-3">
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-xs font-medium text-gray-600">
-                Score minimo: {scoreFilter > 0 ? scoreFilter : 'Todos'}
-              </label>
-              {scoreFilter > 60 && (
-                <button
-                  onClick={() => setScoreFilter(60)}
-                  className="text-[10px] text-brand hover:underline"
-                >
-                  Resetar
-                </button>
-              )}
-            </div>
-            <input
-              type="range"
-              min={60}
-              max={100}
-              step={5}
-              value={scoreFilter}
-              onChange={(e) => setScoreFilter(Number(e.target.value))}
-              className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-brand"
-            />
-            <div className="flex justify-between text-[9px] text-gray-400 mt-0.5">
-              <span>60</span>
-              <span>70</span>
-              <span>80</span>
-              <span>90</span>
-              <span>100</span>
-            </div>
-          </div>
-          <div className="mb-3">
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-xs font-medium text-gray-600">
-                Valor minimo: {minValor > 0 ? `R$ ${(minValor >= 1_000_000 ? (minValor / 1_000_000).toFixed(1) + 'M' : minValor >= 1_000 ? (minValor / 1_000).toFixed(0) + 'K' : minValor.toString())}` : 'Todos'}
-              </label>
-              {minValor > 0 && (
-                <button
-                  onClick={() => setMinValor(0)}
-                  className="text-[10px] text-brand hover:underline"
-                >
-                  Resetar
-                </button>
-              )}
-            </div>
-            <select
-              value={minValor}
-              onChange={(e) => setMinValor(Number(e.target.value))}
-              className="w-full text-xs border border-gray-200 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-brand"
-            >
-              <option value={0}>Todos os valores</option>
-              <option value={10000}>Acima de R$ 10K</option>
-              <option value={50000}>Acima de R$ 50K</option>
-              <option value={100000}>Acima de R$ 100K</option>
-              <option value={500000}>Acima de R$ 500K</option>
-              <option value={1000000}>Acima de R$ 1M</option>
-              <option value={5000000}>Acima de R$ 5M</option>
-              <option value={10000000}>Acima de R$ 10M</option>
-              <option value={50000000}>Acima de R$ 50M</option>
-              <option value={100000000}>Acima de R$ 100M</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-xs font-medium text-gray-600 mb-1 block">Regioes</label>
-            <div className="flex flex-wrap gap-1.5">
-              {REGIONS.map((r) => (
-                <button
-                  key={r}
-                  onClick={() => toggleRegion(r)}
-                  className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
-                    regionFilter.has(r)
-                      ? 'bg-brand text-white'
-                      : 'bg-gray-100 text-gray-400'
-                  }`}
-                >
-                  {r}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Content: ranking or detail */}
-        <div className="p-4">
-          {selectedUf && selectedUfData ? (
-            /* UF Detail Panel */
-            <div>
-              <button
-                onClick={resetView}
-                className="text-xs text-brand hover:underline mb-3 flex items-center gap-1"
-              >
-                &larr; Voltar ao ranking
-              </button>
-
-              <h3 className="text-lg font-bold mb-3">{selectedUfData.name} ({selectedUf})</h3>
-
-              {/* Metrics grid — uses filtered stats so numbers match the list below */}
-              {selectedUfFilteredStats ? (
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  <div className="bg-gray-50 rounded-lg p-2.5">
-                    <p className="text-xs text-gray-500">Oportunidades</p>
-                    <p className="text-lg font-bold">{selectedUfFilteredStats.count}</p>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-2.5">
-                    <p className="text-xs text-gray-500">Valor Total</p>
-                    <p className="text-lg font-bold">{formatCompactBRL(selectedUfFilteredStats.totalValue)}</p>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-2.5">
-                    <p className="text-xs text-gray-500">Score Medio</p>
-                    <p className="text-lg font-bold">
-                      <span className={selectedUfFilteredStats.avgScore >= 70 ? 'text-emerald-600' : selectedUfFilteredStats.avgScore >= 50 ? 'text-amber-600' : 'text-red-500'}>
-                        {selectedUfFilteredStats.avgScore}
-                      </span>
-                    </p>
-                  </div>
-                  <div className={`rounded-lg p-2.5 ${selectedUfFilteredStats.hotCount > 0 ? 'bg-orange-50 border border-orange-200' : 'bg-gray-50'}`}>
-                    <p className={`text-xs ${selectedUfFilteredStats.hotCount > 0 ? 'text-orange-600' : 'text-gray-500'}`}>
-                      {selectedUfFilteredStats.hotCount > 0 ? '🔥 Super Quentes' : 'Maior Score'}
-                    </p>
-                    <p className="text-lg font-bold">
-                      {selectedUfFilteredStats.hotCount > 0 ? (
-                        <span className="text-orange-600">{selectedUfFilteredStats.hotCount}</span>
-                      ) : (
-                        <span className={selectedUfFilteredStats.maxScore >= 70 ? 'text-emerald-600' : selectedUfFilteredStats.maxScore >= 50 ? 'text-amber-600' : 'text-red-500'}>
-                          {selectedUfFilteredStats.maxScore}
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-sm text-gray-400 mb-4">Nenhuma oportunidade com os filtros atuais</p>
-              )}
-
-              {/* List all matches in this UF */}
-              <h4 className="text-sm font-semibold text-gray-700 mb-2">
-                {selectedUfMarkers.length} oportunidade{selectedUfMarkers.length !== 1 ? 's' : ''}
-              </h4>
-              <div className="space-y-2">
-                {selectedUfMarkers.map((m: MatchMarker) => (
-                  <Link
-                    key={m.matchId}
-                    href={`/opportunities/${m.matchId}`}
-                    className={`block p-3 rounded-lg transition-colors ${
-                      m.isHot
-                        ? 'bg-orange-50 border border-orange-200 hover:bg-orange-100 ring-1 ring-orange-300/50'
-                        : 'bg-gray-50 hover:bg-gray-100'
-                    }`}
-                    onMouseEnter={() => setSelectedMatch(m)}
-                  >
-                    {m.isHot && (
-                      <div className="flex items-center gap-1 mb-1.5">
-                        <span className="text-[10px] font-bold text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded-full">
-                          🔥 SUPER QUENTE
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex items-start gap-2">
-                      <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
-                        <span
-                          className={`inline-flex items-center justify-center w-9 h-9 rounded-full text-xs font-bold text-white ${
-                            m.isHot
-                              ? 'ring-2 ring-orange-400'
-                              : m.matchSource === 'ai' || m.matchSource === 'ai_triage' || m.matchSource === 'semantic' ? 'ring-2 ring-blue-400' : ''
-                          }`}
-                          style={{
-                            background: m.isHot
-                              ? 'linear-gradient(135deg, #f97316, #ef4444)'
-                              : getMatchColor(m.score),
-                          }}
-                        >
-                          {m.isHot ? '🔥' : m.score}
-                        </span>
-                        <span className={`text-[8px] font-medium ${
-                          m.isHot ? 'text-orange-600' :
-                          m.matchSource === 'ai' || m.matchSource === 'ai_triage' || m.matchSource === 'semantic' ? 'text-blue-600' : 'text-gray-400'
-                        }`}>
-                          {m.isHot && m.competitionScore != null ? `C:${m.competitionScore}` : m.matchSource === 'ai' || m.matchSource === 'ai_triage' || m.matchSource === 'semantic' ? 'IA' : 'est.'}
-                        </span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-xs font-medium leading-snug line-clamp-2 ${m.isHot ? 'text-orange-900' : 'text-gray-900'}`}>
-                          {m.objeto}
-                        </p>
-                        {m.isHot && m.competitionScore != null && (
-                          <span className={`inline-block text-[9px] font-medium px-1.5 py-0.5 rounded-full mt-0.5 ${
-                            m.competitionScore >= 75 ? 'bg-green-100 text-green-700' :
-                            m.competitionScore >= 50 ? 'bg-yellow-100 text-yellow-700' :
-                            'bg-red-100 text-red-700'
-                          }`}>
-                            {m.competitionScore >= 75 ? 'Baixa competicao' :
-                             m.competitionScore >= 50 ? 'Competicao moderada' :
-                             'Mercado disputado'}
-                          </span>
-                        )}
-                        <p className="text-[10px] text-gray-500 mt-1 truncate">{m.orgao}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          {m.municipio && (
-                            <span className="text-[10px] text-blue-500">{m.municipio}</span>
-                          )}
-                          {m.valor && (
-                            <span className={`text-[10px] font-medium ${m.isHot ? 'text-orange-700 font-bold' : 'text-emerald-600'}`}>
-                              {m.isHot
-                                ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(m.valor)
-                                : formatCompactBRL(m.valor)}
-                            </span>
-                          )}
-                          {m.modalidade && (
-                            <span className="text-[10px] text-gray-400">{m.modalidade}</span>
-                          )}
-                          {m.dataEncerramento ? (() => {
-                            const d = Math.ceil((new Date(m.dataEncerramento!).getTime() - Date.now()) / 86400000)
-                            return d <= 3 ? (
-                              <span className="text-[10px] text-red-600 font-medium">⏰ {d <= 0 ? 'HOJE' : `${d}d`}</span>
-                            ) : null
-                          })() : (
-                            <span className="text-[10px] text-amber-600">⚠️ Prazo</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-                {selectedUfMarkers.length === 0 && (
-                  <p className="text-sm text-gray-400 text-center py-4">
-                    Nenhuma oportunidade encontrada com os filtros atuais
-                  </p>
-                )}
-              </div>
-            </div>
+      {/* Mobile floating toggle button */}
+      {isMobile && (
+        <button
+          onClick={() => {
+            setSheetPosition((prev) => prev === 'full' ? 'collapsed' : 'full')
+          }}
+          className="fixed z-[110] bottom-24 right-4 w-12 h-12 rounded-full bg-brand text-white shadow-lg flex items-center justify-center active:scale-95 transition-transform"
+          style={{
+            bottom: sheetPosition === 'collapsed' ? '96px' : sheetPosition === 'half' ? 'calc(50vh + 12px)' : 'calc(100vh - 28px - 48px)',
+            transition: 'bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s',
+          }}
+          aria-label={sheetPosition === 'full' ? 'Ver mapa' : 'Ver lista'}
+        >
+          {sheetPosition === 'full' ? (
+            // Map icon
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+            </svg>
           ) : (
-            /* Ranking by UF — computed from filtered markers */
-            <div>
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">
-                Ranking por Estado ({filteredUfStats.length} UFs)
-              </h3>
-              <div className="space-y-1.5">
-                {filteredUfStats.slice(0, 15).map((d, index) => (
-                  <button
-                    key={d.uf}
-                    onClick={() => selectUf(d.uf)}
-                    className="w-full flex items-center gap-2 p-2.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
-                  >
-                    <span className="text-xs text-gray-400 w-4">{index + 1}</span>
-                    <span className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 bg-gray-700">
-                      {d.uf}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900">{d.name}</p>
-                      <p className="text-[10px] text-gray-500">
-                        {d.count} oportunidade{d.count !== 1 ? 's' : ''} &middot; {formatCompactBRL(d.totalValue)}
-                      </p>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-xs font-bold" style={{ color: getMatchColor(d.avgScore) }}>
-                        {d.avgScore}
-                      </p>
-                      <p className="text-[9px] text-gray-400">score medio</p>
-                    </div>
-                  </button>
-                ))}
-                {filteredUfStats.length === 0 && (
-                  <p className="text-sm text-gray-400 text-center py-8">
-                    Nenhuma oportunidade encontrada com os filtros atuais
-                  </p>
-                )}
-              </div>
-            </div>
+            // List icon
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
           )}
-        </div>
-      </div>
+        </button>
+      )}
     </div>
   )
 }
