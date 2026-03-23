@@ -12,7 +12,7 @@
 import 'dotenv/config'
 import { logger } from './lib/logger'
 import { supabase } from './lib/supabase'
-import { runKeywordMatchingSweep } from './processors/keyword-matcher'
+import { runKeywordMatchingSweep, runKeywordMatchingForCompany } from './processors/keyword-matcher'
 import { batchClassifyTenders } from './ai/cnae-classifier'
 
 // ─── Workers (matching / notifications / intelligence) ──────────────────────
@@ -114,18 +114,13 @@ async function setupRedisEvents() {
             logger.warn({ companyId, err }, '⚠️ Step 2/6: Profiling failed (continuing)')
           }
 
-          // ── STEP 3: Run keyword matching (full sweep, no timeout) ─────────
+          // ── STEP 3: CNAE-filtered keyword matching (20x faster than full sweep)
           let keywordMatchCount = 0
           try {
-            await runKeywordMatchingSweep()
-            // Count matches created for this company
-            const { count } = await supabase
-              .from('matches').select('id', { count: 'exact', head: true })
-              .eq('company_id', companyId)
-            keywordMatchCount = count || 0
-            logger.info({ companyId, keywordMatchCount }, '✅ Step 3/6: Keyword matching done')
+            keywordMatchCount = await runKeywordMatchingForCompany(companyId)
+            logger.info({ companyId, keywordMatchCount }, 'Step 3/6: CNAE-filtered keyword matching done')
           } catch (err) {
-            logger.error({ companyId, err }, '❌ Step 3/6: Keyword matching failed')
+            logger.error({ companyId, err }, 'Step 3/6: Keyword matching failed')
           }
 
           // ── STEP 4: Run semantic matching (if company has embedding) ──────

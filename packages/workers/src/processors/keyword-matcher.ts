@@ -755,3 +755,200 @@ export async function runKeywordMatchingSweep() {
     'Keyword matching sweep completed (unmatched tenders)',
   )
 }
+
+// ─── CNAE-Filtered Matching for a Single Company ─────────────────────────
+//
+// INVERTED DIRECTION: Instead of scanning 169K tenders (O(N) full sweep),
+// uses the GIN index on cnae_classificados to fetch only tenders in the
+// company's CNAE categories. This is the "labeling machine" approach:
+// tenders are pre-tagged by category, and we look up the relevant "containers".
+//
+// Expected: ~500-10K tenders (filtered) instead of ~169K (full sweep) = 20x faster
+
+export async function runKeywordMatchingForCompany(companyId: string): Promise<number> {
+  const startTime = Date.now()
+
+  // 1. Fetch company data
+  const { data: company, error: companyErr } = await supabase
+    .from('companies')
+    .select('id, cnae_principal, cnaes_secundarios, palavras_chave, descricao_servicos, capacidades')
+    .eq('id', companyId)
+    .single()
+
+  if (companyErr || !company) {
+    logger.error({ companyId, error: companyErr }, 'Company not found for CNAE-filtered matching')
+    return 0
+  }
+
+  // 2. Build company phrases and compute CNAE divisions
+  const { cnaePhrases, userPhrases, descTokens, allCnaes } = buildCompanyPhrases(company)
+  const { direct: directDivs, related: relatedDivs } = getCompanyDivisions(allCnaes)
+  const allDivisions = Array.from(new Set([...directDivs, ...relatedDivs]))
+  const companySectors = getCompanySectors(allCnaes)
+
+  // Build direct terms for simple substring matching
+  const directTerms: string[] = []
+  if (company.palavras_chave) directTerms.push(...(company.palavras_chave as string[]))
+  if (company.capacidades) directTerms.push(...(company.capacidades as string[]))
+
+  const allPhrases = [...cnaePhrases, ...userPhrases]
+
+  if (allPhrases.length === 0 && directTerms.length === 0) {
+    logger.warn({ companyId }, 'No keywords or CNAEs for matching — skipping')
+    return 0
+  }
+
+  logger.info({
+    companyId,
+    divisions: allDivisions.length,
+    phrases: allPhrases.length,
+    directTerms: directTerms.length,
+  }, 'Starting CNAE-filtered keyword matching')
+
+  // 3. Pre-load existing match tender IDs to avoid duplicates
+  const existingTenderIds = new Set<string>()
+  {
+    const PAGE = 1000
+    let offset = 0
+    while (true) {
+      const { data: page } = await supabase
+        .from('matches')
+        .select('tender_id')
+        .eq('company_id', companyId)
+        .range(offset, offset + PAGE - 1)
+      if (!page || page.length === 0) break
+      page.forEach(m => existingTenderIds.add(m.tender_id))
+      if (page.length < PAGE) break
+      offset += PAGE
+    }
+  }
+
+  const today = new Date().toISOString().split('T')[0]
+  let matchCount = 0
+  let scanned = 0
+
+  // Helper: score a batch of tenders against this company
+  const scoreBatch = async (tenders: any[], mode: 'cnae' | 'keyword-only') => {
+    for (const tender of tenders) {
+      if (existingTenderIds.has(tender.id)) continue
+      scanned++
+
+      const tenderText = (tender.objeto || '') + ' ' + (tender.resumo || '')
+      const tenderTokens = new Set(tokenize(tenderText))
+      const tenderCnaes = (tender.cnae_classificados as string[]) || []
+
+      if (mode === 'cnae' && tenderCnaes.length > 0) {
+        // MODE A: CNAE-gated
+        const cnaeScore = computeCNAEScore(allCnaes, tenderCnaes)
+        if (cnaeScore === 0) continue // Hard gate: no CNAE overlap
+
+        // Sector conflict check
+        if (detectSectorConflict(tenderText, companySectors)) continue
+
+        const { score: kwScore, phraseMatches, matchedPhrases } = computePhraseScore(allPhrases, tenderTokens)
+        const descScore = computeDescScore(descTokens, tenderTokens)
+        const { matched: directMatched, score: directScore } = directTermMatch(directTerms, tenderText)
+
+        const compositeKw = Math.max(kwScore, directScore)
+        let finalScore = Math.round(cnaeScore * CNAE_WEIGHT + compositeKw * KEYWORD_WEIGHT_A + descScore * DESCRIPTION_WEIGHT_A)
+        finalScore = Math.min(finalScore, MAX_KEYWORD_SCORE_MODE_A)
+
+        if (finalScore < MIN_MATCH_SCORE_A) continue
+
+        const breakdown = [
+          { category: 'CNAE', score: cnaeScore, reason: `Divisões: ${tenderCnaes.join(', ')}` },
+          { category: 'Palavras-chave', score: compositeKw, reason: matchedPhrases.concat(directMatched).slice(0, 5).join(', ') || 'N/A' },
+          { category: 'Descrição', score: descScore, reason: `${descTokens.size > 0 ? 'Match parcial' : 'Sem descrição'}` },
+        ]
+
+        const matchId = await upsertMatchAndNotify(companyId, tender.id, finalScore, breakdown, 'keyword')
+        if (matchId) matchCount++
+      } else {
+        // MODE B: Keyword-only (no CNAE on tender)
+        if (detectSectorConflict(tenderText, companySectors)) continue
+
+        const { score: kwScore, phraseMatches, matchedPhrases } = computePhraseScore(allPhrases, tenderTokens)
+        const descScore = computeDescScore(descTokens, tenderTokens)
+        const { matched: directMatched, score: directScore } = directTermMatch(directTerms, tenderText)
+
+        const compositeKw = Math.max(kwScore, directScore)
+        if (phraseMatches < MIN_PHRASE_MATCHES_B && directMatched.length < 2) continue
+
+        let finalScore = Math.round(compositeKw * KEYWORD_WEIGHT_B + descScore * DESCRIPTION_WEIGHT_B)
+        finalScore = Math.min(finalScore, MAX_KEYWORD_SCORE_MODE_B)
+
+        if (finalScore < MIN_MATCH_SCORE_B) continue
+
+        const breakdown = [
+          { category: 'Palavras-chave', score: compositeKw, reason: matchedPhrases.concat(directMatched).slice(0, 5).join(', ') || 'N/A' },
+          { category: 'Descrição', score: descScore, reason: `${descTokens.size > 0 ? 'Match parcial' : 'Sem descrição'}` },
+        ]
+
+        const matchId = await upsertMatchAndNotify(companyId, tender.id, finalScore, breakdown, 'keyword')
+        if (matchId) matchCount++
+      }
+    }
+  }
+
+  // 4. Fetch CNAE-filtered tenders (uses GIN index — fast!)
+  if (allDivisions.length > 0) {
+    const PAGE = 1000
+    let page = 0
+    while (true) {
+      const from = page * PAGE
+      const { data: tenders, error: fetchErr } = await supabase
+        .from('tenders')
+        .select('id, objeto, resumo, cnae_classificados, modalidade_id')
+        .overlaps('cnae_classificados', allDivisions)
+        .gt('objeto', '')
+        .or(`data_encerramento.is.null,data_encerramento.gte.${today}`)
+        .not('modalidade_id', 'in', `(${NON_COMPETITIVE_MODALITIES.join(',')})`)
+        .order('created_at', { ascending: false })
+        .range(from, from + PAGE - 1)
+
+      if (fetchErr) {
+        logger.error({ error: fetchErr, page }, 'CNAE-filtered tender fetch error')
+        break
+      }
+      if (!tenders || tenders.length === 0) break
+
+      if (page === 0) {
+        logger.info({ count: tenders.length, divisions: allDivisions }, 'CNAE-filtered tenders: first page')
+      }
+
+      await scoreBatch(tenders, 'cnae')
+
+      if (tenders.length < PAGE) break
+      page++
+    }
+  }
+
+  // 5. Fetch unclassified tenders (no CNAE, keyword-only mode B)
+  {
+    const { data: unclassified } = await supabase
+      .from('tenders')
+      .select('id, objeto, resumo, cnae_classificados, modalidade_id')
+      .or('cnae_classificados.is.null,cnae_classificados.eq.{}')
+      .gt('objeto', '')
+      .or(`data_encerramento.is.null,data_encerramento.gte.${today}`)
+      .not('modalidade_id', 'in', `(${NON_COMPETITIVE_MODALITIES.join(',')})`)
+      .order('created_at', { ascending: false })
+      .limit(3000)
+
+    if (unclassified && unclassified.length > 0) {
+      logger.info({ count: unclassified.length }, 'Unclassified tenders (keyword-only mode)')
+      await scoreBatch(unclassified, 'keyword-only')
+    }
+  }
+
+  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
+  logger.info({
+    companyId,
+    scanned,
+    matchCount,
+    elapsed: `${elapsed}s`,
+    existingSkipped: existingTenderIds.size,
+  }, 'CNAE-filtered keyword matching complete')
+
+  return matchCount
+}
