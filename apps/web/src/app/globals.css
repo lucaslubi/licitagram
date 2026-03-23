@@ -109,10 +109,17 @@
   50% { box-shadow: 0 0 22px 10px rgba(255, 165, 0, 0.85); }
 }
 
-/* Force map popups above all markers */
+/* Map popups above markers but below modals/dialogs */
 .mapboxgl-popup {
-  z-index: 9999 !important;
+  z-index: 40 !important;
 }
 .mapboxgl-popup-content {
-  z-index: 9999 !important;
+  z-index: 40 !important;
+}
+/* Map controls below sidebar and modals */
+.mapboxgl-ctrl-top-right,
+.mapboxgl-ctrl-top-left,
+.mapboxgl-ctrl-bottom-right,
+.mapboxgl-ctrl-bottom-left {
+  z-index: 30 !important;
 }

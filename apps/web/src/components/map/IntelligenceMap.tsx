@@ -403,7 +403,7 @@ export function IntelligenceMap({
                 longitude={m.lng}
                 latitude={m.lat}
                 anchor="center"
-                style={{ zIndex: isHot ? 200 : m.score }}
+                style={{ zIndex: isHot ? 20 : Math.min(m.score, 19) }}
                 onClick={(e: { originalEvent: MouseEvent }) => {
                   e.originalEvent.stopPropagation()
                   setSelectedMatch(m)
@@ -464,7 +464,7 @@ export function IntelligenceMap({
                 offset={15}
                 className="!p-0"
                 maxWidth="300px"
-                style={{ zIndex: 999 }}
+                style={{ zIndex: 40 }}
               >
                 <div className="p-3 min-w-[220px]">
                   {selectedMatch.isHot && (
@@ -542,7 +542,7 @@ export function IntelligenceMap({
         </div>
 
         {/* Legend */}
-        <div className="absolute bottom-2 left-4 z-[9998]">
+        <div className="absolute bottom-2 left-4 z-[50]">
           <Card className="bg-black/70 border-white/10 p-3 text-white">
             <p className="text-xs font-semibold mb-2">Score do Match</p>
             <div className="flex items-center gap-1 mb-1">
