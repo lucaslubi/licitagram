@@ -65,7 +65,7 @@ export async function addCompanyAction(
   const maxCompanies = subscription.max_companies || 1
   if ((existingCount || 0) >= maxCompanies) {
     return {
-      error: `Limite de empresas atingido (${existingCount}/${maxCompanies}). Entre em contato para ampliar.`,
+      error: `NEEDS_PAYMENT:${existingCount}:${maxCompanies}`,
     }
   }
 

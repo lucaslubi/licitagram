@@ -47,6 +47,56 @@ export async function POST(request: NextRequest) {
       const planId = session.metadata?.plan_id
       const planSlug = session.metadata?.plan_slug
 
+      // Handle extra company purchase
+      if (session.metadata?.type === 'extra_company' && userId) {
+        const cnpj = session.metadata.cnpj
+        const razaoSocial = session.metadata.razao_social || ''
+        const nomeFantasia = session.metadata.nome_fantasia || ''
+
+        if (cnpj) {
+          // Create or find company
+          const { data: existing } = await supabase
+            .from('companies')
+            .select('id')
+            .eq('cnpj', cnpj)
+            .maybeSingle()
+
+          let companyId: string
+          if (existing) {
+            companyId = existing.id
+          } else {
+            const newId = crypto.randomUUID()
+            await supabase.from('companies').insert({
+              id: newId,
+              cnpj,
+              razao_social: razaoSocial,
+              nome_fantasia: nomeFantasia || null,
+            })
+            companyId = newId
+          }
+
+          // Link to user
+          await supabase.from('user_companies').upsert(
+            { user_id: userId, company_id: companyId, role: 'admin', is_default: false },
+            { onConflict: 'user_id,company_id' }
+          )
+
+          // Increase max_companies on subscription
+          const { data: profile } = await supabase
+            .from('users')
+            .select('company_id')
+            .eq('id', userId)
+            .single()
+
+          if (profile?.company_id) {
+            await supabase.rpc('increment_max_companies', { p_company_id: profile.company_id })
+          }
+
+          console.log(`[stripe-webhook] Extra company added: ${cnpj} for user ${userId}`)
+        }
+        break
+      }
+
       if (userId && planId) {
         const { data: profile } = await supabase
           .from('users')
