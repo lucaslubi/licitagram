@@ -889,10 +889,10 @@ export function IntelligenceMap({
           </MapGL>
         </div>
 
-        {/* Legend — repositioned on mobile */}
-        <div className={`absolute z-[50] ${
+        {/* Legend — bottom-left on both, but higher on mobile to clear bottom sheet */}
+        <div className={`absolute z-[30] ${
           isMobile
-            ? 'top-14 left-2'
+            ? 'bottom-24 left-2'
             : 'bottom-2 left-4'
         }`}>
           <Card className={`bg-black/70 border-white/10 text-white ${isMobile ? 'p-2' : 'p-3'}`}>
