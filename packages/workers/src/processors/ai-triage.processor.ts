@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
 import { invalidateMatchCaches } from '../lib/redis-cache'
 import { CNAE_GROUPS } from '@licitagram/shared'
+import { callLLM } from '../ai/llm-client'
 import OpenAI from 'openai'
 
 const deepseekClient = new OpenAI({
@@ -147,7 +148,7 @@ async function triageBatch(
   const today = new Date().toISOString().split('T')[0]
   const { data: matches } = await supabase
     .from('matches')
-    .select('id, company_id, tender_id, score, match_source, tenders!inner(id, objeto, data_encerramento)')
+    .select('id, company_id, tender_id, score, match_source, tenders!inner(id, objeto, valor_estimado, orgao, data_encerramento)')
     .in('id', matchIds)
     .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
 
@@ -167,6 +168,8 @@ async function triageBatch(
         matchId: m.id as string,
         tenderId: t.id as string,
         objeto: ((t.objeto as string) || '').slice(0, 200),
+        valorEstimado: t.valor_estimado as number | null,
+        orgao: ((t.orgao as string) || '').slice(0, 80),
         originalScore: m.score as number,
         matchSource: m.match_source as string,
       }
@@ -174,39 +177,40 @@ async function triageBatch(
 
   if (items.length === 0) return []
 
+  // Build batch prompt with richer context per item
   const tenderList = items
-    .map((item, i) => `${i + 1}. [${item.matchId}] ${item.objeto}`)
+    .map((item, i) => {
+      const valor = item.valorEstimado
+        ? `R$ ${item.valorEstimado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+        : 'N/I'
+      const orgao = item.orgao || 'N/I'
+      return `${i + 1}. ID: ${item.matchId} | Objeto: "${item.objeto}" | Valor: ${valor} | Orgao: ${orgao}`
+    })
     .join('\n')
 
   const userPrompt = `${companyContext}
 
 ---
 
-Avalie CADA licitacao abaixo. Retorne um JSON array com o score de compatibilidade de cada uma.
+Analise as seguintes licitacoes e retorne um JSON array com scores de 0-100 para cada uma.
 
-LICITACOES:
+Licitacoes:
 ${tenderList}
 
-Retorne APENAS JSON valido (sem markdown):
-[
-  {"matchId": "id_aqui", "score": 0-100, "recomendacao": "participar|avaliar_melhor|nao_recomendado"},
-  ...
-]
+Retorne APENAS um JSON array valido (sem markdown, sem texto adicional):
+[{"matchId": "xxx", "score": 85, "recomendacao": "participar|avaliar_melhor|nao_recomendado"}, ...]
 
-LEMBRE: score 0-15 para objetos TOTALMENTE fora do escopo da empresa.`
+LEMBRE: score 0-15 para objetos TOTALMENTE fora do escopo da empresa. Avalie TODAS as ${items.length} licitacoes.`
 
-  const response = await deepseekClient.chat.completions.create({
-    model: 'deepseek-chat',
-    messages: [
-      { role: 'system', content: TRIAGE_SYSTEM_PROMPT },
-      { role: 'user', content: userPrompt },
-    ],
-    max_tokens: 8192,
-    temperature: 0.1,
-    response_format: { type: 'json_object' },
+  // Use shared LLM client with fallback providers
+  const content = await callLLM({
+    task: 'onDemandAnalysis', // Uses maxTokens: 8192, temperature: 0.1
+    system: TRIAGE_SYSTEM_PROMPT,
+    prompt: userPrompt,
+    jsonMode: true,
+    maxRetries: 2,
   })
 
-  const content = response.choices[0]?.message?.content || '[]'
   const cleanJson = content.replace(/```json?\s*/gi, '').replace(/```\s*/g, '').trim()
 
   let parsed: TriageResult[]
@@ -214,41 +218,58 @@ LEMBRE: score 0-15 para objetos TOTALMENTE fora do escopo da empresa.`
     const raw = JSON.parse(cleanJson)
     parsed = Array.isArray(raw) ? raw : (raw.results || raw.items || raw.data || [])
   } catch {
-    logger.error({ content: cleanJson.slice(0, 500) }, 'AI triage parse error')
+    logger.error({ content: cleanJson.slice(0, 500), batchSize: items.length }, 'AI triage batch parse error')
     return []
   }
 
-  // Update DB for each result
+  // Build validated results, skipping individual items that fail
   const results: TriageResult[] = []
+  const now = new Date().toISOString()
+  const dbUpdates: PromiseLike<unknown>[] = []
 
   for (const item of parsed) {
-    if (!item.matchId || typeof item.score !== 'number') continue
-    const safeScore = Math.min(100, Math.max(0, Math.round(item.score)))
-    const match = items.find((m) => m.matchId === item.matchId)
-    if (!match) continue
+    try {
+      if (!item.matchId || typeof item.score !== 'number') continue
+      const safeScore = Math.min(100, Math.max(0, Math.round(item.score)))
+      const match = items.find((m) => m.matchId === item.matchId)
+      if (!match) continue
 
-    const updatePayload: Record<string, unknown> = {
-      score: safeScore,
-      match_source: 'ai_triage',
-      recomendacao: item.recomendacao || null,
-      analyzed_at: new Date().toISOString(),
+      const updatePayload: Record<string, unknown> = {
+        score: safeScore,
+        match_source: 'ai_triage',
+        recomendacao: item.recomendacao || null,
+        analyzed_at: now,
+      }
+
+      // Save original keyword score if not already saved by a previous AI analysis
+      if (match.matchSource !== 'ai' && match.matchSource !== 'ai_triage') {
+        updatePayload.keyword_score = match.originalScore
+      }
+
+      dbUpdates.push(
+        supabase
+          .from('matches')
+          .update(updatePayload)
+          .eq('id', item.matchId),
+      )
+
+      results.push({
+        matchId: item.matchId,
+        score: safeScore,
+        recomendacao: item.recomendacao || 'avaliar_melhor',
+      })
+    } catch (err) {
+      logger.warn({ matchId: item?.matchId, err }, 'Skipping malformed triage item')
     }
+  }
 
-    // Save original keyword score if not already saved by a previous AI analysis
-    if (match.matchSource !== 'ai' && match.matchSource !== 'ai_triage') {
-      updatePayload.keyword_score = match.originalScore
+  // Execute all DB updates in parallel
+  if (dbUpdates.length > 0) {
+    const settled = await Promise.allSettled(dbUpdates)
+    const failedCount = settled.filter((r) => r.status === 'rejected').length
+    if (failedCount > 0) {
+      logger.warn({ companyId, failedCount, total: dbUpdates.length }, 'Some triage DB updates failed')
     }
-
-    await supabase
-      .from('matches')
-      .update(updatePayload)
-      .eq('id', item.matchId)
-
-    results.push({
-      matchId: item.matchId,
-      score: safeScore,
-      recomendacao: item.recomendacao || 'avaliar_melhor',
-    })
   }
 
   // Invalidate caches
@@ -263,7 +284,7 @@ LEMBRE: score 0-15 para objetos TOTALMENTE fora do escopo da empresa.`
 
 // ─── Worker ──────────────────────────────────────────────────────────────────
 
-const BATCH_SIZE = 25 // Items per DeepSeek call (keep small to avoid truncated JSON)
+const BATCH_SIZE = 50 // Items per LLM call (batch classification for efficiency)
 
 const aiTriageWorker = new Worker<AiTriageJobData>(
   'ai-triage',

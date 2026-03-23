@@ -23,12 +23,21 @@ export type NotificationJobData =
   | { telegramChatId: number; type: 'new_matches'; matches: UrgencyMatchItem[]; totalValor: number }
   | { matchId: string; telegramChatId: number; type: 'outcome_prompt'; tenderObjeto: string; tenderOrgao: string; daysSinceClose: number }
 
+// ─── Notification Priority Levels (lower number = higher priority) ────────
+export const NOTIFICATION_PRIORITY = {
+  CRITICAL: 1,   // Certidão vencendo, sistema down
+  SUPER_HOT: 2,  // Super quente matches (score > 85)
+  HOT: 3,        // Hot matches (score > 70)
+  NORMAL: 5,     // Normal matches
+  DIGEST: 8,     // Weekly digest, new-matches summary
+} as const
+
 export const notificationQueue = new Queue<NotificationJobData, unknown, string>('notification', {
   connection,
   defaultJobOptions: {
-    attempts: 3,
-    backoff: { type: 'exponential', delay: 3000 },
-    removeOnComplete: 100,
-    removeOnFail: 200,
+    attempts: 5,
+    backoff: { type: 'exponential', delay: 10_000 }, // 10s, 20s, 40s, 80s, 160s
+    removeOnComplete: { count: 1000, age: 48 * 3600 },
+    removeOnFail: { count: 500, age: 14 * 24 * 3600 },
   },
 })

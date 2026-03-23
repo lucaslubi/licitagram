@@ -1,6 +1,6 @@
 import { Worker } from 'bullmq'
 import { connection } from '../queues/connection'
-import { notificationQueue } from '../queues/notification.queue'
+import { notificationQueue, NOTIFICATION_PRIORITY } from '../queues/notification.queue'
 import type { UrgencyMatchItem } from '../queues/notification.queue'
 import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
@@ -323,6 +323,11 @@ async function handleHotDaily() {
               competitionScore,
               topCompetitors,
             },
+            {
+              priority: match.score >= 85
+                ? NOTIFICATION_PRIORITY.SUPER_HOT
+                : NOTIFICATION_PRIORITY.HOT,
+            },
           )
           totalEnqueued++
         } catch (err) {
@@ -450,6 +455,7 @@ async function handleUrgencyCheck() {
       const totalValor = matchItems.reduce((sum, m) => sum + m.valor, 0)
 
       // Enqueue grouped urgency alert for each Telegram user
+      // Urgency alerts are critical — tender is closing soon
       for (const user of telegramUsers) {
         try {
           await notificationQueue.add(
@@ -459,6 +465,11 @@ async function handleUrgencyCheck() {
               type: tierType,
               matches: matchItems,
               totalValor,
+            },
+            {
+              priority: tierType === 'urgency_24h'
+                ? NOTIFICATION_PRIORITY.CRITICAL
+                : NOTIFICATION_PRIORITY.SUPER_HOT,
             },
           )
           totalUrgencySent++
@@ -543,6 +554,9 @@ async function handleNewMatchesDigest() {
             type: 'new_matches' as const,
             matches: matchItems,
             totalValor,
+          },
+          {
+            priority: NOTIFICATION_PRIORITY.DIGEST,
           },
         )
         totalSent++

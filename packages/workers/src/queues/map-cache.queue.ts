@@ -4,7 +4,9 @@ import { connection } from './connection'
 export const mapCacheQueue = new Queue('map-cache', {
   connection,
   defaultJobOptions: {
-    removeOnComplete: 10,
-    removeOnFail: 20,
+    removeOnComplete: { count: 500, age: 24 * 3600 },
+    removeOnFail: { count: 200, age: 7 * 24 * 3600 },
+    attempts: 3,
+    backoff: { type: 'exponential', delay: 5000 },
   },
 })

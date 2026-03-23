@@ -11,6 +11,8 @@ export const fornecedorEnrichmentQueue = new Queue<FornecedorEnrichmentJobData>(
   {
     connection,
     defaultJobOptions: {
+      removeOnComplete: { count: 100, age: 4 * 3600 },
+      removeOnFail: { count: 100, age: 24 * 3600 },
       attempts: 2,
       backoff: { type: 'exponential', delay: 15000 },
     },

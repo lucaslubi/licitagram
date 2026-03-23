@@ -1,26 +1,27 @@
 import { Worker } from 'bullmq'
 import { connection } from '../queues/connection'
-import { notificationQueue } from '../queues/notification.queue'
+import { notificationQueue, NOTIFICATION_PRIORITY } from '../queues/notification.queue'
 import { whatsappQueue } from '../queues/notification-whatsapp.queue'
 import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
 import { purgeNonCompetitiveMatches } from '../lib/notification-guard'
 
-// ─── Priority levels for BullMQ (lower number = higher priority) ────────
-// Fresh matches (< 2h old) get processed first
-const PRIORITY_FRESH = 1   // < 2 hours old
-const PRIORITY_RECENT = 3  // < 12 hours old
-const PRIORITY_NORMAL = 5  // < 48 hours old
-const PRIORITY_BACKLOG = 8 // older than 48h
+/**
+ * Determine job priority based on match score and age.
+ * Uses NOTIFICATION_PRIORITY constants for consistency across the system.
+ */
+function getJobPriority(score: number, createdAt: string | null): number {
+  // Super hot matches always get top priority
+  if (score >= 85) return NOTIFICATION_PRIORITY.SUPER_HOT
+  if (score >= 70) return NOTIFICATION_PRIORITY.HOT
 
-function getJobPriority(createdAt: string | null): number {
-  if (!createdAt) return PRIORITY_NORMAL
+  // For normal-score matches, prioritize fresher ones
+  if (!createdAt) return NOTIFICATION_PRIORITY.NORMAL
   const ageMs = Date.now() - new Date(createdAt).getTime()
   const ageHours = ageMs / (60 * 60 * 1000)
-  if (ageHours < 2) return PRIORITY_FRESH
-  if (ageHours < 12) return PRIORITY_RECENT
-  if (ageHours < 48) return PRIORITY_NORMAL
-  return PRIORITY_BACKLOG
+  if (ageHours < 2) return NOTIFICATION_PRIORITY.HOT
+  if (ageHours < 48) return NOTIFICATION_PRIORITY.NORMAL
+  return NOTIFICATION_PRIORITY.DIGEST
 }
 
 /**
@@ -209,11 +210,11 @@ const pendingNotificationsWorker = new Worker(
 
       for (const match of batch) {
         try {
-          const priority = getJobPriority((match as any).created_at)
+          const priority = getJobPriority(match.score, (match as any).created_at)
 
           // Enqueue Telegram (independent queue)
           // jobId prevents duplicate sends across pending-check cycles
-          // priority ensures fresh matches are processed before old backlog
+          // priority ensures high-score and fresh matches are processed first
           if (hasTelegram) {
             await notificationQueue.add(
               `tg-${user.id}-${match.id}`,
@@ -224,8 +225,6 @@ const pendingNotificationsWorker = new Worker(
               {
                 jobId: `tg-${user.id}-${match.id}`,
                 priority,
-                attempts: 3,
-                backoff: { type: 'exponential', delay: 3000 },
               },
             )
           }
@@ -242,8 +241,6 @@ const pendingNotificationsWorker = new Worker(
               {
                 jobId: `wa-${user.id}-${match.id}`,
                 priority,
-                attempts: 3,
-                backoff: { type: 'exponential', delay: 5000 },
               },
             )
           }

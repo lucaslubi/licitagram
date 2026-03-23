@@ -3,15 +3,46 @@
  *
  * Dedicated worker for sending WhatsApp messages via Evolution API.
  * Runs independently from Telegram — no blocking between channels.
- * Rate limited to 1 msg/s (Evolution API constraint).
+ * Rate limited to ~10 msg/s (with BullMQ limiter).
+ * Retries with exponential backoff on failure.
  */
-import { Worker } from 'bullmq'
+import { Worker, UnrecoverableError } from 'bullmq'
 import { connection } from '../queues/connection'
 import type { WhatsAppNotificationJobData } from '../queues/notification-whatsapp.queue'
 import { sendMatchAlert, sendOutcomePrompt, isConnected } from '../whatsapp/client'
 import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
 import { validateNotification } from '../lib/notification-guard'
+
+/**
+ * Handle WhatsApp/Evolution API errors with proper retry semantics.
+ * - Connection issues: throw to retry with backoff
+ * - 429 rate limit: throw to retry with backoff (BullMQ exponential handles it)
+ * - 400/404 (bad number, invalid): unrecoverable, don't retry
+ */
+function handleWhatsAppError(err: unknown, context: Record<string, unknown>): never {
+  const error = err as Error & { message?: string }
+  const message = error.message || ''
+
+  // Parse HTTP status from Evolution API error messages like "Evolution API 400: ..."
+  const statusMatch = message.match(/Evolution API (\d+):/)
+  const statusCode = statusMatch ? parseInt(statusMatch[1]) : 0
+
+  // Bad request or not found — invalid number, don't retry
+  if (statusCode === 400 || statusCode === 404) {
+    logger.warn({ ...context, statusCode, message }, 'WhatsApp unrecoverable error, will not retry')
+    throw new UnrecoverableError(`WhatsApp ${statusCode}: ${message}`)
+  }
+
+  // Rate limited — let BullMQ exponential backoff handle it
+  if (statusCode === 429) {
+    logger.warn({ ...context, statusCode }, 'WhatsApp rate limited, will retry with backoff')
+  }
+
+  // All other errors — throw to let BullMQ retry with exponential backoff
+  logger.error({ ...context, statusCode, err }, 'WhatsApp send failed, will retry')
+  throw err
+}
 
 const whatsappNotificationWorker = new Worker<WhatsAppNotificationJobData>(
   'notification-whatsapp',
@@ -21,8 +52,8 @@ const whatsappNotificationWorker = new Worker<WhatsAppNotificationJobData>(
     // Check Evolution API connectivity
     const connected = await isConnected()
     if (!connected) {
-      logger.warn({ matchId }, 'WhatsApp Evolution API not connected, skipping')
-      return
+      logger.warn({ matchId, attempt: job.attemptsMade + 1 }, 'WhatsApp Evolution API not connected, will retry')
+      throw new Error('WhatsApp Evolution API not connected')
     }
 
     // ─── Outcome Prompt ──────────────────────────────────────────────
@@ -37,8 +68,7 @@ const whatsappNotificationWorker = new Worker<WhatsAppNotificationJobData>(
           daysSinceClose,
         )
       } catch (err) {
-        logger.error({ matchId, err }, 'WhatsApp outcome prompt failed')
-        throw err
+        handleWhatsAppError(err, { matchId, type: 'outcome_prompt', attempt: job.attemptsMade + 1 })
       }
       return
     }
@@ -83,19 +113,23 @@ const whatsappNotificationWorker = new Worker<WhatsAppNotificationJobData>(
 
       logger.info({ matchId, whatsappNumber: whatsappNumber.slice(-4) }, 'WhatsApp notification sent')
     } catch (err) {
-      logger.error({ matchId, err }, 'WhatsApp notification failed')
-      throw err // Let BullMQ retry
+      handleWhatsAppError(err, { matchId, whatsappNumber: whatsappNumber.slice(-4), type: 'match_alert', attempt: job.attemptsMade + 1 })
     }
   },
   {
     connection,
-    concurrency: 1, // 1 at a time — Evolution API rate limit
-    limiter: { max: 1, duration: 1500 }, // ~1 msg per 1.5s
+    concurrency: 2,
+    limiter: { max: 10, duration: 1000 }, // 10 msgs/sec — safe for Evolution API
   },
 )
 
 whatsappNotificationWorker.on('failed', (job, err) => {
-  logger.error({ jobId: job?.id, err }, 'WhatsApp notification job failed')
+  const attempt = job?.attemptsMade ?? 0
+  const maxAttempts = job?.opts?.attempts ?? 5
+  logger.error(
+    { jobId: job?.id, attempt, maxAttempts, err },
+    attempt >= maxAttempts ? 'WhatsApp notification job permanently failed' : 'WhatsApp notification job failed, will retry',
+  )
 })
 
 export { whatsappNotificationWorker }

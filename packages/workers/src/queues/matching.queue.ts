@@ -11,7 +11,7 @@ export const matchingQueue = new Queue<MatchingJobData, unknown, string>('matchi
   defaultJobOptions: {
     attempts: 5,
     backoff: { type: 'exponential', delay: 8000 },
-    removeOnComplete: 500,
-    removeOnFail: 500,
+    removeOnComplete: { count: 500, age: 24 * 3600 },
+    removeOnFail: { count: 200, age: 7 * 24 * 3600 },
   },
 })

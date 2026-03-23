@@ -1,4 +1,5 @@
-import { Worker } from 'bullmq'
+import { Worker, UnrecoverableError } from 'bullmq'
+import type { Job } from 'bullmq'
 import { connection } from '../queues/connection'
 import { type NotificationJobData } from '../queues/notification.queue'
 import { bot } from '../telegram/bot'
@@ -6,6 +7,35 @@ import { formatMatchAlert, formatHotAlert, formatUrgencyAlert48h, formatUrgencyA
 import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
 import { validateNotification } from '../lib/notification-guard'
+
+/**
+ * Handle Telegram API errors with proper retry semantics.
+ * - 429 (rate limited): throw with metadata so BullMQ retries with backoff
+ * - 403/400 (bot blocked, chat not found): unrecoverable, don't retry
+ * - Other errors: throw to let BullMQ retry with exponential backoff
+ */
+function handleTelegramError(err: unknown, context: Record<string, unknown>): never {
+  const error = err as { error_code?: number; parameters?: { retry_after?: number }; description?: string; message?: string }
+  const statusCode = error.error_code || 0
+  const description = error.description || error.message || 'Unknown error'
+
+  // Rate limited — let BullMQ exponential backoff handle the retry
+  if (statusCode === 429) {
+    const retryAfter = error.parameters?.retry_after || 30
+    logger.warn({ ...context, retryAfter }, `Telegram rate limited, will retry with backoff`)
+    throw err
+  }
+
+  // Bot was blocked by user, chat not found, or bad request — don't retry
+  if (statusCode === 403 || statusCode === 400) {
+    logger.warn({ ...context, statusCode, description }, 'Telegram unrecoverable error, will not retry')
+    throw new UnrecoverableError(`Telegram ${statusCode}: ${description}`)
+  }
+
+  // All other errors — throw to let BullMQ retry with exponential backoff
+  logger.error({ ...context, statusCode, err }, 'Telegram send failed, will retry')
+  throw err
+}
 
 const notificationWorker = new Worker<NotificationJobData>(
   'notification',
@@ -57,12 +87,15 @@ const notificationWorker = new Worker<NotificationJobData>(
         },
       })
 
-      await bot.api.sendMessage(telegramChatId, text, {
-        parse_mode: 'HTML',
-        reply_markup: keyboard,
-      })
-
-      logger.info({ matchId, telegramChatId, rank }, 'Hot alert sent')
+      try {
+        await bot.api.sendMessage(telegramChatId, text, {
+          parse_mode: 'HTML',
+          reply_markup: keyboard,
+        })
+        logger.info({ matchId, telegramChatId, rank }, 'Hot alert sent')
+      } catch (err) {
+        handleTelegramError(err, { matchId, telegramChatId, type: 'hot', attempt: job.attemptsMade + 1 })
+      }
       return
     }
 
@@ -79,12 +112,15 @@ const notificationWorker = new Worker<NotificationJobData>(
         ? formatUrgencyAlert48h(matches, totalValor)
         : formatUrgencyAlert24h(matches, totalValor)
 
-      await bot.api.sendMessage(telegramChatId, text, {
-        parse_mode: 'HTML',
-        reply_markup: keyboard,
-      })
-
-      logger.info({ telegramChatId, type, matchCount: matches.length }, 'Urgency alert sent')
+      try {
+        await bot.api.sendMessage(telegramChatId, text, {
+          parse_mode: 'HTML',
+          reply_markup: keyboard,
+        })
+        logger.info({ telegramChatId, type, matchCount: matches.length }, 'Urgency alert sent')
+      } catch (err) {
+        handleTelegramError(err, { telegramChatId, type, attempt: job.attemptsMade + 1 })
+      }
       return
     }
 
@@ -116,12 +152,15 @@ const notificationWorker = new Worker<NotificationJobData>(
         .row()
         .text('❌ Não participamos', `outcome_skip_${matchId}`)
 
-      await bot.api.sendMessage(telegramChatId, promptText, {
-        parse_mode: 'HTML',
-        reply_markup: keyboard,
-      })
-
-      logger.info({ telegramChatId, matchId }, 'Outcome prompt sent via Telegram')
+      try {
+        await bot.api.sendMessage(telegramChatId, promptText, {
+          parse_mode: 'HTML',
+          reply_markup: keyboard,
+        })
+        logger.info({ telegramChatId, matchId }, 'Outcome prompt sent via Telegram')
+      } catch (err) {
+        handleTelegramError(err, { matchId, telegramChatId, type: 'outcome_prompt', attempt: job.attemptsMade + 1 })
+      }
       return
     }
 
@@ -136,12 +175,15 @@ const notificationWorker = new Worker<NotificationJobData>(
 
       const { text, keyboard } = formatNewMatchesDigest(matches, totalValor)
 
-      await bot.api.sendMessage(telegramChatId, text, {
-        parse_mode: 'HTML',
-        reply_markup: keyboard,
-      })
-
-      logger.info({ telegramChatId, matchCount: matches.length }, 'New matches digest sent')
+      try {
+        await bot.api.sendMessage(telegramChatId, text, {
+          parse_mode: 'HTML',
+          reply_markup: keyboard,
+        })
+        logger.info({ telegramChatId, matchCount: matches.length }, 'New matches digest sent')
+      } catch (err) {
+        handleTelegramError(err, { telegramChatId, type: 'new_matches', attempt: job.attemptsMade + 1 })
+      }
       return
     }
 
@@ -198,8 +240,7 @@ const notificationWorker = new Worker<NotificationJobData>(
 
       if (updateErr) logger.error({ matchId, error: updateErr }, 'Failed to mark match as notified')
     } catch (err) {
-      logger.error({ matchId, telegramChatId, err }, 'Telegram send failed')
-      throw err // Let BullMQ retry
+      handleTelegramError(err, { matchId, telegramChatId, type: 'match_alert', attempt: job.attemptsMade + 1 })
     }
 
     logger.info({ matchId, score: match.score, channels: 1 }, 'Notification processing complete')
@@ -207,12 +248,17 @@ const notificationWorker = new Worker<NotificationJobData>(
   {
     connection,
     concurrency: 5,
-    limiter: { max: 20, duration: 60_000 },
+    limiter: { max: 30, duration: 1000 }, // Telegram limit: 30 msgs/sec
   },
 )
 
 notificationWorker.on('failed', (job, err) => {
-  logger.error({ jobId: job?.id, err }, 'Notification job failed')
+  const attempt = job?.attemptsMade ?? 0
+  const maxAttempts = job?.opts?.attempts ?? 5
+  logger.error(
+    { jobId: job?.id, attempt, maxAttempts, err },
+    attempt >= maxAttempts ? 'Notification job permanently failed' : 'Notification job failed, will retry',
+  )
 })
 
 export { notificationWorker }

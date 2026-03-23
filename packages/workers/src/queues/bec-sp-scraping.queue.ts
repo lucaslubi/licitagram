@@ -12,8 +12,8 @@ export const becSpScrapingQueue = new Queue<BecSpScrapingJobData, unknown, strin
     defaultJobOptions: {
       attempts: 3,
       backoff: { type: 'exponential', delay: 10000 },
-      removeOnComplete: 30,
-      removeOnFail: 50,
+      removeOnComplete: { count: 100, age: 4 * 3600 },
+      removeOnFail: { count: 100, age: 24 * 3600 },
     },
   },
 )

@@ -13,8 +13,8 @@ export const certidoesQueue = new Queue<CertidoesJobData>(
   {
     connection,
     defaultJobOptions: {
-      removeOnComplete: { age: 86400 },
-      removeOnFail: 50,
+      removeOnComplete: { count: 500, age: 24 * 3600 },
+      removeOnFail: { count: 200, age: 7 * 24 * 3600 },
       attempts: 2,
       backoff: { type: 'exponential', delay: 30000 },
     },

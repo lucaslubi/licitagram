@@ -14,7 +14,7 @@ export const scrapingQueue = new Queue<ScrapingJobData, unknown, string>('scrapi
   defaultJobOptions: {
     attempts: 3,
     backoff: { type: 'exponential', delay: 5000 },
-    removeOnComplete: 100,
-    removeOnFail: 200,
+    removeOnComplete: { count: 100, age: 4 * 3600 },
+    removeOnFail: { count: 100, age: 24 * 3600 },
   },
 })

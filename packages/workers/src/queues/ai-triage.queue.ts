@@ -11,7 +11,7 @@ export const aiTriageQueue = new Queue<AiTriageJobData, unknown, string>('ai-tri
   defaultJobOptions: {
     attempts: 3,
     backoff: { type: 'exponential', delay: 5000 },
-    removeOnComplete: 200,
-    removeOnFail: 200,
+    removeOnComplete: { count: 500, age: 24 * 3600 },
+    removeOnFail: { count: 200, age: 7 * 24 * 3600 },
   },
 })

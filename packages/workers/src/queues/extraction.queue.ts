@@ -10,7 +10,7 @@ export const extractionQueue = new Queue<ExtractionJobData, unknown, string>('ex
   defaultJobOptions: {
     attempts: 4,
     backoff: { type: 'exponential', delay: 8000 },
-    removeOnComplete: 500,
-    removeOnFail: 500,
+    removeOnComplete: { count: 100, age: 4 * 3600 },
+    removeOnFail: { count: 100, age: 24 * 3600 },
   },
 })
