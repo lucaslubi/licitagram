@@ -84,9 +84,17 @@ export function CompanyProvider({
   }, [activeCompanyId])
 
   const switchCompany = useCallback(
-    (companyId: string) => {
+    async (companyId: string) => {
       if (companies.some((c) => c.id === companyId)) {
         setActiveCompanyId(companyId)
+        // Persist to database so server-side pages use the correct company
+        try {
+          await fetch('/api/switch-company', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ companyId }),
+          })
+        } catch {}
         // Reload page to refresh server-side data for the new company
         window.location.reload()
       }
