@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import MapGL, { Source, Layer, Marker, Popup, NavigationControl } from 'react-map-gl/mapbox'
-import type { MapRef, MapMouseEvent } from 'react-map-gl/mapbox'
+import type { MapRef } from 'react-map-gl/mapbox'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import Link from 'next/link'
 import { Card } from '@/components/ui/card'
@@ -19,11 +19,9 @@ const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
 interface IntelligenceMapProps {
   ufData: UfMapData[]
   matchMarkers: MatchMarker[]
-  totalOpportunities: number
-  totalValue: number
-  bestUf: string | null
-  companyId: string
 }
+
+// ─── Pure helpers (no state/props dependency) ───────────────────────────────
 
 function getScoreBgClass(score: number): string {
   if (score >= 70) return 'bg-emerald-100 text-emerald-800'
@@ -31,15 +29,41 @@ function getScoreBgClass(score: number): string {
   return 'bg-red-100 text-red-800'
 }
 
+/** Score color for individual match markers */
+function getMatchColor(score: number): string {
+  if (score >= 70) return '#10B981'
+  if (score >= 50) return '#FBBF24'
+  return '#EF4444'
+}
+
+/** Whether the match was scored by AI (as opposed to keyword-only estimate) */
+function isAiMatch(m: MatchMarker): boolean {
+  return m.matchSource === 'ai' || m.matchSource === 'ai_triage' || m.matchSource === 'semantic'
+}
+
+/** Days until tender closes. Negative = already closed, null = no date */
+function daysUntilClose(dataEncerramento: string | null): number | null {
+  if (!dataEncerramento) return null
+  return Math.ceil((new Date(dataEncerramento).getTime() - Date.now()) / 86400000)
+}
+
+/** Render a deadline badge if closing soon or missing */
+function DeadlineBadge({ dataEncerramento, className = '' }: { dataEncerramento: string | null; className?: string }) {
+  const days = daysUntilClose(dataEncerramento)
+  if (days !== null && days > 3) return null
+  if (days !== null) {
+    return <span className={`text-red-600 font-medium ${className}`}>⏰ {days <= 0 ? 'HOJE' : `${days}d`}</span>
+  }
+  return <span className={`text-amber-600 ${className}`}>⚠️ Prazo</span>
+}
+
 type SheetPosition = 'collapsed' | 'half' | 'full'
+
+// ─── Component ──────────────────────────────────────────────────────────────
 
 export function IntelligenceMap({
   ufData,
   matchMarkers: initialMarkers,
-  totalOpportunities: _totalOpportunities,
-  totalValue: _totalValue,
-  bestUf,
-  companyId: _companyId,
 }: IntelligenceMapProps) {
   const mapRef = useRef<MapRef>(null)
   const [geoJson, setGeoJson] = useState<GeoJSON.FeatureCollection | null>(null)
@@ -194,7 +218,8 @@ export function IntelligenceMap({
 
   // Load GeoJSON and enrich with uf data
   useEffect(() => {
-    fetch(BRAZIL_GEOJSON_URL)
+    const controller = new AbortController()
+    fetch(BRAZIL_GEOJSON_URL, { signal: controller.signal })
       .then((res) => res.json())
       .then((data: GeoJSON.FeatureCollection) => {
         const enriched: GeoJSON.FeatureCollection = {
@@ -218,10 +243,13 @@ export function IntelligenceMap({
         }
         setGeoJson(enriched)
       })
-      .catch(console.error)
+      .catch((err) => {
+        if (err.name !== 'AbortError') console.error(err)
+      })
+    return () => controller.abort()
   }, [ufDataMap])
 
-  // GeoJSON for individual match points (used by heatmap + circle layers)
+  // GeoJSON for individual match points (used by heatmap layer)
   const matchPointsGeoJson = useMemo<GeoJSON.FeatureCollection>(() => {
     return {
       type: 'FeatureCollection',
@@ -236,11 +264,6 @@ export function IntelligenceMap({
           score: m.score,
           valor: m.valor || 0,
           uf: m.uf,
-          objeto: m.objeto,
-          orgao: m.orgao,
-          municipio: m.municipio || '',
-          modalidade: m.modalidade || '',
-          recomendacao: m.recomendacao || '',
           weight: m.score / 100,
         },
       })),
@@ -308,7 +331,8 @@ export function IntelligenceMap({
     return { count, totalValue, avgScore, maxScore, hotCount }
   }, [selectedUfMarkers])
 
-  // Choropleth fill layer style
+  // ─── Layer styles ─────────────────────────────────────────────────────────
+
   /* eslint-disable @typescript-eslint/no-explicit-any */
   const fillLayer: any = {
     id: 'uf-fill',
@@ -343,13 +367,6 @@ export function IntelligenceMap({
       'line-width': 1,
       'line-opacity': 0.3,
     },
-  }
-
-  // Score color for individual match markers
-  function getMatchColor(score: number): string {
-    if (score >= 70) return '#10B981'
-    if (score >= 50) return '#FBBF24'
-    return '#EF4444'
   }
 
   const heatmapLayer: any = {
@@ -387,24 +404,8 @@ export function IntelligenceMap({
   }
   /* eslint-enable @typescript-eslint/no-explicit-any */
 
-  // Handle click on circle layer
-  const onMapClick = useCallback(
-    (e: MapMouseEvent) => {
-      const feature = e.features?.[0]
-      if (feature?.properties?.matchId) {
-        const marker = filteredMarkers.find(
-          (m) => m.matchId === feature.properties!.matchId,
-        )
-        if (marker) {
-          setSelectedMatch(marker)
-          setSelectedUf(marker.uf)
-        }
-      }
-    },
-    [filteredMarkers],
-  )
-
   // ─── Sidebar content (shared between desktop sidebar and mobile sheet) ───
+
   const sidebarContent = (
     <>
       {/* Header metrics — always reflect filtered data */}
@@ -597,7 +598,7 @@ export function IntelligenceMap({
                         className={`inline-flex items-center justify-center w-9 h-9 rounded-full text-xs font-bold text-white ${
                           m.isHot
                             ? 'ring-2 ring-orange-400'
-                            : m.matchSource === 'ai' || m.matchSource === 'ai_triage' || m.matchSource === 'semantic' ? 'ring-2 ring-blue-400' : ''
+                            : isAiMatch(m) ? 'ring-2 ring-blue-400' : ''
                         }`}
                         style={{
                           background: m.isHot
@@ -609,9 +610,9 @@ export function IntelligenceMap({
                       </span>
                       <span className={`text-[8px] font-medium ${
                         m.isHot ? 'text-orange-600' :
-                        m.matchSource === 'ai' || m.matchSource === 'ai_triage' || m.matchSource === 'semantic' ? 'text-blue-600' : 'text-gray-400'
+                        isAiMatch(m) ? 'text-blue-600' : 'text-gray-400'
                       }`}>
-                        {m.isHot && m.competitionScore != null ? `C:${m.competitionScore}` : m.matchSource === 'ai' || m.matchSource === 'ai_triage' || m.matchSource === 'semantic' ? 'IA' : 'est.'}
+                        {m.isHot && m.competitionScore != null ? `C:${m.competitionScore}` : isAiMatch(m) ? 'IA' : 'est.'}
                       </span>
                     </div>
                     <div className="flex-1 min-w-0">
@@ -644,14 +645,7 @@ export function IntelligenceMap({
                         {m.modalidade && (
                           <span className="text-[10px] text-gray-400">{m.modalidade}</span>
                         )}
-                        {m.dataEncerramento ? (() => {
-                          const d = Math.ceil((new Date(m.dataEncerramento!).getTime() - Date.now()) / 86400000)
-                          return d <= 3 ? (
-                            <span className="text-[10px] text-red-600 font-medium">⏰ {d <= 0 ? 'HOJE' : `${d}d`}</span>
-                          ) : null
-                        })() : (
-                          <span className="text-[10px] text-amber-600">⚠️ Prazo</span>
-                        )}
+                        <DeadlineBadge dataEncerramento={m.dataEncerramento} className="text-[10px]" />
                       </div>
                     </div>
                   </div>
@@ -711,6 +705,7 @@ export function IntelligenceMap({
     <div className="flex flex-col md:flex-row h-full w-full relative">
       {/* Map — full viewport on mobile, flex-1 on desktop */}
       <div className={`relative flex-1 ${isMobile ? 'h-full' : 'min-h-0'} overflow-hidden`}>
+        {/* Negative bottom hides the Mapbox attribution bar behind the bottom sheet on mobile */}
         <div className="absolute inset-0" style={{ bottom: '-30px' }}>
           <MapGL
             ref={mapRef}
@@ -722,8 +717,6 @@ export function IntelligenceMap({
               zoom: 3.8,
             }}
             dragRotate={false}
-            onClick={onMapClick}
-            interactiveLayerIds={[]}
             style={{ width: '100%', height: '100%' }}
           >
             <NavigationControl position={isMobile ? 'top-left' : 'top-right'} />
@@ -743,15 +736,15 @@ export function IntelligenceMap({
 
             {/* Individual match markers — grouped by location */}
             {groupedMarkers.map(({ best: m, count, all }) => {
-              const isAi = m.matchSource === 'ai' || m.matchSource === 'ai_triage' || m.matchSource === 'semantic'
-              const isHot = m.isHot
+              const ai = isAiMatch(m)
+              const hot = m.isHot
               return (
               <Marker
                 key={`match-${m.matchId}`}
                 longitude={m.lng}
                 latitude={m.lat}
                 anchor="center"
-                style={{ zIndex: isHot ? 20 : Math.min(m.score, 19) }}
+                style={{ zIndex: hot ? 20 : Math.min(m.score, 19) }}
                 onClick={(e: { originalEvent: MouseEvent }) => {
                   e.originalEvent.stopPropagation()
                   setSelectedMatch(m)
@@ -760,7 +753,7 @@ export function IntelligenceMap({
                 }}
               >
                 <div className="relative">
-                  {isHot && (
+                  {hot && (
                     <span
                       className="absolute left-1/2 -translate-x-1/2 text-base drop-shadow-lg pointer-events-none"
                       style={{ top: -16, filter: 'drop-shadow(0 0 4px rgba(255,100,0,0.8))' }}
@@ -770,21 +763,21 @@ export function IntelligenceMap({
                   )}
                   <div
                     className={`flex items-center justify-center rounded-full cursor-pointer shadow-lg transition-transform hover:scale-125 hover:z-40 ${
-                      isHot
+                      hot
                         ? 'border-2 border-yellow-400'
-                        : isAi
+                        : ai
                           ? 'border-2 border-blue-400/80'
                           : 'border-2 border-white/50'
                     }`}
                     style={{
-                      width: isHot ? 36 : 32,
-                      height: isHot ? 36 : 32,
-                      background: isHot
+                      width: hot ? 36 : 32,
+                      height: hot ? 36 : 32,
+                      background: hot
                         ? 'linear-gradient(135deg, #f97316, #ef4444)'
                         : getMatchColor(m.score),
-                      animation: isHot ? 'pulse-hot 1.5s ease-in-out infinite' : undefined,
+                      animation: hot ? 'pulse-hot 1.5s ease-in-out infinite' : undefined,
                     }}
-                    title={`${m.objeto} — Score: ${m.score}${isHot ? ' 🔥 SUPER QUENTE' : ''}${isAi ? ' (IA)' : ' (estimado)'}${count > 1 ? ` (+${count - 1} mais)` : ''}`}
+                    title={`${m.objeto} — Score: ${m.score}${hot ? ' 🔥 SUPER QUENTE' : ''}${ai ? ' (IA)' : ' (estimado)'}${count > 1 ? ` (+${count - 1} mais)` : ''}`}
                   >
                     <span className="text-white font-bold text-[11px] leading-none drop-shadow-sm">
                       {m.score}
@@ -800,7 +793,7 @@ export function IntelligenceMap({
               )
             })}
 
-            {/* Popup when a match circle is clicked */}
+            {/* Popup when a match marker is clicked */}
             {selectedMatch && (
               <Popup
                 longitude={selectedMatch.lng}
@@ -836,11 +829,11 @@ export function IntelligenceMap({
                           {match.score}
                         </span>
                         <span className={`font-medium px-1 py-0.5 rounded ${isMobile ? 'text-[8px]' : 'text-[9px]'} ${
-                          match.matchSource === 'ai' || match.matchSource === 'ai_triage' || match.matchSource === 'semantic'
+                          isAiMatch(match)
                             ? 'bg-blue-100 text-blue-700'
                             : 'bg-gray-100 text-gray-500'
                         }`}>
-                          {match.matchSource === 'ai' || match.matchSource === 'ai_triage' || match.matchSource === 'semantic' ? 'IA' : 'estimado'}
+                          {isAiMatch(match) ? 'IA' : 'estimado'}
                         </span>
                         {!selectedGroup && (
                           <span className={`text-gray-500 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
@@ -861,14 +854,7 @@ export function IntelligenceMap({
                         {match.modalidade && (
                           <span className="text-gray-400">{match.modalidade}</span>
                         )}
-                        {match.dataEncerramento ? (() => {
-                          const d = Math.ceil((new Date(match.dataEncerramento!).getTime() - Date.now()) / 86400000)
-                          return d <= 3 ? (
-                            <span className="text-red-600 font-medium">⏰ {d <= 0 ? 'HOJE' : `${d}d`}</span>
-                          ) : null
-                        })() : (
-                          <span className="text-amber-600">⚠️ Prazo</span>
-                        )}
+                        <DeadlineBadge dataEncerramento={match.dataEncerramento} />
                       </div>
                       <Link
                         href={`/opportunities/${match.matchId}`}
@@ -889,8 +875,12 @@ export function IntelligenceMap({
           </MapGL>
         </div>
 
-        {/* Legend — bottom-left on both, but higher on mobile to clear bottom sheet */}
-        <div className={`absolute z-[30] ${
+        {/* Legend — hidden on mobile when sheet is open, bottom-left otherwise */}
+        <div className={`absolute z-[30] transition-opacity duration-200 ${
+          isMobile && sheetPosition !== 'collapsed'
+            ? 'opacity-0 pointer-events-none'
+            : ''
+        } ${
           isMobile
             ? 'bottom-24 left-2'
             : 'bottom-2 left-4'
@@ -901,7 +891,6 @@ export function IntelligenceMap({
               {[
                 { color: '#10B981', label: '80+' },
                 { color: '#FBBF24', label: '60-79' },
-                { color: '#EF4444', label: '<60' },
               ].map((item) => (
                 <div key={item.label} className="flex items-center gap-1">
                   <div

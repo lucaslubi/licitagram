@@ -172,10 +172,6 @@ export default async function MapPage() {
       <IntelligenceMap
         ufData={ufData}
         matchMarkers={matchMarkers}
-        totalOpportunities={totalOpportunities}
-        totalValue={totalValue}
-        bestUf={bestUf?.uf || null}
-        companyId={companyId}
       />
     </div>
   )
