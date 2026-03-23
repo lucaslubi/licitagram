@@ -130,6 +130,54 @@ export async function addCompanyAction(
 
   revalidatePath('/company')
   revalidatePath('/dashboard')
+  revalidatePath('/map')
+
+  // 6. Fetch CNAE data from BrasilAPI and save to company profile
+  try {
+    const brasilRes = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`)
+    if (brasilRes.ok) {
+      const brasilData = await brasilRes.json()
+      const cnaePrincipal = brasilData.cnae_fiscal?.toString() || ''
+      const cnaesSecundarios = (brasilData.cnaes_secundarios || [])
+        .map((c: any) => c.codigo?.toString())
+        .filter(Boolean)
+      const allCnaes = cnaePrincipal ? [cnaePrincipal, ...cnaesSecundarios] : cnaesSecundarios
+
+      // Update company with CNAE data
+      await supabase.from('companies').update({
+        razao_social: brasilData.razao_social || input.razao_social,
+        nome_fantasia: brasilData.nome_fantasia || input.nome_fantasia,
+        cnaes: allCnaes,
+        uf: brasilData.uf || null,
+        municipio: brasilData.municipio || null,
+        situacao_cadastral: brasilData.descricao_situacao_cadastral || null,
+      }).eq('id', companyId)
+
+      console.log(`[MULTI-COMPANY] Updated company ${companyId} with ${allCnaes.length} CNAEs`)
+    }
+  } catch (err) {
+    console.error('[MULTI-COMPANY] BrasilAPI lookup failed:', err)
+  }
+
+  // 7. Trigger matching for the new company (async, don't block response)
+  try {
+    const { runRematchForCompany } = await import('@/actions/company')
+    // Get company data for matching
+    const { data: companyData } = await supabase
+      .from('companies')
+      .select('*')
+      .eq('id', companyId)
+      .single()
+
+    if (companyData) {
+      runRematchForCompany(companyId, companyData).catch((err: any) => {
+        console.error('[MULTI-COMPANY] Matching failed:', err)
+      })
+      console.log(`[MULTI-COMPANY] Matching triggered for company ${companyId}`)
+    }
+  } catch (err) {
+    console.error('[MULTI-COMPANY] Could not trigger matching:', err)
+  }
 
   // Return the company info for the client to add to context
   const company: CompanyInfo = {

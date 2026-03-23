@@ -369,7 +369,7 @@ const activeRematches = new Map<string, Promise<number>>()
  * Unified keyword-first matching for a single company against all tenders.
  * Debounced: if a rematch is already running for this company, waits for it.
  */
-async function runRematchForCompany(
+export async function runRematchForCompany(
   companyId: string,
   company: CompanyPayload,
 ): Promise<number> {
