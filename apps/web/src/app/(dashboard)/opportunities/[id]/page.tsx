@@ -36,7 +36,8 @@ export default async function OpportunityDetailPage({
 
   const companyId = auth.companyId
 
-  const tender = match.tenders as unknown as TenderDetail
+  const tender = (match.tenders || {}) as unknown as TenderDetail
+  if (!tender || !tender.id) notFound()
 
   // ── Competition Analysis: fetch niche competitors ──
   const tenderUf = tender?.uf as string | null
@@ -61,24 +62,26 @@ export default async function OpportunityDetailPage({
 
   let nicheCompetitors: Array<Record<string, unknown>> = []
   if (tenderUf && companyCnaeDivisions.length > 0) {
-    // Query for each CNAE division and merge results
-    const allResults: Array<Record<string, unknown>> = []
-    for (const cnaeDiv of companyCnaeDivisions.slice(0, 3)) {
-      const { data: stats } = await supabase.rpc('find_competitors_by_cnae_uf', {
-        p_cnae_divisao: cnaeDiv,
-        p_uf: tenderUf,
-        p_limit: 10,
-      })
-      if (stats) allResults.push(...stats)
+    try {
+      const allResults: Array<Record<string, unknown>> = []
+      for (const cnaeDiv of companyCnaeDivisions.slice(0, 3)) {
+        const { data: stats } = await supabase.rpc('find_competitors_by_cnae_uf', {
+          p_cnae_divisao: cnaeDiv,
+          p_uf: tenderUf,
+          p_limit: 10,
+        })
+        if (stats) allResults.push(...stats)
+      }
+      const seen = new Set<string>()
+      nicheCompetitors = allResults.filter((s) => {
+        const cnpj = s.cnpj as string
+        if (seen.has(cnpj)) return false
+        seen.add(cnpj)
+        return true
+      }).slice(0, 10)
+    } catch (e) {
+      console.error('Failed to fetch niche competitors:', e)
     }
-    // Deduplicate by cnpj
-    const seen = new Set<string>()
-    nicheCompetitors = allResults.filter((s) => {
-      const cnpj = s.cnpj as string
-      if (seen.has(cnpj)) return false
-      seen.add(cnpj)
-      return true
-    }).slice(0, 10)
   }
   const breakdown = (match.breakdown as Array<{ category: string; score: number; reason: string }>) || []
   const requisitos = tender?.requisitos as Record<string, unknown> | null
