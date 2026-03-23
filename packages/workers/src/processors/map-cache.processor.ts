@@ -130,6 +130,92 @@ async function refreshMapCache() {
   )
 }
 
+/**
+ * Refresh map_cache for a SINGLE company — used by instant matching pipeline.
+ * Same logic as refreshMapCache() but scoped to one company for speed.
+ */
+export async function refreshMapCacheForCompany(companyId: string): Promise<number> {
+  const today = new Date().toISOString().split('T')[0]
+  const PAGE = 1000
+  const MAX = 5000
+  const allMatches: any[] = []
+
+  for (let offset = 0; offset < MAX; offset += PAGE) {
+    const { data: page, error } = await supabase
+      .from('matches')
+      .select(`
+        id, score, is_hot, match_source, company_id,
+        tenders (
+          id, objeto, orgao_nome, uf, municipio,
+          valor_estimado, data_abertura, data_encerramento,
+          modalidade_nome
+        )
+      `)
+      .eq('company_id', companyId)
+      .in('match_source', ['ai', 'ai_triage', 'semantic', 'keyword'])
+      .gte('score', 40)
+      .order('score', { ascending: false })
+      .range(offset, offset + PAGE - 1)
+
+    if (error) {
+      logger.error({ error, companyId }, 'Map cache single-company fetch error')
+      break
+    }
+    if (!page || page.length === 0) break
+    allMatches.push(...page)
+    if (page.length < PAGE) break
+  }
+
+  if (allMatches.length === 0) return 0
+
+  const validRows = allMatches
+    .filter((m: any) => {
+      const t = m.tenders
+      if (!t || !t.uf) return false
+      if (!VALID_UFS.has(t.uf)) return false
+      if (t.data_encerramento && t.data_encerramento < today) return false
+      return true
+    })
+    .map((m: any) => ({
+      company_id: companyId,
+      match_id: m.id,
+      tender_id: m.tenders.id,
+      score: m.score,
+      is_hot: m.is_hot || false,
+      match_source: m.match_source,
+      objeto: (m.tenders.objeto || '').slice(0, 500),
+      orgao_nome: m.tenders.orgao_nome,
+      uf: m.tenders.uf,
+      municipio: m.tenders.municipio,
+      valor_estimado: m.tenders.valor_estimado,
+      data_abertura: m.tenders.data_abertura,
+      data_encerramento: m.tenders.data_encerramento,
+      modalidade_nome: m.tenders.modalidade_nome,
+      created_at: new Date().toISOString(),
+    }))
+
+  if (validRows.length === 0) return 0
+
+  // Delete old cache for this company and insert fresh
+  await supabase.from('map_cache').delete().eq('company_id', companyId)
+
+  let inserted = 0
+  for (let i = 0; i < validRows.length; i += BATCH_SIZE) {
+    const batch = validRows.slice(i, i + BATCH_SIZE)
+    const { error: insertErr } = await supabase
+      .from('map_cache')
+      .upsert(batch, { onConflict: 'company_id,match_id', ignoreDuplicates: true })
+    if (insertErr) {
+      logger.error({ error: insertErr, companyId, batch: i }, 'Map cache single-company insert failed')
+    } else {
+      inserted += batch.length
+    }
+  }
+
+  logger.info({ companyId, inserted }, 'Map cache refreshed for company')
+  return inserted
+}
+
 export const mapCacheWorker = new Worker(
   'map-cache',
   async () => {

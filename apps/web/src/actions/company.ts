@@ -311,12 +311,47 @@ export async function saveCompany(payload: CompanyPayload, existingId?: string) 
     }
   }
 
-  // Run matching synchronously (no Redis pub/sub needed — workers run on VPS independently)
+  // ── DUAL STRATEGY: Fast inline + Full VPS pipeline ──────────────────────
+  // 1. Quick keyword matching inline (limited by Vercel timeout, ~50s max)
+  //    This gives the user IMMEDIATE matches within seconds.
+  // 2. Trigger VPS full pipeline (profile + semantic + AI triage + map cache)
+  //    This runs in background and enhances matches with AI scoring.
+
+  // Strategy 1: Quick inline matching (immediate results)
   try {
-    console.log('[COMPANY] Running matching synchronously')
+    console.log('[COMPANY] Running quick inline matching')
     await runRematchForCompany(companyId, sanitized)
   } catch (err) {
-    console.error('[COMPANY] Background matching trigger failed:', err)
+    console.error('[COMPANY] Quick inline matching failed:', err)
+  }
+
+  // Strategy 2: Trigger VPS full pipeline via HTTP (fire-and-forget)
+  const VPS_URL = process.env.VPS_MONITORING_URL || 'http://187.77.241.93:3998'
+  const MONITORING_KEY = process.env.MONITORING_API_KEY || ''
+  try {
+    console.log('[COMPANY] Triggering VPS full matching pipeline for', companyId)
+    // Fire-and-forget: don't await, use AbortController for timeout
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 5000)
+    fetch(`${VPS_URL}/trigger-matching`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(MONITORING_KEY ? { Authorization: `Bearer ${MONITORING_KEY}` } : {}),
+      },
+      body: JSON.stringify({ companyId }),
+      signal: controller.signal,
+    })
+      .then(res => {
+        clearTimeout(timeout)
+        console.log('[COMPANY] VPS trigger response:', res.status)
+      })
+      .catch(err => {
+        clearTimeout(timeout)
+        console.warn('[COMPANY] VPS trigger failed (non-critical):', err.message)
+      })
+  } catch {
+    // Non-critical — VPS pipeline is enhancement, not required
   }
 
   // Invalidate in-memory caches so dashboard reflects the save
@@ -329,6 +364,7 @@ export async function saveCompany(payload: CompanyPayload, existingId?: string) 
   // Force Next.js to revalidate company page so reloading shows fresh data
   revalidatePath('/company')
   revalidatePath('/dashboard')
+  revalidatePath('/map')
 
   return { id: companyId }
 }

@@ -351,6 +351,36 @@ const server = http.createServer(async (req, res) => {
       return
     }
 
+    // POST /trigger-matching  — Called by Vercel when a company is created/updated
+    // Publishes Redis event so worker-matching runs the full pipeline immediately
+    if (req.method === 'POST' && url.pathname === '/trigger-matching') {
+      const raw = await readBody(req)
+      let body: any
+      try {
+        body = JSON.parse(raw)
+      } catch {
+        sendJson(res, 400, { success: false, error: 'Invalid JSON' })
+        return
+      }
+
+      const { companyId } = body
+      if (!companyId || typeof companyId !== 'string') {
+        sendJson(res, 400, { success: false, error: 'companyId is required' })
+        return
+      }
+
+      try {
+        const r = getRedis()
+        await r.publish('licitagram:company-saved', JSON.stringify({ companyId }))
+        console.log(`[monitoring] Published company-saved event for ${companyId}`)
+        sendJson(res, 200, { success: true, message: `Matching triggered for ${companyId}` })
+      } catch (err: any) {
+        console.error('[monitoring] Failed to publish Redis event:', err.message)
+        sendJson(res, 500, { success: false, error: 'Failed to publish event' })
+      }
+      return
+    }
+
     // POST /action
     if (req.method === 'POST' && url.pathname === '/action') {
       const raw = await readBody(req)

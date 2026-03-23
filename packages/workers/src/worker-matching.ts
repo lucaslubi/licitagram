@@ -90,22 +90,58 @@ async function setupRedisEvents() {
           )
         } else if (channel === 'licitagram:company-saved') {
           const { companyId } = JSON.parse(message)
-          logger.info({ companyId, pool: POOL_NAME }, 'Company saved — generating terms + matching')
+          logger.info({ companyId, pool: POOL_NAME }, '🚀 Company saved — running FULL instant matching pipeline')
+          const pipelineStart = Date.now()
 
+          // ── STEP 1: Generate AI terms for the company ─────────────────────
           try {
             const { generateCompanyTerms } = await import('./processors/ai-triage.processor')
             const newTerms = await generateCompanyTerms(companyId)
             if (newTerms.length > 0) {
-              logger.info({ companyId, count: newTerms.length }, 'AI generated terms for company')
+              logger.info({ companyId, count: newTerms.length }, '✅ Step 1/6: AI generated terms')
             }
           } catch (err) {
-            logger.warn({ companyId, err }, 'Term generation failed')
+            logger.warn({ companyId, err }, '⚠️ Step 1/6: Term generation failed (continuing)')
           }
 
-          try { await runKeywordMatchingSweep() } catch (err) {
-            logger.error({ companyId, err }, 'Keyword matching failed')
+          // ── STEP 2: Profile company + generate embedding ──────────────────
+          let hasEmbedding = false
+          try {
+            const { profileCompany } = await import('./processors/company-profiler')
+            hasEmbedding = await profileCompany(companyId)
+            logger.info({ companyId, hasEmbedding }, '✅ Step 2/6: Company profiled')
+          } catch (err) {
+            logger.warn({ companyId, err }, '⚠️ Step 2/6: Profiling failed (continuing)')
           }
 
+          // ── STEP 3: Run keyword matching (full sweep, no timeout) ─────────
+          let keywordMatchCount = 0
+          try {
+            await runKeywordMatchingSweep()
+            // Count matches created for this company
+            const { count } = await supabase
+              .from('matches').select('id', { count: 'exact', head: true })
+              .eq('company_id', companyId)
+            keywordMatchCount = count || 0
+            logger.info({ companyId, keywordMatchCount }, '✅ Step 3/6: Keyword matching done')
+          } catch (err) {
+            logger.error({ companyId, err }, '❌ Step 3/6: Keyword matching failed')
+          }
+
+          // ── STEP 4: Run semantic matching (if company has embedding) ──────
+          if (hasEmbedding) {
+            try {
+              const { runSemanticMatching } = await import('./processors/semantic-matcher')
+              const stats = await runSemanticMatching(companyId)
+              logger.info({ companyId, ...stats }, '✅ Step 4/6: Semantic matching done')
+            } catch (err) {
+              logger.warn({ companyId, err }, '⚠️ Step 4/6: Semantic matching failed (continuing)')
+            }
+          } else {
+            logger.info({ companyId }, '⏭️ Step 4/6: Skipped semantic (no embedding)')
+          }
+
+          // ── STEP 5: Enqueue AI triage for all keyword matches ─────────────
           try {
             const { aiTriageQueue } = await import('./queues/ai-triage.queue')
             const PAGE = 1000
@@ -114,7 +150,8 @@ async function setupRedisEvents() {
             while (true) {
               const { data: page } = await supabase
                 .from('matches').select('id')
-                .eq('company_id', companyId).eq('match_source', 'keyword')
+                .eq('company_id', companyId)
+                .in('match_source', ['keyword', 'semantic'])
                 .range(offset, offset + PAGE - 1)
               if (!page || page.length === 0) break
               allMatchIds.push(...page.map(m => m.id))
@@ -132,11 +169,31 @@ async function setupRedisEvents() {
                   { jobId: `company-save-triage-${companyId}-${i}-${Date.now()}` },
                 )
               }
-              logger.info({ companyId, matchCount: allMatchIds.length }, 'Enqueued AI triage')
+              logger.info({ companyId, matchCount: allMatchIds.length }, '✅ Step 5/6: AI triage enqueued')
             }
           } catch (err) {
-            logger.error({ companyId, err }, 'Failed to enqueue AI triage')
+            logger.error({ companyId, err }, '❌ Step 5/6: Failed to enqueue AI triage')
           }
+
+          // ── STEP 6: Refresh map cache immediately (direct, no queue) ────
+          try {
+            const { refreshMapCacheForCompany } = await import('./processors/map-cache.processor')
+            const mapRows = await refreshMapCacheForCompany(companyId)
+            logger.info({ companyId, mapRows }, '✅ Step 6/6: Map cache refreshed')
+          } catch (err) {
+            logger.error({ companyId, err }, '❌ Step 6/6: Map cache refresh failed')
+          }
+
+          const elapsed = ((Date.now() - pipelineStart) / 1000).toFixed(1)
+          logger.info({ companyId, elapsed: `${elapsed}s`, pool: POOL_NAME }, '🏁 Full matching pipeline complete')
+
+          // Publish rematch-done so notifications are triggered
+          try {
+            const IORedis = (await import('ioredis')).default
+            const pub = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', { maxRetriesPerRequest: null })
+            await pub.publish('licitagram:rematch-done', JSON.stringify({ companyId, matchCount: keywordMatchCount }))
+            await pub.quit()
+          } catch { /* non-critical */ }
         }
       } catch (err) {
         logger.error({ err, channel, pool: POOL_NAME }, 'Failed to process Redis event')
