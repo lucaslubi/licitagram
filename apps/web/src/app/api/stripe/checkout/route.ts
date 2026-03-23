@@ -12,7 +12,13 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { planId } = (await request.json()) as { planId: string }
+  let planId: string
+  try {
+    const body = await request.json()
+    planId = body.planId
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+  }
 
   // Look up plan from DB to get stripe_price_id
   const { data: plan, error: planError } = await supabase
@@ -40,33 +46,38 @@ export async function POST(request: NextRequest) {
 
   let customerId = profile?.stripe_customer_id as string | null
 
-  if (!customerId) {
-    const customer = await stripe.customers.create({
-      email: profile?.email || user.email || '',
-      name: (profile?.full_name as string) || '',
-      metadata: { supabase_user_id: user.id },
+  try {
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: profile?.email || user.email || '',
+        name: (profile?.full_name as string) || '',
+        metadata: { supabase_user_id: user.id },
+      })
+      customerId = customer.id
+
+      await supabase
+        .from('users')
+        .update({ stripe_customer_id: customerId })
+        .eq('id', user.id)
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      mode: 'subscription',
+      payment_method_types: ['card'],
+      line_items: [{ price: plan.stripe_price_id, quantity: 1 }],
+      success_url: `${appUrl}/billing?success=true`,
+      cancel_url: `${appUrl}/billing?canceled=true`,
+      metadata: {
+        supabase_user_id: user.id,
+        plan_id: plan.id,
+        plan_slug: plan.slug,
+      },
     })
-    customerId = customer.id
 
-    await supabase
-      .from('users')
-      .update({ stripe_customer_id: customerId })
-      .eq('id', user.id)
+    return NextResponse.json({ url: session.url })
+  } catch (err) {
+    console.error('[stripe/checkout] Stripe API error:', err)
+    return NextResponse.json({ error: 'Erro ao criar sessão de pagamento' }, { status: 500 })
   }
-
-  const session = await stripe.checkout.sessions.create({
-    customer: customerId,
-    mode: 'subscription',
-    payment_method_types: ['card'],
-    line_items: [{ price: plan.stripe_price_id, quantity: 1 }],
-    success_url: `${appUrl}/billing?success=true`,
-    cancel_url: `${appUrl}/billing?canceled=true`,
-    metadata: {
-      supabase_user_id: user.id,
-      plan_id: plan.id,
-      plan_slug: plan.slug,
-    },
-  })
-
-  return NextResponse.json({ url: session.url })
 }

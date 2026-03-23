@@ -55,41 +55,63 @@ export async function POST(request: NextRequest) {
 
         if (cnpj) {
           // Create or find company
-          const { data: existing } = await supabase
+          const { data: existing, error: existingErr } = await supabase
             .from('companies')
             .select('id')
             .eq('cnpj', cnpj)
             .maybeSingle()
+
+          if (existingErr) {
+            console.error('[stripe-webhook] Error finding company:', existingErr)
+            return NextResponse.json({ error: 'DB error' }, { status: 500 })
+          }
 
           let companyId: string
           if (existing) {
             companyId = existing.id
           } else {
             const newId = crypto.randomUUID()
-            await supabase.from('companies').insert({
+            const { error: insertErr } = await supabase.from('companies').insert({
               id: newId,
               cnpj,
               razao_social: razaoSocial,
               nome_fantasia: nomeFantasia || null,
             })
+            if (insertErr) {
+              console.error('[stripe-webhook] Error inserting company:', insertErr)
+              return NextResponse.json({ error: 'DB error' }, { status: 500 })
+            }
             companyId = newId
           }
 
           // Link to user
-          await supabase.from('user_companies').upsert(
+          const { error: upsertErr } = await supabase.from('user_companies').upsert(
             { user_id: userId, company_id: companyId, role: 'admin', is_default: false },
             { onConflict: 'user_id,company_id' }
           )
+          if (upsertErr) {
+            console.error('[stripe-webhook] Error linking user_companies:', upsertErr)
+            return NextResponse.json({ error: 'DB error' }, { status: 500 })
+          }
 
           // Increase max_companies on subscription
-          const { data: profile } = await supabase
+          const { data: profile, error: profileErr } = await supabase
             .from('users')
             .select('company_id')
             .eq('id', userId)
             .single()
 
+          if (profileErr) {
+            console.error('[stripe-webhook] Error fetching profile:', profileErr)
+            return NextResponse.json({ error: 'DB error' }, { status: 500 })
+          }
+
           if (profile?.company_id) {
-            await supabase.rpc('increment_max_companies', { p_company_id: profile.company_id })
+            const { error: rpcErr } = await supabase.rpc('increment_max_companies', { p_company_id: profile.company_id })
+            if (rpcErr) {
+              console.error('[stripe-webhook] Error incrementing max_companies:', rpcErr)
+              return NextResponse.json({ error: 'DB error' }, { status: 500 })
+            }
           }
 
           console.log(`[stripe-webhook] Extra company added: ${cnpj} for user ${userId}`)
@@ -98,14 +120,19 @@ export async function POST(request: NextRequest) {
       }
 
       if (userId && planId) {
-        const { data: profile } = await supabase
+        const { data: profile, error: profileErr2 } = await supabase
           .from('users')
           .select('company_id')
           .eq('id', userId)
           .single()
 
+        if (profileErr2) {
+          console.error('[stripe-webhook] Error fetching profile for subscription:', profileErr2)
+          return NextResponse.json({ error: 'DB error' }, { status: 500 })
+        }
+
         if (profile?.company_id) {
-          await supabase.from('subscriptions').upsert(
+          const { error: subErr } = await supabase.from('subscriptions').upsert(
             {
               company_id: profile.company_id,
               stripe_subscription_id: session.subscription as string,
@@ -118,6 +145,10 @@ export async function POST(request: NextRequest) {
             },
             { onConflict: 'company_id' },
           )
+          if (subErr) {
+            console.error('[stripe-webhook] Error upserting subscription:', subErr)
+            return NextResponse.json({ error: 'DB error' }, { status: 500 })
+          }
 
           // Invalidate plan context cookie and in-memory cache
           // (Cookie invalidation happens on next middleware request via TTL)
@@ -137,7 +168,7 @@ export async function POST(request: NextRequest) {
       const subscriptionId = (invoiceObj.subscription as string) || ''
 
       if (subscriptionId) {
-        await supabase
+        const { error: invErr } = await supabase
           .from('subscriptions')
           .update({
             status: 'active',
@@ -146,16 +177,24 @@ export async function POST(request: NextRequest) {
             ).toISOString(),
           })
           .eq('stripe_subscription_id', subscriptionId)
+        if (invErr) {
+          console.error('[stripe-webhook] Error updating subscription on invoice.paid:', invErr)
+          return NextResponse.json({ error: 'DB error' }, { status: 500 })
+        }
       }
       break
     }
 
     case 'customer.subscription.deleted': {
       const subscription = event.data.object as Stripe.Subscription
-      await supabase
+      const { error: delErr } = await supabase
         .from('subscriptions')
         .update({ status: 'canceled' })
         .eq('stripe_subscription_id', subscription.id)
+      if (delErr) {
+        console.error('[stripe-webhook] Error updating subscription on deletion:', delErr)
+        return NextResponse.json({ error: 'DB error' }, { status: 500 })
+      }
       break
     }
 
@@ -163,10 +202,14 @@ export async function POST(request: NextRequest) {
       const failedInvoice = event.data.object as unknown as Record<string, unknown>
       const failedSubId = (failedInvoice.subscription as string) || ''
       if (failedSubId) {
-        await supabase
+        const { error: failErr } = await supabase
           .from('subscriptions')
           .update({ status: 'past_due' })
           .eq('stripe_subscription_id', failedSubId)
+        if (failErr) {
+          console.error('[stripe-webhook] Error updating subscription on payment_failed:', failErr)
+          return NextResponse.json({ error: 'DB error' }, { status: 500 })
+        }
       }
       break
     }

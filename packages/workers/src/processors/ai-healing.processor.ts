@@ -130,8 +130,8 @@ const MONITORED_QUEUES = [
 async function collectQueueMetrics(): Promise<SystemMetrics['queues']> {
   const queues: SystemMetrics['queues'] = {}
   for (const name of MONITORED_QUEUES) {
+    const q = new Queue(name, { connection })
     try {
-      const q = new Queue(name, { connection })
       const [waiting, active, failed, delayed] = await Promise.all([
         q.getWaitingCount(),
         q.getActiveCount(),
@@ -141,6 +141,8 @@ async function collectQueueMetrics(): Promise<SystemMetrics['queues']> {
       queues[name] = { waiting, active, failed, delayed }
     } catch {
       // Queue may not exist yet
+    } finally {
+      await q.close()
     }
   }
   return queues
@@ -179,11 +181,11 @@ function detectIssuesFromRules(metrics: SystemMetrics): DetectedIssue[] {
     // High restart count (> 10 restarts AND uptime < 1h = restart loop)
     if (proc.restarts > 10 && proc.uptime < 60 * 60 * 1000) {
       issues.push({
-        action_type: 'restart_worker_delayed',
+        action_type: 'restart_worker',
         severity: 'autonomous',
-        description: `Worker "${proc.name}" reiniciou ${proc.restarts}x na última hora. Reiniciando com delay.`,
+        description: `Worker "${proc.name}" reiniciou ${proc.restarts}x na última hora. Reiniciando.`,
         details: { worker: proc.name, restarts: proc.restarts, uptime: proc.uptime },
-        action_command: `pm2 restart ${proc.name} --cron-restart="*/5 * * * *"`,
+        action_command: `pm2 restart ${proc.name}`,
         triggered_by: 'system',
       })
     }
@@ -419,7 +421,6 @@ async function executeAction(issue: DetectedIssue): Promise<{ success: boolean; 
     }
 
     case 'restart_worker':
-    case 'restart_worker_delayed':
     case 'restart_queue_worker':
     case 'clean_logs': {
       if (!issue.action_command) return { success: false, result: 'Sem comando definido' }

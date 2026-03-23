@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -11,6 +12,7 @@ import {
 } from '@/components/ui/table'
 import { formatCurrency, formatDate, PNCP_MODALITIES } from '@licitagram/shared'
 import { getTenderList } from '@/lib/cache'
+import { getAuthAndProfile } from '@/lib/cache'
 
 export default async function ArchivePage({
   searchParams,
@@ -21,6 +23,9 @@ export default async function ArchivePage({
     fonte?: string; busca_edital?: string; ordem_valor?: string; ordem_data?: string
   }>
 }) {
+  const auth = await getAuthAndProfile()
+  if (!auth) redirect('/login')
+
   const params = await searchParams
 
   const page = parseInt(params.page || '1')

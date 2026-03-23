@@ -6,7 +6,12 @@ export async function POST(request: Request) {
   const userCtx = await getUserWithPlan()
   if (!userCtx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const body = await request.json() as { keywords?: string[]; ufs?: string[] }
+  let body: { keywords?: string[]; ufs?: string[] }
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
 
   const supabase = await createClient()
 

@@ -20,6 +20,17 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
     }
 
+    // Get user's company_id for ownership check
+    const { data: profile } = await supabase
+      .from('users')
+      .select('company_id')
+      .eq('id', user.id)
+      .single()
+
+    if (!profile?.company_id) {
+      return NextResponse.json({ error: 'Empresa não configurada' }, { status: 400 })
+    }
+
     const { data: job } = await supabase
       .from('certidao_jobs')
       .select('*')
@@ -27,6 +38,11 @@ export async function GET(req: NextRequest) {
       .single()
 
     if (!job) {
+      return NextResponse.json({ error: 'Job não encontrado' }, { status: 404 })
+    }
+
+    // Verify the job belongs to the user's company
+    if (job.company_id !== profile.company_id) {
       return NextResponse.json({ error: 'Job não encontrado' }, { status: 404 })
     }
 

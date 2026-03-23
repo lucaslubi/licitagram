@@ -103,27 +103,3 @@ export async function sendHealingReport(report: string): Promise<void> {
     }
   }
 }
-
-/**
- * Handle a callback query for healing approval/rejection.
- * Called from the Telegram bot callback handler.
- */
-export async function handleHealingCallback(
-  callbackQueryId: string,
-  actionId: number,
-  approved: boolean,
-): Promise<void> {
-  // Answer the callback query (removes the loading spinner)
-  try {
-    await fetch(`${TELEGRAM_API}/answerCallbackQuery`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        callback_query_id: callbackQueryId,
-        text: approved ? '✅ Ação aprovada!' : '❌ Ação rejeitada.',
-      }),
-    })
-  } catch (err) {
-    logger.error({ err }, 'Healing Telegram: answerCallbackQuery failed')
-  }
-}

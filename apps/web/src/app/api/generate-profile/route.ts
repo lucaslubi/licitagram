@@ -27,7 +27,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
   }
 
-  const body = await req.json()
+  let body: Record<string, unknown>
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
   const { type, razao_social, cnae_principal, cnaes_secundarios, descricao_servicos, capacidades, palavras_chave } = body
 
   const allCnaes: string[] = []

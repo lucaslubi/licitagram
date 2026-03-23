@@ -69,60 +69,90 @@ export async function POST(request: NextRequest) {
 
   // Get or create Stripe customer
   let customerId = profile.stripe_customer_id as string | null
-  if (!customerId) {
-    const customer = await stripe.customers.create({
-      email: profile.email || user.email || '',
-      name: (profile.full_name as string) || '',
-      metadata: { supabase_user_id: user.id },
+
+  try {
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: profile.email || user.email || '',
+        name: (profile.full_name as string) || '',
+        metadata: { supabase_user_id: user.id },
+      })
+      customerId = customer.id
+      await supabase
+        .from('users')
+        .update({ stripe_customer_id: customerId })
+        .eq('id', user.id)
+    }
+
+    // Create or find the extra company price in Stripe
+    let priceId = process.env.STRIPE_EXTRA_COMPANY_PRICE_ID
+
+    if (!priceId) {
+      // Check if product already exists to avoid duplicates
+      const existingProducts = await stripe.products.search({
+        query: "metadata['type']:'extra_company'",
+      })
+
+      let productId: string
+      if (existingProducts.data.length > 0) {
+        productId = existingProducts.data[0].id
+        // Find active price for this product
+        const existingPrices = await stripe.prices.list({
+          product: productId,
+          active: true,
+          limit: 1,
+        })
+        if (existingPrices.data.length > 0) {
+          priceId = existingPrices.data[0].id
+        }
+      }
+
+      if (!priceId) {
+        // Create product + price on-the-fly
+        const product = existingProducts.data.length > 0
+          ? existingProducts.data[0]
+          : await stripe.products.create({
+              name: 'Licitagram — Empresa Adicional',
+              description: `CNPJ adicional no plano Enterprise (além das ${maxFree} incluídas)`,
+              metadata: { type: 'extra_company' },
+            })
+        productId = product.id
+
+        const price = await stripe.prices.create({
+          product: productId,
+          unit_amount: EXTRA_COMPANY_PRICE,
+          currency: 'brl',
+          recurring: { interval: 'month' },
+          metadata: { type: 'extra_company' },
+        })
+
+        priceId = price.id
+        // Log so we can set it as env var later
+        console.log(`[stripe] Created extra company price: ${priceId} (set STRIPE_EXTRA_COMPANY_PRICE_ID)`)
+      }
+    }
+
+    const cleanCnpj = cnpj.replace(/\D/g, '')
+
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      mode: 'subscription',
+      payment_method_types: ['card'],
+      line_items: [{ price: priceId, quantity: 1 }],
+      success_url: `${appUrl}/company?extra_company=success&cnpj=${cleanCnpj}`,
+      cancel_url: `${appUrl}/company?extra_company=canceled`,
+      metadata: {
+        supabase_user_id: user.id,
+        type: 'extra_company',
+        cnpj: cleanCnpj,
+        razao_social: razao_social || '',
+        nome_fantasia: nome_fantasia || '',
+      },
     })
-    customerId = customer.id
-    await supabase
-      .from('users')
-      .update({ stripe_customer_id: customerId })
-      .eq('id', user.id)
+
+    return NextResponse.json({ needsPayment: true, url: session.url })
+  } catch (err) {
+    console.error('[stripe/extra-company] Stripe API error:', err)
+    return NextResponse.json({ error: 'Erro ao criar sessão de pagamento' }, { status: 500 })
   }
-
-  // Create or find the extra company price in Stripe
-  let priceId = process.env.STRIPE_EXTRA_COMPANY_PRICE_ID
-
-  if (!priceId) {
-    // Create product + price on-the-fly
-    const product = await stripe.products.create({
-      name: 'Licitagram — Empresa Adicional',
-      description: `CNPJ adicional no plano Enterprise (além das ${maxFree} incluídas)`,
-      metadata: { type: 'extra_company' },
-    })
-
-    const price = await stripe.prices.create({
-      product: product.id,
-      unit_amount: EXTRA_COMPANY_PRICE,
-      currency: 'brl',
-      recurring: { interval: 'month' },
-      metadata: { type: 'extra_company' },
-    })
-
-    priceId = price.id
-    // Log so we can set it as env var later
-    console.log(`[stripe] Created extra company price: ${priceId} (set STRIPE_EXTRA_COMPANY_PRICE_ID)`)
-  }
-
-  const cleanCnpj = cnpj.replace(/\D/g, '')
-
-  const session = await stripe.checkout.sessions.create({
-    customer: customerId,
-    mode: 'subscription',
-    payment_method_types: ['card'],
-    line_items: [{ price: priceId, quantity: 1 }],
-    success_url: `${appUrl}/company?extra_company=success&cnpj=${cleanCnpj}`,
-    cancel_url: `${appUrl}/company?extra_company=canceled`,
-    metadata: {
-      supabase_user_id: user.id,
-      type: 'extra_company',
-      cnpj: cleanCnpj,
-      razao_social: razao_social || '',
-      nome_fantasia: nome_fantasia || '',
-    },
-  })
-
-  return NextResponse.json({ needsPayment: true, url: session.url })
 }

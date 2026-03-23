@@ -34,10 +34,10 @@ export async function GET() {
       return NextResponse.json({ error: 'Erro ao listar configuracoes' }, { status: 500 })
     }
 
-    // Map password_hash -> password for frontend compatibility
+    // Map password_hash -> masked password for frontend compatibility (NEVER send real password)
     const mapped = (configs ?? []).map(({ password_hash, ...rest }: Record<string, unknown>) => ({
       ...rest,
-      password: password_hash,
+      password: password_hash ? '••••••••' : '',
     }))
 
     return NextResponse.json({ configs: mapped })
@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
       }
 
       const { password_hash: _pw, ...rest } = updated as Record<string, unknown>
-      return NextResponse.json({ config: { ...rest, password: _pw } })
+      return NextResponse.json({ config: { ...rest, password: _pw ? '••••••••' : '' } })
     } else {
       // Create new — use upsert to handle existing configs for same portal
       const { data: created, error } = await supabase
@@ -148,7 +148,7 @@ export async function POST(req: NextRequest) {
       }
 
       const { password_hash: _pw, ...rest } = created as Record<string, unknown>
-      return NextResponse.json({ config: { ...rest, password: _pw } }, { status: 201 })
+      return NextResponse.json({ config: { ...rest, password: _pw ? '••••••••' : '' } }, { status: 201 })
     }
   } catch (err) {
     console.error('[API bot/config] POST error:', err)

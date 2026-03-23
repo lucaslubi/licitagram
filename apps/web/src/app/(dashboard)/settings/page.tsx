@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -27,6 +28,7 @@ export default function SettingsPage() {
     palavras_chave_filtro: [] as string[],
     notification_preferences: { telegram: true, email: false, whatsapp: true } as { telegram: boolean; email: boolean; whatsapp: boolean },
   })
+  const router = useRouter()
   const [newUf, setNewUf] = useState('')
   const [newKeyword, setNewKeyword] = useState('')
   const [essentialKeywords, setEssentialKeywords] = useState<Set<string>>(new Set())
@@ -39,7 +41,10 @@ export default function SettingsPage() {
     const {
       data: { user },
     } = await supabase.auth.getUser()
-    if (!user) return
+    if (!user) {
+      router.push('/login')
+      return
+    }
 
     const { data } = await supabase
       .from('users')

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getUserWithPlan } from '@/lib/auth-helpers'
+import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
 export const maxDuration = 30
@@ -11,6 +11,10 @@ export async function POST(request: NextRequest) {
   const userCtx = await getUserWithPlan()
   if (!userCtx) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  if (!hasFeature(userCtx, 'chat_ia') && !hasFeature(userCtx, 'bidding_bot')) {
+    return NextResponse.json({ error: 'Recurso disponível nos planos Professional e Enterprise' }, { status: 403 })
   }
 
   if (!process.env.GEMINI_API_KEY) {

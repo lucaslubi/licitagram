@@ -119,7 +119,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ results: [] })
   }
 
+  // Ownership verification: ensure all matches belong to the user's company
   const companyId = matches[0].company_id
+  if (companyId !== userCtx.companyId) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+  const allBelongToUser = matches.every((m) => m.company_id === userCtx.companyId)
+  if (!allBelongToUser) {
+    return NextResponse.json({ error: 'Forbidden: matches do not belong to your company' }, { status: 403 })
+  }
 
   // Fetch company profile
   const { data: company } = await supabase
