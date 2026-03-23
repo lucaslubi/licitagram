@@ -360,6 +360,105 @@ export async function loadCompanyData() {
   return { data }
 }
 
+// ─── Inline Map Cache Refresh ─────────────────────────────────────────────
+
+const VALID_UFS = new Set([
+  'AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS',
+  'MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC',
+  'SP','SE','TO',
+])
+const EXCLUDED_MODALIDADES_MAP = ['Inexigibilidade', 'Credenciamento']
+
+/**
+ * Refreshes map_cache for a single company immediately after matching.
+ * Same logic as map-cache.processor.ts but runs inline in the web app
+ * so the map is populated instantly without waiting for the hourly worker.
+ */
+async function refreshMapCacheForCompany(
+  supabase: any,
+  companyId: string,
+) {
+  const today = new Date().toISOString().split('T')[0]
+  const PAGE = 1000
+  const MAX = 5000
+  const BATCH = 500
+
+  // Fetch all matches with tender data (paginated)
+  const allMatches: any[] = []
+  for (let offset = 0; offset < MAX; offset += PAGE) {
+    const { data: page, error } = await supabase
+      .from('matches')
+      .select(`
+        id, score, is_hot, match_source, company_id,
+        tenders (
+          id, objeto, orgao_nome, uf, municipio,
+          valor_estimado, data_abertura, data_encerramento,
+          modalidade_nome
+        )
+      `)
+      .eq('company_id', companyId)
+      .in('match_source', ['ai', 'ai_triage', 'semantic', 'keyword'])
+      .gte('score', 40)
+      .order('score', { ascending: false })
+      .range(offset, offset + PAGE - 1)
+
+    if (error) {
+      console.error('[MAP_CACHE] Fetch error:', error.message)
+      break
+    }
+    if (!page || page.length === 0) break
+    allMatches.push(...page)
+    if (page.length < PAGE) break
+  }
+
+  if (allMatches.length === 0) return
+
+  // Filter: valid UF, not expired, not non-competitive
+  const validRows = allMatches
+    .filter((m: any) => {
+      const t = m.tenders
+      if (!t || !t.uf) return false
+      if (!VALID_UFS.has(t.uf)) return false
+      if (t.data_encerramento && t.data_encerramento < today) return false
+      if (t.modalidade_nome && EXCLUDED_MODALIDADES_MAP.includes(t.modalidade_nome)) return false
+      return true
+    })
+    .map((m: any) => ({
+      company_id: companyId,
+      match_id: m.id,
+      tender_id: m.tenders.id,
+      score: m.score,
+      is_hot: m.is_hot || false,
+      match_source: m.match_source,
+      objeto: (m.tenders.objeto || '').slice(0, 500),
+      orgao_nome: m.tenders.orgao_nome,
+      uf: m.tenders.uf,
+      municipio: m.tenders.municipio,
+      valor_estimado: m.tenders.valor_estimado,
+      data_abertura: m.tenders.data_abertura,
+      data_encerramento: m.tenders.data_encerramento,
+      modalidade_nome: m.tenders.modalidade_nome,
+      created_at: new Date().toISOString(),
+    }))
+
+  if (validRows.length === 0) return
+
+  // Delete old cache and insert fresh
+  await supabase.from('map_cache').delete().eq('company_id', companyId)
+
+  for (let i = 0; i < validRows.length; i += BATCH) {
+    const batch = validRows.slice(i, i + BATCH)
+    const { error: insertErr } = await supabase
+      .from('map_cache')
+      .upsert(batch, { onConflict: 'company_id,match_id', ignoreDuplicates: true })
+    if (insertErr) {
+      console.error('[MAP_CACHE] Insert error:', insertErr.message)
+    }
+  }
+
+  console.log(`[MAP_CACHE] Inline refresh: ${validRows.length} rows for company ${companyId}`)
+}
+
 // ─── Unified Keyword-First Re-Matching Logic ────────────────────────────
 
 // Prevent concurrent rematches for the same company
@@ -656,6 +755,19 @@ async function _runRematchForCompany(
 
   const totalElapsed = ((Date.now() - startTime) / 1000).toFixed(1)
   console.log(`[REMATCH] COMPLETE: scanned ${scanned} tenders, ${matchCount} new matches in ${totalElapsed}s`)
+
+  // ── INSTANT MAP CACHE REFRESH ──────────────────────────────────────────
+  // Populate map_cache immediately so the map shows results without waiting
+  // for the hourly worker. This is the same logic as map-cache.processor.ts
+  // but runs inline for just this company.
+  if (matchCount > 0) {
+    try {
+      await refreshMapCacheForCompany(serviceSupabase, companyId)
+      console.log('[REMATCH] Map cache refreshed inline for company:', companyId)
+    } catch (err) {
+      console.error('[REMATCH] Inline map cache refresh failed (non-critical):', err)
+    }
+  }
 
   // Invalidate in-memory caches
   try {
