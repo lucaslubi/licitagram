@@ -128,6 +128,53 @@ export async function addCompanyAction(
     return { error: linkError.message }
   }
 
+  // 5b. Inherit subscription from primary company (Enterprise → all companies get Enterprise)
+  try {
+    const { data: existingSub } = await supabase
+      .from('subscriptions')
+      .select('id')
+      .eq('company_id', companyId)
+      .maybeSingle()
+
+    if (!existingSub && subscription) {
+      // Copy the primary company's subscription to the new company
+      const { data: primarySub } = await supabase
+        .from('subscriptions')
+        .select('plan, plan_id, status, stripe_subscription_id, stripe_customer_id, max_companies, started_at, expires_at')
+        .eq('company_id', profile.company_id)
+        .single()
+
+      if (primarySub) {
+        const { createClient: createServiceClient } = await import('@supabase/supabase-js')
+        const serviceSupabase = createServiceClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        )
+
+        const { error: subErr } = await serviceSupabase.from('subscriptions').insert({
+          company_id: companyId,
+          plan: primarySub.plan,
+          plan_id: primarySub.plan_id,
+          status: primarySub.status,
+          stripe_subscription_id: primarySub.stripe_subscription_id,
+          stripe_customer_id: primarySub.stripe_customer_id,
+          max_companies: primarySub.max_companies,
+          started_at: primarySub.started_at,
+          expires_at: primarySub.expires_at,
+          matches_used_this_month: 0,
+        })
+
+        if (subErr) {
+          console.error('[MULTI-COMPANY] Failed to inherit subscription:', subErr.message)
+        } else {
+          console.log(`[MULTI-COMPANY] Inherited ${primarySub.plan} subscription for ${companyId}`)
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[MULTI-COMPANY] Subscription inheritance failed:', err)
+  }
+
   revalidatePath('/company')
   revalidatePath('/dashboard')
   revalidatePath('/map')
@@ -159,24 +206,25 @@ export async function addCompanyAction(
     console.error('[MULTI-COMPANY] BrasilAPI lookup failed:', err)
   }
 
-  // 7. Trigger matching for the new company (async, don't block response)
+  // 7. Trigger matching via VPS (fire-and-forget, fast)
   try {
-    const { runRematchForCompany } = await import('@/actions/company')
-    // Get company data for matching
-    const { data: companyData } = await supabase
-      .from('companies')
-      .select('*')
-      .eq('id', companyId)
-      .single()
-
-    if (companyData) {
-      runRematchForCompany(companyId, companyData).catch((err: any) => {
-        console.error('[MULTI-COMPANY] Matching failed:', err)
-      })
-      console.log(`[MULTI-COMPANY] Matching triggered for company ${companyId}`)
-    }
-  } catch (err) {
-    console.error('[MULTI-COMPANY] Could not trigger matching:', err)
+    const VPS_URL = process.env.VPS_MONITORING_URL || 'http://187.77.241.93:3998'
+    const MONITORING_KEY = process.env.MONITORING_API_KEY || ''
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 5000)
+    fetch(`${VPS_URL}/trigger-matching`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(MONITORING_KEY ? { Authorization: `Bearer ${MONITORING_KEY}` } : {}),
+      },
+      body: JSON.stringify({ companyId }),
+      signal: controller.signal,
+    })
+      .then(res => { clearTimeout(timeout); console.log('[MULTI-COMPANY] VPS trigger:', res.status) })
+      .catch(err => { clearTimeout(timeout); console.warn('[MULTI-COMPANY] VPS trigger failed:', err.message) })
+  } catch {
+    // Non-critical
   }
 
   // Return the company info for the client to add to context

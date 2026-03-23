@@ -237,27 +237,82 @@ export async function saveCompany(payload: CompanyPayload, existingId?: string) 
     companyId = id
   }
 
-  // ── Create trial subscription if company is new (no existing subscription) ──
-  // NOTE: Subscription is REQUIRED for the user to access matches/dashboard.
-  // Without it the company is orphaned. Retry up to 3 times before giving up.
+  // ── Create subscription for new company ─────────────────────────────────
+  // If user already has a paid plan on another company, INHERIT it.
+  // Otherwise, create a trial subscription. This ensures Enterprise users
+  // get Enterprise on ALL their companies automatically.
   if (!existingId) {
     const serviceSupabase = getServiceSupabase()
-    const MAX_SUB_RETRIES = 3
-    let subscriptionCreated = false
 
-    for (let attempt = 1; attempt <= MAX_SUB_RETRIES; attempt++) {
+    // Check if subscription already exists
+    const { data: existingSub } = await serviceSupabase
+      .from('subscriptions')
+      .select('id')
+      .eq('company_id', companyId)
+      .maybeSingle()
+
+    if (!existingSub) {
+      // Look for an existing paid subscription from the same user's other companies
+      let inheritedSub = false
       try {
-        const { data: existingSub } = await serviceSupabase
-          .from('subscriptions')
-          .select('id')
-          .eq('company_id', companyId)
-          .maybeSingle()
+        // Get all companies this user owns via user_companies
+        const { data: userCompanies } = await serviceSupabase
+          .from('user_companies')
+          .select('company_id')
+          .eq('user_id', user.id)
 
-        if (existingSub) {
-          subscriptionCreated = true
-          break
+        // Also check the legacy company_id on users table
+        const { data: userProfile } = await serviceSupabase
+          .from('users')
+          .select('company_id')
+          .eq('id', user.id)
+          .single()
+
+        const allCompanyIds = new Set<string>()
+        if (userCompanies) userCompanies.forEach(uc => allCompanyIds.add(uc.company_id))
+        if (userProfile?.company_id) allCompanyIds.add(userProfile.company_id)
+        allCompanyIds.delete(companyId) // Exclude the new company
+
+        if (allCompanyIds.size > 0) {
+          // Find the best active subscription from user's other companies
+          const { data: bestSub } = await serviceSupabase
+            .from('subscriptions')
+            .select('plan, plan_id, status, stripe_subscription_id, stripe_customer_id, max_companies, started_at, expires_at')
+            .in('company_id', Array.from(allCompanyIds))
+            .in('status', ['active', 'trialing'])
+            .order('plan_id', { ascending: false, nullsFirst: false })
+            .limit(1)
+            .maybeSingle()
+
+          if (bestSub && bestSub.plan_id) {
+            // Inherit the paid plan
+            const { error: inheritErr } = await serviceSupabase.from('subscriptions').insert({
+              company_id: companyId,
+              plan: bestSub.plan || 'enterprise',
+              plan_id: bestSub.plan_id,
+              status: bestSub.status,
+              stripe_subscription_id: bestSub.stripe_subscription_id,
+              stripe_customer_id: bestSub.stripe_customer_id,
+              max_companies: bestSub.max_companies,
+              started_at: bestSub.started_at,
+              expires_at: bestSub.expires_at,
+              matches_used_this_month: 0,
+            })
+
+            if (!inheritErr) {
+              inheritedSub = true
+              console.log(`[COMPANY] Inherited ${bestSub.plan} subscription for ${companyId} from user group`)
+            } else {
+              console.error('[COMPANY] Failed to inherit subscription:', inheritErr.message)
+            }
+          }
         }
+      } catch (err) {
+        console.error('[COMPANY] Subscription inheritance check failed:', err)
+      }
 
+      // Fallback: create trial if no plan to inherit
+      if (!inheritedSub) {
         const { error: subInsertError } = await serviceSupabase.from('subscriptions').insert({
           company_id: companyId,
           plan: 'trial',
@@ -269,68 +324,20 @@ export async function saveCompany(payload: CompanyPayload, existingId?: string) 
         })
 
         if (subInsertError) {
-          console.error(`[COMPANY] Subscription insert attempt ${attempt}/${MAX_SUB_RETRIES} failed:`, subInsertError.message)
-          if (attempt < MAX_SUB_RETRIES) {
-            await new Promise((r) => setTimeout(r, 500 * attempt))
-            continue
-          }
+          console.error(`[COMPANY] Failed to create trial subscription for ${companyId}:`, subInsertError.message)
         } else {
-          subscriptionCreated = true
           console.log('[COMPANY] Created trial subscription for', companyId)
-          break
-        }
-      } catch (subErr) {
-        console.error(`[COMPANY] Subscription attempt ${attempt}/${MAX_SUB_RETRIES} threw:`, subErr)
-        if (attempt < MAX_SUB_RETRIES) {
-          await new Promise((r) => setTimeout(r, 500 * attempt))
-          continue
         }
       }
     }
-
-    if (!subscriptionCreated) {
-      // Verify one final time — maybe a concurrent process created it
-      try {
-        const { data: verifySub } = await serviceSupabase
-          .from('subscriptions')
-          .select('id')
-          .eq('company_id', companyId)
-          .maybeSingle()
-
-        if (verifySub) {
-          subscriptionCreated = true
-          console.log('[COMPANY] Subscription found on post-retry verification for', companyId)
-        }
-      } catch {
-        // fall through to CRITICAL log
-      }
-    }
-
-    if (!subscriptionCreated) {
-      console.error(`[COMPANY] CRITICAL: Failed to create trial subscription for company ${companyId} after ${MAX_SUB_RETRIES} attempts. User will not be able to access matches.`)
-    }
   }
 
-  // ── DUAL STRATEGY: Fast inline + Full VPS pipeline ──────────────────────
-  // 1. Quick keyword matching inline (limited by Vercel timeout, ~50s max)
-  //    This gives the user IMMEDIATE matches within seconds.
-  // 2. Trigger VPS full pipeline (profile + semantic + AI triage + map cache)
-  //    This runs in background and enhances matches with AI scoring.
-
-  // Strategy 1: Quick inline matching (immediate results)
-  try {
-    console.log('[COMPANY] Running quick inline matching')
-    await runRematchForCompany(companyId, sanitized)
-  } catch (err) {
-    console.error('[COMPANY] Quick inline matching failed:', err)
-  }
-
-  // Strategy 2: Trigger VPS full pipeline via HTTP (fire-and-forget)
+  // ── MATCHING: Fire-and-forget to VPS ─────────────────────────────────────
+  // All matching runs on VPS (no Vercel timeout). saveCompany() returns FAST.
   const VPS_URL = process.env.VPS_MONITORING_URL || 'http://187.77.241.93:3998'
   const MONITORING_KEY = process.env.MONITORING_API_KEY || ''
   try {
-    console.log('[COMPANY] Triggering VPS full matching pipeline for', companyId)
-    // Fire-and-forget: don't await, use AbortController for timeout
+    console.log('[COMPANY] Triggering VPS matching pipeline for', companyId)
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 5000)
     fetch(`${VPS_URL}/trigger-matching`, {
@@ -351,7 +358,7 @@ export async function saveCompany(payload: CompanyPayload, existingId?: string) 
         console.warn('[COMPANY] VPS trigger failed (non-critical):', err.message)
       })
   } catch {
-    // Non-critical — VPS pipeline is enhancement, not required
+    // Non-critical — VPS handles all matching
   }
 
   // Invalidate in-memory caches so dashboard reflects the save
