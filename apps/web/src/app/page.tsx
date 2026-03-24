@@ -128,35 +128,35 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-[#F5F5F0]">
       {/* ── Header ── */}
-      <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-[#1A1C1F]/90 backdrop-blur-lg">
+      <header className="sticky top-0 z-50 border-b border-[#1A1C1F]/[0.08] bg-white/90 backdrop-blur-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center">
-            <Image src="/logo.png" alt="Licitagram" width={232} height={52} className="h-10 sm:h-[3.27rem] w-auto brightness-0 invert" />
+            <Image src="/logo.png" alt="Licitagram" width={232} height={52} className="h-10 sm:h-[3.27rem] w-auto" />
           </div>
           <nav className="hidden md:flex items-center gap-8">
-            <a href="#inteligencia" className="text-sm text-[#8B8B8B] hover:text-white transition-colors duration-200">
+            <a href="#inteligencia" className="text-sm text-[#4A4A45] hover:text-[#1A1C1F] transition-colors duration-200">
               Inteligência
             </a>
-            <a href="#mapa" className="text-sm text-[#8B8B8B] hover:text-white transition-colors duration-200">
+            <a href="#mapa" className="text-sm text-[#4A4A45] hover:text-[#1A1C1F] transition-colors duration-200">
               Mapa
             </a>
-            <a href="#pricing" className="text-sm text-[#8B8B8B] hover:text-white transition-colors duration-200">
+            <a href="#pricing" className="text-sm text-[#4A4A45] hover:text-[#1A1C1F] transition-colors duration-200">
               Preços
             </a>
-            <a href="#plataforma" className="text-sm text-[#8B8B8B] hover:text-white transition-colors duration-200">
+            <a href="#plataforma" className="text-sm text-[#4A4A45] hover:text-[#1A1C1F] transition-colors duration-200">
               Plataforma
             </a>
-            <a href="#governos" className="text-sm text-[#8B8B8B] hover:text-white transition-colors duration-200">
+            <a href="#governos" className="text-sm text-[#4A4A45] hover:text-[#1A1C1F] transition-colors duration-200">
               Para Governos
             </a>
-            <a href="#faq" className="text-sm text-[#8B8B8B] hover:text-white transition-colors duration-200">
+            <a href="#faq" className="text-sm text-[#4A4A45] hover:text-[#1A1C1F] transition-colors duration-200">
               FAQ
             </a>
           </nav>
           <div className="flex items-center gap-2 sm:gap-3">
             <Link
               href="/login"
-              className="hidden sm:inline text-sm font-medium text-[#8B8B8B] hover:text-white transition-colors duration-200"
+              className="hidden sm:inline text-sm font-medium text-[#4A4A45] hover:text-[#1A1C1F] transition-colors duration-200"
             >
               Entrar
             </Link>
