@@ -300,8 +300,7 @@ async function fetchMatchListFromDB(params: MatchListParams): Promise<MatchListR
        tenders!inner(
          id, objeto, orgao_nome, orgao_cnpj, uf, municipio,
          valor_estimado, valor_homologado, data_abertura, data_publicacao, data_encerramento,
-         modalidade_nome, modalidade_id, status, situacao_nome, link_sistema_origem, link_pncp, source,
-         tender_documents(id)
+         modalidade_nome, modalidade_id, status, situacao_nome, link_sistema_origem, link_pncp, source
        )`,
       { count: 'exact' },
     )
@@ -312,7 +311,7 @@ async function fetchMatchListFromDB(params: MatchListParams): Promise<MatchListR
   // Always exclude non-competitive modalities and expired tenders
   const today = new Date().toISOString().split('T')[0]
   query = query
-    .not('tenders.modalidade_id', 'in', '(9,14)')
+    .not('tenders.modalidade_id', 'in', '(9,12,14)')
     .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
 
   // Filters on the referenced tenders table
@@ -331,8 +330,13 @@ async function fetchMatchListFromDB(params: MatchListParams): Promise<MatchListR
     return { matches: [], count: 0, totalPages: 0 }
   }
 
-  // !inner join + filters already exclude expired/non-competitive in the query
-  const openMatches = allMatches
+  // Deduplicate by match ID (safety net against join row multiplication)
+  const seen = new Set<string>()
+  const openMatches = allMatches.filter((m: any) => {
+    if (seen.has(m.id)) return false
+    seen.add(m.id)
+    return true
+  })
 
   if (openMatches.length === 0) {
     return { matches: [], count: 0, totalPages: 0 }
@@ -397,7 +401,7 @@ export async function getMatchCount(companyId: string, minScore: number): Promis
         .eq('company_id', companyId)
         .in('match_source', [...AI_VERIFIED_SOURCES])
         .gte('score', Math.max(MIN_DISPLAY_SCORE, minScore))
-        .not('tenders.modalidade_id', 'in', '(9,14)')
+        .not('tenders.modalidade_id', 'in', '(9,12,14)')
         .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
       return count ?? 0
     },
@@ -529,7 +533,7 @@ export async function getDashboardStats(companyId: string | null): Promise<Dashb
               .eq('company_id', companyId)
               .in('match_source', [...AI_VERIFIED_SOURCES])
               .gte('score', MIN_DISPLAY_SCORE)
-              .not('tenders.modalidade_id', 'in', '(9,14)')
+              .not('tenders.modalidade_id', 'in', '(9,12,14)')
               .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
           : Promise.resolve({ count: 0 }),
         companyId
@@ -538,7 +542,7 @@ export async function getDashboardStats(companyId: string | null): Promise<Dashb
               .eq('company_id', companyId)
               .in('match_source', [...AI_VERIFIED_SOURCES])
               .gte('score', 70)
-              .not('tenders.modalidade_id', 'in', '(9,14)')
+              .not('tenders.modalidade_id', 'in', '(9,12,14)')
               .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
           : Promise.resolve({ count: 0 }),
       ])

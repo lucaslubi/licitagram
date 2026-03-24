@@ -416,18 +416,19 @@ export async function runSemanticMatching(companyId: string): Promise<{
       if (!error) stats.updated++
       else stats.skipped++
     } else {
-      // Create new match
+      // Create new match (upsert to prevent duplicates)
       const { data: newMatch, error } = await supabase
         .from('matches')
-        .insert({
+        .upsert({
           company_id: companyId,
           tender_id: result.tenderId,
           score: finalScore,
           match_source: 'semantic',
           recomendacao,
           status: 'new',
+          breakdown: [],
           analyzed_at: new Date().toISOString(),
-        })
+        }, { onConflict: 'company_id,tender_id', ignoreDuplicates: false })
         .select('id')
         .single()
 
