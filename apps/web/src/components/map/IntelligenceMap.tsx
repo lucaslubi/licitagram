@@ -864,7 +864,7 @@ export function IntelligenceMap({
         </div>
 
         {/* Legend — hidden on mobile when sheet is open, bottom-left otherwise */}
-        <div className={`absolute z-[30] transition-opacity duration-200 ${
+        <div className={`absolute z-[200] transition-opacity duration-200 ${
           isMobile && sheetPosition !== 'collapsed'
             ? 'opacity-0 pointer-events-none'
             : ''
