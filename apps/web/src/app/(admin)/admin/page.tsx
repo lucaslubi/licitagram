@@ -3,6 +3,7 @@ import { StatsCard } from '@/components/admin/stats-card'
 import { getRevenueMetrics } from '@/actions/admin/financial'
 import { listClients } from '@/actions/admin/clients'
 import { createClient } from '@supabase/supabase-js'
+import { SalesModeToggle } from '@/components/admin/SalesModeToggle'
 
 function formatBRL(cents: number): string {
   return new Intl.NumberFormat('pt-BR', {
@@ -24,6 +25,10 @@ export default async function AdminDashboardPage() {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   )
 
+  // Fetch site settings
+  const settingsResult = await supabase.from('site_settings').select('*').eq('id', 1).single()
+  const siteSettings = settingsResult.data
+
   const [tendersResult, matchesResult, usersResult] = await Promise.all([
     supabase.from('tenders').select('id', { count: 'exact', head: true }),
     supabase.from('matches').select('id', { count: 'exact', head: true }),
@@ -37,6 +42,15 @@ export default async function AdminDashboardPage() {
   return (
     <div>
       <h1 className="text-xl sm:text-2xl font-bold mb-6">Dashboard Admin</h1>
+
+      {/* Sales Mode Toggle */}
+      <div className="mb-8">
+        <SalesModeToggle
+          initialMode={siteSettings?.sales_mode || 'implementation'}
+          initialWhatsapp={siteSettings?.consultant_whatsapp || '+5511999999999'}
+          initialMessage={siteSettings?.consultant_message || 'Olá! Gostaria de saber mais sobre o Licitagram.'}
+        />
+      </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8">
