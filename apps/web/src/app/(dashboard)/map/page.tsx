@@ -85,7 +85,9 @@ export default async function MapPage() {
     const coordKey = `${municipio || ''}|${uf}`
     const coords = coordsMap.get(coordKey)
 
-    if (coords) {
+    // Use exact coords if available, otherwise fall back to UF center
+    const finalCoords = coords || UF_CENTERS[uf]
+    if (finalCoords) {
       matchMarkers.push({
         matchId: match.id,
         tenderId: tender.id as string,
@@ -98,9 +100,9 @@ export default async function MapPage() {
         valor: tender.valor_estimado as number | null,
         modalidade: tender.modalidade_nome as string | null,
         recomendacao: match.recomendacao as string | null,
-        lat: coords.lat,
-        lng: coords.lng,
-        isHot: match.score >= 80,  // Super Quente: score >= 80 (NOT from DB is_hot which uses threshold 65)
+        lat: finalCoords.lat,
+        lng: finalCoords.lng,
+        isHot: match.score >= 80,
         competitionScore: (match as unknown as Record<string, unknown>).competition_score as number | null ?? null,
         dataEncerramento: tender.data_encerramento as string | null,
       })
