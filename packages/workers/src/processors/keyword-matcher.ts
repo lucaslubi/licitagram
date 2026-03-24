@@ -54,9 +54,10 @@ async function getCachedCompanies() {
 // ─── Scoring Constants ────────────────────────────────────────────────────
 
 // Mode A: CNAE-gated scoring weights (tender HAS CNAE classification)
-const CNAE_WEIGHT = 0.40
-const KEYWORD_WEIGHT_A = 0.35
-const DESCRIPTION_WEIGHT_A = 0.25
+// CNAE match is the strongest signal — if CNAE overlaps, it's very likely relevant
+const CNAE_WEIGHT = 0.50
+const KEYWORD_WEIGHT_A = 0.30
+const DESCRIPTION_WEIGHT_A = 0.20
 const MIN_MATCH_SCORE_A = 40
 
 // Mode B: Keyword-only scoring weights (tender has NO CNAE data)
@@ -68,10 +69,11 @@ const MIN_PHRASE_MATCHES_B = 2   // Require at least 2 keyword phrases to match
 const DIRECT_CNAE_SCORE = 100
 const RELATED_CNAE_SCORE = 50
 
-// PRECISION CAPS — keyword matching alone cannot give certainty
-// Only AI analysis can push scores above these caps
-const MAX_KEYWORD_SCORE_MODE_A = 75  // CNAE-gated: decent confidence but not certain
-const MAX_KEYWORD_SCORE_MODE_B = 60  // Keyword-only: lower confidence, needs AI validation
+// PRECISION CAPS — keyword matching sets initial score, AI triage refines later.
+// Higher caps = more matches visible immediately (better first impression).
+// AI triage will re-score and can adjust up or down.
+const MAX_KEYWORD_SCORE_MODE_A = 90  // CNAE-gated: high initial confidence (CNAE overlap is strong signal)
+const MAX_KEYWORD_SCORE_MODE_B = 75  // Keyword-only: moderate confidence, AI will refine
 
 // ─── Portuguese Stopwords (expanded) ──────────────────────────────────────
 

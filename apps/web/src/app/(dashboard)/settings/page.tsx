@@ -21,7 +21,7 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [settings, setSettings] = useState({
-    min_score: 80,
+    min_score: 50,
     telegram_chat_id: null as number | null,
     email: '',
     ufs_interesse: [] as string[],
