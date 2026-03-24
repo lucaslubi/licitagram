@@ -44,7 +44,7 @@ const KEYWORD_WEIGHT = 0.20          // Keyword overlap contribution
 
 // Non-competitive modalities that should never generate matches/notifications
 const NON_COMPETITIVE_MODALITIES = [9, 12, 14] // Inexigibilidade, Credenciamento, Inaplicabilidade
-const NON_COMPETITIVE_NAMES = ['inexigibilidade', 'dispensa', 'credenciamento']
+const NON_COMPETITIVE_NAMES = ['inexigibilidade', 'credenciamento']
 
 interface RecallCandidate {
   id: string

@@ -180,7 +180,7 @@ if (bot) {
       .from('matches')
       .select('id, tenders!inner(data_encerramento, modalidade_id)', { count: 'exact', head: true })
       .eq('company_id', user.company_id)
-      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Dispensa,Credenciamento)')
+      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
 
     const { count: highMatchesCount } = await supabase
@@ -188,14 +188,14 @@ if (bot) {
       .select('id, tenders!inner(data_encerramento, modalidade_id)', { count: 'exact', head: true })
       .eq('company_id', user.company_id)
       .gte('score', 70)
-      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Dispensa,Credenciamento)')
+      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
 
     const { data: recent } = await supabase
       .from('matches')
       .select('score, tenders!inner(objeto, data_encerramento, modalidade_id)')
       .eq('company_id', user.company_id)
-      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Dispensa,Credenciamento)')
+      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
       .order('created_at', { ascending: false })
       .limit(3)
@@ -242,7 +242,7 @@ if (bot) {
       `)
       .eq('company_id', user.company_id)
       .gte('score', minScore)
-      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Dispensa,Credenciamento)')
+      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
       .order('score', { ascending: false })
       .limit(10)
@@ -313,7 +313,7 @@ if (bot) {
       .eq('company_id', user.company_id)
       .eq('status', 'new')
       .gte('score', minScore)
-      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Dispensa,Credenciamento)')
+      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
       .order('score', { ascending: false })
       .limit(20)
@@ -369,7 +369,7 @@ if (bot) {
       .eq('company_id', user.company_id)
       .eq('status', 'new')
       .gte('score', minScore)
-      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Dispensa,Credenciamento)')
+      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
     const remaining = remainingCount ?? 0
 
@@ -457,7 +457,7 @@ if (bot) {
         tenders!inner (objeto, orgao_nome, uf, valor_estimado, data_abertura, data_encerramento, modalidade_id)
       `)
       .eq('company_id', user.company_id)
-      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Dispensa,Credenciamento)')
+      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
       .order('score', { ascending: false })
       .limit(10)

@@ -74,7 +74,7 @@ export default async function DashboardPage() {
       .eq('company_id', companyId)
       .in('match_source', [...AI_VERIFIED_SOURCES])
       .gte('score', minScore)
-      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Dispensa,Credenciamento)')
+      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' }),
 
     // Score 70+ matches (AI-verified only, open tenders only)
@@ -84,7 +84,7 @@ export default async function DashboardPage() {
       .eq('company_id', companyId)
       .in('match_source', [...AI_VERIFIED_SOURCES])
       .gte('score', 70)
-      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Dispensa,Credenciamento)')
+      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' }),
 
     // Novas esta semana — filter on data_publicacao (actual publication date), NOT created_at
@@ -109,7 +109,7 @@ export default async function DashboardPage() {
       .eq('company_id', companyId)
       .in('match_source', [...AI_VERIFIED_SOURCES])
       .gte('score', minScore)
-      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Dispensa,Credenciamento)')
+      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
       .limit(1000),
 
@@ -120,7 +120,7 @@ export default async function DashboardPage() {
       .eq('company_id', companyId)
       .in('match_source', [...AI_VERIFIED_SOURCES])
       .gte('score', minScore)
-      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Dispensa,Credenciamento)')
+      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
       .order('score', { ascending: false })
       .limit(5),
@@ -133,7 +133,7 @@ export default async function DashboardPage() {
       .in('match_source', [...AI_VERIFIED_SOURCES])
       .gte('score', minScore)
       .gte('created_at', thirtyDaysAgo.toISOString())
-      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Dispensa,Credenciamento)')
+      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' }),
 
     // Interested/applied matches (AI-verified only, open tenders, no non-competitive)
@@ -143,7 +143,7 @@ export default async function DashboardPage() {
       .eq('company_id', companyId)
       .in('match_source', [...AI_VERIFIED_SOURCES])
       .in('status', ['interested', 'applied'])
-      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Dispensa,Credenciamento)')
+      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' }),
 
     // Matches with tender details for Valor em Análise, Top UFs, Top Modalidades
@@ -155,7 +155,7 @@ export default async function DashboardPage() {
       .in('match_source', [...AI_VERIFIED_SOURCES])
       .gte('score', minScore)
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
-      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Dispensa,Credenciamento)')
+      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
       .limit(1000),
 
     // Company documents for health check

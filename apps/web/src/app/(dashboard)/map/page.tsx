@@ -44,7 +44,7 @@ export default async function MapPage() {
       .eq('company_id', companyId)
       .in('match_source', [...AI_VERIFIED_SOURCES])
       .gte('score', MIN_DISPLAY_SCORE)
-      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Dispensa,Credenciamento)')
+      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
       .order('score', { ascending: false })
       .range(offset, offset + PAGE_SIZE - 1)

@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
       .eq('company_id', profile.company_id)
       .in('match_source', [...AI_VERIFIED_SOURCES])
       .gte('score', scoreMin || 45)
-      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Dispensa,Credenciamento)')
+      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
       .order('score', { ascending: false })
       .limit(500)

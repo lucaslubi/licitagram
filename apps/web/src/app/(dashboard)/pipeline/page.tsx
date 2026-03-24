@@ -30,7 +30,7 @@ export default async function PipelinePage() {
       )
       .eq('company_id', profile.company_id)
       .in('status', COLUMN_KEYS)
-      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Dispensa,Credenciamento)')
+      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
       .order('score', { ascending: false }),
 
@@ -42,7 +42,7 @@ export default async function PipelinePage() {
       )
       .eq('company_id', profile.company_id)
       .in('status', ['interested', 'applied'])
-      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Dispensa,Credenciamento)')
+      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
       .lt('tenders.data_encerramento', today)
       .order('tenders(data_encerramento)', { ascending: true })
       .limit(5),
