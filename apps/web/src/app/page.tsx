@@ -166,16 +166,18 @@ export default function LandingPage() {
 
       {/* ── Hero — Dark section with YouTube background video ── */}
       <section className="relative bg-[#26292E] overflow-hidden">
-        {/* YouTube background video — zoomed to crop YouTube UI */}
+        {/* Background video — native MP4, loop, no controls */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <iframe
-            src="https://www.youtube.com/embed/qqJws-fmGsk?autoplay=1&mute=1&loop=1&playlist=qqJws-fmGsk&controls=0&showinfo=0&modestbranding=1&rel=0&iv_load_policy=3&disablekb=1&playsinline=1&enablejsapi=1&start=20&origin=https://licitagram.com"
-            title="Background video"
-            allow="autoplay; encrypted-media"
-            allowFullScreen
-            className="absolute top-1/2 left-1/2 w-[177.78vh] min-w-[120%] min-h-[120%] -translate-x-1/2 -translate-y-1/2 scale-[1.35] border-0"
-            style={{ aspectRatio: '16/9' }}
-          />
+          <video
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="auto"
+            className="absolute top-1/2 left-1/2 min-w-full min-h-full w-auto h-auto -translate-x-1/2 -translate-y-1/2 object-cover"
+          >
+            <source src="/hero-bg.mp4" type="video/mp4" />
+          </video>
         </div>
         {/* Dark overlay for text readability */}
         <div className="absolute inset-0 bg-[#26292E]/75" />
