@@ -178,6 +178,7 @@ export async function addCompanyAction(
   revalidatePath('/company')
   revalidatePath('/dashboard')
   revalidatePath('/map')
+  revalidatePath('/opportunities')
 
   // 6. Fetch CNAE data from BrasilAPI and save to company profile
   try {

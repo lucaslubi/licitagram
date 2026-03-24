@@ -4,7 +4,7 @@ import { IntelligenceMap } from '@/components/map/IntelligenceMap'
 import { UF_CENTERS } from '@/lib/geo/uf-centers'
 import { calculateUfOpportunityScore, type UfMapData, type MatchMarker } from '@/lib/geo/map-utils'
 import { batchGetMunicipalityCoords } from '@/lib/geo/municipalities'
-// MIN_DISPLAY_SCORE and AI_VERIFIED_SOURCES now handled inside get_map_matches RPC
+import { MIN_DISPLAY_SCORE, AI_VERIFIED_SOURCES } from '@/lib/cache'
 
 export default async function MapPage() {
   const supabase = await createClient()
@@ -21,7 +21,7 @@ export default async function MapPage() {
 
   const companyId = profile.company_id
 
-  // Read pre-computed map cache (paginated — Supabase caps at 1000 rows per request)
+  // ── Try pre-computed map_cache first (fast path) ─────────────────────────
   const PAGE_SIZE = 1000
   const cacheData: any[] = []
   for (let offset = 0; offset < 10000; offset += PAGE_SIZE) {
@@ -36,30 +36,91 @@ export default async function MapPage() {
     if (page.length < PAGE_SIZE) break
   }
 
-  // Transform cache rows into the shape the rest of the page expects
-  const matches = (cacheData || []).map((r) => ({
-    id: r.match_id as string,
-    score: r.score as number,
-    status: 'new' as string,
-    recomendacao: null as string | null,
-    match_source: (r.match_source || 'ai_triage') as string,
-    is_hot: r.is_hot as boolean,
-    competition_score: null as number | null,
-    tenders: {
-      id: r.tender_id as string,
-      objeto: (r.objeto || '') as string,
-      orgao_nome: (r.orgao_nome || '') as string,
-      uf: (r.uf || '') as string,
-      municipio: r.municipio as string | null,
-      valor_estimado: r.valor_estimado as number | null,
-      modalidade_nome: r.modalidade_nome as string | null,
-      modalidade_id: 0 as number,
-      data_abertura: r.data_abertura as string | null,
-      data_encerramento: r.data_encerramento as string | null,
-      status: 'active' as string,
-      cnae_classificados: null,
-    },
-  }))
+  let matches: any[]
+
+  if (cacheData.length > 0) {
+    // Fast path: use pre-computed cache
+    matches = cacheData.map((r) => ({
+      id: r.match_id as string,
+      score: r.score as number,
+      status: 'new' as string,
+      recomendacao: null as string | null,
+      match_source: (r.match_source || 'ai_triage') as string,
+      is_hot: r.is_hot as boolean,
+      competition_score: null as number | null,
+      tenders: {
+        id: r.tender_id as string,
+        objeto: (r.objeto || '') as string,
+        orgao_nome: (r.orgao_nome || '') as string,
+        uf: (r.uf || '') as string,
+        municipio: r.municipio as string | null,
+        valor_estimado: r.valor_estimado as number | null,
+        modalidade_nome: r.modalidade_nome as string | null,
+        modalidade_id: 0 as number,
+        data_abertura: r.data_abertura as string | null,
+        data_encerramento: r.data_encerramento as string | null,
+        status: 'active' as string,
+        cnae_classificados: null,
+      },
+    }))
+  } else {
+    // Fallback: map_cache is empty (new company, cache not yet built).
+    // Query matches table directly — same source as the Opportunities page —
+    // so the map shows results as soon as matching completes.
+    const today = new Date().toISOString().split('T')[0]
+    const liveData: any[] = []
+
+    for (let offset = 0; offset < 5000; offset += PAGE_SIZE) {
+      const { data: page } = await supabase
+        .from('matches')
+        .select(`
+          id, score, is_hot, match_source, recomendacao,
+          tenders!inner (
+            id, objeto, orgao_nome, uf, municipio,
+            valor_estimado, modalidade_nome, modalidade_id,
+            data_abertura, data_encerramento, status
+          )
+        `)
+        .eq('company_id', companyId)
+        .in('match_source', [...AI_VERIFIED_SOURCES])
+        .gte('score', MIN_DISPLAY_SCORE)
+        .not('tenders.modalidade_id', 'in', '(9,14)')
+        .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
+        .order('score', { ascending: false })
+        .range(offset, offset + PAGE_SIZE - 1)
+
+      if (!page || page.length === 0) break
+      liveData.push(...page)
+      if (page.length < PAGE_SIZE) break
+    }
+
+    matches = liveData.map((m) => {
+      const t = m.tenders as Record<string, any>
+      return {
+        id: m.id as string,
+        score: m.score as number,
+        status: 'new' as string,
+        recomendacao: m.recomendacao as string | null,
+        match_source: (m.match_source || 'ai_triage') as string,
+        is_hot: m.is_hot as boolean,
+        competition_score: null as number | null,
+        tenders: {
+          id: t.id as string,
+          objeto: (t.objeto || '') as string,
+          orgao_nome: (t.orgao_nome || '') as string,
+          uf: (t.uf || '') as string,
+          municipio: t.municipio as string | null,
+          valor_estimado: t.valor_estimado as number | null,
+          modalidade_nome: t.modalidade_nome as string | null,
+          modalidade_id: t.modalidade_id as number,
+          data_abertura: t.data_abertura as string | null,
+          data_encerramento: t.data_encerramento as string | null,
+          status: t.status as string,
+          cnae_classificados: null,
+        },
+      }
+    })
+  }
 
   // Resolve coordenadas de todos os municípios em batch
   const municipioItems = (matches || [])
@@ -164,10 +225,6 @@ export default async function MapPage() {
 
   const ufData = Array.from(ufMap.values())
     .sort((a, b) => b.opportunityScore - a.opportunityScore)
-
-  const totalOpportunities = ufData.reduce((sum, d) => sum + d.totalMatches, 0)
-  const totalValue = ufData.reduce((sum, d) => sum + d.totalValue, 0)
-  const bestUf = ufData[0] || null
 
   return (
     <div className="-m-4 md:-m-8 w-[calc(100%+2rem)] md:w-[calc(100%+4rem)] h-[calc(100vh-3.5rem)] md:h-screen overflow-hidden">

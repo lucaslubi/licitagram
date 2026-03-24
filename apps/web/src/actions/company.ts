@@ -372,6 +372,7 @@ export async function saveCompany(payload: CompanyPayload, existingId?: string) 
   revalidatePath('/company')
   revalidatePath('/dashboard')
   revalidatePath('/map')
+  revalidatePath('/opportunities')
 
   return { id: companyId }
 }
