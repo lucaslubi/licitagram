@@ -183,6 +183,18 @@ export default function LandingPage() {
 
       {/* ── Hero — Split layout: copy left, video + system status right ── */}
       <section className="relative bg-[#1A1C1F] overflow-hidden">
+        {/* Video background */}
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover"
+        >
+          <source src="/videos/hero-bg.mp4" type="video/mp4" />
+        </video>
+        {/* Dark overlay for readability */}
+        <div className="absolute inset-0 bg-[#1A1C1F]/75" />
         {/* Subtle dot pattern overlay */}
         <div
           className="absolute inset-0 opacity-[0.03]"
