@@ -98,7 +98,7 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
   useEffect(() => {
     if (!loading || userHasScrolled) return
     // Scroll the last assistant message into view at the top
-    lastAssistantRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    messagesContainerRef.current?.scrollTo({ top: messagesContainerRef.current.scrollHeight, behavior: 'smooth' })
   }, [loading]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset userHasScrolled when user sends a new message (loading goes true)
@@ -115,6 +115,14 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
   useEffect(() => {
     if (!loading && started) inputRef.current?.focus()
   }, [loading, started])
+
+  // Lock body scroll when chat is active to prevent page from scrolling
+  useEffect(() => {
+    if (started) {
+      document.body.style.overflow = 'hidden'
+      return () => { document.body.style.overflow = '' }
+    }
+  }, [started])
 
   // Progress messages during AI analysis
   const PROGRESS_MESSAGES = [
@@ -239,7 +247,7 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
 
       // Scroll to show user message + start of AI response
       setTimeout(() => {
-        lastAssistantRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        messagesContainerRef.current?.scrollTo({ top: messagesContainerRef.current.scrollHeight, behavior: 'smooth' })
       }, 50)
 
       try {
@@ -411,7 +419,7 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
 
     // Scroll to show start of AI response
     setTimeout(() => {
-      lastAssistantRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      messagesContainerRef.current?.scrollTo({ top: messagesContainerRef.current.scrollHeight, behavior: 'smooth' })
     }, 50)
 
     try {
@@ -962,7 +970,8 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
             {SUGGESTED_QUESTIONS.map((q, i) => (
               <button
                 key={i}
-                onClick={() => handleSend(q)}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSend(q) }}
+                type="button"
                 className="text-xs px-3 py-1.5 bg-brand/5 border border-brand/20 rounded-full text-brand hover:bg-brand/10 transition-colors duration-150"
               >
                 {q}
