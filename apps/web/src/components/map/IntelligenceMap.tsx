@@ -70,7 +70,7 @@ export function IntelligenceMap({
   const [selectedUf, setSelectedUf] = useState<string | null>(null)
   const [selectedMatch, setSelectedMatch] = useState<MatchMarker | null>(null)
   const [selectedGroup, setSelectedGroup] = useState<MatchMarker[] | null>(null)
-  const [scoreFilter, setScoreFilter] = useState(60)
+  const [scoreFilter, setScoreFilter] = useState(50)
   const [minValor, setMinValor] = useState(0)
   const [regionFilter, setRegionFilter] = useState<Set<string>>(new Set(REGIONS))
 
@@ -442,7 +442,7 @@ export function IntelligenceMap({
             </label>
             {scoreFilter > 60 && (
               <button
-                onClick={() => setScoreFilter(60)}
+                onClick={() => setScoreFilter(50)}
                 className="text-[10px] text-brand hover:underline"
               >
                 Resetar
@@ -451,7 +451,7 @@ export function IntelligenceMap({
           </div>
           <input
             type="range"
-            min={60}
+            min={40}
             max={100}
             step={5}
             value={scoreFilter}
@@ -459,7 +459,7 @@ export function IntelligenceMap({
             className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-brand"
           />
           <div className="flex justify-between text-[9px] text-gray-400 mt-0.5">
-            <span>60</span>
+            <span>40</span>
             <span>70</span>
             <span>80</span>
             <span>90</span>

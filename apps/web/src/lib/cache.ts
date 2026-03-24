@@ -6,7 +6,7 @@ import crypto from 'crypto'
 export const MIN_DISPLAY_SCORE = 40
 
 /** Only show matches from AI-verified sources */
-export const AI_VERIFIED_SOURCES = ['ai', 'ai_triage', 'semantic'] as const
+export const AI_VERIFIED_SOURCES = ['ai', 'ai_triage', 'semantic', 'keyword'] as const
 
 /**
  * Server-side cached data fetchers.
