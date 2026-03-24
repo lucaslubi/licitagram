@@ -748,7 +748,7 @@ export function IntelligenceMap({
                 longitude={m.lng}
                 latitude={m.lat}
                 anchor="center"
-                style={{ zIndex: hot ? 20 : Math.min(m.score, 19) }}
+                style={{ zIndex: m.score }}
                 onClick={(e: { originalEvent: MouseEvent }) => {
                   e.originalEvent.stopPropagation()
                   setSelectedMatch(m)
