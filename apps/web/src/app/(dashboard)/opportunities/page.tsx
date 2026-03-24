@@ -22,6 +22,10 @@ import {
 import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
 import type { PlanFeatures } from '@licitagram/shared'
 
+// Force dynamic rendering — opportunities must always show fresh data
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 const DEFAULT_MIN_SCORE = 40
 const ALL_SCORE_OPTIONS = Array.from({ length: 13 }, (_, i) => 40 + i * 5)
 

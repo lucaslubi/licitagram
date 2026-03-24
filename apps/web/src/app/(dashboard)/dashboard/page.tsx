@@ -6,6 +6,10 @@ import Link from 'next/link'
 import { formatCurrency } from '@licitagram/shared'
 import { AI_VERIFIED_SOURCES, MIN_DISPLAY_SCORE } from '@/lib/cache'
 
+// Force dynamic rendering — dashboard must always show fresh data
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export default async function DashboardPage() {
   const supabase = await createClient()
   const {

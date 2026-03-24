@@ -6,6 +6,10 @@ import { calculateUfOpportunityScore, type UfMapData, type MatchMarker } from '@
 import { batchGetMunicipalityCoords } from '@/lib/geo/municipalities'
 import { MIN_DISPLAY_SCORE, AI_VERIFIED_SOURCES } from '@/lib/cache'
 
+// Force dynamic rendering — map must always show fresh data
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export default async function MapPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
