@@ -44,6 +44,7 @@ const KEYWORD_WEIGHT = 0.20          // Keyword overlap contribution
 
 // Non-competitive modalities that should never generate matches/notifications
 const NON_COMPETITIVE_MODALITIES = [9, 12, 14] // Inexigibilidade, Credenciamento, Inaplicabilidade
+const NON_COMPETITIVE_NAMES = ['inexigibilidade', 'dispensa', 'credenciamento']
 
 interface RecallCandidate {
   id: string
@@ -284,7 +285,11 @@ export async function runSemanticMatching(companyId: string): Promise<{
   // Filter out non-competitive modalities (inexigibilidade, credenciamento, inaplicabilidade)
   const beforeFilter = candidates.length
   const filteredCandidates = candidates.filter(
-    (c) => !c.modalidade_id || !NON_COMPETITIVE_MODALITIES.includes(c.modalidade_id)
+    (c) => {
+      if (c.modalidade_id && NON_COMPETITIVE_MODALITIES.includes(c.modalidade_id)) return false
+      if (c.modalidade_nome && NON_COMPETITIVE_NAMES.some(n => (c.modalidade_nome as string).toLowerCase().includes(n))) return false
+      return true
+    }
   )
   if (filteredCandidates.length < beforeFilter) {
     logger.info(

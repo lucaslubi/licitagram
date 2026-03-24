@@ -311,7 +311,7 @@ async function fetchMatchListFromDB(params: MatchListParams): Promise<MatchListR
   // Always exclude non-competitive modalities and expired tenders
   const today = new Date().toISOString().split('T')[0]
   query = query
-    .not('tenders.modalidade_id', 'in', '(9,12,14)')
+    .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Dispensa,Credenciamento)')
     .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
 
   // Filters on the referenced tenders table
@@ -401,7 +401,7 @@ export async function getMatchCount(companyId: string, minScore: number): Promis
         .eq('company_id', companyId)
         .in('match_source', [...AI_VERIFIED_SOURCES])
         .gte('score', Math.max(MIN_DISPLAY_SCORE, minScore))
-        .not('tenders.modalidade_id', 'in', '(9,12,14)')
+        .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Dispensa,Credenciamento)')
         .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
       return count ?? 0
     },
@@ -533,7 +533,7 @@ export async function getDashboardStats(companyId: string | null): Promise<Dashb
               .eq('company_id', companyId)
               .in('match_source', [...AI_VERIFIED_SOURCES])
               .gte('score', MIN_DISPLAY_SCORE)
-              .not('tenders.modalidade_id', 'in', '(9,12,14)')
+              .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Dispensa,Credenciamento)')
               .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
           : Promise.resolve({ count: 0 }),
         companyId
@@ -542,7 +542,7 @@ export async function getDashboardStats(companyId: string | null): Promise<Dashb
               .eq('company_id', companyId)
               .in('match_source', [...AI_VERIFIED_SOURCES])
               .gte('score', 70)
-              .not('tenders.modalidade_id', 'in', '(9,12,14)')
+              .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Dispensa,Credenciamento)')
               .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
           : Promise.resolve({ count: 0 }),
       ])

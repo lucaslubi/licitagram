@@ -179,9 +179,9 @@ export function ConsultaCertidoes({ cnpj }: { cnpj: string; hasApiKey?: boolean 
       {/* Header + Action */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h3 className="font-semibold text-gray-800">Consulta de Certidoes para Habilitacao</h3>
-          <p className="text-sm text-gray-500">
-            Verifica sancoes automaticamente. Certidoes com captcha sao emitidas pelo servidor via Puppeteer.
+          <h3 className="text-lg font-bold text-gray-900">Consulta de Certidoes para Habilitacao</h3>
+          <p className="text-sm text-gray-700">
+            Verifica sancoes automaticamente. Certidoes com captcha sao emitidas pelo servidor.
           </p>
         </div>
         <button
@@ -221,7 +221,7 @@ export function ConsultaCertidoes({ cnpj }: { cnpj: string; hasApiKey?: boolean 
               : `Consultando certidoes para CNPJ ${formatCnpj(cnpj)}...`}
           </p>
           {isPolling && (
-            <p className="text-xs text-blue-500 mt-1">
+            <p className="text-sm text-blue-600 mt-1">
               Isso pode levar 1-2 minutos. Nao feche esta pagina.
             </p>
           )}
@@ -239,18 +239,18 @@ export function ConsultaCertidoes({ cnpj }: { cnpj: string; hasApiKey?: boolean 
       {result && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-xs text-gray-500">
+            <p className="text-sm text-gray-700">
               Consultado em {new Date(result.consultado_em).toLocaleString('pt-BR')}
               {result.razao_social && ` \u2014 ${result.razao_social}`}
             </p>
             <div className="flex items-center gap-3">
               {result.saved.length > 0 && (
-                <span className="text-xs text-emerald-600 font-medium">
+                <span className="text-sm text-emerald-700 font-medium">
                   {result.saved.length + asyncCertidoes.filter(c => c.situacao === 'regular' || c.situacao === 'irregular').length} certidao(oes) salva(s)
                 </span>
               )}
               {autoResults.length > 0 && (
-                <span className="text-xs text-brand font-medium bg-brand/10 px-2 py-0.5 rounded-full">
+                <span className="text-sm text-brand font-medium bg-brand/10 px-2.5 py-0.5 rounded-full">
                   {autoResults.length} automatica(s)
                 </span>
               )}
@@ -264,33 +264,33 @@ export function ConsultaCertidoes({ cnpj }: { cnpj: string; hasApiKey?: boolean 
               <div key={cert.tipo} className={`rounded-lg border p-4 ${config.color}`}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm flex items-center gap-1.5">
+                    <p className="font-semibold text-base flex items-center gap-1.5">
                       <span>{config.icon}</span>
                       {cert.label}
                     </p>
-                    <p className="text-xs mt-1 opacity-80">{cert.detalhes}</p>
+                    <p className="text-sm mt-1">{cert.detalhes}</p>
                     {cert.numero && (
-                      <p className="text-xs mt-1 font-mono opacity-70">N\u00BA {cert.numero}</p>
+                      <p className="text-sm mt-1 font-mono">N\u00BA {cert.numero}</p>
                     )}
                     {cert.validade && (
-                      <p className="text-xs mt-0.5 opacity-70">
+                      <p className="text-sm mt-0.5">
                         Validade: {new Date(cert.validade).toLocaleDateString('pt-BR')}
                       </p>
                     )}
                   </div>
-                  <span className="text-xs font-semibold shrink-0 px-2 py-0.5 rounded-full bg-white/50">
+                  <span className="text-sm font-bold shrink-0 px-2.5 py-1 rounded-full bg-white/50">
                     {config.label}
                   </span>
                 </div>
-                <div className="flex items-center gap-3 mt-2">
+                <div className="flex items-center gap-3 mt-3">
                   {cert.pdf_url && (
                     <a
                       href={cert.pdf_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs underline opacity-70 hover:opacity-100 flex items-center gap-1"
+                      className="text-sm font-medium underline hover:no-underline flex items-center gap-1"
                     >
-                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
                       Baixar PDF
@@ -300,24 +300,24 @@ export function ConsultaCertidoes({ cnpj }: { cnpj: string; hasApiKey?: boolean 
                     <button
                       onClick={() => handleSaveCertidaoDrive(cert)}
                       disabled={driveSaving === cert.tipo}
-                      className="text-xs opacity-70 hover:opacity-100 flex items-center gap-1 disabled:opacity-50"
+                      className="text-sm font-medium flex items-center gap-1 hover:underline disabled:opacity-50"
                       title="Salvar no Drive"
                     >
                       {driveSaving === cert.tipo ? (
-                        <svg className="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none">
+                        <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                         </svg>
                       ) : driveSaved === cert.tipo ? (
-                        <svg className="h-3 w-3 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <svg className="h-4 w-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
                       ) : (
-                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                         </svg>
                       )}
-                      {driveSaved === cert.tipo ? <span className="text-emerald-500">Salvo</span> : 'Salvar no Drive'}
+                      {driveSaved === cert.tipo ? <span className="text-emerald-600 font-medium">Salvo</span> : 'Salvar no Drive'}
                     </button>
                   )}
                   {cert.consulta_url && (
@@ -325,7 +325,7 @@ export function ConsultaCertidoes({ cnpj }: { cnpj: string; hasApiKey?: boolean 
                       href={cert.consulta_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs underline opacity-70 hover:opacity-100"
+                      className="text-sm font-medium underline hover:no-underline"
                     >
                       Ver fonte oficial
                     </a>
@@ -371,11 +371,11 @@ export function ConsultaCertidoes({ cnpj }: { cnpj: string; hasApiKey?: boolean 
           {/* Manual links section */}
           {manualResults.length > 0 && !isPolling && (
             <div className="rounded-lg border border-gray-200 bg-white p-4">
-              <h4 className="font-medium text-sm text-gray-700 mb-3 flex items-center gap-1.5">
+              <h4 className="font-semibold text-base text-gray-900 mb-3 flex items-center gap-1.5">
                 <span>{'\uD83D\uDCCB'}</span>
                 Emitir Certidoes (consulta manual)
               </h4>
-              <p className="text-xs text-gray-500 mb-3">
+              <p className="text-sm text-gray-700 mb-3">
                 Emita diretamente pelo Licitagram (captcha guiado) ou abra o site do governo.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -395,8 +395,8 @@ export function ConsultaCertidoes({ cnpj }: { cnpj: string; hasApiKey?: boolean 
                           <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                         </svg>
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-gray-800 truncate">{cert.label}</p>
-                          <p className="text-xs text-gray-400 truncate">{cert.detalhes}</p>
+                          <p className="text-base font-semibold text-gray-900 truncate">{cert.label}</p>
+                          <p className="text-sm text-gray-600 truncate">{cert.detalhes}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 mt-1">
@@ -434,9 +434,9 @@ export function ConsultaCertidoes({ cnpj }: { cnpj: string; hasApiKey?: boolean 
           )}
 
           {result.errors.length > 0 && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-              <p className="text-xs font-medium text-amber-800 mb-1">Erros:</p>
-              <ul className="text-xs text-amber-700 list-disc list-inside space-y-0.5">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+              <p className="text-sm font-semibold text-amber-800 mb-1">Erros:</p>
+              <ul className="text-sm text-amber-700 list-disc list-inside space-y-0.5">
                 {result.errors.map((err, i) => <li key={i}>{err}</li>)}
               </ul>
             </div>

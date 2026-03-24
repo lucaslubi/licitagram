@@ -39,9 +39,9 @@ export default async function DocumentsPage() {
       <div>
         <h1 className="text-2xl font-bold mb-6">Certidões e Documentos</h1>
         <Card>
-          <CardContent className="py-8 text-center text-gray-400">
-            <p>Configure sua empresa primeiro para gerenciar documentos.</p>
-            <a href="/company" className="text-brand underline mt-2 inline-block">Configurar Empresa</a>
+          <CardContent className="py-8 text-center text-gray-700">
+            <p className="text-base">Configure sua empresa primeiro para gerenciar documentos.</p>
+            <a href="/company" className="text-brand underline mt-2 inline-block font-medium">Configurar Empresa</a>
           </CardContent>
         </Card>
       </div>
@@ -86,32 +86,32 @@ export default async function DocumentsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Certidões e Documentos</h1>
+      <h1 className="text-3xl font-bold mb-6 text-gray-900">Certidões e Documentos</h1>
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <Card>
           <CardContent className="pt-6 text-center">
             <p className="text-3xl font-bold text-emerald-600">{validCount}</p>
-            <p className="text-sm text-gray-400">Válidos</p>
+            <p className="text-sm font-medium text-gray-700">Válidos</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6 text-center">
             <p className="text-3xl font-bold text-amber-600">{expiringCount}</p>
-            <p className="text-sm text-gray-400">Vencendo em 30 dias</p>
+            <p className="text-sm font-medium text-gray-700">Vencendo em 30 dias</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6 text-center">
             <p className="text-3xl font-bold text-red-600">{expiredCount}</p>
-            <p className="text-sm text-gray-400">Vencidos</p>
+            <p className="text-sm font-medium text-gray-700">Vencidos</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6 text-center">
             <p className="text-3xl font-bold text-blue-600">{autoCount}</p>
-            <p className="text-sm text-gray-400">Consultados via API</p>
+            <p className="text-sm font-medium text-gray-700">Consultados via API</p>
           </CardContent>
         </Card>
       </div>
@@ -150,7 +150,7 @@ export default async function DocumentsPage() {
         </CardHeader>
         <CardContent>
           {enriched.length === 0 ? (
-            <p className="text-center text-gray-400 py-6">
+            <p className="text-center text-gray-600 py-6 text-base">
               Nenhum documento cadastrado. Use a consulta automática ou adicione manualmente.
             </p>
           ) : (
@@ -184,9 +184,9 @@ export default async function DocumentsPage() {
                         statusBadge={<StatusBadge status={doc.computedStatus} />}
                         originBadge={
                           isAuto ? (
-                            <Badge variant="outline" className="bg-blue-50 text-blue-700 text-xs">API</Badge>
+                            <Badge variant="outline" className="bg-blue-50 text-blue-700 text-sm">API</Badge>
                           ) : (
-                            <Badge variant="outline" className="bg-gray-50 text-gray-500 text-xs">Manual</Badge>
+                            <Badge variant="outline" className="bg-gray-100 text-gray-700 text-sm">Manual</Badge>
                           )
                         }
                       />

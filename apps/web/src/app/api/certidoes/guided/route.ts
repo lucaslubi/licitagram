@@ -98,14 +98,24 @@ export async function POST(req: NextRequest) {
     }
 
     // Proxy to VPS
-    const vpsRes = await fetch(`${VPS_LOGIN_URL}${vpsEndpoint}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(vpsBody),
-      signal: AbortSignal.timeout(55000),
-    })
-
-    const vpsData = await vpsRes.json()
+    let vpsRes: Response
+    let vpsData: Record<string, unknown>
+    try {
+      vpsRes = await fetch(`${VPS_LOGIN_URL}${vpsEndpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(vpsBody),
+        signal: AbortSignal.timeout(55000),
+      })
+      vpsData = await vpsRes.json()
+    } catch (fetchErr) {
+      const isTimeout = fetchErr instanceof DOMException && fetchErr.name === 'TimeoutError'
+      const msg = isTimeout
+        ? 'Servidor de emissao demorou muito para responder. Tente novamente.'
+        : 'Servidor de emissao indisponivel. Verifique se o VPS esta online.'
+      console.error(`[API certidoes/guided] VPS fetch error (${vpsEndpoint}):`, fetchErr)
+      return NextResponse.json({ error: msg, vps_error: true }, { status: 502 })
+    }
 
     // If certidao was emitted, save to company_documents
     if (action === 'check_result' && vpsData.result_status && vpsData.result_status !== 'pending') {
