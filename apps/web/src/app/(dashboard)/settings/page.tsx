@@ -46,27 +46,38 @@ export default function SettingsPage() {
       return
     }
 
-    const { data } = await supabase
+    // Load personal settings from users table
+    const { data: userData } = await supabase
       .from('users')
-      .select('min_score, telegram_chat_id, email, ufs_interesse, palavras_chave_filtro, notification_preferences')
+      .select('company_id, telegram_chat_id, email, notification_preferences')
       .eq('id', user.id)
       .single()
 
-    if (data) {
-      const prefs = (data.notification_preferences as { telegram?: boolean; email?: boolean; whatsapp?: boolean }) || {}
-      setSettings({
-        min_score: data.min_score ?? 10,
-        telegram_chat_id: data.telegram_chat_id,
-        email: data.email || user.email || '',
-        ufs_interesse: data.ufs_interesse || [],
-        palavras_chave_filtro: data.palavras_chave_filtro || [],
-        notification_preferences: {
-          telegram: prefs.telegram !== false,
-          email: prefs.email === true,
-          whatsapp: prefs.whatsapp !== false,
-        },
-      })
+    // Load company-specific settings from companies table
+    const companyId = userData?.company_id
+    let companyData: Record<string, unknown> | null = null
+    if (companyId) {
+      const { data } = await supabase
+        .from('companies')
+        .select('min_score, ufs_interesse, palavras_chave_filtro')
+        .eq('id', companyId)
+        .single()
+      companyData = data
     }
+
+    const prefs = (userData?.notification_preferences as { telegram?: boolean; email?: boolean; whatsapp?: boolean }) || {}
+    setSettings({
+      min_score: (companyData?.min_score as number) ?? (userData as Record<string, unknown>)?.min_score as number ?? 50,
+      telegram_chat_id: userData?.telegram_chat_id ?? null,
+      email: userData?.email || user.email || '',
+      ufs_interesse: (companyData?.ufs_interesse as string[]) || [],
+      palavras_chave_filtro: (companyData?.palavras_chave_filtro as string[]) || [],
+      notification_preferences: {
+        telegram: prefs.telegram !== false,
+        email: prefs.email === true,
+        whatsapp: prefs.whatsapp !== false,
+      },
+    })
     setLoading(false)
   }
 
@@ -79,16 +90,35 @@ export default function SettingsPage() {
     } = await supabase.auth.getUser()
     if (!user) return
 
-    const { error } = await supabase
+    // Save personal settings to users table
+    const { error: userError } = await supabase
       .from('users')
       .update({
-        min_score: settings.min_score,
-        ufs_interesse: settings.ufs_interesse,
-        palavras_chave_filtro: settings.palavras_chave_filtro,
         notification_preferences: settings.notification_preferences,
       })
       .eq('id', user.id)
 
+    // Save company-specific settings to companies table
+    const { data: profile } = await supabase
+      .from('users')
+      .select('company_id')
+      .eq('id', user.id)
+      .single()
+
+    let companyError: { message: string } | null = null
+    if (profile?.company_id) {
+      const { error } = await supabase
+        .from('companies')
+        .update({
+          min_score: settings.min_score,
+          ufs_interesse: settings.ufs_interesse,
+          palavras_chave_filtro: settings.palavras_chave_filtro,
+        })
+        .eq('id', profile.company_id)
+      companyError = error
+    }
+
+    const error = userError || companyError
     if (error) {
       setMessage('Erro ao salvar: ' + error.message)
     } else {

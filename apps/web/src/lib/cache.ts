@@ -57,10 +57,23 @@ export async function getAuthAndProfile(): Promise<AuthResult | null> {
     .eq('id', user.id)
     .single()
 
+  const companyId = profile?.company_id ?? null
+
+  // Read min_score from company (per-company setting), fallback to user's legacy value
+  let minScore = profile?.min_score ?? 50
+  if (companyId) {
+    const { data: company } = await supabase
+      .from('companies')
+      .select('min_score')
+      .eq('id', companyId)
+      .single()
+    if (company?.min_score != null) minScore = company.min_score
+  }
+
   return {
     userId: user.id,
-    companyId: profile?.company_id ?? null,
-    minScore: profile?.min_score ?? 10,
+    companyId,
+    minScore,
     fullName: profile?.full_name ?? null,
   }
 }
