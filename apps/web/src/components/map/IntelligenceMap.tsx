@@ -464,9 +464,9 @@ export function IntelligenceMap({
           />
           <div className="flex justify-between text-[9px] text-gray-400 mt-0.5">
             <span>40</span>
+            <span>50</span>
             <span>70</span>
             <span>80</span>
-            <span>90</span>
             <span>100</span>
           </div>
         </div>

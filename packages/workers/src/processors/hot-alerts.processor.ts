@@ -11,9 +11,9 @@ const EXCLUDED_MODALIDADES = [9, 12, 14]
 const ACTIVE_STATUSES = ['new', 'notified', 'viewed', 'interested']
 
 // ─── Tuned thresholds for quality hot alerts ─────────────────────────────
-// Only matches with relevance_score >= 75 can be considered hot.
-// The company must genuinely match 75%+ of the tender characteristics.
-const HOT_RELEVANCE_MIN = 65
+// Only matches with relevance_score >= 80 can be considered hot (Super Quente).
+// Aligned with global color system: 50-69 yellow, 70-79 green, 80+ hot.
+const HOT_RELEVANCE_MIN = 80
 const HOT_TOP_N = 30
 // Final hot_score weights: 70% relevance (the match quality is king) + 30% competition
 const HOT_SCORE_RELEVANCE_WEIGHT = 0.7
