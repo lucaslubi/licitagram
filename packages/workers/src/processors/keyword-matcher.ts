@@ -807,23 +807,8 @@ export async function runKeywordMatchingForCompany(companyId: string): Promise<n
     directTerms: directTerms.length,
   }, 'Starting CNAE-filtered keyword matching')
 
-  // 3. Pre-load existing match tender IDs to avoid duplicates
-  const existingTenderIds = new Set<string>()
-  {
-    const PAGE = 1000
-    let offset = 0
-    while (true) {
-      const { data: page } = await supabase
-        .from('matches')
-        .select('tender_id')
-        .eq('company_id', companyId)
-        .range(offset, offset + PAGE - 1)
-      if (!page || page.length === 0) break
-      page.forEach(m => existingTenderIds.add(m.tender_id))
-      if (page.length < PAGE) break
-      offset += PAGE
-    }
-  }
+  // 3. No dedup — always re-score so matches get updated weights.
+  // upsertMatchAndNotify() handles upsert on (company_id, tender_id).
 
   const today = new Date().toISOString().split('T')[0]
   let matchCount = 0
@@ -832,7 +817,6 @@ export async function runKeywordMatchingForCompany(companyId: string): Promise<n
   // Helper: score a batch of tenders against this company
   const scoreBatch = async (tenders: any[], mode: 'cnae' | 'keyword-only') => {
     for (const tender of tenders) {
-      if (existingTenderIds.has(tender.id)) continue
       scanned++
 
       const tenderText = (tender.objeto || '') + ' ' + (tender.resumo || '')
@@ -949,7 +933,7 @@ export async function runKeywordMatchingForCompany(companyId: string): Promise<n
     scanned,
     matchCount,
     elapsed: `${elapsed}s`,
-    existingSkipped: existingTenderIds.size,
+    mode: 'rescore-all',
   }, 'CNAE-filtered keyword matching complete')
 
   return matchCount
