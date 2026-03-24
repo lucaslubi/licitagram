@@ -13,6 +13,7 @@ import {
   type MatchMarker,
   formatCompactBRL,
 } from '@/lib/geo/map-utils'
+import { getScoreBgClass, getScoreHex, isSuperHot } from '@/lib/score-colors'
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
 
@@ -22,23 +23,8 @@ interface IntelligenceMapProps {
 }
 
 // ─── Pure helpers (no state/props dependency) ───────────────────────────────
-
-function getScoreBgClass(score: number): string {
-  if (score >= 80) return 'bg-orange-100 text-orange-800'  // Super Quente
-  if (score >= 70) return 'bg-emerald-100 text-emerald-800' // Verde
-  if (score >= 50) return 'bg-amber-100 text-amber-800'     // Amarelo
-  return 'bg-red-100 text-red-800'
-}
-
-/** Score color for individual match markers
- *  Amarelo: 50-69 | Verde: 70-79 | Super Hot: 80+
- */
-function getMatchColor(score: number): string {
-  if (score >= 80) return '#F97316' // Super Quente (orange-red)
-  if (score >= 70) return '#10B981' // Verde
-  if (score >= 50) return '#FBBF24' // Amarelo
-  return '#EF4444'                  // Vermelho (baixo)
-}
+// Score colors: use centralized getScoreBgClass, getScoreHex, isSuperHot from @/lib/score-colors
+const getMatchColor = getScoreHex
 
 /** Whether the match was scored by AI (as opposed to keyword-only estimate) */
 function isAiMatch(m: MatchMarker): boolean {

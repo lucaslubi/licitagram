@@ -748,11 +748,13 @@ function renderMatchesView(props: {
 function ScoreBadge({ score, matchSource }: { score: number; matchSource?: string }) {
   const isAi = matchSource === 'ai' || matchSource === 'ai_triage'
   const color =
-    score >= 70
-      ? 'bg-emerald-100 text-emerald-800'
-      : score >= 50
-        ? 'bg-amber-100 text-amber-800'
-        : 'bg-red-100 text-red-800'
+    score >= 80
+      ? 'bg-orange-100 text-orange-800'
+      : score >= 70
+        ? 'bg-emerald-100 text-emerald-800'
+        : score >= 50
+          ? 'bg-amber-100 text-amber-800'
+          : 'bg-red-100 text-red-800'
 
   return (
     <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${color}`}>

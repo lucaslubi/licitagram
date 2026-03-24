@@ -1091,7 +1091,7 @@ export default async function CompetitorsPage({
                                   <div className="flex items-center justify-center gap-2">
                                     <div className="w-16 bg-gray-200 rounded-full h-2">
                                       <div
-                                        className={`h-2 rounded-full ${row.opportunityScore >= 70 ? 'bg-green-500' : row.opportunityScore >= 40 ? 'bg-yellow-500' : 'bg-red-400'}`}
+                                        className={`h-2 rounded-full ${row.opportunityScore >= 80 ? 'bg-orange-500' : row.opportunityScore >= 70 ? 'bg-green-500' : row.opportunityScore >= 50 ? 'bg-yellow-500' : 'bg-red-400'}`}
                                         style={{ width: `${row.opportunityScore}%` }}
                                       />
                                     </div>

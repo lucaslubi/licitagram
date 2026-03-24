@@ -43,14 +43,12 @@ export interface UfMapData {
   }>
 }
 
-/** Cor baseada no opportunityScore (0-100) */
+/** Cor baseada no opportunityScore (0-100) — segue regra global */
 export function getHeatColor(score: number): string {
-  if (score >= 70) return '#10B981'
-  if (score >= 55) return '#34D399'
-  if (score >= 40) return '#FBBF24'
-  if (score >= 25) return '#F97316'
-  if (score >= 10) return '#EF4444'
-  return '#6B7280'
+  if (score >= 80) return '#F97316' // Super Quente
+  if (score >= 70) return '#10B981' // Verde
+  if (score >= 50) return '#FBBF24' // Amarelo
+  return '#EF4444'                  // Vermelho
 }
 
 /** Opacidade proporcional ao volume */
