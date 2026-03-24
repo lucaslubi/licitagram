@@ -117,7 +117,7 @@ const COMPARISON_ROWS: [string, string | boolean, string | boolean, string | boo
 ]
 
 const SYSTEM_STATUS = [
-  { id: '01', label: 'Scraping', active: true },
+  { id: '01', label: 'Connecting', active: true },
   { id: '02', label: 'Matching', active: true },
   { id: '03', label: 'AI Triage', active: true },
   { id: '04', label: 'Alertas', active: true },
