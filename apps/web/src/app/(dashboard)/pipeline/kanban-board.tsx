@@ -119,12 +119,12 @@ function DraggableCard({ match, isDragging }: { match: Match; isDragging: boolea
   const tender = match.tenders
   const isHot = match.isHot
 
-  const scoreColor = isHot
-    ? 'bg-orange-100 text-orange-800'
+  const scoreColor = match.score >= 80
+    ? 'bg-orange-100 text-orange-800'    // Super Quente
     : match.score >= 70
-      ? 'bg-emerald-100 text-emerald-800'
+      ? 'bg-emerald-100 text-emerald-800' // Verde
       : match.score >= 50
-        ? 'bg-amber-100 text-amber-800'
+        ? 'bg-amber-100 text-amber-800'   // Amarelo
         : 'bg-red-100 text-red-800'
 
   const countdown = tender?.data_encerramento ? timeUntil(tender.data_encerramento) : null
@@ -190,12 +190,12 @@ function DraggableCard({ match, isDragging }: { match: Match; isDragging: boolea
 function CardOverlay({ match }: { match: Match }) {
   const tender = match.tenders
   const isHot = match.isHot
-  const scoreColor = isHot
-    ? 'bg-orange-100 text-orange-800'
+  const scoreColor = match.score >= 80
+    ? 'bg-orange-100 text-orange-800'    // Super Quente
     : match.score >= 70
-      ? 'bg-emerald-100 text-emerald-800'
+      ? 'bg-emerald-100 text-emerald-800' // Verde
       : match.score >= 50
-        ? 'bg-amber-100 text-amber-800'
+        ? 'bg-amber-100 text-amber-800'   // Amarelo
         : 'bg-red-100 text-red-800'
 
   return (

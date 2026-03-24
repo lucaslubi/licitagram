@@ -100,7 +100,7 @@ export default async function MapPage() {
         recomendacao: match.recomendacao as string | null,
         lat: coords.lat,
         lng: coords.lng,
-        isHot: (match as unknown as Record<string, unknown>).is_hot === true,
+        isHot: match.score >= 80,  // Super Quente: score >= 80 (NOT from DB is_hot which uses threshold 65)
         competitionScore: (match as unknown as Record<string, unknown>).competition_score as number | null ?? null,
         dataEncerramento: tender.data_encerramento as string | null,
       })

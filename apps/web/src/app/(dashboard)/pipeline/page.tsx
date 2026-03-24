@@ -84,7 +84,7 @@ export default async function PipelinePage() {
       id: m.id,
       score: m.score,
       status: m.status,
-      isHot: (m as unknown as Record<string, unknown>).is_hot === true,
+      isHot: m.score >= 80,  // Super Quente: score >= 80 (consistent global rule)
       competitionScore: (m as unknown as Record<string, unknown>).competition_score as number | null ?? null,
       tenders: tender
         ? {

@@ -343,15 +343,12 @@ export function IntelligenceMap({
     type: 'fill',
     paint: {
       'fill-color': [
-        'interpolate',
-        ['linear'],
+        'step',
         ['get', 'opportunityScore'],
-        0, '#6B7280',
-        20, '#EF4444',
-        35, '#F97316',
-        50, '#FBBF24',
-        65, '#34D399',
-        80, '#10B981',
+        '#6B7280',   // 0-49: cinza (sem matches relevantes)
+        50, '#FBBF24', // 50-69: amarelo
+        70, '#10B981', // 70-79: verde
+        80, '#F97316', // 80+: super quente (laranja)
       ],
       'fill-opacity': [
         'interpolate',
@@ -455,7 +452,7 @@ export function IntelligenceMap({
           </div>
           <input
             type="range"
-            min={40}
+            min={50}
             max={100}
             step={5}
             value={scoreFilter}
@@ -463,10 +460,11 @@ export function IntelligenceMap({
             className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-brand"
           />
           <div className="flex justify-between text-[9px] text-gray-400 mt-0.5">
-            <span>40</span>
             <span>50</span>
+            <span>60</span>
             <span>70</span>
             <span>80</span>
+            <span>90</span>
             <span>100</span>
           </div>
         </div>
