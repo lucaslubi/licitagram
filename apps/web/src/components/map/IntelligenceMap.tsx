@@ -807,7 +807,7 @@ export function IntelligenceMap({
                 offset={15}
                 className="!p-0"
                 maxWidth={isMobile ? '240px' : '300px'}
-                style={{ zIndex: 40 }}
+                style={{ zIndex: 9999 }}
               >
                 <div className={isMobile ? 'p-2 min-w-[180px]' : 'p-3 min-w-[220px]'}>
                   {selectedMatch.isHot && (

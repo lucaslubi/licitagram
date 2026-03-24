@@ -117,7 +117,7 @@ async function calculateCompetitionScore(
     .slice(0, 3)
     .map((c: Record<string, unknown>) => ({
       nome: (c.razao_social as string) || (c.nome as string) || 'N/I',
-      winRate: Math.round(Number(c.win_rate || 0)),
+      winRate: Math.round(Number(c.win_rate || 0) * 100),
       porte: (c.porte as string) || 'N/I',
     }))
 
