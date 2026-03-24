@@ -21,7 +21,7 @@ export function BotWarRoom({ configs, sessions, companyId, tenders, competitors 
   return (
     <div className="relative">
       {/* Navigation Tabs */}
-      <div className="flex items-center gap-1 mb-6 bg-gray-100 rounded-lg p-1 w-fit">
+      <div className="flex items-center gap-1 mb-6 bg-zinc-800/50 border border-zinc-700/50 rounded-lg p-1 w-fit">
         {([
           { id: 'dashboard' as const, label: 'Configuracoes', icon: '⚙' },
           { id: 'pregao' as const, label: 'Pre-Disputa', icon: '🎯' },
@@ -30,10 +30,10 @@ export function BotWarRoom({ configs, sessions, companyId, tenders, competitors 
           <button
             key={tab.id}
             onClick={() => setView(tab.id)}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+            className={`px-4 py-2.5 rounded-md text-base font-medium transition-all ${
               view === tab.id
-                ? 'bg-brand text-white shadow-sm'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'
+                ? 'bg-[#F43E01] text-white shadow-sm'
+                : 'text-gray-300 hover:text-white hover:bg-zinc-700/50'
             }`}
           >
             <span className="mr-1.5">{tab.icon}</span>
@@ -46,8 +46,8 @@ export function BotWarRoom({ configs, sessions, companyId, tenders, competitors 
       {view === 'dashboard' && (
         <div>
           <div className="mb-4">
-            <h1 className="text-2xl font-bold text-gray-900">LICITAGRAM BOT</h1>
-            <p className="text-sm text-gray-500 mt-1">
+            <h1 className="text-3xl font-bold text-white">LICITAGRAM BOT</h1>
+            <p className="text-base text-gray-300 mt-1">
               Robo de lances automaticos para pregoes eletronicos
             </p>
           </div>

@@ -64,12 +64,12 @@ const STRATEGY_OPTIONS = [
 ]
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
-  pending: { label: 'Pendente', bg: 'bg-yellow-100', text: 'text-yellow-800' },
-  active: { label: 'Ativo', bg: 'bg-blue-100', text: 'text-blue-800' },
-  completed: { label: 'Concluido', bg: 'bg-emerald-100', text: 'text-emerald-800' },
-  failed: { label: 'Falhou', bg: 'bg-red-100', text: 'text-red-800' },
-  paused: { label: 'Pausado', bg: 'bg-gray-100', text: 'text-gray-700' },
-  cancelled: { label: 'Cancelado', bg: 'bg-gray-100', text: 'text-gray-500' },
+  pending: { label: 'Pendente', bg: 'bg-amber-500/10', text: 'text-amber-400' },
+  active: { label: 'Ativo', bg: 'bg-blue-500/10', text: 'text-blue-400' },
+  completed: { label: 'Concluido', bg: 'bg-emerald-500/10', text: 'text-emerald-400' },
+  failed: { label: 'Falhou', bg: 'bg-red-500/10', text: 'text-red-400' },
+  paused: { label: 'Pausado', bg: 'bg-zinc-700', text: 'text-zinc-300' },
+  cancelled: { label: 'Cancelado', bg: 'bg-zinc-700', text: 'text-zinc-400' },
 }
 
 /* ── Spinner ────────────────────────────────────────────────────────────────── */
@@ -88,7 +88,7 @@ function Spinner({ className = 'h-4 w-4' }: { className?: string }) {
 function StatusBadge({ status }: { status: string }) {
   const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.pending
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${cfg.bg} ${cfg.text}`}>
+    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium ${cfg.bg} ${cfg.text}`}>
       {cfg.label}
     </span>
   )
@@ -332,26 +332,26 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
     <div className="space-y-6">
       {/* Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Total sessoes</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{sessions.length}</p>
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
+          <p className="text-sm text-gray-400 font-medium uppercase tracking-wider">Total sessoes</p>
+          <p className="text-3xl font-bold text-white mt-1">{sessions.length}</p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Bots ativos</p>
-          <p className="text-2xl font-bold text-blue-600 mt-1">{activeSessions.length}</p>
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
+          <p className="text-sm text-gray-400 font-medium uppercase tracking-wider">Bots ativos</p>
+          <p className="text-3xl font-bold text-blue-400 mt-1">{activeSessions.length}</p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Taxa de sucesso</p>
-          <p className="text-2xl font-bold text-emerald-600 mt-1">{winRate}%</p>
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
+          <p className="text-sm text-gray-400 font-medium uppercase tracking-wider">Taxa de sucesso</p>
+          <p className="text-3xl font-bold text-emerald-400 mt-1">{winRate}%</p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Lances realizados</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{totalBids}</p>
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
+          <p className="text-sm text-gray-400 font-medium uppercase tracking-wider">Lances realizados</p>
+          <p className="text-3xl font-bold text-white mt-1">{totalBids}</p>
         </div>
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex gap-1 border-b border-gray-200">
+      <div className="flex gap-1 border-b border-zinc-800">
         {[
           { key: 'configs' as const, label: 'Portais Configurados' },
           { key: 'sessions' as const, label: `Sessoes Ativas (${activeSessions.length})` },
@@ -360,10 +360,10 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
+            className={`px-4 py-2.5 text-base font-medium transition-colors border-b-2 -mb-px ${
               activeTab === tab.key
-                ? 'border-brand text-brand'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'border-[#F43E01] text-[#F43E01]'
+                : 'border-transparent text-gray-400 hover:text-white'
             }`}
           >
             {tab.label}
@@ -375,45 +375,45 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
       {activeTab === 'configs' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-800">Configuracoes de Portal</h2>
-            <button onClick={openAddConfig} className="bg-brand text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-brand/90 transition-colors">
+            <h2 className="text-xl font-semibold text-white">Configuracoes de Portal</h2>
+            <button onClick={openAddConfig} className="bg-[#F43E01] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[#D63500] transition-colors">
               Adicionar Portal
             </button>
           </div>
 
           {configs.length === 0 ? (
-            <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
-              <svg className="mx-auto h-12 w-12 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-8 text-center">
+              <svg className="mx-auto h-12 w-12 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
               </svg>
-              <p className="mt-3 text-sm text-gray-500">Nenhum portal configurado ainda.</p>
-              <p className="text-xs text-gray-400 mt-1">Adicione suas credenciais de portal para usar o bot.</p>
+              <p className="mt-3 text-base text-gray-300">Nenhum portal configurado ainda.</p>
+              <p className="text-sm text-gray-400 mt-1">Adicione suas credenciais de portal para usar o bot.</p>
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {configs.map(config => (
-                <div key={config.id} className="rounded-lg border border-gray-200 bg-white p-4">
+                <div key={config.id} className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
                   <div className="flex items-start justify-between">
                     <div>
-                      <h3 className="font-semibold text-gray-800">
+                      <h3 className="font-semibold text-white text-lg">
                         {PORTAL_OPTIONS.find(p => p.value === config.portal)?.label || config.portal}
                       </h3>
-                      <p className="text-sm text-gray-500 mt-0.5 font-mono">{maskCpf(config.username)}</p>
+                      <p className="text-sm text-gray-400 mt-0.5 font-mono">{maskCpf(config.username)}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                        config.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                        config.is_active ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-700 text-zinc-400'
                       }`}>
                         {config.is_active ? 'Ativo' : 'Inativo'}
                       </span>
                       {connectedPortals.has(config.id) ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                           Conectado
                         </span>
                       ) : (
                         <button
                           onClick={() => setGuidedLoginPortal({ portal: config.portal, configId: config.id })}
-                          className="text-xs px-2.5 py-1 rounded-md bg-brand text-white hover:bg-brand/90 transition-colors font-medium"
+                          className="text-sm px-3 py-1 rounded-md bg-[#F43E01] text-white hover:bg-[#D63500] transition-colors font-medium"
                           title="Login guiado no portal"
                         >
                           Conectar
@@ -421,7 +421,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                       )}
                       <button
                         onClick={() => openEditConfig(config)}
-                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                        className="text-zinc-500 hover:text-zinc-300 transition-colors"
                         title="Editar"
                       >
                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -430,7 +430,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                       </button>
                     </div>
                   </div>
-                  <div className="mt-3 flex items-center gap-4 text-xs text-gray-400">
+                  <div className="mt-3 flex items-center gap-4 text-sm text-gray-400">
                     <span>Estrategia: {STRATEGY_OPTIONS.find(s => s.value === config.strategy)?.label.split(' - ')[0] || config.strategy}</span>
                     {config.min_decrease_value && (
                       <span>Dec. min: R$ {config.min_decrease_value}</span>
@@ -450,56 +450,56 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
       {activeTab === 'sessions' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-800">Sessoes Ativas</h2>
+            <h2 className="text-xl font-semibold text-white">Sessoes Ativas</h2>
             <button
               onClick={openNewSession}
               disabled={configs.length === 0}
-              className="bg-brand text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-brand/90 transition-colors disabled:opacity-50"
+              className="bg-[#F43E01] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[#D63500] transition-colors disabled:opacity-50"
             >
               Nova Sessao
             </button>
           </div>
 
           {activeSessions.length === 0 ? (
-            <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
-              <svg className="mx-auto h-12 w-12 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-8 text-center">
+              <svg className="mx-auto h-12 w-12 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <p className="mt-3 text-sm text-gray-500">Nenhuma sessao ativa no momento.</p>
+              <p className="mt-3 text-base text-gray-300">Nenhuma sessao ativa no momento.</p>
               {configs.length === 0 && (
-                <p className="text-xs text-gray-400 mt-1">Configure um portal primeiro para iniciar uma sessao.</p>
+                <p className="text-sm text-gray-400 mt-1">Configure um portal primeiro para iniciar uma sessao.</p>
               )}
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {activeSessions.map(session => (
-                <div key={session.id} className="rounded-lg border border-gray-200 bg-white p-4">
+                <div key={session.id} className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
                   <div className="flex items-start justify-between">
                     <div>
-                      <h3 className="font-semibold text-gray-800">Pregao {session.pregao_id}</h3>
-                      <p className="text-sm text-gray-500 mt-0.5">
+                      <h3 className="font-semibold text-white text-lg">Pregao {session.pregao_id}</h3>
+                      <p className="text-sm text-gray-400 mt-0.5">
                         {PORTAL_OPTIONS.find(p => p.value === session.portal)?.label || session.portal}
                       </p>
                     </div>
                     <StatusBadge status={session.status} />
                   </div>
 
-                  <div className="mt-3 grid grid-cols-3 gap-3 text-center">
+                  <div className="mt-4 grid grid-cols-3 gap-4 text-center">
                     <div>
-                      <p className="text-xs text-gray-400">Lances</p>
-                      <p className="text-lg font-bold text-gray-800">{session.bids_placed}</p>
+                      <p className="text-sm text-gray-400 font-medium">Lances</p>
+                      <p className="text-2xl font-bold text-white">{session.bids_placed}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-400">Preco atual</p>
-                      <p className="text-lg font-bold text-gray-800">
+                      <p className="text-sm text-gray-400 font-medium">Preco atual</p>
+                      <p className="text-xl font-bold text-white">
                         {session.current_price != null
                           ? `R$ ${session.current_price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
                           : '-'}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-400">Estrategia</p>
-                      <p className="text-xs font-medium text-gray-600 mt-1">
+                      <p className="text-sm text-gray-400 font-medium">Estrategia</p>
+                      <p className="text-sm font-medium text-gray-300 mt-1">
                         {STRATEGY_OPTIONS.find(s => s.value === session.strategy)?.label.split(' - ')[0] || session.strategy}
                       </p>
                     </div>
@@ -507,16 +507,16 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
 
                   {session.status === 'active' && (
                     <div className="mt-3 flex items-center gap-1">
-                      <Spinner className="h-3 w-3 text-blue-500" />
-                      <span className="text-xs text-blue-500 font-medium">Bot em execucao...</span>
+                      <Spinner className="h-3 w-3 text-blue-400" />
+                      <span className="text-sm text-blue-400 font-medium">Bot em execucao...</span>
                     </div>
                   )}
 
-                  <div className="mt-3 flex items-center gap-2 border-t border-gray-100 pt-3">
+                  <div className="mt-4 flex items-center gap-2 border-t border-zinc-800 pt-4">
                     {session.status === 'active' && (
                       <button
                         onClick={() => handleSessionAction(session.id, 'pause')}
-                        className="text-xs px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+                        className="text-sm px-3 py-1.5 rounded-md border border-zinc-700 text-gray-300 hover:bg-zinc-800 transition-colors font-medium"
                       >
                         Pausar
                       </button>
@@ -524,14 +524,14 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                     {session.status === 'paused' && (
                       <button
                         onClick={() => handleSessionAction(session.id, 'resume')}
-                        className="text-xs px-3 py-1.5 rounded-md bg-brand text-white hover:bg-brand/90 transition-colors"
+                        className="text-sm px-3 py-1.5 rounded-md bg-[#F43E01] text-white hover:bg-[#D63500] transition-colors font-medium"
                       >
                         Retomar
                       </button>
                     )}
                     <button
                       onClick={() => handleSessionAction(session.id, 'cancel')}
-                      className="text-xs px-3 py-1.5 rounded-md border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
+                      className="text-sm px-3 py-1.5 rounded-md border border-red-500/20 text-red-400 hover:bg-red-500/10 transition-colors font-medium"
                     >
                       Cancelar
                     </button>
@@ -542,7 +542,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
           )}
 
           {activeSessions.length > 0 && (
-            <p className="text-xs text-gray-400 flex items-center gap-1">
+            <p className="text-sm text-gray-400 flex items-center gap-1">
               <Spinner className="h-3 w-3" />
               Atualizando automaticamente a cada 5 segundos
             </p>
@@ -553,43 +553,43 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
       {/* ═══ Tab: History ═══ */}
       {activeTab === 'history' && (
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-gray-800">Historico de Sessoes</h2>
+          <h2 className="text-xl font-semibold text-white">Historico de Sessoes</h2>
 
           {historySessions.length === 0 ? (
-            <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
-              <p className="text-sm text-gray-500">Nenhuma sessao finalizada ainda.</p>
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-8 text-center">
+              <p className="text-base text-gray-300">Nenhuma sessao finalizada ainda.</p>
             </div>
           ) : (
-            <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-gray-100 bg-gray-50">
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Pregao</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Portal</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Status</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Lances</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Resultado</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Data</th>
+                    <tr className="border-b border-zinc-800 bg-zinc-800/50">
+                      <th className="text-left px-4 py-3 text-sm font-medium text-gray-400 uppercase tracking-wider">Pregao</th>
+                      <th className="text-left px-4 py-3 text-sm font-medium text-gray-400 uppercase tracking-wider">Portal</th>
+                      <th className="text-left px-4 py-3 text-sm font-medium text-gray-400 uppercase tracking-wider">Status</th>
+                      <th className="text-left px-4 py-3 text-sm font-medium text-gray-400 uppercase tracking-wider">Lances</th>
+                      <th className="text-left px-4 py-3 text-sm font-medium text-gray-400 uppercase tracking-wider">Resultado</th>
+                      <th className="text-left px-4 py-3 text-sm font-medium text-gray-400 uppercase tracking-wider">Data</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-50">
+                  <tbody className="divide-y divide-zinc-800/50">
                     {historySessions.map(session => (
-                      <tr key={session.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-4 py-3 font-medium text-gray-800">{session.pregao_id}</td>
-                        <td className="px-4 py-3 text-gray-600">
+                      <tr key={session.id} className="hover:bg-zinc-800/30 transition-colors">
+                        <td className="px-4 py-3 font-medium text-white">{session.pregao_id}</td>
+                        <td className="px-4 py-3 text-gray-300">
                           {PORTAL_OPTIONS.find(p => p.value === session.portal)?.label || session.portal}
                         </td>
                         <td className="px-4 py-3">
                           <StatusBadge status={session.status} />
                         </td>
-                        <td className="px-4 py-3 text-gray-600">{session.bids_placed}</td>
-                        <td className="px-4 py-3 text-gray-600">
+                        <td className="px-4 py-3 text-gray-300">{session.bids_placed}</td>
+                        <td className="px-4 py-3 text-gray-300">
                           {session.current_price != null
                             ? `R$ ${session.current_price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
                             : '-'}
                         </td>
-                        <td className="px-4 py-3 text-gray-400 text-xs">
+                        <td className="px-4 py-3 text-gray-400 text-sm">
                           {new Date(session.created_at).toLocaleDateString('pt-BR')}
                         </td>
                       </tr>
@@ -604,14 +604,14 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
 
       {/* ═══ Config Dialog ═══ */}
       {showConfigDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-gray-900">
+                <h3 className="text-lg font-semibold text-white">
                   {editingConfig ? 'Editar Portal' : 'Adicionar Portal'}
                 </h3>
-                <button onClick={() => setShowConfigDialog(false)} className="text-gray-400 hover:text-gray-600">
+                <button onClick={() => setShowConfigDialog(false)} className="text-zinc-500 hover:text-zinc-300">
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
@@ -621,11 +621,11 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
               <div className="space-y-4">
                 {/* Portal */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Portal *</label>
+                  <label className="block text-sm font-semibold text-gray-300 mb-1">Portal *</label>
                   <select
                     value={configForm.portal}
                     onChange={e => setConfigForm(f => ({ ...f, portal: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none"
+                    className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
                   >
                     <option value="">Selecione...</option>
                     {PORTAL_OPTIONS.map(p => (
@@ -636,35 +636,35 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
 
                 {/* Username (CPF) */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">CPF/Usuario *</label>
+                  <label className="block text-sm font-semibold text-gray-300 mb-1">CPF/Usuario *</label>
                   <input
                     type="text"
                     placeholder="000.000.000-00"
                     value={configForm.username}
                     onChange={e => setConfigForm(f => ({ ...f, username: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none"
+                    className="w-full bg-zinc-800 border border-zinc-700 text-white placeholder:text-zinc-500 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
                   />
                 </div>
 
                 {/* Password */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Senha *</label>
+                  <label className="block text-sm font-semibold text-gray-300 mb-1">Senha *</label>
                   <input
                     type="password"
                     placeholder={editingConfig ? 'Deixe vazio para manter' : 'Senha do portal'}
                     value={configForm.password}
                     onChange={e => setConfigForm(f => ({ ...f, password: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none"
+                    className="w-full bg-zinc-800 border border-zinc-700 text-white placeholder:text-zinc-500 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
                   />
                 </div>
 
                 {/* Strategy */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Estrategia *</label>
+                  <label className="block text-sm font-semibold text-gray-300 mb-1">Estrategia *</label>
                   <select
                     value={configForm.strategy}
                     onChange={e => setConfigForm(f => ({ ...f, strategy: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none"
+                    className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
                   >
                     {STRATEGY_OPTIONS.map(s => (
                       <option key={s.value} value={s.value}>{s.label}</option>
@@ -675,47 +675,47 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                 {/* Min decrease */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Decremento min (R$)</label>
+                    <label className="block text-sm font-semibold text-gray-300 mb-1">Decremento min (R$)</label>
                     <input
                       type="number"
                       step="0.01"
                       placeholder="0.01"
                       value={configForm.min_decrease_value}
                       onChange={e => setConfigForm(f => ({ ...f, min_decrease_value: e.target.value }))}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none"
+                      className="w-full bg-zinc-800 border border-zinc-700 text-white placeholder:text-zinc-500 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Decremento min (%)</label>
+                    <label className="block text-sm font-semibold text-gray-300 mb-1">Decremento min (%)</label>
                     <input
                       type="number"
                       step="0.1"
                       placeholder="0.5"
                       value={configForm.min_decrease_percent}
                       onChange={e => setConfigForm(f => ({ ...f, min_decrease_percent: e.target.value }))}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none"
+                      className="w-full bg-zinc-800 border border-zinc-700 text-white placeholder:text-zinc-500 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
                     />
                   </div>
                 </div>
 
                 {error && (
-                  <div className="rounded-lg border border-red-200 bg-red-50 p-3">
-                    <p className="text-sm text-red-700">{error}</p>
+                  <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-3">
+                    <p className="text-sm text-red-400">{error}</p>
                   </div>
                 )}
               </div>
 
-              <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
+              <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-zinc-800">
                 <button
                   onClick={() => setShowConfigDialog(false)}
-                  className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+                  className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={handleSaveConfig}
                   disabled={saving}
-                  className="bg-brand text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-brand/90 disabled:opacity-60 transition-colors flex items-center gap-2"
+                  className="bg-[#F43E01] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[#D63500] disabled:opacity-60 transition-colors flex items-center gap-2"
                 >
                   {saving && <Spinner />}
                   {editingConfig ? 'Salvar' : 'Adicionar'}
@@ -741,12 +741,12 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
 
       {/* ═══ New Session Dialog ═══ */}
       {showSessionDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-gray-900">Nova Sessao de Bot</h3>
-                <button onClick={() => setShowSessionDialog(false)} className="text-gray-400 hover:text-gray-600">
+                <h3 className="text-lg font-semibold text-white">Nova Sessao de Bot</h3>
+                <button onClick={() => setShowSessionDialog(false)} className="text-zinc-500 hover:text-zinc-300">
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
@@ -756,11 +756,11 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
               <div className="space-y-4">
                 {/* Config (Portal) */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Portal *</label>
+                  <label className="block text-sm font-semibold text-gray-300 mb-1">Portal *</label>
                   <select
                     value={sessionForm.config_id}
                     onChange={e => setSessionForm(f => ({ ...f, config_id: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none"
+                    className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
                   >
                     <option value="">Selecione...</option>
                     {configs.filter(c => c.is_active).map(c => (
@@ -773,48 +773,48 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
 
                 {/* Pregao ID */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">ID do Pregao *</label>
+                  <label className="block text-sm font-semibold text-gray-300 mb-1">ID do Pregao *</label>
                   <input
                     type="text"
                     placeholder="Ex: PE-2026/001"
                     value={sessionForm.pregao_id}
                     onChange={e => setSessionForm(f => ({ ...f, pregao_id: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none"
+                    className="w-full bg-zinc-800 border border-zinc-700 text-white placeholder:text-zinc-500 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
                   />
                 </div>
 
                 {/* Min price */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Preco minimo (R$)</label>
+                  <label className="block text-sm font-semibold text-gray-300 mb-1">Preco minimo (R$)</label>
                   <input
                     type="number"
                     step="0.01"
                     placeholder="Valor minimo para lances"
                     value={sessionForm.min_price}
                     onChange={e => setSessionForm(f => ({ ...f, min_price: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none"
+                    className="w-full bg-zinc-800 border border-zinc-700 text-white placeholder:text-zinc-500 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
                   />
                 </div>
 
                 {/* Max bids */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Max. lances</label>
+                  <label className="block text-sm font-semibold text-gray-300 mb-1">Max. lances</label>
                   <input
                     type="number"
                     placeholder="Limite de lances (opcional)"
                     value={sessionForm.max_bids}
                     onChange={e => setSessionForm(f => ({ ...f, max_bids: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none"
+                    className="w-full bg-zinc-800 border border-zinc-700 text-white placeholder:text-zinc-500 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
                   />
                 </div>
 
                 {/* Strategy override */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Estrategia (override)</label>
+                  <label className="block text-sm font-semibold text-gray-300 mb-1">Estrategia (override)</label>
                   <select
                     value={sessionForm.strategy}
                     onChange={e => setSessionForm(f => ({ ...f, strategy: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none"
+                    className="w-full bg-zinc-800 border border-zinc-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
                   >
                     <option value="">Usar padrao do portal</option>
                     {STRATEGY_OPTIONS.map(s => (
@@ -824,23 +824,23 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                 </div>
 
                 {error && (
-                  <div className="rounded-lg border border-red-200 bg-red-50 p-3">
-                    <p className="text-sm text-red-700">{error}</p>
+                  <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-3">
+                    <p className="text-sm text-red-400">{error}</p>
                   </div>
                 )}
               </div>
 
-              <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
+              <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-zinc-800">
                 <button
                   onClick={() => setShowSessionDialog(false)}
-                  className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+                  className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={handleCreateSession}
                   disabled={saving}
-                  className="bg-brand text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-brand/90 disabled:opacity-60 transition-colors flex items-center gap-2"
+                  className="bg-[#F43E01] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[#D63500] disabled:opacity-60 transition-colors flex items-center gap-2"
                 >
                   {saving && <Spinner />}
                   Iniciar Bot

@@ -134,7 +134,7 @@ function PosicaoIndicator({ pos, total }: { pos: number; total: number }) {
       }}>
         <span style={{ fontSize: 32, fontWeight: 900, color, fontFamily: '"IBM Plex Mono", monospace' }}>{pos}º</span>
       </div>
-      <span style={{ fontSize: 9, color: '#475569', letterSpacing: 1 }}>DE {total} LICITANTES</span>
+      <span style={{ fontSize: 12, color: '#94a3b8', letterSpacing: 1 }}>DE {total} LICITANTES</span>
     </div>
   )
 }
@@ -603,13 +603,13 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
       borderRadius: 10,
       padding: '16px 18px',
     },
-    metricLabel: { fontSize: 9, color: '#334155', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' as const },
+    metricLabel: { fontSize: 11, color: '#94a3b8', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' as const },
     metricValue: { fontSize: 22, fontWeight: 800, letterSpacing: 1, fontFamily: '"IBM Plex Mono", monospace' },
-    metricSub: { fontSize: 10, color: '#475569', marginTop: 4 },
+    metricSub: { fontSize: 11, color: '#94a3b8', marginTop: 4 },
     feedHeader: {
       padding: '14px 20px',
       borderBottom: '1px solid #ffffff08',
-      fontSize: 10, color: '#334155', letterSpacing: 2,
+      fontSize: 11, color: '#94a3b8', letterSpacing: 2,
       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
     },
     feed: {
@@ -622,7 +622,7 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
       borderBottom: '1px solid #ffffff04',
       display: 'flex', alignItems: 'center', gap: 12,
       background: tipo === 'nosso' ? '#f9731608' : 'transparent',
-      borderLeft: `3px solid ${tipo === 'nosso' ? '#f97316' : tipo === 'concorrente' ? '#ef444430' : '#334155'}`,
+      borderLeft: `3px solid ${tipo === 'nosso' ? '#f97316' : tipo === 'concorrente' ? '#ef444430' : '#94a3b8'}`,
     }),
     controlArea: {
       padding: 20,
@@ -684,8 +684,8 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
       <div style={s.header}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{ width: 8, height: 8, borderRadius: '50%', background: estado.fase === 'lances' ? '#22c55e' : '#ef4444', animation: 'pulse 1s infinite' }} />
-          <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 3, color: '#64748b' }}>LICITAGRAM</span>
-          <span style={{ color: '#1e293b' }}>|</span>
+          <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 3, color: '#64748b' }}>LICITAGRAM</span>
+          <span style={{ color: '#64748b' }}>|</span>
 
           {/* Session selector or title */}
           {activeSessions.length > 0 && !demoMode ? (
@@ -703,7 +703,7 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
               ))}
             </select>
           ) : (
-            <span style={{ fontSize: 10, color: '#94a3b8' }}>
+            <span style={{ fontSize: 12, color: '#94a3b8' }}>
               {demoMode ? 'Modo Demo · Simulação' : 'Nenhuma sessão ativa'}
             </span>
           )}
@@ -712,7 +712,7 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
           <button
             style={{
               ...s.btn(demoMode ? '#3b82f6' : '#475569', demoMode ? '#3b82f618' : 'transparent'),
-              fontSize: 9, padding: '6px 12px',
+              fontSize: 11, padding: '6px 12px',
             }}
             onClick={toggleDemoMode}
           >
@@ -755,7 +755,7 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
           {/* PROGRESSO DE LANCES */}
           <div style={{ background: '#0f1018', border: '1px solid #ffffff08', borderRadius: 10, padding: '18px 20px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-              <span style={{ fontSize: 10, color: '#334155', letterSpacing: 2 }}>LANCES EXECUTADOS PELO ROBÔ</span>
+              <span style={{ fontSize: 12, color: '#94a3b8', letterSpacing: 2 }}>LANCES EXECUTADOS PELO ROBÔ</span>
               <span style={{ fontSize: 12, fontWeight: 800, color: '#f97316', fontFamily: 'monospace' }}>
                 {estado.lances_executados}/{estado.lances_max}
               </span>
@@ -769,17 +769,17 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
               }} />
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
-              <span style={{ fontSize: 9, color: '#334155' }}>0</span>
-              <span style={{ fontSize: 9, color: progressPct > 75 ? '#ef4444' : '#334155' }}>
+              <span style={{ fontSize: 11, color: '#94a3b8' }}>0</span>
+              <span style={{ fontSize: 11, color: progressPct > 75 ? '#ef4444' : '#94a3b8' }}>
                 {progressPct > 75 ? '⚠ Próximo do limite' : `${estado.lances_max - estado.lances_executados} restantes`}
               </span>
-              <span style={{ fontSize: 9, color: '#334155' }}>{estado.lances_max}</span>
+              <span style={{ fontSize: 11, color: '#94a3b8' }}>{estado.lances_max}</span>
             </div>
           </div>
 
           {/* FASE DA DISPUTA */}
           <div style={{ background: '#0f1018', border: '1px solid #ffffff08', borderRadius: 10, padding: '18px 20px' }}>
-            <div style={{ fontSize: 9, color: '#334155', letterSpacing: 2, marginBottom: 12 }}>FASE DA DISPUTA</div>
+            <div style={{ fontSize: 11, color: '#94a3b8', letterSpacing: 2, marginBottom: 12 }}>FASE DA DISPUTA</div>
             <div style={{ display: 'flex', gap: 8 }}>
               {(['Abertura', 'Lances', 'Negociação', 'Resultado'] as const).map((fase, i) => {
                 const ativo = (estado.fase === 'lances' && i === 1) || (estado.fase === 'aguardando' && i === 0) || (estado.fase === 'encerrado' && i === 3)
@@ -790,10 +790,10 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
                     background: ativo ? '#f9731618' : done ? '#22c55e12' : '#ffffff04',
                     border: `1px solid ${ativo ? '#f9731644' : done ? '#22c55e33' : '#ffffff08'}`,
                   }}>
-                    <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: 1, color: ativo ? '#f97316' : done ? '#22c55e' : '#334155' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: ativo ? '#f97316' : done ? '#22c55e' : '#94a3b8' }}>
                       {done ? '✓' : ativo ? '●' : '○'}
                     </div>
-                    <div style={{ fontSize: 9, color: ativo ? '#f97316' : done ? '#22c55e' : '#334155', marginTop: 4 }}>{fase}</div>
+                    <div style={{ fontSize: 11, color: ativo ? '#f97316' : done ? '#22c55e' : '#94a3b8', marginTop: 4 }}>{fase}</div>
                   </div>
                 )
               })}
@@ -802,7 +802,7 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
 
           {/* CONTROLES */}
           <div style={{ background: '#0f1018', border: '1px solid #ffffff08', borderRadius: 10, padding: '18px 20px' }}>
-            <div style={{ fontSize: 9, color: '#334155', letterSpacing: 2, marginBottom: 14 }}>CONTROLES</div>
+            <div style={{ fontSize: 11, color: '#94a3b8', letterSpacing: 2, marginBottom: 14 }}>CONTROLES</div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
               <button style={s.btn(estado.status_robo === 'ativo' ? '#eab308' : '#22c55e', 'transparent')}
@@ -815,7 +815,7 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
               </button>
             </div>
 
-            <div style={{ fontSize: 9, color: '#334155', letterSpacing: 1, marginBottom: 8 }}>LANCE MANUAL</div>
+            <div style={{ fontSize: 11, color: '#94a3b8', letterSpacing: 1, marginBottom: 8 }}>LANCE MANUAL</div>
             <div style={s.manualInput}>
               <input
                 type="number"
@@ -832,7 +832,7 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
                 ENVIAR
               </button>
             </div>
-            <div style={{ fontSize: 9, color: '#1e293b', marginTop: 6 }}>
+            <div style={{ fontSize: 11, color: '#64748b', marginTop: 6 }}>
               Pressione Enter ou clique em Enviar para dar um lance manual
             </div>
           </div>
@@ -855,8 +855,8 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
               }} />
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ fontSize: 10, animation: 'pulse 1.5s infinite' }}>🧠</span>
-                  <span style={{ fontSize: 8, color: '#a855f7', letterSpacing: 2, fontWeight: 700 }}>INSIGHT IA</span>
+                  <span style={{ fontSize: 12, animation: 'pulse 1.5s infinite' }}>🧠</span>
+                  <span style={{ fontSize: 11, color: '#a855f7', letterSpacing: 2, fontWeight: 700 }}>INSIGHT IA</span>
                 </div>
                 {aiInsights.length > 1 && (
                   <div style={{ display: 'flex', gap: 3 }}>
@@ -888,7 +888,7 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
                         <div style={{ fontSize: 11, color, fontWeight: 700, marginBottom: 3, letterSpacing: 0.3 }}>
                           {ins.titulo}
                         </div>
-                        <div style={{ fontSize: 10, color: '#94a3b8', lineHeight: 1.5 }}>
+                        <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.5 }}>
                           {ins.descricao}
                         </div>
                       </div>
@@ -911,8 +911,8 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
           <div ref={feedRef} style={s.feed}>
             {lances.length === 0 && !demoMode && (
               <div style={{ padding: '40px 20px', textAlign: 'center' }}>
-                <div style={{ fontSize: 11, color: '#334155', marginBottom: 8 }}>Nenhum lance registrado</div>
-                <div style={{ fontSize: 10, color: '#1e293b' }}>
+                <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8 }}>Nenhum lance registrado</div>
+                <div style={{ fontSize: 12, color: '#64748b' }}>
                   {selectedSessionId ? 'Aguardando lances do robô...' : 'Selecione uma sessão ou ative o modo Demo'}
                 </div>
               </div>
@@ -923,7 +923,7 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
                 {/* Indicador */}
                 <div style={{
                   width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-                  background: l.tipo === 'nosso' ? '#f97316' : l.tipo === 'concorrente' ? '#ef4444' : '#334155',
+                  background: l.tipo === 'nosso' ? '#f97316' : l.tipo === 'concorrente' ? '#ef4444' : '#94a3b8',
                   animation: i === lances.length - 1 ? 'pulse 0.5s 3' : 'none',
                 }} />
 
@@ -937,18 +937,18 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
                     }}>
                       {fmt(l.valor)}
                     </span>
-                    <span style={{ fontSize: 9, color: '#334155' }}>{l.tempo}</span>
+                    <span style={{ fontSize: 11, color: '#94a3b8' }}>{l.tempo}</span>
                   </div>
                   <div style={{ display: 'flex', gap: 8, marginTop: 3, alignItems: 'center' }}>
                     <span style={{
-                      fontSize: 9, fontWeight: 700, letterSpacing: 1,
+                      fontSize: 11, fontWeight: 700, letterSpacing: 1,
                       color: l.tipo === 'nosso' ? '#f9731688' : l.tipo === 'concorrente' ? '#ef444488' : '#33415588',
                     }}>
                       {l.tipo === 'nosso' ? `NOSSO · ${l.executado_por === 'robo' ? '🤖 ROBÔ' : '👤 MANUAL'}` :
                        l.tipo === 'concorrente' ? l.empresa?.toUpperCase() : 'SISTEMA'}
                     </span>
                     {l.posicao_apos > 0 && (
-                      <span style={{ fontSize: 9, color: l.posicao_apos === 1 ? '#22c55e' : '#64748b' }}>
+                      <span style={{ fontSize: 11, color: l.posicao_apos === 1 ? '#22c55e' : '#64748b' }}>
                         → {l.posicao_apos}º lugar
                       </span>
                     )}
@@ -961,7 +961,7 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
             {estado.fase === 'lances' && (
               <div style={{ padding: '12px 20px', display: 'flex', gap: 8, alignItems: 'center' }}>
                 <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#f97316', animation: 'pulse 1s infinite' }} />
-                <span style={{ fontSize: 9, color: '#334155' }}>
+                <span style={{ fontSize: 11, color: '#94a3b8' }}>
                   {demoMode ? 'Simulação ativa...' : selectedSessionId ? 'Polling a cada 3s...' : 'Aguardando sessão...'}
                 </span>
               </div>
@@ -996,8 +996,8 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
               { label: 'Total lances', val: lances.length },
             ].map(s => (
               <div key={s.label} style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 9, color: '#334155', marginBottom: 2 }}>{s.label}</div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: '#475569', fontFamily: 'monospace' }}>{s.val}</div>
+                <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 2 }}>{s.label}</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: '#cbd5e1', fontFamily: 'monospace' }}>{s.val}</div>
               </div>
             ))}
           </div>

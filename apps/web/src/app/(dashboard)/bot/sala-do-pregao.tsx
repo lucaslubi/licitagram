@@ -264,7 +264,7 @@ function PorteBadge({ porte }: { porte: string }) {
   return (
     <span style={{
       background: s.bg, color: s.color, border: `1px solid ${s.color}33`,
-      borderRadius: 3, padding: '1px 6px', fontSize: 10, fontWeight: 600,
+      borderRadius: 3, padding: '1px 6px', fontSize: 12, fontWeight: 600,
       textTransform: 'uppercase', letterSpacing: 0.5,
     }}>
       {porte}
@@ -576,7 +576,7 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
       color: isDemo ? '#3b82f6' : '#ef4444',
       border: `1px solid ${isDemo ? '#3b82f655' : '#ef444455'}`,
       borderRadius: 4,
-      padding: '3px 12px', fontSize: 10, fontWeight: 700,
+      padding: '3px 12px', fontSize: 12, fontWeight: 700,
       letterSpacing: 2, animation: 'pulse 2s infinite',
     },
     tenderTitle: { fontSize: 13, color: '#94a3b8', maxWidth: 480, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
@@ -600,7 +600,7 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       position: 'sticky', top: 0, background: '#0a0b12', zIndex: 10,
     },
-    panelTitle: { fontSize: 10, fontWeight: 700, letterSpacing: 3, color: '#475569', textTransform: 'uppercase' },
+    panelTitle: { fontSize: 12, fontWeight: 700, letterSpacing: 3, color: '#cbd5e1', textTransform: 'uppercase' },
     panelCount: { fontSize: 11, color: '#f97316', fontWeight: 700 },
     habilitadoRow: {
       padding: '14px 20px',
@@ -611,7 +611,7 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
     habilitadoTop: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
     habilitadoName: { fontSize: 12, fontWeight: 600, color: '#e2e8f0', marginBottom: 4, letterSpacing: 0.3 },
     habilitadoMeta: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' as const },
-    metaChip: { fontSize: 10, color: '#64748b', fontFamily: 'monospace' },
+    metaChip: { fontSize: 12, color: '#64748b', fontFamily: 'monospace' },
     diffPanel: { padding: 20, display: 'flex', flexDirection: 'column' as const, gap: 20 },
     factorRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #ffffff06' },
     factorLabel: { fontSize: 11, color: '#64748b' },
@@ -623,7 +623,7 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
     },
     strategyPanel: { padding: 20, display: 'flex', flexDirection: 'column' as const, gap: 16 },
     inputGroup: { display: 'flex', flexDirection: 'column' as const, gap: 6 },
-    label: { fontSize: 10, color: '#475569', letterSpacing: 2, textTransform: 'uppercase' as const, fontWeight: 700 },
+    label: { fontSize: 12, color: '#cbd5e1', letterSpacing: 2, textTransform: 'uppercase' as const, fontWeight: 700 },
     input: {
       background: '#ffffff08', border: '1px solid #ffffff12',
       borderRadius: 6, padding: '10px 14px',
@@ -636,7 +636,7 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
       border: `1px solid ${active ? color + '88' : '#ffffff12'}`,
       background: active ? color + '18' : 'transparent',
       color: active ? color : '#475569',
-      fontSize: 10, fontWeight: 700, letterSpacing: 1,
+      fontSize: 12, fontWeight: 700, letterSpacing: 1,
       textAlign: 'center', textTransform: 'uppercase',
       transition: 'all 0.15s',
     }),
@@ -658,7 +658,7 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
       borderRadius: 8, padding: '14px 16px',
     },
     summaryRow: { display: 'flex', justifyContent: 'space-between', padding: '4px 0' },
-    summaryKey: { fontSize: 10, color: '#64748b', letterSpacing: 1 },
+    summaryKey: { fontSize: 12, color: '#64748b', letterSpacing: 1 },
     summaryVal: { fontSize: 12, fontWeight: 700, fontFamily: 'monospace' },
     ctaBtn: {
       padding: '14px 20px', borderRadius: 8,
@@ -683,12 +683,12 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
       <div style={{ ...s.root, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 24 }}>
         <div style={s.scanline} />
         <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-          <div style={{ fontSize: 10, color: '#f97316', letterSpacing: 4, fontFamily: 'monospace', animation: 'pulse 1s infinite' }}>
+          <div style={{ fontSize: 12, color: '#f97316', letterSpacing: 4, fontFamily: 'monospace', animation: 'pulse 1s infinite' }}>
             ◈ INICIALIZANDO SALA DO PREGÃO
           </div>
           {['Carregando habilitados...', 'Analisando histórico dos concorrentes...', 'Calculando score de dificuldade...', 'Buscando licitações similares...'].map((msg, i) => (
             <div key={i} style={{
-              fontSize: 11, color: '#334155', fontFamily: 'monospace', letterSpacing: 1,
+              fontSize: 11, color: '#94a3b8', fontFamily: 'monospace', letterSpacing: 1,
               opacity: 0, animation: `fadeIn 0.5s ${i * 0.4}s forwards`,
             }}>
               {msg}
@@ -763,7 +763,7 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
           )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
-          <div style={{ fontSize: 10, color: '#475569', textAlign: 'right' }}>
+          <div style={{ fontSize: 12, color: '#cbd5e1', textAlign: 'right' }}>
             <div>ABERTURA</div>
             <div style={{ color: '#94a3b8', fontWeight: 700 }}>
               {selectedTender?.data_abertura
@@ -771,11 +771,11 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
                 : '—'}
             </div>
           </div>
-          <div style={{ fontSize: 10, color: '#475569', textAlign: 'right' }}>
+          <div style={{ fontSize: 12, color: '#cbd5e1', textAlign: 'right' }}>
             <div>VALOR EST.</div>
             <div style={{ color: '#f1f5f9', fontWeight: 700 }}>{fmt(valorEstimado)}</div>
           </div>
-          <div style={{ fontSize: 10, color: '#475569', textAlign: 'right' }}>
+          <div style={{ fontSize: 12, color: '#cbd5e1', textAlign: 'right' }}>
             <div>HORA</div>
             <div style={s.clock}>{clock}</div>
           </div>
@@ -807,7 +807,7 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
                     <div style={s.habilitadoName}>
                       {h.razao_social}
                       {h.ganhou_neste_orgao && (
-                        <span style={{ fontSize: 9, color: '#ef4444', marginLeft: 8, letterSpacing: 1 }}>
+                        <span style={{ fontSize: 11, color: '#ef4444', marginLeft: 8, letterSpacing: 1 }}>
                           ⚡ DOMINA ESTE ÓRGÃO
                         </span>
                       )}
@@ -823,7 +823,7 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
                     <WinRateBadge rate={h.win_rate} />
-                    <span style={{ fontSize: 9, color: '#334155' }}>
+                    <span style={{ fontSize: 11, color: '#94a3b8' }}>
                       {expandedCnpj === h.cnpj ? '▲' : '▼'}
                     </span>
                   </div>
@@ -837,7 +837,7 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
                     { label: 'Última part.', val: h.ultima_participacao },
                   ].map(item => (
                     <div key={item.label}>
-                      <div style={{ fontSize: 9, color: '#334155', letterSpacing: 1, marginBottom: 2 }}>{item.label}</div>
+                      <div style={{ fontSize: 11, color: '#94a3b8', letterSpacing: 1, marginBottom: 2 }}>{item.label}</div>
                       <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 700 }}>{item.val}</div>
                     </div>
                   ))}
@@ -847,7 +847,7 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
               {/* EXPANDIDO — HISTÓRICO */}
               {expandedCnpj === h.cnpj && h.historico && (
                 <div style={{ background: '#070810', padding: '12px 20px 16px', borderBottom: '1px solid #ffffff06' }}>
-                  <div style={{ fontSize: 9, color: '#334155', letterSpacing: 2, marginBottom: 10 }}>ÚLTIMAS PARTICIPAÇÕES</div>
+                  <div style={{ fontSize: 11, color: '#94a3b8', letterSpacing: 2, marginBottom: 10 }}>ÚLTIMAS PARTICIPAÇÕES</div>
                   {h.historico.map((item, idx) => (
                     <div key={idx} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: '8px 0', borderBottom: idx < h.historico!.length - 1 ? '1px solid #ffffff04' : 'none' }}>
                       <div style={{
@@ -856,9 +856,9 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
                       }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 11, color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.objeto}</div>
-                        <div style={{ fontSize: 10, color: '#475569', marginTop: 2 }}>{item.orgao} · {fmt(item.valor)} · {item.data}</div>
+                        <div style={{ fontSize: 12, color: '#cbd5e1', marginTop: 2 }}>{item.orgao} · {fmt(item.valor)} · {item.data}</div>
                       </div>
-                      <div style={{ fontSize: 10, color: item.resultado === 'ganhou' ? '#22c55e' : '#ef4444', fontWeight: 700, flexShrink: 0 }}>
+                      <div style={{ fontSize: 12, color: item.resultado === 'ganhou' ? '#22c55e' : '#ef4444', fontWeight: 700, flexShrink: 0 }}>
                         {item.resultado === 'ganhou' ? 'GANHOU' : 'PERDEU'}
                       </div>
                     </div>
@@ -883,7 +883,7 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
 
             {/* FATORES */}
             <div>
-              <div style={{ fontSize: 9, color: '#334155', letterSpacing: 2, marginBottom: 8 }}>FATORES DE DIFICULDADE</div>
+              <div style={{ fontSize: 11, color: '#94a3b8', letterSpacing: 2, marginBottom: 8 }}>FATORES DE DIFICULDADE</div>
               {[
                 { label: 'Nº de concorrentes', val: `${difficulty.n_concorrentes} empresas`, flag: difficulty.n_concorrentes > 5 },
                 { label: 'Win rate médio', val: `${difficulty.win_rate_medio}%`, flag: difficulty.win_rate_medio > 70 },
@@ -899,18 +899,18 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
 
             {/* RECOMENDAÇÃO */}
             <div style={s.recommendation}>
-              <div style={{ fontSize: 9, color: '#f97316', letterSpacing: 2, marginBottom: 6 }}>⚡ RECOMENDAÇÃO DA IA</div>
+              <div style={{ fontSize: 11, color: '#f97316', letterSpacing: 2, marginBottom: 6 }}>⚡ RECOMENDAÇÃO DA IA</div>
               <div style={{ fontSize: 11, lineHeight: 1.7 }}>{difficulty.recomendacao}</div>
             </div>
 
             {/* AI INSIGHTS */}
             <div>
-              <div style={{ fontSize: 9, color: '#a855f7', letterSpacing: 2, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ fontSize: 11, color: '#a855f7', letterSpacing: 2, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ display: 'inline-block', animation: aiLoading ? 'pulse 1s infinite' : 'none' }}>🧠</span>
                 INSIGHTS IA
                 {aiInsights && (
                   <span style={{
-                    fontSize: 9, color: '#475569', fontWeight: 400, letterSpacing: 0,
+                    fontSize: 11, color: '#cbd5e1', fontWeight: 400, letterSpacing: 0,
                   }}>
                     — Confiança: {aiInsights.score_confianca}%
                   </span>
@@ -931,7 +931,7 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
                   }} />
                   <div>
                     <div style={{ fontSize: 11, color: '#a855f7', fontWeight: 600, marginBottom: 2 }}>Analisando concorrentes...</div>
-                    <div style={{ fontSize: 9, color: '#475569' }}>A IA está processando dados dos habilitados</div>
+                    <div style={{ fontSize: 11, color: '#cbd5e1' }}>A IA está processando dados dos habilitados</div>
                   </div>
                 </div>
               )}
@@ -960,12 +960,12 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
                             {ins.titulo}
                           </span>
                         </div>
-                        <div style={{ fontSize: 10, color: '#94a3b8', lineHeight: 1.6, marginBottom: 6 }}>
+                        <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.6, marginBottom: 6 }}>
                           {ins.descricao}
                         </div>
                         {ins.acao_sugerida && (
                           <div style={{
-                            fontSize: 9, color: '#cbd5e1', letterSpacing: 0.5,
+                            fontSize: 11, color: '#cbd5e1', letterSpacing: 0.5,
                             background: `${borderColor}0a`, padding: '4px 8px',
                             borderRadius: 4, display: 'inline-block',
                           }}>
@@ -980,7 +980,7 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
                   <div style={{
                     background: '#a855f708', border: '1px solid #a855f722',
                     borderRadius: 6, padding: '8px 12px',
-                    fontSize: 10, color: '#a855f7', lineHeight: 1.6,
+                    fontSize: 12, color: '#a855f7', lineHeight: 1.6,
                     fontStyle: 'italic',
                   }}>
                     {aiInsights.resumo}
@@ -991,8 +991,8 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
 
             {/* SUGESTÃO DE PREÇO */}
             <div>
-              <div style={{ fontSize: 9, color: '#334155', letterSpacing: 2, marginBottom: 10 }}>SUGESTÃO DE LANCE</div>
-              <div style={{ fontSize: 9, color: '#475569', marginBottom: 12 }}>
+              <div style={{ fontSize: 11, color: '#94a3b8', letterSpacing: 2, marginBottom: 10 }}>SUGESTÃO DE LANCE</div>
+              <div style={{ fontSize: 11, color: '#cbd5e1', marginBottom: 12 }}>
                 Baseado em {suggestion.baseado_em} {isDemo ? 'licitações similares encerradas' : 'concorrentes analisados'}
               </div>
 
@@ -1015,15 +1015,15 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-                <div style={{ fontSize: 10, color: '#475569' }}>
+                <div style={{ fontSize: 12, color: '#cbd5e1' }}>
                   <div>MÍNIMO</div>
                   <div style={{ color: '#22c55e', fontWeight: 700 }}>{fmt(suggestion.faixa_minima)}</div>
                 </div>
                 <div style={{ fontSize: 12, textAlign: 'center' }}>
-                  <div style={{ fontSize: 9, color: '#f97316', letterSpacing: 1 }}>SUGERIDO</div>
+                  <div style={{ fontSize: 11, color: '#f97316', letterSpacing: 1 }}>SUGERIDO</div>
                   <div style={{ color: '#f1f5f9', fontWeight: 800, fontSize: 15 }}>{fmt(suggestion.lance_sugerido)}</div>
                 </div>
-                <div style={{ fontSize: 10, color: '#475569', textAlign: 'right' }}>
+                <div style={{ fontSize: 12, color: '#cbd5e1', textAlign: 'right' }}>
                   <div>MÁXIMO</div>
                   <div style={{ color: '#f1f5f9', fontWeight: 700 }}>{fmt(suggestion.faixa_maxima)}</div>
                 </div>
@@ -1033,20 +1033,20 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
             {/* HISTÓRICO SIMILARES */}
             {suggestion.historico.length > 0 && (
               <div>
-                <div style={{ fontSize: 9, color: '#334155', letterSpacing: 2, marginBottom: 10 }}>LICITAÇÕES SIMILARES ENCERRADAS</div>
+                <div style={{ fontSize: 11, color: '#94a3b8', letterSpacing: 2, marginBottom: 10 }}>LICITAÇÕES SIMILARES ENCERRADAS</div>
                 <table style={s.histTable}>
                   <thead>
                     <tr>
                       {['Data', 'Val. Est.', 'Vencedor', 'Desc.'].map(h => (
-                        <th key={h} style={{ textAlign: 'left', fontSize: 9, color: '#334155', fontWeight: 600, padding: '0 0 8px', letterSpacing: 1 }}>{h}</th>
+                        <th key={h} style={{ textAlign: 'left', fontSize: 11, color: '#94a3b8', fontWeight: 600, padding: '0 0 8px', letterSpacing: 1 }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {suggestion.historico.map((h, i) => (
                       <tr key={i} style={{ borderTop: '1px solid #ffffff04' }}>
-                        <td style={{ padding: '7px 0', fontSize: 10, color: '#475569' }}>{h.data}</td>
-                        <td style={{ padding: '7px 0', fontSize: 10, color: '#64748b' }}>{fmt(h.valor_estimado)}</td>
+                        <td style={{ padding: '7px 0', fontSize: 12, color: '#cbd5e1' }}>{h.data}</td>
+                        <td style={{ padding: '7px 0', fontSize: 12, color: '#64748b' }}>{fmt(h.valor_estimado)}</td>
                         <td style={{ padding: '7px 0', fontSize: 11, color: '#94a3b8', fontWeight: 700 }}>{fmt(h.lance_vencedor)}</td>
                         <td style={{ padding: '7px 0', fontSize: 11, color: h.desconto_percent > 20 ? '#f97316' : '#22c55e', fontWeight: 700 }}>
                           -{h.desconto_percent}%
@@ -1064,7 +1064,7 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
         <div style={s.panel}>
           <div style={s.panelHeader}>
             <span style={s.panelTitle}>◈ Estratégia de disputa</span>
-            <span style={{ fontSize: 9, color: '#334155' }}>Configure antes de entrar</span>
+            <span style={{ fontSize: 11, color: '#94a3b8' }}>Configure antes de entrar</span>
           </div>
 
           <div style={s.strategyPanel}>
@@ -1089,7 +1089,7 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
                   value={strategy.lance_inicial}
                   onChange={e => setStrategy(p => ({ ...p, lance_inicial: +e.target.value }))}
                 />
-                <span style={{ fontSize: 9, color: '#f97316' }}>
+                <span style={{ fontSize: 11, color: '#f97316' }}>
                   -{descontoSugerido}% do valor est.
                 </span>
               </div>
@@ -1101,7 +1101,7 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
                   value={strategy.lance_minimo}
                   onChange={e => setStrategy(p => ({ ...p, lance_minimo: +e.target.value }))}
                 />
-                <span style={{ fontSize: 9, color: '#ef4444' }}>
+                <span style={{ fontSize: 11, color: '#ef4444' }}>
                   Robô nunca descerá abaixo
                 </span>
               </div>
@@ -1122,7 +1122,7 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
                     onClick={() => setStrategy(p => ({ ...p, modo: m.id }))}
                   >
                     <div>{m.label}</div>
-                    <div style={{ fontSize: 8, opacity: 0.7, marginTop: 2 }}>{m.desc}</div>
+                    <div style={{ fontSize: 11, opacity: 0.7, marginTop: 2 }}>{m.desc}</div>
                   </button>
                 ))}
               </div>
@@ -1170,7 +1170,7 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
             <div style={s.toggleRow}>
               <div>
                 <div style={s.toggleLabel}>Ativar robô automático</div>
-                <div style={{ fontSize: 9, color: '#334155', marginTop: 2 }}>
+                <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
                   {strategy.robo_ativo ? '🤖 Executa lances automaticamente durante o pregão' : 'Você precisará dar lances manualmente'}
                 </div>
               </div>
@@ -1182,7 +1182,7 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
 
             {/* SUMMARY */}
             <div style={s.summaryBox}>
-              <div style={{ fontSize: 9, color: '#f97316', letterSpacing: 2, marginBottom: 10 }}>RESUMO DA ESTRATÉGIA</div>
+              <div style={{ fontSize: 11, color: '#f97316', letterSpacing: 2, marginBottom: 10 }}>RESUMO DA ESTRATÉGIA</div>
               {[
                 { k: 'Lance inicial', v: fmt(strategy.lance_inicial), color: '#f1f5f9' },
                 { k: 'Lance mínimo', v: fmt(strategy.lance_minimo), color: '#ef4444' },
@@ -1212,7 +1212,7 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
             </button>
 
             {confirmed && (
-              <div style={{ textAlign: 'center', fontSize: 10, color: '#22c55e', letterSpacing: 1, animation: 'pulse 2s infinite' }}>
+              <div style={{ textAlign: 'center', fontSize: 12, color: '#22c55e', letterSpacing: 1, animation: 'pulse 2s infinite' }}>
                 {isDemo
                   ? 'Modo demo — conecte um pregão real para criar sessão'
                   : `Aguardando abertura da fase de lances · ${strategy.robo_ativo ? 'Robô em standby' : 'Modo manual'}`
@@ -1220,7 +1220,7 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
               </div>
             )}
 
-            <div style={{ fontSize: 9, color: '#1e293b', textAlign: 'center', lineHeight: 1.6 }}>
+            <div style={{ fontSize: 11, color: '#64748b', textAlign: 'center', lineHeight: 1.6 }}>
               O robô nunca dará lances abaixo do valor mínimo configurado.{'\n'}
               Você pode pausar ou assumir manualmente a qualquer momento.
             </div>
