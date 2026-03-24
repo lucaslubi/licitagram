@@ -116,45 +116,53 @@ const COMPARISON_ROWS: [string, string | boolean, string | boolean, string | boo
   ['Monitoramento multi-portal', true, true, false],
 ]
 
+const SYSTEM_STATUS = [
+  { id: '01', label: 'Scraping', active: true },
+  { id: '02', label: 'Matching', active: true },
+  { id: '03', label: 'AI Triage', active: true },
+  { id: '04', label: 'Alertas', active: true },
+  { id: '05', label: 'Compliance', active: true },
+]
+
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-[#FAFAF8]">
+    <div className="min-h-screen bg-[#1A1C1F]">
       {/* ── Header ── */}
-      <header className="sticky top-0 z-50 border-b border-black/[0.08] bg-[#FAFAF8]/80 backdrop-blur-lg">
+      <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-[#1A1C1F]/90 backdrop-blur-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center">
-            <Image src="/logo.png" alt="Licitagram" width={232} height={52} className="h-10 sm:h-[3.27rem] w-auto" />
+            <Image src="/logo.png" alt="Licitagram" width={232} height={52} className="h-10 sm:h-[3.27rem] w-auto brightness-0 invert" />
           </div>
           <nav className="hidden md:flex items-center gap-8">
-            <a href="#inteligencia" className="text-body-sm text-[#69695D] hover:text-[#26292E] transition-all duration-150 ease-in-out">
+            <a href="#inteligencia" className="text-sm text-[#8B8B8B] hover:text-white transition-colors duration-200">
               Inteligência
             </a>
-            <a href="#mapa" className="text-body-sm text-[#69695D] hover:text-[#26292E] transition-all duration-150 ease-in-out">
+            <a href="#mapa" className="text-sm text-[#8B8B8B] hover:text-white transition-colors duration-200">
               Mapa
             </a>
-            <a href="#pricing" className="text-body-sm text-[#69695D] hover:text-[#26292E] transition-all duration-150 ease-in-out">
+            <a href="#pricing" className="text-sm text-[#8B8B8B] hover:text-white transition-colors duration-200">
               Preços
             </a>
-            <a href="#plataforma" className="text-body-sm text-[#69695D] hover:text-[#26292E] transition-all duration-150 ease-in-out">
+            <a href="#plataforma" className="text-sm text-[#8B8B8B] hover:text-white transition-colors duration-200">
               Plataforma
             </a>
-            <a href="#governos" className="text-body-sm text-[#69695D] hover:text-[#26292E] transition-all duration-150 ease-in-out">
+            <a href="#governos" className="text-sm text-[#8B8B8B] hover:text-white transition-colors duration-200">
               Para Governos
             </a>
-            <a href="#faq" className="text-body-sm text-[#69695D] hover:text-[#26292E] transition-all duration-150 ease-in-out">
+            <a href="#faq" className="text-sm text-[#8B8B8B] hover:text-white transition-colors duration-200">
               FAQ
             </a>
           </nav>
           <div className="flex items-center gap-2 sm:gap-3">
             <Link
               href="/login"
-              className="hidden sm:inline text-body-sm font-medium text-[#69695D] hover:text-[#26292E] transition-all duration-150 ease-in-out"
+              className="hidden sm:inline text-sm font-medium text-[#8B8B8B] hover:text-white transition-colors duration-200"
             >
               Entrar
             </Link>
             <Link
               href="/register"
-              className="text-body-sm font-medium px-3 sm:px-4 py-2 bg-[#F43E01] text-white rounded-[1000px] hover:bg-[#C23101] transition-all duration-150 ease-in-out"
+              className="text-sm font-medium px-4 py-2 bg-[#F43E01] text-white rounded-full hover:bg-[#D63500] transition-all duration-200"
             >
               Criar Conta
             </Link>
@@ -164,121 +172,147 @@ export default function LandingPage() {
         </div>
       </header>
 
-      {/* ── Hero — Dark section with YouTube background video ── */}
-      <section className="relative bg-[#26292E] overflow-hidden">
-        {/* Background video — native MP4, loop, no controls */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <video
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload="auto"
-            className="absolute top-1/2 left-1/2 min-w-full min-h-full w-auto h-auto -translate-x-1/2 -translate-y-1/2 object-cover"
-          >
-            <source src="/hero-bg.mp4" type="video/mp4" />
-          </video>
-        </div>
-        {/* Dark overlay for text readability */}
-        <div className="absolute inset-0 bg-[#26292E]/75" />
-        <div className="absolute inset-0 bg-gradient-to-br from-[#26292E]/80 via-transparent to-[#26292E]/60" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(244,62,1,0.08),transparent_60%)]" />
+      {/* ── Hero — Split layout: copy left, video + system status right ── */}
+      <section className="relative bg-[#1A1C1F] overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(244,62,1,0.05),transparent_60%)]" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-28 lg:py-36">
-          <div className="max-w-3xl">
-            <p className="text-overline uppercase text-[#F43E01] tracking-widest mb-4">
-              Sistema ativo · R$ 1,5 trilhão mapeado em tempo real
-            </p>
-            <h1 className="text-display-lg sm:text-display-xl text-white mb-3 text-balance leading-[1.1]">
-              Cada real que o governo gasta,{' '}
-              <span className="text-[#F43E01]">você sabe antes de todos.</span>
-            </h1>
-            <p className="text-body sm:text-body-lg text-[#9C9C90] mb-6 sm:mb-8 max-w-2xl leading-relaxed">
-              O maior sistema privado de inteligência de compras governamentais da América Latina. Cruzamos em tempo real cada licitação publicada no Brasil com 64 milhões de entidades corporativas, detectamos padrões de fraude e entregamos vantagem competitiva que não existe em lugar nenhum do mercado.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Link
-                href="/register"
-                className="inline-flex items-center justify-center px-6 sm:px-8 py-3 sm:py-3.5 bg-[#F43E01] text-white rounded-[1000px] text-body-sm sm:text-body font-medium hover:bg-[#C23101] transition-all duration-150 ease-in-out shadow-lg shadow-[#F43E01]/20"
-              >
-                Começar agora — 14 dias grátis
-                <svg className="ml-2 w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                </svg>
-              </Link>
-              <a
-                href="#inteligencia"
-                className="inline-flex items-center justify-center px-6 sm:px-8 py-3 sm:py-3.5 border border-white/20 text-[#9C9C90] rounded-[1000px] text-body-sm sm:text-body font-medium hover:border-white/40 hover:text-white transition-all duration-150 ease-in-out"
-              >
-                Ver a plataforma ao vivo
-              </a>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            {/* Left — Copy */}
+            <div>
+              <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-6">
+                SISTEMA ATIVO &middot; TEMPO REAL
+              </p>
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white tracking-tight leading-[1.08] mb-6">
+                Cada real que o governo gasta,{' '}
+                <span className="text-[#F43E01]">você sabe antes de todos.</span>
+              </h1>
+              <p className="text-base sm:text-lg text-[#8B8B8B] mb-8 max-w-xl leading-relaxed">
+                O maior sistema privado de inteligência de compras governamentais da América Latina. Cruzamos em tempo real cada licitação publicada no Brasil com 64 milhões de entidades corporativas, detectamos padrões de fraude e entregamos vantagem competitiva que não existe em lugar nenhum do mercado.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Link
+                  href="/register"
+                  className="inline-flex items-center justify-center px-7 py-3.5 bg-[#F43E01] text-white rounded-full text-sm font-medium hover:bg-[#D63500] transition-all duration-200 shadow-lg shadow-[#F43E01]/20"
+                >
+                  Começar agora — 14 dias grátis
+                  <svg className="ml-2 w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                </Link>
+                <a
+                  href="#inteligencia"
+                  className="inline-flex items-center justify-center px-7 py-3.5 border border-white/10 text-[#8B8B8B] rounded-full text-sm font-medium hover:border-white/25 hover:text-white transition-all duration-200"
+                >
+                  Ver a plataforma ao vivo
+                </a>
+              </div>
+              <p className="mt-5 text-xs text-[#555]">Sem cartão de crédito. Acesso imediato.</p>
             </div>
-            <p className="mt-6 text-caption text-[#69695D]">Sem cartão de crédito. Acesso imediato.</p>
+
+            {/* Right — Video + System Status */}
+            <div className="space-y-5">
+              {/* Video container */}
+              <div className="relative rounded-xl overflow-hidden border border-white/[0.06] bg-[#202020]">
+                <video
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  preload="auto"
+                  className="w-full aspect-video object-cover"
+                >
+                  <source src="/hero-bg.mp4" type="video/mp4" />
+                </video>
+              </div>
+
+              {/* System Status Panel */}
+              <div className="rounded-xl border border-white/[0.06] bg-[#202020] p-5">
+                <p className="font-mono text-[10px] uppercase text-[#8B8B8B] tracking-[0.15em] mb-4">System Status</p>
+                <div className="space-y-2.5">
+                  {SYSTEM_STATUS.map((s) => (
+                    <div key={s.id} className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="font-mono text-xs text-[#555]">{s.id}.</span>
+                        <span className="text-sm text-[#E5E5E0]">{s.label}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                        </span>
+                        <span className="font-mono text-[10px] text-green-500 uppercase tracking-wider">Online</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
       {/* ── Stats bar ── */}
-      <section className="border-b border-black/[0.08] bg-[#F3F3EE]">
+      <section className="border-y border-white/[0.06] bg-[#202020]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 text-center">
             <div>
-              <p className="text-heading-xl font-bold text-[#26292E]">R$ 1,5 tri</p>
-              <p className="text-body-sm text-[#69695D] mt-1">Em oportunidades mapeadas</p>
+              <p className="font-mono text-3xl sm:text-4xl font-bold text-white tracking-tight">R$1.5tri</p>
+              <p className="text-sm text-[#8B8B8B] mt-2">Em oportunidades mapeadas</p>
             </div>
             <div>
-              <p className="text-heading-xl font-bold text-[#26292E]">132.448+</p>
-              <p className="text-body-sm text-[#69695D] mt-1">Editais monitorados</p>
+              <p className="font-mono text-3xl sm:text-4xl font-bold text-white tracking-tight">132K+</p>
+              <p className="text-sm text-[#8B8B8B] mt-2">Editais monitorados</p>
             </div>
             <div>
-              <p className="text-heading-xl font-bold text-[#F43E01]">64M</p>
-              <p className="text-body-sm text-[#69695D] mt-1">Entidades cruzadas</p>
+              <p className="font-mono text-3xl sm:text-4xl font-bold text-[#F43E01] tracking-tight">64M</p>
+              <p className="text-sm text-[#8B8B8B] mt-2">Entidades cruzadas</p>
             </div>
             <div>
-              <p className="text-heading-xl font-bold text-[#26292E]">R$ 1 tri</p>
-              <p className="text-body-sm text-[#69695D] mt-1">Novas contratações/ano</p>
+              <p className="font-mono text-3xl sm:text-4xl font-bold text-white tracking-tight">R$1tri</p>
+              <p className="text-sm text-[#8B8B8B] mt-2">Novas contratações/ano</p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── 1. Manifesto / "Por que existimos" ── */}
-      <section className="py-20 sm:py-28 bg-[#FAFAF8]">
+      {/* ── 01 — Manifesto / "Por que existimos" ── */}
+      <section className="py-20 sm:py-28 bg-[#1A1C1F]">
         <div className="max-w-4xl mx-auto px-4 text-center">
-          <p className="text-overline uppercase text-[#F43E01] tracking-widest mb-4">Por que existimos</p>
-          <h2 className="text-display-lg text-[#26292E] text-balance mb-6">
+          <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">01 — Por que existimos</p>
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight text-balance mb-6">
             Cartéis operam há décadas.{' '}
-            <span className="text-[#69695D]">Construímos o Licitagram para acabar com isso.</span>
+            <span className="text-[#8B8B8B]">Construímos o Licitagram para acabar com isso.</span>
           </h2>
-          <p className="text-body-lg text-[#69695D] max-w-2xl mx-auto leading-relaxed">
+          <p className="text-lg text-[#8B8B8B] max-w-2xl mx-auto leading-relaxed">
             O governo brasileiro é o maior comprador do país. Empresas de fachada disputam editais milionários. Oportunidades são perdidas por quem não sabe que existem. Não é uma ferramenta de busca — é uma infraestrutura de inteligência do tipo que até hoje só existia dentro de governos.
           </p>
         </div>
       </section>
 
-      {/* ── 2. Mapa de Inteligência (dark bg) ── */}
-      <section id="mapa" className="py-20 sm:py-28 bg-[#26292E]">
+      {/* ── 02 — Mapa de Inteligência ── */}
+      <section id="mapa" className="py-20 sm:py-28 bg-[#202020]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl mx-auto text-center mb-16">
-            <p className="text-overline uppercase text-[#F43E01] tracking-widest mb-4">Feature exclusivo · O único do mundo</p>
-            <h2 className="text-display-lg text-white text-balance mb-6">
+            <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">02 — Feature exclusivo &middot; O único do mundo</p>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight text-balance mb-6">
               Veja onde o dinheiro do governo está.{' '}
-              <span className="text-[#69695D]">E exatamente onde você vai ganhar.</span>
+              <span className="text-[#8B8B8B]">E exatamente onde você vai ganhar.</span>
             </h2>
-            <p className="text-body-lg text-[#9C9C90] leading-relaxed">
+            <p className="text-lg text-[#8B8B8B] leading-relaxed">
               O Mapa de Inteligência é o único instrumento de visualização de compras públicas do seu tipo no mundo. Em uma tela, você vê o Brasil inteiro: cada estado iluminado pelo volume de oportunidades compatíveis com o seu perfil.
             </p>
           </div>
 
           {/* Oportunidades Super Quentes */}
           <div className="max-w-4xl mx-auto mb-16">
-            <div className="p-8 rounded-[20px] border border-white/[0.08] bg-[#2D2F33]">
+            <div className="p-8 rounded-xl border border-white/[0.06] bg-[#1A1C1F]">
               <div className="flex items-center gap-3 mb-4">
-                <span className="inline-flex text-caption px-3 py-1.5 rounded-[1000px] bg-[#F43E01]/10 text-[#F43E01] font-semibold">
+                <span className="inline-flex font-mono text-xs px-3 py-1.5 rounded-full bg-[#F43E01]/10 text-[#F43E01] font-semibold">
                   85%+ de probabilidade
                 </span>
               </div>
-              <h3 className="text-heading font-semibold text-white mb-3">Oportunidades Super Quentes</h3>
-              <p className="text-body-sm text-[#9C9C90] leading-relaxed">
+              <h3 className="text-xl font-semibold text-white mb-3">Oportunidades Super Quentes</h3>
+              <p className="text-sm text-[#8B8B8B] leading-relaxed">
                 Acima de 85% de probabilidade de vitória — calculada com base no seu CNPJ, setor, histórico e capacidades técnicas. O sistema destaca automaticamente as disputas onde sua empresa tem vantagem real.
               </p>
             </div>
@@ -302,28 +336,28 @@ export default function LandingPage() {
             ].map((item) => (
               <div
                 key={item.title}
-                className="group p-6 rounded-[20px] border border-white/[0.08] bg-[#2D2F33] hover:border-[#F43E01]/30 hover:bg-[#2D2F33]/80 transition-all duration-[250ms] ease-in-out"
+                className="group p-6 rounded-xl border border-white/[0.06] bg-[#1A1C1F] hover:border-[#F43E01]/20 transition-all duration-300"
               >
-                <h3 className="font-semibold text-white mb-2 text-body">{item.title}</h3>
-                <p className="text-body-sm text-[#9C9C90] leading-relaxed">{item.desc}</p>
+                <h3 className="font-semibold text-white mb-2">{item.title}</h3>
+                <p className="text-sm text-[#8B8B8B] leading-relaxed">{item.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── 3. Três Camadas de Inteligência (light bg) ── */}
-      <section id="inteligencia" className="py-20 sm:py-28 bg-[#FAFAF8]">
+      {/* ── 03 — Três Camadas de Inteligência ── */}
+      <section id="inteligencia" className="py-20 sm:py-28 bg-[#1A1C1F]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl mx-auto text-center mb-16">
-            <p className="text-overline uppercase text-[#F43E01] tracking-widest mb-4">Por que não há comparação possível</p>
-            <h2 className="text-display-lg text-[#26292E] text-balance">
+            <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">03 — Por que não há comparação possível</p>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight text-balance">
               Três camadas de inteligência{' '}
-              <span className="text-[#69695D]">que não existem em lugar nenhum.</span>
+              <span className="text-[#8B8B8B]">que não existem em lugar nenhum.</span>
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
             {[
               {
                 layer: 'Camada 1',
@@ -341,11 +375,11 @@ export default function LandingPage() {
                 desc: 'Agentes de IA que monitoram, analisam, geram dossiês, executam lances e aprendem com cada resultado. Inteligência que trabalha para você 24/7.',
               },
             ].map((item) => (
-              <div key={item.layer} className="relative group">
-                <div className="p-8 rounded-[20px] border border-black/[0.08] bg-white hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.1),0_2px_8px_-2px_rgba(0,0,0,0.06)] hover:border-[#F43E01]/20 transition-all duration-[250ms] ease-in-out">
-                  <span className="text-overline text-[#F43E01] font-mono">{item.layer}</span>
-                  <h3 className="text-heading font-semibold text-[#26292E] mt-3 mb-3">{item.title}</h3>
-                  <p className="text-body-sm text-[#69695D] leading-relaxed">{item.desc}</p>
+              <div key={item.layer} className="group">
+                <div className="p-8 rounded-xl border border-white/[0.06] bg-[#202020] hover:border-[#F43E01]/20 transition-all duration-300">
+                  <span className="font-mono text-xs text-[#F43E01] uppercase tracking-wider">{item.layer}</span>
+                  <h3 className="text-lg font-semibold text-white mt-3 mb-3">{item.title}</h3>
+                  <p className="text-sm text-[#8B8B8B] leading-relaxed">{item.desc}</p>
                 </div>
               </div>
             ))}
@@ -353,21 +387,21 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── 4. Sala de Operações (warm bg) ── */}
-      <section id="plataforma" className="py-20 sm:py-28 bg-[#F3F3EE]">
+      {/* ── 04 — Sala de Operações ── */}
+      <section id="plataforma" className="py-20 sm:py-28 bg-[#202020]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl mx-auto text-center mb-16">
-            <p className="text-overline uppercase text-[#F43E01] tracking-widest mb-4">Funcionalidade exclusiva no mercado</p>
-            <h2 className="text-display-lg text-[#26292E] text-balance mb-6">
+            <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">04 — Funcionalidade exclusiva no mercado</p>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight text-balance mb-6">
               Antes de entrar em qualquer disputa,{' '}
-              <span className="text-[#69695D]">você já sabe o resultado provável.</span>
+              <span className="text-[#8B8B8B]">você já sabe o resultado provável.</span>
             </h2>
-            <p className="text-body-lg text-[#69695D] leading-relaxed max-w-2xl mx-auto">
+            <p className="text-lg text-[#8B8B8B] leading-relaxed max-w-2xl mx-auto">
               A Sala de Operações é o centro de comando da sua estratégia. Antes de cada pregão, você recebe um dossiê completo com o histórico de cada concorrente, padrão de lances, win rate e vínculos societários.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
             {[
               {
                 title: 'Dossiê Pré-Pregão',
@@ -382,10 +416,10 @@ export default function LandingPage() {
                 desc: 'Configure sua estratégia e limite. O agente executa cada lance com precisão cirúrgica e para quando você definir.',
               },
             ].map((item) => (
-              <div key={item.title} className="relative group">
-                <div className="p-8 rounded-[20px] border border-black/[0.08] bg-white hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.1),0_2px_8px_-2px_rgba(0,0,0,0.06)] hover:border-[#F43E01]/20 transition-all duration-[250ms] ease-in-out">
-                  <h3 className="text-heading font-semibold text-[#26292E] mb-3">{item.title}</h3>
-                  <p className="text-body-sm text-[#69695D] leading-relaxed">{item.desc}</p>
+              <div key={item.title} className="group">
+                <div className="p-8 rounded-xl border border-white/[0.06] bg-[#1A1C1F] hover:border-[#F43E01]/20 transition-all duration-300">
+                  <h3 className="text-lg font-semibold text-white mb-3">{item.title}</h3>
+                  <p className="text-sm text-[#8B8B8B] leading-relaxed">{item.desc}</p>
                 </div>
               </div>
             ))}
@@ -393,18 +427,18 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── 5. Compliance e Certidões (dark bg) ── */}
-      <section className="py-20 sm:py-28 bg-[#26292E]">
+      {/* ── 05 — Compliance e Certidões ── */}
+      <section className="py-20 sm:py-28 bg-[#1A1C1F]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl mx-auto text-center mb-16">
-            <p className="text-overline uppercase text-[#F43E01] tracking-widest mb-4">Verificação automática · Sem sair da plataforma</p>
-            <h2 className="text-display-lg text-white text-balance mb-6">
+            <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">05 — Verificação automática &middot; Sem sair da plataforma</p>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight text-balance mb-6">
               Você está apto para licitar agora?{' '}
-              <span className="text-[#69695D]">A resposta leva três segundos.</span>
+              <span className="text-[#8B8B8B]">A resposta leva três segundos.</span>
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl mx-auto">
             {[
               'Certidão Negativa de Débitos Federais',
               'Regularidade FGTS',
@@ -413,26 +447,26 @@ export default function LandingPage() {
               'Consulta de Impedimentos e Sanções',
               'Validação de CNAEs compatíveis',
             ].map((item) => (
-              <div key={item} className="flex items-start gap-3 p-5 rounded-[20px] border border-white/[0.08] bg-[#2D2F33]">
+              <div key={item} className="flex items-start gap-3 p-5 rounded-xl border border-white/[0.06] bg-[#202020]">
                 <svg className="w-5 h-5 text-[#F43E01] shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
-                <span className="text-body-sm text-[#CECEBF]">{item}</span>
+                <span className="text-sm text-[#E5E5E0]">{item}</span>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── 6. Consultor IA (light bg) ── */}
-      <section className="py-20 sm:py-28 bg-[#FAFAF8]">
+      {/* ── 06 — Consultor IA ── */}
+      <section className="py-20 sm:py-28 bg-[#202020]">
         <div className="max-w-4xl mx-auto px-4 text-center">
-          <p className="text-overline uppercase text-[#F43E01] tracking-widest mb-4">Presente em cada licitação · Exclusivo</p>
-          <h2 className="text-display-lg text-[#26292E] text-balance mb-6">
+          <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">06 — Presente em cada licitação &middot; Exclusivo</p>
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight text-balance mb-6">
             Cada edital tem um especialista{' '}
-            <span className="text-[#69695D]">esperando sua pergunta.</span>
+            <span className="text-[#8B8B8B]">esperando sua pergunta.</span>
           </h2>
-          <p className="text-body-lg text-[#69695D] max-w-2xl mx-auto leading-relaxed mb-12">
+          <p className="text-lg text-[#8B8B8B] max-w-2xl mx-auto leading-relaxed mb-12">
             O Consultor de IA lê o edital inteiro e responde qualquer dúvida sobre cláusulas, exigências técnicas, prazos e riscos. Sem baixar nada, sem sair da plataforma. E toda análise pode ser exportada em PDF profissional com a identidade da sua empresa.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
@@ -450,24 +484,24 @@ export default function LandingPage() {
                 desc: 'Todas as consultas ficam salvas no Drive Licitagram. Conhecimento que se acumula e nunca se perde.',
               },
             ].map((item) => (
-              <div key={item.title} className="p-8 rounded-[20px] border border-black/[0.08] bg-white hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.1),0_2px_8px_-2px_rgba(0,0,0,0.06)] hover:border-[#F43E01]/20 transition-all duration-[250ms] ease-in-out">
-                <h3 className="text-heading font-semibold text-[#26292E] mb-3">{item.title}</h3>
-                <p className="text-body-sm text-[#69695D] leading-relaxed">{item.desc}</p>
+              <div key={item.title} className="p-8 rounded-xl border border-white/[0.06] bg-[#1A1C1F] hover:border-[#F43E01]/20 transition-all duration-300">
+                <h3 className="text-lg font-semibold text-white mb-3">{item.title}</h3>
+                <p className="text-sm text-[#8B8B8B] leading-relaxed">{item.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── 7. Drive Licitagram (warm bg) ── */}
-      <section className="py-20 sm:py-28 bg-[#F3F3EE]">
+      {/* ── 07 — Drive Licitagram ── */}
+      <section className="py-20 sm:py-28 bg-[#1A1C1F]">
         <div className="max-w-4xl mx-auto px-4 text-center">
-          <p className="text-overline uppercase text-[#F43E01] tracking-widest mb-4">Memória institucional · Sempre acessível</p>
-          <h2 className="text-display-lg text-[#26292E] text-balance mb-6">
+          <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">07 — Memória institucional &middot; Sempre acessível</p>
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight text-balance mb-6">
             Tudo que a sua empresa produz{' '}
-            <span className="text-[#69695D]">nunca se perde.</span>
+            <span className="text-[#8B8B8B]">nunca se perde.</span>
           </h2>
-          <p className="text-body-lg text-[#69695D] max-w-2xl mx-auto leading-relaxed mb-12">
+          <p className="text-lg text-[#8B8B8B] max-w-2xl mx-auto leading-relaxed mb-12">
             Cada análise, consulta ao Consultor IA, dossiê pré-pregão e PDF exportado vai automaticamente para o repositório institucional da sua empresa. É a memória do seu departamento de licitações, organizada e pesquisável.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
@@ -485,27 +519,27 @@ export default function LandingPage() {
                 desc: 'Toda a equipe acessa o mesmo repositório. Conhecimento que pertence à empresa, não à pessoa.',
               },
             ].map((item) => (
-              <div key={item.title} className="p-8 rounded-[20px] border border-black/[0.08] bg-white hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.1),0_2px_8px_-2px_rgba(0,0,0,0.06)] hover:border-[#F43E01]/20 transition-all duration-[250ms] ease-in-out">
-                <h3 className="text-heading font-semibold text-[#26292E] mb-3">{item.title}</h3>
-                <p className="text-body-sm text-[#69695D] leading-relaxed">{item.desc}</p>
+              <div key={item.title} className="p-8 rounded-xl border border-white/[0.06] bg-[#202020] hover:border-[#F43E01]/20 transition-all duration-300">
+                <h3 className="text-lg font-semibold text-white mb-3">{item.title}</h3>
+                <p className="text-sm text-[#8B8B8B] leading-relaxed">{item.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── 8. Como Funciona (4 steps) ── */}
-      <section className="py-20 sm:py-28 bg-[#F3F3EE]">
+      {/* ── 08 — Como Funciona (4 steps) ── */}
+      <section className="py-20 sm:py-28 bg-[#202020]">
         <div className="max-w-4xl mx-auto px-4 text-center mb-4">
-          <p className="text-overline uppercase text-[#F43E01] tracking-widest mb-4">Como funciona</p>
-          <h2 className="text-display-lg text-[#26292E] text-balance">
+          <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">08 — Como funciona</p>
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight text-balance">
             Do cadastro à vitória,{' '}
-            <span className="text-[#69695D]">em 4 passos.</span>
+            <span className="text-[#8B8B8B]">em 4 passos.</span>
           </h2>
         </div>
 
         <div className="max-w-6xl mx-auto px-4 mt-16">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
               {
                 step: '01',
@@ -528,11 +562,11 @@ export default function LandingPage() {
                 desc: 'O agente autônomo executa sua estratégia de lances com precisão cirúrgica. Você define os limites, ele executa.',
               },
             ].map((item) => (
-              <div key={item.step} className="relative group">
-                <div className="p-8 rounded-[20px] border border-black/[0.08] bg-white hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.1),0_2px_8px_-2px_rgba(0,0,0,0.06)] hover:border-[#F43E01]/20 transition-all duration-[250ms] ease-in-out">
-                  <span className="text-overline text-[#F43E01] font-mono">{item.step}</span>
-                  <h3 className="text-heading font-semibold text-[#26292E] mt-3 mb-3">{item.title}</h3>
-                  <p className="text-body-sm text-[#69695D] leading-relaxed">{item.desc}</p>
+              <div key={item.step} className="group">
+                <div className="p-8 rounded-xl border border-white/[0.06] bg-[#1A1C1F] hover:border-[#F43E01]/20 transition-all duration-300">
+                  <span className="font-mono text-xs text-[#F43E01] uppercase tracking-wider">{item.step}</span>
+                  <h3 className="text-lg font-semibold text-white mt-3 mb-3">{item.title}</h3>
+                  <p className="text-sm text-[#8B8B8B] leading-relaxed">{item.desc}</p>
                 </div>
               </div>
             ))}
@@ -540,11 +574,11 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Portals (warm bg) ── */}
-      <section className="py-20 sm:py-28 bg-[#FAFAF8]">
+      {/* ── Portals ── */}
+      <section className="py-20 sm:py-28 bg-[#1A1C1F]">
         <div className="max-w-5xl mx-auto px-4 text-center">
-          <p className="text-overline uppercase text-[#F43E01] tracking-widest mb-4">Portais integrados</p>
-          <h2 className="text-display text-[#26292E] text-balance mb-12">
+          <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">Portais integrados</p>
+          <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight text-balance mb-12">
             Monitoramento multi-portal em tempo real.
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
@@ -554,9 +588,9 @@ export default function LandingPage() {
               { name: 'BEC SP', badge: 'Estadual' },
               { name: 'Portal MG', badge: 'Estadual' },
             ].map((portal) => (
-              <div key={portal.name} className="p-4 sm:p-6 rounded-[20px] border border-black/[0.08] bg-white hover:shadow-[0_2px_8px_-2px_rgba(0,0,0,0.08),0_1px_2px_0_rgba(0,0,0,0.04)] transition-all duration-[250ms] ease-in-out">
-                <p className="text-heading font-semibold text-[#26292E] mb-2">{portal.name}</p>
-                <span className="inline-flex text-caption px-2.5 py-1 rounded-[1000px] border border-[#F43E01]/20 bg-[#F43E01]/5 text-[#F43E01]">
+              <div key={portal.name} className="p-4 sm:p-6 rounded-xl border border-white/[0.06] bg-[#202020] hover:border-[#F43E01]/20 transition-all duration-300">
+                <p className="text-lg font-semibold text-white mb-2">{portal.name}</p>
+                <span className="inline-flex font-mono text-[10px] px-2.5 py-1 rounded-full border border-[#F43E01]/20 bg-[#F43E01]/5 text-[#F43E01] uppercase tracking-wider">
                   {portal.badge}
                 </span>
               </div>
@@ -566,11 +600,11 @@ export default function LandingPage() {
       </section>
 
       {/* ── Testimonials ── */}
-      <section id="testimonials" className="py-20 sm:py-28 bg-[#F3F3EE]">
+      <section id="testimonials" className="py-20 sm:py-28 bg-[#202020]">
         <div className="max-w-6xl mx-auto px-4">
           <div className="text-center mb-16">
-            <p className="text-overline uppercase text-[#F43E01] tracking-widest mb-4">Depoimentos</p>
-            <h2 className="text-display text-[#26292E] text-balance">
+            <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">Depoimentos</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight text-balance">
               Resultados de quem já usa.
             </h2>
           </div>
@@ -578,7 +612,7 @@ export default function LandingPage() {
             {TESTIMONIALS.map((t) => (
               <div
                 key={t.author}
-                className="p-8 rounded-[20px] border border-black/[0.08] bg-white hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.1),0_2px_8px_-2px_rgba(0,0,0,0.06)] transition-all duration-[250ms] ease-in-out"
+                className="p-8 rounded-xl border border-white/[0.06] bg-[#1A1C1F] hover:border-[#F43E01]/20 transition-all duration-300"
               >
                 <div className="flex items-center gap-1 mb-4">
                   {[1, 2, 3, 4, 5].map((s) => (
@@ -587,16 +621,16 @@ export default function LandingPage() {
                     </svg>
                   ))}
                 </div>
-                <p className="text-body text-[#26292E] leading-relaxed mb-6">
+                <p className="text-[#E5E5E0] leading-relaxed mb-6">
                   &ldquo;{t.quote}&rdquo;
                 </p>
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-[#F43E01]/10 flex items-center justify-center">
-                    <span className="text-[#F43E01] font-semibold text-body-sm">{t.author[0]}</span>
+                    <span className="text-[#F43E01] font-semibold text-sm">{t.author[0]}</span>
                   </div>
                   <div>
-                    <p className="text-body-sm font-semibold text-[#26292E]">{t.author}</p>
-                    <p className="text-caption text-[#69695D]">{t.role}, {t.company}</p>
+                    <p className="text-sm font-semibold text-white">{t.author}</p>
+                    <p className="text-xs text-[#8B8B8B]">{t.role}, {t.company}</p>
                   </div>
                 </div>
               </div>
@@ -605,58 +639,58 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── 9. Comparison Table (3 columns) ── */}
-      <section className="py-20 sm:py-28 bg-[#FAFAF8]">
+      {/* ── Comparison Table ── */}
+      <section className="py-20 sm:py-28 bg-[#1A1C1F]">
         <div className="max-w-4xl mx-auto px-4">
           <div className="text-center mb-16">
-            <p className="text-overline uppercase text-[#F43E01] tracking-widest mb-4">Comparativo</p>
-            <h2 className="text-display text-[#26292E] text-balance">
+            <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">Comparativo</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight text-balance">
               Licitagram vs. Outros vs. Manual
             </h2>
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto rounded-xl border border-white/[0.06]">
             <table className="w-full border-collapse">
               <thead>
-                <tr className="border-b border-black/[0.08]">
-                  <th className="text-body-sm font-semibold text-[#26292E] text-left py-4 pr-4">Funcionalidade</th>
-                  <th className="text-body-sm font-semibold text-[#F43E01] text-center py-4 px-4">Licitagram</th>
-                  <th className="text-body-sm font-semibold text-[#69695D] text-center py-4 px-4">Outros</th>
-                  <th className="text-body-sm font-semibold text-[#69695D] text-center py-4 pl-4">Manual</th>
+                <tr className="border-b border-white/[0.06] bg-[#202020]">
+                  <th className="text-sm font-mono font-semibold text-[#E5E5E0] text-left py-4 px-6">Funcionalidade</th>
+                  <th className="text-sm font-mono font-semibold text-[#F43E01] text-center py-4 px-4">Licitagram</th>
+                  <th className="text-sm font-mono font-semibold text-[#8B8B8B] text-center py-4 px-4">Outros</th>
+                  <th className="text-sm font-mono font-semibold text-[#8B8B8B] text-center py-4 px-4">Manual</th>
                 </tr>
               </thead>
-              <tbody className="text-body-sm">
+              <tbody className="text-sm">
                 {COMPARISON_ROWS.map(([feature, licitagram, outros, manual]) => (
-                  <tr key={feature as string} className="border-b border-black/[0.04]">
-                    <td className="py-3.5 pr-4 text-[#26292E]">{feature as string}</td>
+                  <tr key={feature as string} className="border-b border-white/[0.04]">
+                    <td className="py-3.5 px-6 text-[#E5E5E0]">{feature as string}</td>
                     <td className="py-3.5 px-4 text-center">
                       {licitagram === 'Exclusivo' ? (
-                        <span className="inline-flex text-caption px-2.5 py-1 rounded-[1000px] bg-[#F43E01]/10 text-[#F43E01] font-semibold">Exclusivo</span>
+                        <span className="inline-flex font-mono text-[10px] px-2.5 py-1 rounded-full bg-[#F43E01]/10 text-[#F43E01] font-semibold uppercase tracking-wider">Exclusivo</span>
                       ) : licitagram === true ? (
-                        <svg className="w-5 h-5 text-[#F43E01] mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <svg className="w-5 h-5 text-green-500 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
                       ) : (
-                        <span className="text-[#CECEBF]">&mdash;</span>
+                        <span className="text-red-500/50 font-mono text-xs">&times;</span>
                       )}
                     </td>
                     <td className="py-3.5 px-4 text-center">
                       {outros === 'Parcial' ? (
-                        <span className="text-[#9C9C90] text-caption">Parcial</span>
+                        <span className="text-[#8B8B8B] font-mono text-[10px] uppercase tracking-wider">Parcial</span>
                       ) : outros === true ? (
-                        <svg className="w-5 h-5 text-[#69695D] mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <svg className="w-5 h-5 text-green-500/60 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
                       ) : (
-                        <span className="text-[#CECEBF]">&mdash;</span>
+                        <span className="text-red-500/50 font-mono text-xs">&times;</span>
                       )}
                     </td>
-                    <td className="py-3.5 pl-4 text-center">
+                    <td className="py-3.5 px-4 text-center">
                       {manual === true ? (
-                        <svg className="w-5 h-5 text-[#69695D] mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <svg className="w-5 h-5 text-green-500/60 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
                       ) : (
-                        <span className="text-[#CECEBF]">&mdash;</span>
+                        <span className="text-red-500/50 font-mono text-xs">&times;</span>
                       )}
                     </td>
                   </tr>
@@ -667,52 +701,52 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── 10. Pricing (updated text) ── */}
-      <section id="pricing" className="py-20 sm:py-28 bg-[#F3F3EE]">
+      {/* ── Pricing ── */}
+      <section id="pricing" className="py-20 sm:py-28 bg-[#202020]">
         <div className="max-w-6xl mx-auto px-4">
           <div className="text-center mb-16">
-            <p className="text-overline uppercase text-[#F43E01] tracking-widest mb-4">Escolha sua posição</p>
-            <h2 className="text-display text-[#26292E] text-balance mb-4">
+            <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">Escolha sua posição</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight text-balance mb-4">
               Inteligência que escala com o seu nível de ambição.
             </h2>
-            <p className="text-body-lg text-[#69695D]">14 dias gratuitos em qualquer plano. Sem compromisso.</p>
+            <p className="text-lg text-[#8B8B8B]">14 dias gratuitos em qualquer plano. Sem compromisso.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {PLANS.map((plan) => (
               <div
                 key={plan.name}
-                className={`relative p-8 rounded-[20px] border-2 bg-white transition-all duration-[250ms] ease-in-out ${
+                className={`relative p-8 rounded-xl border-2 bg-[#1A1C1F] transition-all duration-300 ${
                   plan.highlighted
-                    ? 'border-[#F43E01] shadow-[0_16px_48px_-8px_rgba(244,62,1,0.12),0_4px_12px_-2px_rgba(0,0,0,0.06)] md:scale-[1.02]'
-                    : 'border-black/[0.08] hover:border-[#F43E01]/20 hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.1),0_2px_8px_-2px_rgba(0,0,0,0.06)]'
+                    ? 'border-[#F43E01] shadow-[0_0_40px_-8px_rgba(244,62,1,0.2)] md:scale-[1.02]'
+                    : 'border-white/[0.06] hover:border-[#F43E01]/20'
                 }`}
               >
                 {plan.highlighted && (
-                  <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-[#F43E01] text-white text-caption font-semibold px-4 py-1 rounded-[1000px]">
+                  <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-[#F43E01] text-white font-mono text-[10px] font-semibold px-4 py-1 rounded-full uppercase tracking-wider">
                     Mais Popular
                   </span>
                 )}
-                <h3 className="text-heading font-bold text-[#26292E]">{plan.name}</h3>
+                <h3 className="text-lg font-bold text-white">{plan.name}</h3>
                 <div className="mt-4 mb-6">
-                  <span className="text-display font-bold text-[#26292E]">{plan.price}</span>
-                  <span className="text-body text-[#69695D]">{plan.period}</span>
+                  <span className="font-mono text-4xl font-bold text-white tracking-tight">{plan.price}</span>
+                  <span className="text-[#8B8B8B] ml-1">{plan.period}</span>
                 </div>
                 <ul className="space-y-3 mb-8">
                   {plan.features.map((f) => (
-                    <li key={f} className="flex items-start gap-2.5 text-body-sm">
+                    <li key={f} className="flex items-start gap-2.5 text-sm">
                       <svg className="w-5 h-5 text-[#F43E01] shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                       </svg>
-                      <span className="text-[#26292E]">{f}</span>
+                      <span className="text-[#E5E5E0]">{f}</span>
                     </li>
                   ))}
                 </ul>
                 <Link
                   href="/register"
-                  className={`block text-center py-3.5 rounded-[1000px] font-medium text-body transition-all duration-150 ease-in-out ${
+                  className={`block text-center py-3.5 rounded-full font-medium text-sm transition-all duration-200 ${
                     plan.highlighted
-                      ? 'bg-[#F43E01] text-white hover:bg-[#C23101] shadow-md shadow-[#F43E01]/20'
-                      : 'bg-[#F3F3EE] text-[#26292E] hover:bg-[#E8E8DE]'
+                      ? 'bg-[#F43E01] text-white hover:bg-[#D63500] shadow-md shadow-[#F43E01]/20'
+                      : 'bg-white/5 text-white border border-white/10 hover:bg-white/10'
                   }`}
                 >
                   {plan.cta}
@@ -724,27 +758,27 @@ export default function LandingPage() {
       </section>
 
       {/* ── FAQ ── */}
-      <section id="faq" className="py-20 sm:py-28 bg-[#FAFAF8]">
+      <section id="faq" className="py-20 sm:py-28 bg-[#1A1C1F]">
         <div className="max-w-3xl mx-auto px-4">
           <div className="text-center mb-16">
-            <p className="text-overline uppercase text-[#F43E01] tracking-widest mb-4">FAQ</p>
-            <h2 className="text-display text-[#26292E] text-balance">
+            <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">FAQ</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight text-balance">
               Perguntas frequentes
             </h2>
           </div>
-          <div className="space-y-4">
+          <div className="space-y-3">
             {FAQ.map((item) => (
               <details
                 key={item.q}
-                className="group rounded-[10px] border border-black/[0.08] bg-white transition-all duration-[250ms] ease-in-out"
+                className="group rounded-xl border border-white/[0.06] bg-[#202020] transition-all duration-300"
               >
-                <summary className="flex items-center justify-between cursor-pointer px-6 py-5 text-body font-medium text-[#26292E] select-none list-none [&::-webkit-details-marker]:hidden">
+                <summary className="flex items-center justify-between cursor-pointer px-6 py-5 text-sm font-medium text-white select-none list-none [&::-webkit-details-marker]:hidden">
                   <span>{item.q}</span>
-                  <svg className="w-5 h-5 text-[#69695D] shrink-0 ml-4 transition-transform duration-150 ease-in-out group-open:rotate-45" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <svg className="w-5 h-5 text-[#8B8B8B] shrink-0 ml-4 transition-transform duration-200 group-open:rotate-45" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                   </svg>
                 </summary>
-                <div className="px-6 pb-5 text-body-sm text-[#69695D] leading-relaxed">
+                <div className="px-6 pb-5 text-sm text-[#8B8B8B] leading-relaxed">
                   {item.a}
                 </div>
               </details>
@@ -753,16 +787,16 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── 11. Detecção de Fraude — Para Governos (dark bg) ── */}
-      <section id="governos" className="py-20 sm:py-28 bg-[#26292E]">
+      {/* ── Para Governos ── */}
+      <section id="governos" className="py-20 sm:py-28 bg-[#202020]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl mx-auto text-center mb-16">
-            <p className="text-overline uppercase text-[#F43E01] tracking-widest mb-4">Para governos, TCEs e órgãos de controle</p>
-            <h2 className="text-display-lg text-white text-balance mb-6">
+            <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">Para governos, TCEs e órgãos de controle</p>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight text-balance mb-6">
               A mesma inteligência que você usa para ganhar{' '}
-              <span className="text-[#69695D]">é a que usamos para garantir que o jogo seja justo.</span>
+              <span className="text-[#8B8B8B]">é a que usamos para garantir que o jogo seja justo.</span>
             </h2>
-            <p className="text-body-lg text-[#9C9C90] leading-relaxed max-w-2xl mx-auto">
+            <p className="text-lg text-[#8B8B8B] leading-relaxed max-w-2xl mx-auto">
               Nosso motor de correlação com 64 milhões de entidades é a ferramenta mais poderosa de compliance e detecção de fraudes em licitações da América Latina.
             </p>
           </div>
@@ -796,48 +830,48 @@ export default function LandingPage() {
             ].map((item) => (
               <div
                 key={item.title}
-                className="group p-6 rounded-[20px] border border-white/[0.08] bg-[#2D2F33] hover:border-[#F43E01]/30 hover:bg-[#2D2F33]/80 transition-all duration-[250ms] ease-in-out"
+                className="group p-6 rounded-xl border border-white/[0.06] bg-[#1A1C1F] hover:border-[#F43E01]/20 transition-all duration-300"
               >
-                <h3 className="font-semibold text-white mb-2 text-body">{item.title}</h3>
-                <p className="text-body-sm text-[#9C9C90] leading-relaxed">{item.desc}</p>
+                <h3 className="font-semibold text-white mb-2">{item.title}</h3>
+                <p className="text-sm text-[#8B8B8B] leading-relaxed">{item.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── 12. Expansão ── */}
-      <section className="py-20 sm:py-28 bg-[#F3F3EE]">
+      {/* ── Expansão ── */}
+      <section className="py-20 sm:py-28 bg-[#1A1C1F]">
         <div className="max-w-4xl mx-auto px-4 text-center">
-          <p className="text-overline uppercase text-[#F43E01] tracking-widest mb-4">Visão de longo prazo</p>
-          <h2 className="text-display-lg text-[#26292E] text-balance mb-6">
+          <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">Visão de longo prazo</p>
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight text-balance mb-6">
             Brasil primeiro.{' '}
-            <span className="text-[#69695D]">América Latina a seguir.</span>
+            <span className="text-[#8B8B8B]">América Latina a seguir.</span>
           </h2>
-          <p className="text-body-lg text-[#69695D] max-w-2xl mx-auto leading-relaxed mb-12">
+          <p className="text-lg text-[#8B8B8B] max-w-2xl mx-auto leading-relaxed mb-12">
             Estamos construindo a infraestrutura de inteligência de compras governamentais para todo o continente. O Brasil é o começo.
           </p>
           <div className="flex flex-wrap justify-center gap-4 sm:gap-6 text-4xl sm:text-5xl">
             {['🇧🇷', '🇲🇽', '🇨🇴', '🇨🇱', '🇦🇷', '🇵🇪', '🇺🇾', '🇧🇴', '🇦🇴', '🇨🇻'].map((flag, i) => (
-              <span key={i} className="inline-block hover:scale-110 transition-transform duration-150 ease-in-out">{flag}</span>
+              <span key={i} className="inline-block hover:scale-110 transition-transform duration-200">{flag}</span>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── 13. CTA Section (Orange block) ── */}
+      {/* ── CTA Section (Orange block) ── */}
       <section className="py-20 sm:py-28 bg-[#F43E01] relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.08),transparent_60%)]" />
         <div className="relative max-w-3xl mx-auto px-4 text-center">
-          <h2 className="text-display-lg text-white text-balance mb-6">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight text-balance mb-6">
             Seus concorrentes ainda procuram licitações em portais. Você já pode ver onde o dinheiro está.
           </h2>
-          <p className="text-body-lg text-white/70 mb-10">
+          <p className="text-lg text-white/70 mb-10">
             Junte-se a empresas que já encontram as melhores oportunidades com IA.
           </p>
           <Link
             href="/register"
-            className="inline-flex items-center justify-center px-6 sm:px-8 py-3.5 sm:py-4 bg-white text-[#F43E01] rounded-[1000px] text-body-sm sm:text-body font-semibold hover:bg-white/90 transition-all duration-150 ease-in-out shadow-[0_16px_48px_-8px_rgba(0,0,0,0.12),0_4px_12px_-2px_rgba(0,0,0,0.06)]"
+            className="inline-flex items-center justify-center px-8 py-4 bg-white text-[#F43E01] rounded-full text-sm font-semibold hover:bg-white/90 transition-all duration-200 shadow-lg"
           >
             Começar Agora — Grátis por 14 dias
             <svg className="ml-2 w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -847,51 +881,51 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── 14. Footer (dark) ── */}
-      <footer className="py-16 bg-[#26292E] text-white">
+      {/* ── Footer ── */}
+      <footer className="py-16 bg-[#1A1C1F] border-t border-white/[0.06] text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-10">
             <div className="sm:col-span-2 md:col-span-1">
               <div className="flex items-center mb-4">
                 <Image src="/logo.png" alt="Licitagram" width={140} height={32} className="h-8 w-auto brightness-0 invert" />
               </div>
-              <p className="text-body-sm text-[#9C9C90] leading-relaxed">
+              <p className="text-sm text-[#8B8B8B] leading-relaxed">
                 O maior sistema privado de inteligência de compras governamentais da América Latina.
               </p>
             </div>
             <div>
-              <h4 className="text-overline uppercase text-[#69695D] mb-4 tracking-widest">Produto</h4>
-              <ul className="space-y-3 text-body-sm">
-                <li><a href="#inteligencia" className="text-[#CECEBF] hover:text-white transition-all duration-150 ease-in-out">Inteligência</a></li>
-                <li><a href="#mapa" className="text-[#CECEBF] hover:text-white transition-all duration-150 ease-in-out">Mapa</a></li>
-                <li><a href="#plataforma" className="text-[#CECEBF] hover:text-white transition-all duration-150 ease-in-out">Sala de Operações</a></li>
-                <li><a href="#faq" className="text-[#CECEBF] hover:text-white transition-all duration-150 ease-in-out">Consultor de IA</a></li>
-                <li><span className="text-[#CECEBF]">Drive</span></li>
-                <li><a href="#pricing" className="text-[#CECEBF] hover:text-white transition-all duration-150 ease-in-out">Planos</a></li>
-                <li><span className="text-[#69695D]">API (em breve)</span></li>
+              <h4 className="font-mono text-[10px] uppercase text-[#555] mb-4 tracking-[0.15em]">Produto</h4>
+              <ul className="space-y-3 text-sm">
+                <li><a href="#inteligencia" className="text-[#8B8B8B] hover:text-white transition-colors duration-200">Inteligência</a></li>
+                <li><a href="#mapa" className="text-[#8B8B8B] hover:text-white transition-colors duration-200">Mapa</a></li>
+                <li><a href="#plataforma" className="text-[#8B8B8B] hover:text-white transition-colors duration-200">Sala de Operações</a></li>
+                <li><a href="#faq" className="text-[#8B8B8B] hover:text-white transition-colors duration-200">Consultor de IA</a></li>
+                <li><span className="text-[#8B8B8B]">Drive</span></li>
+                <li><a href="#pricing" className="text-[#8B8B8B] hover:text-white transition-colors duration-200">Planos</a></li>
+                <li><span className="text-[#555]">API (em breve)</span></li>
               </ul>
             </div>
             <div>
-              <h4 className="text-overline uppercase text-[#69695D] mb-4 tracking-widest">Plataforma</h4>
-              <ul className="space-y-3 text-body-sm">
-                <li><a href="#governos" className="text-[#CECEBF] hover:text-white transition-all duration-150 ease-in-out">Para TCEs</a></li>
-                <li><span className="text-[#CECEBF]">Para bancos</span></li>
-                <li><span className="text-[#CECEBF]">Para empresas</span></li>
-                <li><span className="text-[#69695D]">Status</span></li>
+              <h4 className="font-mono text-[10px] uppercase text-[#555] mb-4 tracking-[0.15em]">Plataforma</h4>
+              <ul className="space-y-3 text-sm">
+                <li><a href="#governos" className="text-[#8B8B8B] hover:text-white transition-colors duration-200">Para TCEs</a></li>
+                <li><span className="text-[#8B8B8B]">Para bancos</span></li>
+                <li><span className="text-[#8B8B8B]">Para empresas</span></li>
+                <li><span className="text-[#555]">Status</span></li>
               </ul>
             </div>
             <div>
-              <h4 className="text-overline uppercase text-[#69695D] mb-4 tracking-widest">Legal</h4>
-              <ul className="space-y-3 text-body-sm">
-                <li><span className="text-[#69695D]">Termos de Uso</span></li>
-                <li><span className="text-[#69695D]">Política de Privacidade</span></li>
-                <li><Link href="/login" className="text-[#CECEBF] hover:text-white transition-all duration-150 ease-in-out">Entrar</Link></li>
+              <h4 className="font-mono text-[10px] uppercase text-[#555] mb-4 tracking-[0.15em]">Legal</h4>
+              <ul className="space-y-3 text-sm">
+                <li><span className="text-[#555]">Termos de Uso</span></li>
+                <li><span className="text-[#555]">Política de Privacidade</span></li>
+                <li><Link href="/login" className="text-[#8B8B8B] hover:text-white transition-colors duration-200">Entrar</Link></li>
               </ul>
             </div>
           </div>
-          <div className="mt-12 pt-8 border-t border-white/[0.08] text-center space-y-2">
-            <p className="text-caption text-[#69695D]">&copy; 2026 Licitagram · ZeepCode Group Technology LLC · Florida, USA</p>
-            <p className="text-caption text-[#69695D]">Serving Brazil · Expanding LatAm</p>
+          <div className="mt-12 pt-8 border-t border-white/[0.06] text-center space-y-2">
+            <p className="text-xs text-[#555]">&copy; 2026 Licitagram &middot; ZeepCode Group Technology LLC &middot; Florida, USA</p>
+            <p className="text-xs text-[#555]">Serving Brazil &middot; Expanding LatAm</p>
           </div>
         </div>
       </footer>
