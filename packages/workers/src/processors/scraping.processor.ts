@@ -138,7 +138,14 @@ async function processScrapingJob(job: Job<ScrapingJobData>) {
       }
     }
 
-    if (result.totalPaginas > pagina) {
+    // Smart pagination: only continue to next page if this page had new tenders.
+    // If ALL tenders on this page already exist in DB, we've caught up — stop paginating.
+    // This dramatically reduces queue size (from ~8K to ~500 jobs) without missing anything,
+    // because new tenders always appear on the first pages (sorted by date desc).
+    const hasNewContent = newCount > 0
+    const isFirstPage = pagina <= 1
+
+    if (result.totalPaginas > pagina && (hasNewContent || isFirstPage)) {
       await scrapingQueue.add('scrape-next-page', {
         modalidadeId,
         dataInicial,
@@ -146,6 +153,11 @@ async function processScrapingJob(job: Job<ScrapingJobData>) {
         pagina: pagina + 1,
         uf,
       })
+    } else if (!hasNewContent && pagina > 1) {
+      logger.info(
+        { modalidadeId, pagina, uf },
+        'Early stop: no new tenders on this page, caught up with existing data',
+      )
     }
 
     const { error: updateErr } = await supabase

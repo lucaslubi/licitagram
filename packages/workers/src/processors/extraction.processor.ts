@@ -216,10 +216,39 @@ const extractionWorker = new Worker<ExtractionJobData>(
       }
     }
 
+    // 9. Refresh map cache for companies that got new matches from this tender
+    try {
+      const { refreshMapCacheForCompany } = await import('./map-cache.processor')
+      const companiesWithNewMatches = new Set<string>()
+      // Collect companies from keyword matches
+      for (const [companyId] of newMatchesByCompany) {
+        companiesWithNewMatches.add(companyId)
+      }
+      // Also query DB for any matches created for this tender (covers semantic matches too)
+      const { data: allMatchesForTender } = await supabase
+        .from('matches')
+        .select('company_id')
+        .eq('tender_id', tenderId)
+      if (allMatchesForTender) {
+        for (const m of allMatchesForTender) {
+          companiesWithNewMatches.add(m.company_id)
+        }
+      }
+      // Refresh map cache for each affected company (non-blocking)
+      for (const cid of companiesWithNewMatches) {
+        refreshMapCacheForCompany(cid).catch(() => {})
+      }
+      if (companiesWithNewMatches.size > 0) {
+        logger.info({ tenderId, companies: companiesWithNewMatches.size }, 'Map cache refreshed for affected companies')
+      }
+    } catch (err) {
+      logger.warn({ tenderId, err }, 'Map cache refresh after extraction failed (non-critical)')
+    }
+
     // Free matching data
     newMatchesByCompany = new Map()
 
-    // 9. Invalidate caches so web app sees fresh data
+    // 10. Invalidate caches so web app sees fresh data
     await invalidateTenderDetail(tenderId)
     await invalidateTenderCaches()
     await incrementStat('extractions-today')
