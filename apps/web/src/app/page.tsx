@@ -126,7 +126,7 @@ const SYSTEM_STATUS = [
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-[#1A1C1F]">
+    <div className="min-h-screen bg-[#F5F5F0]">
       {/* ── Header ── */}
       <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-[#1A1C1F]/90 backdrop-blur-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -252,24 +252,24 @@ export default function LandingPage() {
       </section>
 
       {/* ── Stats bar ── */}
-      <section className="border-y border-white/[0.06] bg-[#202020]">
+      <section className="border-y border-[#1A1C1F]/[0.08] bg-[#F5F5F0]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 text-center">
             <div>
-              <p className="font-mono text-3xl sm:text-4xl font-bold text-white tracking-tight">R$1.5tri</p>
-              <p className="text-sm text-[#8B8B8B] mt-2">Em oportunidades mapeadas</p>
+              <p className="font-mono text-3xl sm:text-4xl font-bold text-[#1A1C1F] tracking-tight">R$1.5tri</p>
+              <p className="text-sm text-[#69695D] mt-2">Em oportunidades mapeadas</p>
             </div>
             <div>
-              <p className="font-mono text-3xl sm:text-4xl font-bold text-white tracking-tight">132K+</p>
-              <p className="text-sm text-[#8B8B8B] mt-2">Editais monitorados</p>
+              <p className="font-mono text-3xl sm:text-4xl font-bold text-[#1A1C1F] tracking-tight">132K+</p>
+              <p className="text-sm text-[#69695D] mt-2">Editais monitorados</p>
             </div>
             <div>
               <p className="font-mono text-3xl sm:text-4xl font-bold text-[#F43E01] tracking-tight">64M</p>
-              <p className="text-sm text-[#8B8B8B] mt-2">Entidades cruzadas</p>
+              <p className="text-sm text-[#69695D] mt-2">Entidades cruzadas</p>
             </div>
             <div>
-              <p className="font-mono text-3xl sm:text-4xl font-bold text-white tracking-tight">R$1tri</p>
-              <p className="text-sm text-[#8B8B8B] mt-2">Novas contratações/ano</p>
+              <p className="font-mono text-3xl sm:text-4xl font-bold text-[#1A1C1F] tracking-tight">R$1tri</p>
+              <p className="text-sm text-[#69695D] mt-2">Novas contratações/ano</p>
             </div>
           </div>
         </div>
@@ -290,29 +290,29 @@ export default function LandingPage() {
       </section>
 
       {/* ── 02 — Mapa de Inteligência ── */}
-      <section id="mapa" className="py-20 sm:py-28 bg-[#202020]">
+      <section id="mapa" className="py-20 sm:py-28 bg-[#F5F5F0]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl mx-auto text-center mb-16">
             <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">02 — Feature exclusivo &middot; O único do mundo</p>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight text-balance mb-6">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[#1A1C1F] tracking-tight text-balance mb-6">
               Veja onde o dinheiro do governo está.{' '}
-              <span className="text-[#8B8B8B]">E exatamente onde você vai ganhar.</span>
+              <span className="text-[#69695D]">E exatamente onde você vai ganhar.</span>
             </h2>
-            <p className="text-lg text-[#8B8B8B] leading-relaxed">
+            <p className="text-lg text-[#69695D] leading-relaxed">
               O Mapa de Inteligência é o único instrumento de visualização de compras públicas do seu tipo no mundo. Em uma tela, você vê o Brasil inteiro: cada estado iluminado pelo volume de oportunidades compatíveis com o seu perfil.
             </p>
           </div>
 
           {/* Oportunidades Super Quentes */}
           <div className="max-w-4xl mx-auto mb-16">
-            <div className="p-8 rounded-xl border border-white/[0.06] bg-[#1A1C1F]">
+            <div className="p-8 rounded-xl border border-[#E5E5E0]/50 bg-white">
               <div className="flex items-center gap-3 mb-4">
                 <span className="inline-flex font-mono text-xs px-3 py-1.5 rounded-full bg-[#F43E01]/10 text-[#F43E01] font-semibold">
                   85%+ de probabilidade
                 </span>
               </div>
-              <h3 className="text-xl font-semibold text-white mb-3">Oportunidades Super Quentes</h3>
-              <p className="text-sm text-[#8B8B8B] leading-relaxed">
+              <h3 className="text-xl font-semibold text-[#1A1C1F] mb-3">Oportunidades Super Quentes</h3>
+              <p className="text-sm text-[#69695D] leading-relaxed">
                 Acima de 85% de probabilidade de vitória — calculada com base no seu CNPJ, setor, histórico e capacidades técnicas. O sistema destaca automaticamente as disputas onde sua empresa tem vantagem real.
               </p>
             </div>
@@ -336,10 +336,10 @@ export default function LandingPage() {
             ].map((item) => (
               <div
                 key={item.title}
-                className="group p-6 rounded-xl border border-white/[0.06] bg-[#1A1C1F] hover:border-[#F43E01]/20 transition-all duration-300"
+                className="group p-6 rounded-xl border border-[#E5E5E0]/50 bg-white hover:border-[#F43E01]/20 transition-all duration-300"
               >
-                <h3 className="font-semibold text-white mb-2">{item.title}</h3>
-                <p className="text-sm text-[#8B8B8B] leading-relaxed">{item.desc}</p>
+                <h3 className="font-semibold text-[#1A1C1F] mb-2">{item.title}</h3>
+                <p className="text-sm text-[#69695D] leading-relaxed">{item.desc}</p>
               </div>
             ))}
           </div>
@@ -388,15 +388,15 @@ export default function LandingPage() {
       </section>
 
       {/* ── 04 — Sala de Operações ── */}
-      <section id="plataforma" className="py-20 sm:py-28 bg-[#202020]">
+      <section id="plataforma" className="py-20 sm:py-28 bg-[#F5F5F0]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl mx-auto text-center mb-16">
             <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">04 — Funcionalidade exclusiva no mercado</p>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight text-balance mb-6">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[#1A1C1F] tracking-tight text-balance mb-6">
               Antes de entrar em qualquer disputa,{' '}
-              <span className="text-[#8B8B8B]">você já sabe o resultado provável.</span>
+              <span className="text-[#69695D]">você já sabe o resultado provável.</span>
             </h2>
-            <p className="text-lg text-[#8B8B8B] leading-relaxed max-w-2xl mx-auto">
+            <p className="text-lg text-[#69695D] leading-relaxed max-w-2xl mx-auto">
               A Sala de Operações é o centro de comando da sua estratégia. Antes de cada pregão, você recebe um dossiê completo com o histórico de cada concorrente, padrão de lances, win rate e vínculos societários.
             </p>
           </div>
@@ -417,9 +417,9 @@ export default function LandingPage() {
               },
             ].map((item) => (
               <div key={item.title} className="group">
-                <div className="p-8 rounded-xl border border-white/[0.06] bg-[#1A1C1F] hover:border-[#F43E01]/20 transition-all duration-300">
-                  <h3 className="text-lg font-semibold text-white mb-3">{item.title}</h3>
-                  <p className="text-sm text-[#8B8B8B] leading-relaxed">{item.desc}</p>
+                <div className="p-8 rounded-xl border border-[#E5E5E0]/50 bg-white hover:border-[#F43E01]/20 transition-all duration-300">
+                  <h3 className="text-lg font-semibold text-[#1A1C1F] mb-3">{item.title}</h3>
+                  <p className="text-sm text-[#69695D] leading-relaxed">{item.desc}</p>
                 </div>
               </div>
             ))}
@@ -459,14 +459,14 @@ export default function LandingPage() {
       </section>
 
       {/* ── 06 — Consultor IA ── */}
-      <section className="py-20 sm:py-28 bg-[#202020]">
+      <section className="py-20 sm:py-28 bg-[#F5F5F0]">
         <div className="max-w-4xl mx-auto px-4 text-center">
           <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">06 — Presente em cada licitação &middot; Exclusivo</p>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight text-balance mb-6">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[#1A1C1F] tracking-tight text-balance mb-6">
             Cada edital tem um especialista{' '}
-            <span className="text-[#8B8B8B]">esperando sua pergunta.</span>
+            <span className="text-[#69695D]">esperando sua pergunta.</span>
           </h2>
-          <p className="text-lg text-[#8B8B8B] max-w-2xl mx-auto leading-relaxed mb-12">
+          <p className="text-lg text-[#69695D] max-w-2xl mx-auto leading-relaxed mb-12">
             O Consultor de IA lê o edital inteiro e responde qualquer dúvida sobre cláusulas, exigências técnicas, prazos e riscos. Sem baixar nada, sem sair da plataforma. E toda análise pode ser exportada em PDF profissional com a identidade da sua empresa.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
@@ -484,9 +484,9 @@ export default function LandingPage() {
                 desc: 'Todas as consultas ficam salvas no Drive Licitagram. Conhecimento que se acumula e nunca se perde.',
               },
             ].map((item) => (
-              <div key={item.title} className="p-8 rounded-xl border border-white/[0.06] bg-[#1A1C1F] hover:border-[#F43E01]/20 transition-all duration-300">
-                <h3 className="text-lg font-semibold text-white mb-3">{item.title}</h3>
-                <p className="text-sm text-[#8B8B8B] leading-relaxed">{item.desc}</p>
+              <div key={item.title} className="p-8 rounded-xl border border-[#E5E5E0]/50 bg-white hover:border-[#F43E01]/20 transition-all duration-300">
+                <h3 className="text-lg font-semibold text-[#1A1C1F] mb-3">{item.title}</h3>
+                <p className="text-sm text-[#69695D] leading-relaxed">{item.desc}</p>
               </div>
             ))}
           </div>
@@ -529,12 +529,12 @@ export default function LandingPage() {
       </section>
 
       {/* ── 08 — Como Funciona (4 steps) ── */}
-      <section className="py-20 sm:py-28 bg-[#202020]">
+      <section className="py-20 sm:py-28 bg-[#F5F5F0]">
         <div className="max-w-4xl mx-auto px-4 text-center mb-4">
           <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">08 — Como funciona</p>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight text-balance">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[#1A1C1F] tracking-tight text-balance">
             Do cadastro à vitória,{' '}
-            <span className="text-[#8B8B8B]">em 4 passos.</span>
+            <span className="text-[#69695D]">em 4 passos.</span>
           </h2>
         </div>
 
@@ -563,10 +563,10 @@ export default function LandingPage() {
               },
             ].map((item) => (
               <div key={item.step} className="group">
-                <div className="p-8 rounded-xl border border-white/[0.06] bg-[#1A1C1F] hover:border-[#F43E01]/20 transition-all duration-300">
+                <div className="p-8 rounded-xl border border-[#E5E5E0]/50 bg-white hover:border-[#F43E01]/20 transition-all duration-300">
                   <span className="font-mono text-xs text-[#F43E01] uppercase tracking-wider">{item.step}</span>
-                  <h3 className="text-lg font-semibold text-white mt-3 mb-3">{item.title}</h3>
-                  <p className="text-sm text-[#8B8B8B] leading-relaxed">{item.desc}</p>
+                  <h3 className="text-lg font-semibold text-[#1A1C1F] mt-3 mb-3">{item.title}</h3>
+                  <p className="text-sm text-[#69695D] leading-relaxed">{item.desc}</p>
                 </div>
               </div>
             ))}
@@ -600,11 +600,11 @@ export default function LandingPage() {
       </section>
 
       {/* ── Testimonials ── */}
-      <section id="testimonials" className="py-20 sm:py-28 bg-[#202020]">
+      <section id="testimonials" className="py-20 sm:py-28 bg-[#F5F5F0]">
         <div className="max-w-6xl mx-auto px-4">
           <div className="text-center mb-16">
             <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">Depoimentos</p>
-            <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight text-balance">
+            <h2 className="text-3xl sm:text-4xl font-bold text-[#1A1C1F] tracking-tight text-balance">
               Resultados de quem já usa.
             </h2>
           </div>
@@ -612,7 +612,7 @@ export default function LandingPage() {
             {TESTIMONIALS.map((t) => (
               <div
                 key={t.author}
-                className="p-8 rounded-xl border border-white/[0.06] bg-[#1A1C1F] hover:border-[#F43E01]/20 transition-all duration-300"
+                className="p-8 rounded-xl border border-[#E5E5E0]/50 bg-white hover:border-[#F43E01]/20 transition-all duration-300"
               >
                 <div className="flex items-center gap-1 mb-4">
                   {[1, 2, 3, 4, 5].map((s) => (
@@ -621,7 +621,7 @@ export default function LandingPage() {
                     </svg>
                   ))}
                 </div>
-                <p className="text-[#E5E5E0] leading-relaxed mb-6">
+                <p className="text-[#4A4A45] leading-relaxed mb-6">
                   &ldquo;{t.quote}&rdquo;
                 </p>
                 <div className="flex items-center gap-3">
@@ -629,8 +629,8 @@ export default function LandingPage() {
                     <span className="text-[#F43E01] font-semibold text-sm">{t.author[0]}</span>
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-white">{t.author}</p>
-                    <p className="text-xs text-[#8B8B8B]">{t.role}, {t.company}</p>
+                    <p className="text-sm font-semibold text-[#1A1C1F]">{t.author}</p>
+                    <p className="text-xs text-[#69695D]">{t.role}, {t.company}</p>
                   </div>
                 </div>
               </div>
@@ -702,23 +702,23 @@ export default function LandingPage() {
       </section>
 
       {/* ── Pricing ── */}
-      <section id="pricing" className="py-20 sm:py-28 bg-[#202020]">
+      <section id="pricing" className="py-20 sm:py-28 bg-[#F5F5F0]">
         <div className="max-w-6xl mx-auto px-4">
           <div className="text-center mb-16">
             <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">Escolha sua posição</p>
-            <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight text-balance mb-4">
+            <h2 className="text-3xl sm:text-4xl font-bold text-[#1A1C1F] tracking-tight text-balance mb-4">
               Inteligência que escala com o seu nível de ambição.
             </h2>
-            <p className="text-lg text-[#8B8B8B]">14 dias gratuitos em qualquer plano. Sem compromisso.</p>
+            <p className="text-lg text-[#69695D]">14 dias gratuitos em qualquer plano. Sem compromisso.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {PLANS.map((plan) => (
               <div
                 key={plan.name}
-                className={`relative p-8 rounded-xl border-2 bg-[#1A1C1F] transition-all duration-300 ${
+                className={`relative p-8 rounded-xl border-2 bg-white transition-all duration-300 ${
                   plan.highlighted
                     ? 'border-[#F43E01] shadow-[0_0_40px_-8px_rgba(244,62,1,0.2)] md:scale-[1.02]'
-                    : 'border-white/[0.06] hover:border-[#F43E01]/20'
+                    : 'border-[#E5E5E0]/50 hover:border-[#F43E01]/20'
                 }`}
               >
                 {plan.highlighted && (
@@ -726,10 +726,10 @@ export default function LandingPage() {
                     Mais Popular
                   </span>
                 )}
-                <h3 className="text-lg font-bold text-white">{plan.name}</h3>
+                <h3 className="text-lg font-bold text-[#1A1C1F]">{plan.name}</h3>
                 <div className="mt-4 mb-6">
-                  <span className="font-mono text-4xl font-bold text-white tracking-tight">{plan.price}</span>
-                  <span className="text-[#8B8B8B] ml-1">{plan.period}</span>
+                  <span className="font-mono text-4xl font-bold text-[#1A1C1F] tracking-tight">{plan.price}</span>
+                  <span className="text-[#69695D] ml-1">{plan.period}</span>
                 </div>
                 <ul className="space-y-3 mb-8">
                   {plan.features.map((f) => (
@@ -737,7 +737,7 @@ export default function LandingPage() {
                       <svg className="w-5 h-5 text-[#F43E01] shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                       </svg>
-                      <span className="text-[#E5E5E0]">{f}</span>
+                      <span className="text-[#4A4A45]">{f}</span>
                     </li>
                   ))}
                 </ul>
@@ -746,7 +746,7 @@ export default function LandingPage() {
                   className={`block text-center py-3.5 rounded-full font-medium text-sm transition-all duration-200 ${
                     plan.highlighted
                       ? 'bg-[#F43E01] text-white hover:bg-[#D63500] shadow-md shadow-[#F43E01]/20'
-                      : 'bg-white/5 text-white border border-white/10 hover:bg-white/10'
+                      : 'bg-[#1A1C1F]/5 text-[#1A1C1F] border border-[#1A1C1F]/10 hover:bg-[#1A1C1F]/10'
                   }`}
                 >
                   {plan.cta}
@@ -788,15 +788,15 @@ export default function LandingPage() {
       </section>
 
       {/* ── Para Governos ── */}
-      <section id="governos" className="py-20 sm:py-28 bg-[#202020]">
+      <section id="governos" className="py-20 sm:py-28 bg-[#F5F5F0]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl mx-auto text-center mb-16">
             <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">Para governos, TCEs e órgãos de controle</p>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight text-balance mb-6">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[#1A1C1F] tracking-tight text-balance mb-6">
               A mesma inteligência que você usa para ganhar{' '}
-              <span className="text-[#8B8B8B]">é a que usamos para garantir que o jogo seja justo.</span>
+              <span className="text-[#69695D]">é a que usamos para garantir que o jogo seja justo.</span>
             </h2>
-            <p className="text-lg text-[#8B8B8B] leading-relaxed max-w-2xl mx-auto">
+            <p className="text-lg text-[#69695D] leading-relaxed max-w-2xl mx-auto">
               Nosso motor de correlação com 64 milhões de entidades é a ferramenta mais poderosa de compliance e detecção de fraudes em licitações da América Latina.
             </p>
           </div>
@@ -830,10 +830,10 @@ export default function LandingPage() {
             ].map((item) => (
               <div
                 key={item.title}
-                className="group p-6 rounded-xl border border-white/[0.06] bg-[#1A1C1F] hover:border-[#F43E01]/20 transition-all duration-300"
+                className="group p-6 rounded-xl border border-[#E5E5E0]/50 bg-white hover:border-[#F43E01]/20 transition-all duration-300"
               >
-                <h3 className="font-semibold text-white mb-2">{item.title}</h3>
-                <p className="text-sm text-[#8B8B8B] leading-relaxed">{item.desc}</p>
+                <h3 className="font-semibold text-[#1A1C1F] mb-2">{item.title}</h3>
+                <p className="text-sm text-[#69695D] leading-relaxed">{item.desc}</p>
               </div>
             ))}
           </div>
