@@ -455,6 +455,37 @@ export default function LandingPage() {
                 </ScrollReveal>
               ))}
             </div>
+
+            {/* Video Demo com moldura e efeito de entrada */}
+            <ScrollReveal delay={400}>
+              <div className="mt-16 max-w-4xl mx-auto">
+                <div className="relative rounded-2xl overflow-hidden border border-white/[0.12] bg-white/[0.04] shadow-2xl shadow-[#F43E01]/5">
+                  {/* Moldura superior simulando browser */}
+                  <div className="flex items-center gap-2 px-4 py-3 bg-white/[0.06] border-b border-white/[0.08]">
+                    <div className="w-3 h-3 rounded-full bg-red-500/60" />
+                    <div className="w-3 h-3 rounded-full bg-yellow-500/60" />
+                    <div className="w-3 h-3 rounded-full bg-green-500/60" />
+                    <div className="flex-1 mx-4">
+                      <div className="h-6 rounded-md bg-white/[0.06] flex items-center px-3">
+                        <span className="text-[10px] text-white/30 font-mono">app.licitagram.com.br/dashboard</span>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Video */}
+                  <video
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    className="w-full h-auto"
+                  >
+                    <source src="/videos/demo-inteligencia.mp4" type="video/mp4" />
+                  </video>
+                  {/* Glow sutil embaixo */}
+                  <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-3/4 h-8 bg-[#F43E01]/10 blur-2xl rounded-full" />
+                </div>
+              </div>
+            </ScrollReveal>
           </div>
         </section>
       </ClipRevealSection>
