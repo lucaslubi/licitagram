@@ -24,16 +24,20 @@ interface IntelligenceMapProps {
 // ─── Pure helpers (no state/props dependency) ───────────────────────────────
 
 function getScoreBgClass(score: number): string {
-  if (score >= 70) return 'bg-emerald-100 text-emerald-800'
-  if (score >= 50) return 'bg-amber-100 text-amber-800'
+  if (score >= 80) return 'bg-orange-100 text-orange-800'  // Super Quente
+  if (score >= 70) return 'bg-emerald-100 text-emerald-800' // Verde
+  if (score >= 50) return 'bg-amber-100 text-amber-800'     // Amarelo
   return 'bg-red-100 text-red-800'
 }
 
-/** Score color for individual match markers */
+/** Score color for individual match markers
+ *  Amarelo: 50-69 | Verde: 70-79 | Super Hot: 80+
+ */
 function getMatchColor(score: number): string {
-  if (score >= 70) return '#10B981'
-  if (score >= 50) return '#FBBF24'
-  return '#EF4444'
+  if (score >= 80) return '#F97316' // Super Quente (orange-red)
+  if (score >= 70) return '#10B981' // Verde
+  if (score >= 50) return '#FBBF24' // Amarelo
+  return '#EF4444'                  // Vermelho (baixo)
 }
 
 /** Whether the match was scored by AI (as opposed to keyword-only estimate) */
@@ -889,8 +893,9 @@ export function IntelligenceMap({
             <p className={`font-semibold mb-2 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>Score do Match</p>
             <div className="flex items-center gap-1 mb-1">
               {[
-                { color: '#10B981', label: '80+' },
-                { color: '#FBBF24', label: '60-79' },
+                { color: '#F97316', label: '80+ 🔥' },
+                { color: '#10B981', label: '70-79' },
+                { color: '#FBBF24', label: '50-69' },
               ].map((item) => (
                 <div key={item.label} className="flex items-center gap-1">
                   <div

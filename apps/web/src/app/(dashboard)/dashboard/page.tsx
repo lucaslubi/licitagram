@@ -435,7 +435,7 @@ function KPICard({ label, value, small, accent }: { label: string; value: string
 }
 
 function ScoreBadge({ score, source }: { score: number; source?: string | null }) {
-  const color = score >= 70 ? 'bg-emerald-100 text-emerald-800' : score >= 50 ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'
+  const color = score >= 80 ? 'bg-orange-100 text-orange-800' : score >= 70 ? 'bg-emerald-100 text-emerald-800' : score >= 50 ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'
   const isAI = source === 'ai' || source === 'ai_triage' || source === 'semantic'
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${color}`} title={isAI ? 'Score verificado por IA' : 'Score do matching automatico'}>
