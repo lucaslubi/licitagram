@@ -426,6 +426,23 @@ export default async function LandingPage() {
               </div>
             </ScrollReveal>
 
+            {/* Video demo do mapa */}
+            <ScrollReveal delay={150}>
+              <div className="max-w-5xl mx-auto mb-16">
+                <div className="rounded-2xl overflow-hidden border border-[#E5E5E0]/50 shadow-lg">
+                  <video
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    className="w-full h-auto"
+                  >
+                    <source src="/videos/demo-mapa.mp4" type="video/mp4" />
+                  </video>
+                </div>
+              </div>
+            </ScrollReveal>
+
             {/* Features grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5 max-w-5xl mx-auto">
               {[
