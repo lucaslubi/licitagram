@@ -284,7 +284,7 @@ export async function saveCompany(payload: CompanyPayload, existingId?: string) 
             .limit(1)
             .maybeSingle()
 
-          if (bestSub && bestSub.plan_id) {
+          if (bestSub && (bestSub.plan_id || bestSub.plan !== 'trial')) {
             // Inherit the paid plan
             const { error: inheritErr } = await serviceSupabase.from('subscriptions').insert({
               company_id: companyId,
