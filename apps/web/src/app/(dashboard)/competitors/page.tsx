@@ -806,7 +806,7 @@ export default async function CompetitorsPage({
               <div>
                 <p className="text-sm font-medium text-amber-800">Ranking por frequencia de co-participacao</p>
                 <p className="text-xs text-amber-600">
-                  A analise de IA sera aplicada automaticamente quando disponivel. Por enquanto, os concorrentes sao ordenados pela quantidade de licitacoes em comum.
+                  A análise de IA será aplicada automaticamente quando disponível. Por enquanto, os concorrentes são ordenados pela quantidade de licitações em comum.
                 </p>
               </div>
             </div>
@@ -860,10 +860,10 @@ export default async function CompetitorsPage({
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                     </svg>
                   </div>
-                  <p className="text-sm text-gray-600 font-medium">Analise de IA em andamento</p>
+                  <p className="text-sm text-gray-600 font-medium">Análise de IA em andamento</p>
                   <p className="text-xs text-gray-400 max-w-sm mx-auto">
-                    Seus concorrentes estao sendo analisados com inteligencia artificial para criar um ranking contextual preciso.
-                    Os resultados aparecerao em breve.
+                    Seus concorrentes estão sendo analisados com inteligência artificial para criar um ranking contextual preciso.
+                    Os resultados aparecerão em breve.
                   </p>
                 </div>
               ) : (
@@ -955,7 +955,7 @@ export default async function CompetitorsPage({
                                   {c.wins} vit.
                                 </span>
                                 {c.shared_tender_count > 0 && (
-                                  <span title="Licitacoes em comum" className="text-blue-500">
+                                  <span title="Licitações em comum" className="text-blue-500">
                                     {c.shared_tender_count} em comum
                                   </span>
                                 )}
@@ -998,10 +998,10 @@ export default async function CompetitorsPage({
               <CardContent className="py-12">
                 <div className="text-center space-y-4 max-w-md mx-auto">
                   <div className="text-4xl">&#x1f512;</div>
-                  <h3 className="text-xl font-semibold">Inteligencia de Mercado</h3>
-                  <p className="text-sm text-gray-500">Disponivel no plano Enterprise</p>
+                  <h3 className="text-xl font-semibold">Inteligência de Mercado</h3>
+                  <p className="text-sm text-gray-500">Disponível no plano Enterprise</p>
                   <p className="text-sm text-gray-400">
-                    Acompanhe tendencias do seu setor, volume de licitacoes por UF, e identifique janelas de oportunidade com poucos concorrentes.
+                    Acompanhe tendências do seu setor, volume de licitações por UF, e identifique janelas de oportunidade com poucos concorrentes.
                   </p>
                   <Link
                     href="/billing"
@@ -1185,7 +1185,7 @@ export default async function CompetitorsPage({
                 <Card>
                   <CardContent className="py-12">
                     <p className="text-center text-gray-400">
-                      Configure o CNAE da sua empresa nas configuracoes para ver a inteligencia de mercado.
+                      Configure o CNAE da sua empresa nas configurações para ver a inteligência de mercado.
                     </p>
                   </CardContent>
                 </Card>
@@ -1249,7 +1249,7 @@ export default async function CompetitorsPage({
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <span className="inline-block w-1.5 h-5 bg-orange-500 rounded-full" />
-                  Classificacao de Concorrentes por IA
+                  Classificação de Concorrentes por IA
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -1637,11 +1637,11 @@ export default async function CompetitorsPage({
                           if (winRatePct >= 50) strengths.push(`Win rate alto (${winRatePct}%)`)
                           else weaknesses.push(`Win rate baixo (${winRatePct}%)`)
 
-                          if (stats.total_participacoes >= 50) strengths.push('Experiencia ampla em licitacoes')
-                          else if (stats.total_participacoes < 10) weaknesses.push('Pouca experiencia em licitacoes')
+                          if (stats.total_participacoes >= 50) strengths.push('Experiência ampla em licitações')
+                          else if (stats.total_participacoes < 10) weaknesses.push('Pouca experiência em licitações')
 
-                          if (Object.keys(stats.ufs_atuacao || {}).length >= 5) strengths.push('Presenca geografica diversificada')
-                          else weaknesses.push('Presenca geografica limitada')
+                          if (Object.keys(stats.ufs_atuacao || {}).length >= 5) strengths.push('Presença geográfica diversificada')
+                          else weaknesses.push('Presença geográfica limitada')
 
                           if (stats.desconto_medio > 15) strengths.push('Pricing agressivo')
                           else if (stats.desconto_medio < 5 && stats.desconto_medio > 0) weaknesses.push('Desconto conservador')

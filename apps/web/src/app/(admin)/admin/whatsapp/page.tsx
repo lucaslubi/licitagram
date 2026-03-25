@@ -95,7 +95,7 @@ export default function WhatsAppAdminPage() {
               WhatsApp conectado e operacional
             </p>
             <p className="text-xs text-green-600 mt-1">
-              Mensagens de notificacao serao enviadas automaticamente
+              Mensagens de notificação serão enviadas automaticamente
             </p>
           </div>
         )}
@@ -107,7 +107,7 @@ export default function WhatsAppAdminPage() {
                 Escaneie o QR Code com o WhatsApp
               </p>
               <p className="text-xs text-amber-600 mt-1">
-                WhatsApp &rarr; Configuracoes &rarr; Dispositivos Conectados &rarr; Conectar Dispositivo
+                WhatsApp &rarr; Configurações &rarr; Dispositivos Conectados &rarr; Conectar Dispositivo
               </p>
             </div>
 
@@ -129,7 +129,7 @@ export default function WhatsAppAdminPage() {
         {(state === 'connecting' || state === 'close' || state === 'unknown') && !qrBase64 && (
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
             <p className="text-sm text-gray-600">
-              Nao foi possivel gerar o QR Code. Tente reiniciar a instancia.
+              Não foi possível gerar o QR Code. Tente reiniciar a instância.
             </p>
           </div>
         )}
@@ -137,7 +137,7 @@ export default function WhatsAppAdminPage() {
 
       {/* Actions */}
       <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Acoes</h2>
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Ações</h2>
 
         <div className="space-y-3">
           <button
@@ -145,7 +145,7 @@ export default function WhatsAppAdminPage() {
             className="w-full text-left px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <p className="text-sm font-medium text-gray-900">Atualizar Status</p>
-            <p className="text-xs text-gray-500">Verificar conexao atual</p>
+            <p className="text-xs text-gray-500">Verificar conexão atual</p>
           </button>
 
           <button
@@ -153,8 +153,8 @@ export default function WhatsAppAdminPage() {
             disabled={actionLoading}
             className="w-full text-left px-4 py-3 border border-amber-200 rounded-lg hover:bg-amber-50 transition-colors disabled:opacity-50"
           >
-            <p className="text-sm font-medium text-amber-700">Reiniciar Instancia</p>
-            <p className="text-xs text-amber-600">Reinicia a conexao sem deslogar</p>
+            <p className="text-sm font-medium text-amber-700">Reiniciar Instância</p>
+            <p className="text-xs text-amber-600">Reinicia a conexão sem deslogar</p>
           </button>
 
           <button
@@ -163,20 +163,20 @@ export default function WhatsAppAdminPage() {
             className="w-full text-left px-4 py-3 border border-red-200 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
           >
             <p className="text-sm font-medium text-red-700">Desconectar WhatsApp</p>
-            <p className="text-xs text-red-600">Desloga o dispositivo (precisara escanear QR novamente)</p>
+            <p className="text-xs text-red-600">Desloga o dispositivo (precisará escanear QR novamente)</p>
           </button>
         </div>
       </div>
 
       {/* Info */}
       <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-        <h3 className="text-sm font-medium text-gray-700 mb-2">Informacoes Tecnicas</h3>
+        <h3 className="text-sm font-medium text-gray-700 mb-2">Informações Técnicas</h3>
         <div className="grid grid-cols-2 gap-2 text-xs text-gray-500">
           <span>Evolution API</span>
           <span className="text-right font-mono">{process.env.NEXT_PUBLIC_EVOLUTION_API_URL || 'VPS local'}</span>
-          <span>Instancia</span>
+          <span>Instância</span>
           <span className="text-right font-mono">licitagram</span>
-          <span>Versao</span>
+          <span>Versão</span>
           <span className="text-right font-mono">v2.2.3</span>
         </div>
       </div>

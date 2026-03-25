@@ -54,7 +54,7 @@ const PORTAL_OPTIONS = [
   { value: 'comprasnet', label: 'ComprasNet' },
   { value: 'comprasgov', label: 'ComprasGov' },
   { value: 'bec', label: 'BEC/SP' },
-  { value: 'licitacoes_e', label: 'Licitacoes-e (BB)' },
+  { value: 'licitacoes_e', label: 'Licitações-e (BB)' },
   { value: 'bll', label: 'BLL Compras' },
 ]
 
@@ -333,7 +333,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
       {/* Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="rounded-xl border border-gray-200 bg-white shadow-sm p-6">
-          <p className="text-sm text-gray-400 font-medium uppercase tracking-wider">Total sessoes</p>
+          <p className="text-sm text-gray-400 font-medium uppercase tracking-wider">Total sessões</p>
           <p className="text-3xl font-bold text-gray-900 mt-1">{sessions.length}</p>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white shadow-sm p-6">
@@ -354,8 +354,8 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
       <div className="flex gap-1 border-b border-gray-200">
         {[
           { key: 'configs' as const, label: 'Portais Configurados' },
-          { key: 'sessions' as const, label: `Sessoes Ativas (${activeSessions.length})` },
-          { key: 'history' as const, label: 'Historico' },
+          { key: 'sessions' as const, label: `Sessões Ativas (${activeSessions.length})` },
+          { key: 'history' as const, label: 'Histórico' },
         ].map(tab => (
           <button
             key={tab.key}
@@ -375,7 +375,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
       {activeTab === 'configs' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-gray-900">Configuracoes de Portal</h2>
+            <h2 className="text-xl font-semibold text-gray-900">Configurações de Portal</h2>
             <button onClick={openAddConfig} className="bg-[#F43E01] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[#D63500] transition-colors">
               Adicionar Portal
             </button>
@@ -450,13 +450,13 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
       {activeTab === 'sessions' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-gray-900">Sessoes Ativas</h2>
+            <h2 className="text-xl font-semibold text-gray-900">Sessões Ativas</h2>
             <button
               onClick={openNewSession}
               disabled={configs.length === 0}
               className="bg-[#F43E01] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[#D63500] transition-colors disabled:opacity-50"
             >
-              Nova Sessao
+              Nova Sessão
             </button>
           </div>
 
@@ -553,7 +553,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
       {/* ═══ Tab: History ═══ */}
       {activeTab === 'history' && (
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold text-gray-900">Historico de Sessoes</h2>
+          <h2 className="text-xl font-semibold text-gray-900">Histórico de Sessões</h2>
 
           {historySessions.length === 0 ? (
             <div className="rounded-xl border border-gray-200 bg-white shadow-sm p-8 text-center">
@@ -745,7 +745,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
           <div className="bg-white border border-gray-200 rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-gray-900">Nova Sessao de Bot</h3>
+                <h3 className="text-lg font-semibold text-gray-900">Nova Sessão de Bot</h3>
                 <button onClick={() => setShowSessionDialog(false)} className="text-gray-400 hover:text-gray-600">
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />

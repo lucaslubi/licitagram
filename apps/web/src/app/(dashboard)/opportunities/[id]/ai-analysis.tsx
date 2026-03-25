@@ -217,12 +217,12 @@ export function AiAnalysis({ matchId, initialData, matchSource, hasAccess = true
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Analise IA</CardTitle>
+          <CardTitle>Análise IA</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-4">
-            <p className="text-sm text-gray-500">Aguardando analise automatica da IA...</p>
-            <p className="text-xs text-gray-400 mt-1">Esta licitacao sera analisada em breve pelo sistema.</p>
+            <p className="text-sm text-gray-500">Aguardando análise automática da IA...</p>
+            <p className="text-xs text-gray-400 mt-1">Esta licitação será analisada em breve pelo sistema.</p>
           </div>
         </CardContent>
       </Card>
@@ -286,40 +286,99 @@ export function AiAnalysis({ matchId, initialData, matchSource, hasAccess = true
             </CardTitle>
             <p className="text-xs text-muted-foreground mt-1">Avaliação detalhada de compatibilidade por dimensão</p>
           </CardHeader>
-          <CardContent className="pt-2">
-            <div className="grid gap-3">
-              {breakdown.map((item) => {
-                const fitKey = getFitKey(item)
-                const config = FIT_CONFIG[fitKey]
-                const fitLabel = item.fit
-                  ? (FIT_LABELS[item.fit] || item.fit)
-                  : (typeof item.score === 'number' ? scoreFitLabel(item.score) : '—')
-                const icon = CATEGORY_ICONS[item.category] || '📊'
+          <CardContent className="pt-4">
+            {(() => {
+              const CATEGORY_COLORS: Record<string, string> = {
+                cnae: '#6366F1',
+                compatibilidade_cnae: '#6366F1',
+                keywords: '#F97316',
+                description: '#8B5CF6',
+                descricao_servicos: '#8B5CF6',
+                compatibilidade_objeto: '#0EA5E9',
+                qualificacao_tecnica: '#10B981',
+                potencial_participacao: '#F59E0B',
+                relevancia_estrategica: '#6366F1',
+                capacidade_economica: '#0EA5E9',
+                documentacao: '#F97316',
+                localizacao: '#8B5CF6',
+              }
 
-                return (
-                  <div
-                    key={item.category}
-                    className={`rounded-lg border ${config.border} ${config.bg} p-3 transition-all hover:shadow-sm`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-base">{icon}</span>
-                        <span className="text-sm font-semibold text-gray-900">
-                          {CATEGORY_LABELS[item.category] || item.category}
-                        </span>
+              function getScoreForItem(item: BreakdownItem): number {
+                if (typeof item.score === 'number') return item.score
+                const fk = getFitKey(item)
+                if (fk === 'excelente') return 95
+                if (fk === 'alto') return 75
+                if (fk === 'medio') return 50
+                return 25
+              }
+
+              function getColorForItem(item: BreakdownItem): string {
+                if (CATEGORY_COLORS[item.category]) return CATEGORY_COLORS[item.category]
+                const fk = getFitKey(item)
+                if (fk === 'excelente') return '#10B981'
+                if (fk === 'alto') return '#6366F1'
+                if (fk === 'medio') return '#F59E0B'
+                return '#EF4444'
+              }
+
+              const scores = breakdown.map(getScoreForItem)
+              const avgScore = Math.round(scores.reduce((a, b) => a + b, 0) / (scores.length || 1))
+
+              // Build conic-gradient segments
+              const total = scores.reduce((a, b) => a + b, 0) || 1
+              let cumulative = 0
+              const segments = breakdown.map((item, i) => {
+                const score = scores[i]
+                const color = getColorForItem(item)
+                const start = (cumulative / total) * 360
+                cumulative += score
+                const end = (cumulative / total) * 360
+                return `${color} ${start}deg ${end}deg`
+              })
+              const conicGradient = `conic-gradient(${segments.join(', ')})`
+
+              return (
+                <div className="flex items-center gap-8">
+                  {/* Donut Chart */}
+                  <div className="relative w-28 h-28 shrink-0">
+                    <div className="w-full h-full rounded-full" style={{ background: conicGradient }} />
+                    <div className="absolute inset-3 bg-white rounded-full flex items-center justify-center shadow-inner">
+                      <div className="text-center">
+                        <p className="text-xl font-bold text-gray-900">{avgScore}</p>
+                        <p className="text-[9px] text-gray-400 uppercase tracking-wider">Score</p>
                       </div>
-                      <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${config.bg} ${config.text} border ${config.border}`}>
-                        {fitLabel}
-                      </span>
                     </div>
-                    <div className="w-full bg-gray-200/60 rounded-full h-1.5 mb-2">
-                      <div className={`h-1.5 rounded-full ${config.bar} ${config.barWidth} transition-all duration-500`} />
-                    </div>
-                    <p className="text-xs text-gray-600 leading-relaxed">{item.reason}</p>
                   </div>
-                )
-              })}
-            </div>
+
+                  {/* Legend - thin elegant rows */}
+                  <div className="flex-1 space-y-3">
+                    {breakdown.map((item) => {
+                      const score = getScoreForItem(item)
+                      const color = getColorForItem(item)
+                      const fitLabel = item.fit
+                        ? (FIT_LABELS[item.fit] || item.fit)
+                        : (typeof item.score === 'number' ? scoreFitLabel(item.score) : '—')
+
+                      return (
+                        <div key={item.category} className="flex items-center gap-3">
+                          <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-0.5">
+                              <span className="text-xs font-medium text-gray-700">{CATEGORY_LABELS[item.category] || item.category}</span>
+                              <span className="text-xs font-semibold text-gray-900">{typeof item.score === 'number' ? item.score : fitLabel}</span>
+                            </div>
+                            <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
+                              <div className="h-full rounded-full transition-all duration-500" style={{ width: `${score}%`, backgroundColor: color }} />
+                            </div>
+                            <p className="text-[10px] text-gray-400 mt-0.5 truncate">{item.reason}</p>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })()}
           </CardContent>
         </Card>
       )}

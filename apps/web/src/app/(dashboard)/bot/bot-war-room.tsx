@@ -23,7 +23,7 @@ export function BotWarRoom({ configs, sessions, companyId, tenders, competitors 
       {/* Navigation Tabs */}
       <div className="flex items-center gap-1 mb-6 bg-white border border-gray-200 shadow-sm rounded-lg p-1 w-fit">
         {([
-          { id: 'dashboard' as const, label: 'Configuracoes', icon: '⚙' },
+          { id: 'dashboard' as const, label: 'Configurações', icon: '⚙' },
           { id: 'pregao' as const, label: 'Pre-Disputa', icon: '🎯' },
           { id: 'live' as const, label: 'Ao Vivo', icon: '⚡' },
         ]).map(tab => (

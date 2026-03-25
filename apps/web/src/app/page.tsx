@@ -605,7 +605,7 @@ export default async function LandingPage() {
         </section>
       </ClipRevealSection>
 
-      {/* ── 05 — Compliance e Certidoes ── */}
+      {/* ── 05 — Compliance e Certidões ── */}
       <ClipRevealSection className="bg-[#1A1C1F]">
         <section className="py-20 sm:py-28">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1304,7 +1304,7 @@ export default async function LandingPage() {
         <div className="relative max-w-3xl mx-auto px-4 text-center">
           <ScrollReveal>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight text-balance mb-6">
-              Seus concorrentes ainda procuram licitacoes em portais. Voce ja pode ver onde o dinheiro está.
+              Seus concorrentes ainda procuram licitações em portais. Você já pode ver onde o dinheiro está.
             </h2>
           </ScrollReveal>
           <ScrollReveal delay={100}>

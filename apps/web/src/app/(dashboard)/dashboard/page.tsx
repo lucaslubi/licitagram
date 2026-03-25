@@ -261,7 +261,7 @@ export default async function DashboardPage() {
 
       {/* Primary KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <KPICard label="Licitacoes Abertas" value={totalTenders.toLocaleString('pt-BR')} icon="📋" accentColor="#F43E01" />
+        <KPICard label="Licitações Abertas" value={totalTenders.toLocaleString('pt-BR')} icon="📋" accentColor="#F43E01" />
         <KPICard label="Matches Este Mes" value={monthMatches.toLocaleString('pt-BR')} icon="🎯" accentColor="#10B981" />
         <KPICard label="Score 70+" value={highMatches.toLocaleString('pt-BR')} icon="🔥" accentColor="#F97316" />
         <KPICard label="Novas Esta Semana" value={weekTenders.toLocaleString('pt-BR')} icon="✨" accentColor="#6366F1" />
@@ -385,9 +385,9 @@ export default async function DashboardPage() {
           ) : (
             <div className="text-center py-8">
               <p className="text-4xl mb-3">🔍</p>
-              <p className="text-gray-400 text-sm mb-3">A IA esta processando suas licitacoes. Os matches aparecerao aqui.</p>
+              <p className="text-gray-400 text-sm mb-3">A IA está processando suas licitações. Os matches aparecerão aqui.</p>
               <Link href="/opportunities" className="inline-flex items-center px-4 py-2 bg-brand text-white rounded-lg hover:bg-brand-dark text-sm transition-colors duration-150">
-                Ver licitacoes
+                Ver licitações
               </Link>
             </div>
           )}
@@ -416,7 +416,7 @@ function ScoreBadge({ score, source }: { score: number; source?: string | null }
   const color = score >= 80 ? 'bg-orange-100 text-orange-800' : score >= 70 ? 'bg-emerald-100 text-emerald-800' : score >= 50 ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'
   const isAI = source === 'ai' || source === 'ai_triage' || source === 'semantic'
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${color}`} title={isAI ? 'Score verificado por IA' : 'Score do matching automatico'}>
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${color}`} title={isAI ? 'Score verificado por IA' : 'Score do matching automático'}>
       {score}
       {isAI && <span className="text-[9px] font-normal opacity-70">IA</span>}
     </span>

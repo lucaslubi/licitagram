@@ -23,9 +23,9 @@ const STEP_LABELS: Record<CertidaoStep, string> = {
   opening: 'Abrindo site...',
   filling: 'Preenchendo CNPJ...',
   captcha: 'Resolva o captcha abaixo',
-  emitting: 'Emitindo certidao...',
-  done: 'Certidao emitida!',
-  error: 'Erro na emissao',
+  emitting: 'Emitindo certidão...',
+  done: 'Certidão emitida!',
+  error: 'Erro na emissão',
 }
 
 const PORTAL_LABELS: Record<string, string> = {
@@ -89,7 +89,7 @@ export function GuidedCertidao({ portal, cnpj, onSuccess, onClose }: GuidedCerti
       setStep('captcha')
     } catch (err) {
       if (!mountedRef.current) return
-      setError(err instanceof Error ? err.message : 'Falha ao conectar ao servidor de emissao')
+      setError(err instanceof Error ? err.message : 'Falha ao conectar ao servidor de emissão')
       setStep('error')
     }
   }, [callApi])
@@ -258,7 +258,7 @@ export function GuidedCertidao({ portal, cnpj, onSuccess, onClose }: GuidedCerti
 
           {step === 'error' && error && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 mb-4">
-              <p className="text-base font-medium text-red-800 mb-1">Erro na emissao</p>
+              <p className="text-base font-medium text-red-800 mb-1">Erro na emissão</p>
               <p className="text-sm text-red-700">{error}</p>
               <button
                 onClick={() => {

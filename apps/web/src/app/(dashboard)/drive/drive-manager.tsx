@@ -39,7 +39,7 @@ type ViewMode = 'grid' | 'list'
 const CATEGORIES: { key: Category; label: string }[] = [
   { key: 'todos', label: 'Todos' },
   { key: 'edital', label: 'Editais' },
-  { key: 'certidao', label: 'Certidoes' },
+  { key: 'certidao', label: 'Certidões' },
   { key: 'proposta', label: 'Propostas' },
   { key: 'contrato', label: 'Contratos' },
   { key: 'analise', label: 'Analises' },
@@ -627,7 +627,7 @@ export function DriveManager({ companyId, companyName }: DriveManagerProps) {
                   <th className="text-left px-4 py-3 text-xs font-medium text-[#69695D] uppercase tracking-wider hidden sm:table-cell">Tamanho</th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-[#69695D] uppercase tracking-wider hidden lg:table-cell">Fonte</th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-[#69695D] uppercase tracking-wider">Data</th>
-                  <th className="text-right px-4 py-3 text-xs font-medium text-[#69695D] uppercase tracking-wider">Acoes</th>
+                  <th className="text-right px-4 py-3 text-xs font-medium text-[#69695D] uppercase tracking-wider">Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -785,12 +785,12 @@ export function DriveManager({ companyId, companyName }: DriveManagerProps) {
 
               {/* Description */}
               <div className="mt-3">
-                <label className="text-xs font-medium text-[#69695D] uppercase tracking-wider">Descricao (opcional)</label>
+                <label className="text-xs font-medium text-[#69695D] uppercase tracking-wider">Descrição (opcional)</label>
                 <textarea
                   value={uploadDescription}
                   onChange={(e) => setUploadDescription(e.target.value)}
                   rows={2}
-                  placeholder="Breve descricao dos arquivos..."
+                  placeholder="Breve descrição dos arquivos..."
                   className="mt-1 w-full px-3 py-2 text-sm border border-black/[0.08] rounded-xl bg-[#FAFAF8] text-[#26292E] placeholder:text-[#69695D]/50 focus:outline-none focus:ring-2 focus:ring-[#F43E01]/20 resize-none"
                 />
               </div>

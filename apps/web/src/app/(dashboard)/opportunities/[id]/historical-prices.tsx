@@ -285,9 +285,9 @@ export function HistoricalPrices({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          Historico de Precos Similares
+          Histórico de Preços Similares
           <Badge variant="secondary" className="text-xs ml-auto">
-            {stats.count} licitacoes
+            {stats.count} licitações
           </Badge>
         </CardTitle>
       </CardHeader>

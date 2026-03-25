@@ -179,9 +179,9 @@ export function ConsultaCertidoes({ cnpj }: { cnpj: string; hasApiKey?: boolean 
       {/* Header + Action */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h3 className="text-lg font-bold text-gray-900">Consulta de Certidoes para Habilitacao</h3>
+          <h3 className="text-lg font-bold text-gray-900">Consulta de Certidões para Habilitação</h3>
           <p className="text-sm text-gray-700">
-            Verifica sancoes automaticamente. Certidoes com captcha sao emitidas pelo servidor.
+            Verifica sanções automaticamente. Certidões com captcha são emitidas pelo servidor.
           </p>
         </div>
         <button
@@ -202,7 +202,7 @@ export function ConsultaCertidoes({ cnpj }: { cnpj: string; hasApiKey?: boolean 
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>
-              Verificar Habilitacao
+              Verificar Habilitação
             </>
           )}
         </button>
@@ -217,12 +217,12 @@ export function ConsultaCertidoes({ cnpj }: { cnpj: string; hasApiKey?: boolean 
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
             {isPolling
-              ? 'Emitindo certidoes via servidor (captchas sendo resolvidos automaticamente)...'
-              : `Consultando certidoes para CNPJ ${formatCnpj(cnpj)}...`}
+              ? 'Emitindo certidões via servidor (captchas sendo resolvidos automaticamente)...'
+              : `Consultando certidões para CNPJ ${formatCnpj(cnpj)}...`}
           </p>
           {isPolling && (
             <p className="text-sm text-blue-600 mt-1">
-              Isso pode levar 1-2 minutos. Nao feche esta pagina.
+              Isso pode levar 1-2 minutos. Não feche esta página.
             </p>
           )}
         </div>
@@ -343,7 +343,7 @@ export function ConsultaCertidoes({ cnpj }: { cnpj: string; hasApiKey?: boolean 
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
-                <p className="text-sm text-blue-700 font-medium">Emitindo certidoes automaticamente...</p>
+                <p className="text-sm text-blue-700 font-medium">Emitindo certidões automaticamente...</p>
               </div>
               <div className="grid grid-cols-3 gap-2 mt-3">
                 {['CNDT (TST)', 'CND Federal', 'CRF FGTS'].map(name => (
@@ -363,7 +363,7 @@ export function ConsultaCertidoes({ cnpj }: { cnpj: string; hasApiKey?: boolean 
           {jobStatus === 'failed' && asyncCertidoes.length === 0 && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
               <p className="text-sm text-amber-700">
-                Algumas certidoes nao puderam ser emitidas automaticamente. Use os links manuais abaixo.
+                Algumas certidões não puderam ser emitidas automaticamente. Use os links manuais abaixo.
               </p>
             </div>
           )}
@@ -373,7 +373,7 @@ export function ConsultaCertidoes({ cnpj }: { cnpj: string; hasApiKey?: boolean 
             <div className="rounded-lg border border-gray-200 bg-white p-4">
               <h4 className="font-semibold text-base text-gray-900 mb-3 flex items-center gap-1.5">
                 <span>{'\uD83D\uDCCB'}</span>
-                Emitir Certidoes (consulta manual)
+                Emitir Certidões (consulta manual)
               </h4>
               <p className="text-sm text-gray-700 mb-3">
                 Emita diretamente pelo Licitagram (captcha guiado) ou abra o site do governo.

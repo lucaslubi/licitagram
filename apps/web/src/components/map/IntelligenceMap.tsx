@@ -486,7 +486,7 @@ export function IntelligenceMap({
           </select>
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-600 mb-1 block">Regioes</label>
+          <label className="text-xs font-medium text-gray-600 mb-1 block">Regiões</label>
           <div className="flex flex-wrap gap-1.5">
             {REGIONS.map((r) => (
               <button

@@ -4,10 +4,10 @@ import { useState } from 'react'
 import Link from 'next/link'
 
 const NAV_LINKS = [
-  { href: '#inteligencia', label: 'Inteligencia' },
+  { href: '#inteligencia', label: 'Inteligência' },
   { href: '#mapa', label: 'Mapa' },
   { href: '#plataforma', label: 'Plataforma' },
-  { href: '#pricing', label: 'Precos' },
+  { href: '#pricing', label: 'Preços' },
   { href: '#governos', label: 'Para Governos' },
 ]
 

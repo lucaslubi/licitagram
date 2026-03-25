@@ -119,7 +119,7 @@ export default async function AdminProspectsPage({
         <div>
           <h1 className="text-xl sm:text-2xl font-bold">Prospectos (Concorrentes)</h1>
           <p className="text-sm text-gray-500 mt-1">
-            {count?.toLocaleString('pt-BR') || 0} empresas encontradas em licitacoes
+            {count?.toLocaleString('pt-BR') || 0} empresas encontradas em licitações
           </p>
         </div>
         <a

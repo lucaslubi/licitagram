@@ -697,7 +697,7 @@ export function MonitoringDashboard() {
             Tempo real &middot; Atualiza a cada 5s
             {lastRefresh && (
               <span className="ml-2 text-gray-400">
-                Ultima atualizacao: {timeAgo(lastRefresh)}
+                Última atualização: {timeAgo(lastRefresh)}
               </span>
             )}
             {!vps_reachable && (
