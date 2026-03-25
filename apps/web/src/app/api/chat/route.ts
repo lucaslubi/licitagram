@@ -351,6 +351,10 @@ export async function POST(request: NextRequest) {
     context += `## Texto Extraído dos Documentos (${docsLoaded} documento${docsLoaded > 1 ? 's' : ''} — texto COMPLETO sem truncamento)\n${docsText}\n`
   }
 
+  if (docsFailed > 0) {
+    context += `\n## NOTA: ${docsFailed} documento(s) PDF ainda estão sendo processados pelo sistema. A extração de texto está em andamento. Analise com base nos dados já disponíveis acima (objeto, resumo, requisitos e documentos já extraídos). NÃO diga que "não consegue acessar" os PDFs — diga que "${docsFailed} documento(s) estão sendo processados e a análise será atualizada quando concluírem".\n`
+  }
+
   // Add user-uploaded document text
   if (uploadedDocsText && uploadedDocsText.trim().length > 0) {
     const uploadedText = uploadedDocsText.trim()
@@ -385,6 +389,8 @@ REGRAS ABSOLUTAS — NUNCA QUEBRE ESTAS REGRAS:
 5. Quando citar dados, indique de onde veio (ex: "conforme o objeto do edital", "no documento X").
 6. Se o texto do edital/documentos estiver incompleto ou não foi possível extrair, avise o usuário.
 7. **NUNCA use linhas horizontais (--- ou ___).** Use headings (## ou ###) para separar seções. Não gere linhas de traços, pontos ou underscores.
+8. **NUNCA diga que "não consegue acessar os PDFs" ou "não tenho acesso aos documentos".** Você TEM acesso — os documentos foram extraídos e fornecidos abaixo como texto. Se algum documento está pendente, diga "X documento(s) estão sendo processados pelo sistema" e analise com os dados disponíveis.
+9. **NUNCA peça ao usuário para "copiar e colar o texto do PDF".** O sistema extrai automaticamente. Se não há texto, é porque está em processamento.
 
 ${isNonCompetitive ? `⚠️ ATENÇÃO: Este edital é de modalidade "${tender.modalidade_nome}" — NÃO é uma licitação competitiva.
 Na inexigibilidade, a empresa fornecedora já foi escolhida previamente. Não há competição aberta.
