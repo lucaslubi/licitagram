@@ -396,7 +396,7 @@ export function IntelligenceMap({
   const sidebarContent = (
     <>
       {/* Header metrics — always reflect filtered data */}
-      <div className={`border-b border-gray-100 bg-gray-50 ${isMobile ? 'p-3' : 'p-4'}`}>
+      <div className={`border-b border-black/[0.06] bg-black/[0.03] ${isMobile ? 'p-3' : 'p-5'}`}>
         <h2 className={`font-bold text-gray-900 ${isMobile ? 'text-base mb-2' : 'text-lg mb-3'}`}>Mapa de Inteligencia</h2>
         <div className="grid grid-cols-3 gap-2">
           <div className="text-center">
@@ -421,7 +421,7 @@ export function IntelligenceMap({
       </div>
 
       {/* Filters */}
-      <div className={`border-b border-gray-100 ${isMobile ? 'p-3' : 'p-4'}`}>
+      <div className={`border-b border-black/[0.06] ${isMobile ? 'p-3' : 'p-5'}`}>
         <div className="mb-3">
           <div className="flex items-center justify-between mb-1">
             <label className="text-xs font-medium text-gray-600">
@@ -471,7 +471,7 @@ export function IntelligenceMap({
           <select
             value={minValor}
             onChange={(e) => setMinValor(Number(e.target.value))}
-            className="w-full text-xs border border-gray-200 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-brand"
+            className="w-full text-xs border border-black/[0.08] rounded-lg px-3 py-2 bg-white/60 text-gray-700 focus:outline-none focus:ring-1 focus:ring-brand backdrop-blur-sm"
           >
             <option value={0}>Todos os valores</option>
             <option value={10000}>Acima de R$ 10K</option>
@@ -911,7 +911,7 @@ export function IntelligenceMap({
 
       {/* Desktop Sidebar */}
       {!isMobile && (
-        <div className="w-full md:w-[30%] md:min-w-[320px] md:max-w-[400px] h-full overflow-y-auto bg-white border-l border-gray-200">
+        <div className="w-full md:w-[30%] md:min-w-[320px] md:max-w-[400px] h-full overflow-y-auto bg-white/[0.82] backdrop-blur-xl border-l border-white/30 shadow-[-8px_0_32px_rgba(0,0,0,0.08)]">
           {sidebarContent}
         </div>
       )}
