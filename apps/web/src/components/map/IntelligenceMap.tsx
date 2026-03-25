@@ -396,24 +396,24 @@ export function IntelligenceMap({
   const sidebarContent = (
     <>
       {/* Header metrics — always reflect filtered data */}
-      <div className={`border-b border-black/[0.06] bg-black/[0.03] ${isMobile ? 'p-3' : 'p-5'}`}>
-        <h2 className={`font-bold text-gray-900 ${isMobile ? 'text-base mb-2' : 'text-lg mb-3'}`}>Mapa de Inteligencia</h2>
-        <div className="grid grid-cols-3 gap-2">
-          <div className="text-center">
-            <p className={`font-bold text-brand ${isMobile ? 'text-lg' : 'text-xl'}`}>{filteredMarkers.length}</p>
-            <p className="text-[10px] text-gray-500 uppercase tracking-wide">Oportunidades</p>
+      <div className={`border-b border-gray-200/60 ${isMobile ? 'p-3' : 'p-5 pb-4'}`}>
+        <h2 className={`font-bold text-gray-900 tracking-tight ${isMobile ? 'text-base mb-3' : 'text-xl mb-4'}`}>Mapa de Inteligencia</h2>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="text-center bg-white rounded-xl p-3 shadow-sm border border-gray-100">
+            <p className={`font-bold text-[#F43E01] ${isMobile ? 'text-lg' : 'text-2xl'}`}>{filteredMarkers.length}</p>
+            <p className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Oportunidades</p>
           </div>
-          <div className="text-center">
-            <p className={`font-bold text-emerald-600 ${isMobile ? 'text-lg' : 'text-xl'}`}>
+          <div className="text-center bg-white rounded-xl p-3 shadow-sm border border-gray-100">
+            <p className={`font-bold text-emerald-600 ${isMobile ? 'text-lg' : 'text-2xl'}`}>
               {formatCompactBRL(filteredMarkers.reduce((s, m) => s + (m.valor || 0), 0))}
             </p>
-            <p className="text-[10px] text-gray-500 uppercase tracking-wide">Valor Total</p>
+            <p className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Valor Total</p>
           </div>
-          <div className="text-center">
-            <p className={`font-bold text-amber-600 ${isMobile ? 'text-lg' : 'text-xl'}`}>
+          <div className="text-center bg-white rounded-xl p-3 shadow-sm border border-gray-100">
+            <p className={`font-bold text-gray-900 ${isMobile ? 'text-lg' : 'text-2xl'}`}>
               {filteredUfStats.length > 0 ? filteredUfStats[0].uf : '-'}
             </p>
-            <p className="text-[10px] text-gray-500 uppercase tracking-wide">
+            <p className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">
               {filteredUfStats.length > 0 ? `${filteredUfStats[0].count} matches` : 'Melhor UF'}
             </p>
           </div>
@@ -421,11 +421,11 @@ export function IntelligenceMap({
       </div>
 
       {/* Filters */}
-      <div className={`border-b border-black/[0.06] ${isMobile ? 'p-3' : 'p-5'}`}>
-        <div className="mb-3">
-          <div className="flex items-center justify-between mb-1">
-            <label className="text-xs font-medium text-gray-600">
-              Score minimo: {scoreFilter > 0 ? scoreFilter : 'Todos'}
+      <div className={`border-b border-gray-200/60 ${isMobile ? 'p-3' : 'px-5 py-4'}`}>
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-xs font-semibold text-gray-700 tracking-wide">
+              Score mínimo: {scoreFilter > 0 ? scoreFilter : 'Todos'}
             </label>
             {scoreFilter > 60 && (
               <button
@@ -911,7 +911,7 @@ export function IntelligenceMap({
 
       {/* Desktop Sidebar */}
       {!isMobile && (
-        <div className="w-full md:w-[30%] md:min-w-[320px] md:max-w-[400px] h-full overflow-y-auto bg-white/[0.82] backdrop-blur-xl border-l border-white/30 shadow-[-8px_0_32px_rgba(0,0,0,0.08)]">
+        <div className="w-full md:w-[30%] md:min-w-[320px] md:max-w-[400px] h-full overflow-y-auto bg-[#fafafa] border-l border-gray-200/60 shadow-[-4px_0_24px_rgba(0,0,0,0.06)]">
           {sidebarContent}
         </div>
       )}

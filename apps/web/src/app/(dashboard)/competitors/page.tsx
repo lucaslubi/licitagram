@@ -256,29 +256,51 @@ export default async function CompetitorsPage({
     .eq('id', profile?.company_id || '')
     .single()
 
+  const companyCnaePrincipal: string[] = []
+  const companyCnaeSecundarios: string[] = []
   const companyCnaeDivisions: string[] = []
-  if (company?.cnae_principal) companyCnaeDivisions.push(company.cnae_principal.substring(0, 2))
+  if (company?.cnae_principal) {
+    const div = company.cnae_principal.substring(0, 2)
+    companyCnaePrincipal.push(div)
+    companyCnaeDivisions.push(div)
+  }
   if (company?.cnaes_secundarios) {
     for (const c of company.cnaes_secundarios as string[]) {
       const div = c.substring(0, 2)
-      if (!companyCnaeDivisions.includes(div)) companyCnaeDivisions.push(div)
+      if (!companyCnaeDivisions.includes(div)) {
+        companyCnaeSecundarios.push(div)
+        companyCnaeDivisions.push(div)
+      }
     }
   }
 
   // Fetch top competitors in user's CNAE (market panorama)
+  // Priority: CNAE principal first, then secondary
   let marketCompetitors: Array<Record<string, unknown>> = []
   if (companyCnaeDivisions.length > 0 && tab === 'panorama') {
     const { data } = await supabase
       .from('competitor_stats')
       .select('*')
       .order('total_participacoes', { ascending: false })
-      .limit(50)
+      .limit(100)
 
-    // Filter to competitors who operate in same CNAE divisions
-    marketCompetitors = (data || []).filter((s) => {
+    // Filter and sort: primary CNAE competitors first, then secondary
+    const filtered = (data || []).filter((s) => {
       const cnaeDivisao = (s.cnae_divisao as string) || ''
       return companyCnaeDivisions.includes(cnaeDivisao)
-    }).slice(0, 10)
+    })
+
+    // Sort: primary CNAE match > secondary CNAE match > by participations
+    filtered.sort((a, b) => {
+      const aCnae = (a.cnae_divisao as string) || ''
+      const bCnae = (b.cnae_divisao as string) || ''
+      const aIsPrimary = companyCnaePrincipal.includes(aCnae) ? 1 : 0
+      const bIsPrimary = companyCnaePrincipal.includes(bCnae) ? 1 : 0
+      if (aIsPrimary !== bIsPrimary) return bIsPrimary - aIsPrimary
+      return (b.total_participacoes as number) - (a.total_participacoes as number)
+    })
+
+    marketCompetitors = filtered.slice(0, 15)
   }
 
   // Derive panorama analytics from market competitors
