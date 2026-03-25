@@ -95,15 +95,13 @@ export function DashboardSidebar({
 
   const sidebarContent = (
     <>
-      <div className={`p-6 ${collapsed ? 'px-3 py-4 flex justify-center' : ''}`}>
+      <div className={`mx-3 mt-3 mb-2 rounded-xl bg-white/[0.08] backdrop-blur-md border border-white/[0.1] ${collapsed ? 'p-2 flex justify-center' : 'p-4'}`}>
         {collapsed ? (
-          <Image src="/logo-branca.png" alt="Licitagram" width={440} height={99} className="h-8 w-auto" />
+          <Image src="/logo.png" alt="Licitagram" width={440} height={99} className="h-7 w-auto" />
         ) : (
-          <Image src="/logo-branca.png" alt="Licitagram" width={440} height={99} className="h-[5.85rem] w-auto" />
+          <Image src="/logo.png" alt="Licitagram" width={440} height={99} className="h-[4.5rem] w-auto" />
         )}
       </div>
-
-      <div className="mx-4 h-px bg-gray-700" />
 
       {/* Company Switcher (Enterprise multi-CNPJ) */}
       {companySwitcher && (
@@ -233,7 +231,7 @@ export function DashboardSidebar({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
-        <Image src="/logo-branca.png" alt="Licitagram" width={293} height={68} className="h-[3.94rem] w-auto" />
+        <Image src="/logo.png" alt="Licitagram" width={293} height={68} className="h-[3.94rem] w-auto" />
       </div>
 
       {/* Mobile overlay */}

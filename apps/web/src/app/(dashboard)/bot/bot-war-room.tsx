@@ -46,9 +46,9 @@ export function BotWarRoom({ configs, sessions, companyId, tenders, competitors 
       {view === 'dashboard' && (
         <div>
           <div className="mb-4">
-            <h1 className="text-3xl font-bold text-gray-900">LICITAGRAM BOT</h1>
-            <p className="text-base text-gray-500 mt-1">
-              Robo de lances automaticos para pregoes eletronicos
+            <h1 className="text-3xl font-bold text-white">LICITAGRAM BOT</h1>
+            <p className="text-base text-gray-400 mt-1">
+              Robô de lances automáticos para pregões eletrônicos
             </p>
           </div>
           <BotDashboard
