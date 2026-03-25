@@ -934,8 +934,8 @@ export default async function LandingPage() {
         </section>
       </ClipRevealSection>
 
-      {/* ── Testimonials ── */}
-      <ClipRevealSection className="bg-[#F5F5F0]">
+      {/* ── Testimonials — HIDDEN: enable via admin toggle when ready ── */}
+      {false && <ClipRevealSection className="bg-[#F5F5F0]">
         <section id="testimonials" className="py-20 sm:py-28">
           <div className="max-w-6xl mx-auto px-4">
             <div className="text-center mb-16">
@@ -977,7 +977,7 @@ export default async function LandingPage() {
             </div>
           </div>
         </section>
-      </ClipRevealSection>
+      </ClipRevealSection>}
 
       {/* ── Comparison Table ── */}
       <ClipRevealSection className="bg-[#1A1C1F]">
