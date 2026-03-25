@@ -435,9 +435,10 @@ export default async function LandingPage() {
                     loop
                     muted
                     playsInline
-                    className="w-full h-auto"
+                    preload="auto"
+                    className="w-full h-auto block"
                   >
-                    <source src="/videos/demo-mapa.mp4" type="video/mp4" />
+                    <source src="/videos/demo-mapa.mp4?v=2" type="video/mp4" />
                   </video>
                 </div>
               </div>
