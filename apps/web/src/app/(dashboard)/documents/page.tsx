@@ -39,7 +39,7 @@ export default async function DocumentsPage() {
       <div>
         <h1 className="text-2xl font-bold mb-6">Certidões e Documentos</h1>
         <Card>
-          <CardContent className="py-8 text-center text-gray-700">
+          <CardContent className="py-8 text-center text-gray-400">
             <p className="text-base">Configure sua empresa primeiro para gerenciar documentos.</p>
             <a href="/company" className="text-brand underline mt-2 inline-block font-medium">Configurar Empresa</a>
           </CardContent>
@@ -86,32 +86,32 @@ export default async function DocumentsPage() {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold mb-6 text-gray-900">Certidões e Documentos</h1>
+      <h1 className="text-3xl font-bold mb-6 text-white">Certidões e Documentos</h1>
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <Card>
           <CardContent className="pt-6 text-center">
-            <p className="text-3xl font-bold text-emerald-600">{validCount}</p>
-            <p className="text-sm font-medium text-gray-700">Válidos</p>
+            <p className="text-3xl font-bold text-emerald-400">{validCount}</p>
+            <p className="text-sm font-medium text-gray-400">Válidos</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6 text-center">
-            <p className="text-3xl font-bold text-amber-600">{expiringCount}</p>
-            <p className="text-sm font-medium text-gray-700">Vencendo em 30 dias</p>
+            <p className="text-3xl font-bold text-amber-400">{expiringCount}</p>
+            <p className="text-sm font-medium text-gray-400">Vencendo em 30 dias</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6 text-center">
-            <p className="text-3xl font-bold text-red-600">{expiredCount}</p>
-            <p className="text-sm font-medium text-gray-700">Vencidos</p>
+            <p className="text-3xl font-bold text-red-400">{expiredCount}</p>
+            <p className="text-sm font-medium text-gray-400">Vencidos</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6 text-center">
-            <p className="text-3xl font-bold text-blue-600">{autoCount}</p>
-            <p className="text-sm font-medium text-gray-700">Consultados via API</p>
+            <p className="text-3xl font-bold text-blue-400">{autoCount}</p>
+            <p className="text-sm font-medium text-gray-400">Consultados via API</p>
           </CardContent>
         </Card>
       </div>
@@ -150,7 +150,7 @@ export default async function DocumentsPage() {
         </CardHeader>
         <CardContent>
           {enriched.length === 0 ? (
-            <p className="text-center text-gray-600 py-6 text-base">
+            <p className="text-center text-gray-400 py-6 text-base">
               Nenhum documento cadastrado. Use a consulta automática ou adicione manualmente.
             </p>
           ) : (
@@ -184,9 +184,9 @@ export default async function DocumentsPage() {
                         statusBadge={<StatusBadge status={doc.computedStatus} />}
                         originBadge={
                           isAuto ? (
-                            <Badge variant="outline" className="bg-blue-50 text-blue-700 text-sm">API</Badge>
+                            <Badge variant="outline" className="bg-blue-900/20 text-blue-400 text-sm">API</Badge>
                           ) : (
-                            <Badge variant="outline" className="bg-gray-100 text-gray-700 text-sm">Manual</Badge>
+                            <Badge variant="outline" className="bg-[#2d2f33] text-gray-400 text-sm">Manual</Badge>
                           )
                         }
                       />
@@ -204,11 +204,11 @@ export default async function DocumentsPage() {
 
 function StatusBadge({ status }: { status: string }) {
   const config: Record<string, { label: string; color: string }> = {
-    valido: { label: 'Válido', color: 'bg-emerald-100 text-emerald-800' },
-    vencendo: { label: 'Vencendo', color: 'bg-amber-100 text-amber-800' },
-    vencido: { label: 'Vencido', color: 'bg-red-100 text-red-800' },
+    valido: { label: 'Válido', color: 'bg-emerald-900/20 text-emerald-400' },
+    vencendo: { label: 'Vencendo', color: 'bg-amber-900/20 text-amber-400' },
+    vencido: { label: 'Vencido', color: 'bg-red-900/20 text-red-400' },
   }
-  const { label, color } = config[status] || { label: status, color: 'bg-gray-150' }
+  const { label, color } = config[status] || { label: status, color: 'bg-[#2d2f33]' }
   return (
     <Badge variant="outline" className={`${color} text-xs`}>{label}</Badge>
   )

@@ -48,13 +48,13 @@ const CATEGORIES: { key: Category; label: string }[] = [
 ]
 
 const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
-  edital: { bg: 'bg-orange-100', text: 'text-orange-700' },
-  certidao: { bg: 'bg-emerald-100', text: 'text-emerald-700' },
-  proposta: { bg: 'bg-blue-100', text: 'text-blue-700' },
-  contrato: { bg: 'bg-purple-100', text: 'text-purple-700' },
-  analise: { bg: 'bg-amber-100', text: 'text-amber-700' },
-  consultor: { bg: 'bg-cyan-100', text: 'text-cyan-700' },
-  geral: { bg: 'bg-gray-100', text: 'text-gray-600' },
+  edital: { bg: 'bg-orange-900/20', text: 'text-orange-400' },
+  certidao: { bg: 'bg-emerald-900/20', text: 'text-emerald-400' },
+  proposta: { bg: 'bg-blue-900/20', text: 'text-blue-400' },
+  contrato: { bg: 'bg-purple-900/20', text: 'text-purple-400' },
+  analise: { bg: 'bg-amber-900/20', text: 'text-amber-400' },
+  consultor: { bg: 'bg-cyan-900/20', text: 'text-cyan-400' },
+  geral: { bg: 'bg-[#2d2f33]', text: 'text-gray-400' },
 }
 
 const SORT_OPTIONS: { key: SortOption; label: string }[] = [
@@ -82,14 +82,14 @@ function formatDatePtBr(dateStr: string): string {
 
 function getFileTypeInfo(mimeType: string, fileName: string): { type: string; color: string; bgColor: string } {
   if (mimeType === 'application/pdf' || fileName.endsWith('.pdf'))
-    return { type: 'PDF', color: 'text-red-600', bgColor: 'bg-red-50' }
+    return { type: 'PDF', color: 'text-red-400', bgColor: 'bg-red-900/20' }
   if (mimeType.startsWith('image/'))
-    return { type: 'Imagem', color: 'text-blue-600', bgColor: 'bg-blue-50' }
+    return { type: 'Imagem', color: 'text-blue-400', bgColor: 'bg-blue-900/20' }
   if (mimeType.includes('word') || mimeType.includes('document') || fileName.match(/\.(doc|docx|odt|rtf)$/))
-    return { type: 'Doc', color: 'text-indigo-600', bgColor: 'bg-indigo-50' }
+    return { type: 'Doc', color: 'text-indigo-400', bgColor: 'bg-indigo-900/20' }
   if (mimeType.includes('sheet') || mimeType.includes('excel') || fileName.match(/\.(xls|xlsx|csv|ods)$/))
-    return { type: 'Planilha', color: 'text-emerald-600', bgColor: 'bg-emerald-50' }
-  return { type: 'Arquivo', color: 'text-gray-500', bgColor: 'bg-gray-50' }
+    return { type: 'Planilha', color: 'text-emerald-400', bgColor: 'bg-emerald-900/20' }
+  return { type: 'Arquivo', color: 'text-gray-400', bgColor: 'bg-[#2d2f33]' }
 }
 
 // ── File Type Icons (inline SVG) ──────────────────────────────────────────────
@@ -99,7 +99,7 @@ function FileIcon({ mimeType, fileName, size = 32 }: { mimeType: string; fileNam
 
   if (type === 'PDF') {
     return (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className="text-red-500">
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className="text-red-400">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" fill="currentColor" fillOpacity={0.1} stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
         <polyline points="14 2 14 8 20 8" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
         <text x="12" y="17" textAnchor="middle" fill="currentColor" fontSize="6" fontWeight="bold">PDF</text>
@@ -109,7 +109,7 @@ function FileIcon({ mimeType, fileName, size = 32 }: { mimeType: string; fileNam
 
   if (type === 'Imagem') {
     return (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className="text-blue-500">
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className="text-blue-400">
         <rect x="3" y="3" width="18" height="18" rx="2" fill="currentColor" fillOpacity={0.1} stroke="currentColor" strokeWidth={1.5} />
         <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" />
         <path d="M21 15l-5-5L5 21" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
@@ -119,7 +119,7 @@ function FileIcon({ mimeType, fileName, size = 32 }: { mimeType: string; fileNam
 
   if (type === 'Doc') {
     return (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className="text-indigo-500">
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className="text-indigo-400">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" fill="currentColor" fillOpacity={0.1} stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
         <polyline points="14 2 14 8 20 8" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
         <line x1="8" y1="13" x2="16" y2="13" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" />
@@ -130,7 +130,7 @@ function FileIcon({ mimeType, fileName, size = 32 }: { mimeType: string; fileNam
 
   if (type === 'Planilha') {
     return (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className="text-emerald-500">
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className="text-emerald-400">
         <rect x="3" y="3" width="18" height="18" rx="2" fill="currentColor" fillOpacity={0.1} stroke="currentColor" strokeWidth={1.5} />
         <line x1="3" y1="9" x2="21" y2="9" stroke="currentColor" strokeWidth={1.5} />
         <line x1="3" y1="15" x2="21" y2="15" stroke="currentColor" strokeWidth={1.5} />
@@ -331,8 +331,8 @@ export function DriveManager({ companyId, companyName }: DriveManagerProps) {
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-[#26292E] tracking-tight">Drive Licitagram</h1>
-          <p className="text-[#69695D] mt-1">Memoria institucional da sua empresa</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Drive Licitagram</h1>
+          <p className="text-gray-400 mt-1">Memoria institucional da sua empresa</p>
         </div>
         <button
           onClick={() => setShowUpload(true)}
@@ -371,20 +371,20 @@ export function DriveManager({ companyId, companyName }: DriveManagerProps) {
             </svg>
           )},
         ].map((stat) => (
-          <div key={stat.label} className="bg-white rounded-[20px] border border-black/[0.08] p-4 flex items-center gap-3">
+          <div key={stat.label} className="bg-[#1a1c1f] rounded-xl border border-[#2d2f33] p-4 flex items-center gap-3 hover:border-[#F43E01]/20 transition-all duration-150">
             <div className="w-10 h-10 rounded-[12px] bg-[#F43E01]/[0.08] flex items-center justify-center flex-shrink-0">
               {stat.icon}
             </div>
             <div className="min-w-0">
-              <p className="text-xl font-bold text-[#26292E] leading-tight">{stat.value}</p>
-              <p className="text-xs text-[#69695D] truncate">{stat.label}</p>
+              <p className="text-xl font-bold text-white leading-tight">{stat.value}</p>
+              <p className="text-xs text-gray-400 truncate">{stat.label}</p>
             </div>
           </div>
         ))}
       </div>
 
       {/* ── Filters bar ────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-[20px] border border-black/[0.08] p-3 sm:p-4 space-y-3">
+      <div className="bg-[#1a1c1f] rounded-xl border border-[#2d2f33] p-3 sm:p-4 space-y-3">
         {/* Category tabs */}
         <div className="flex flex-wrap gap-1.5">
           {CATEGORIES.map((cat) => (
@@ -394,7 +394,7 @@ export function DriveManager({ companyId, companyName }: DriveManagerProps) {
               className={`px-3 py-1.5 text-sm rounded-[1000px] font-medium transition-all duration-150 ease-in-out ${
                 category === cat.key
                   ? 'bg-[#F43E01] text-white'
-                  : 'text-[#69695D] hover:bg-black/[0.04] hover:text-[#26292E]'
+                  : 'text-gray-400 hover:bg-[#2d2f33] hover:text-white'
               }`}
             >
               {cat.label}
@@ -406,7 +406,7 @@ export function DriveManager({ companyId, companyName }: DriveManagerProps) {
         <div className="flex flex-col sm:flex-row gap-2">
           {/* Search */}
           <div className="relative flex-1">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-[#69695D]" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
               <circle cx="11" cy="11" r="8" />
               <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
@@ -415,7 +415,7 @@ export function DriveManager({ companyId, companyName }: DriveManagerProps) {
               placeholder="Buscar arquivos..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-sm border border-black/[0.08] rounded-[1000px] bg-[#FAFAF8] text-[#26292E] placeholder:text-[#69695D]/60 focus:outline-none focus:ring-2 focus:ring-[#F43E01]/20 focus:border-[#F43E01]/40 transition-all"
+              className="w-full pl-9 pr-3 py-2 text-sm border border-[#2d2f33] rounded-[1000px] bg-[#13151a] text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#F43E01]/20 focus:border-[#F43E01]/40 transition-all"
             />
           </div>
 
@@ -423,7 +423,7 @@ export function DriveManager({ companyId, companyName }: DriveManagerProps) {
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as SortOption)}
-            className="px-3 py-2 text-sm border border-black/[0.08] rounded-[1000px] bg-[#FAFAF8] text-[#26292E] focus:outline-none focus:ring-2 focus:ring-[#F43E01]/20 cursor-pointer"
+            className="px-3 py-2 text-sm border border-[#2d2f33] rounded-[1000px] bg-[#13151a] text-white focus:outline-none focus:ring-2 focus:ring-[#F43E01]/20 cursor-pointer"
           >
             {SORT_OPTIONS.map((opt) => (
               <option key={opt.key} value={opt.key}>{opt.label}</option>
@@ -431,10 +431,10 @@ export function DriveManager({ companyId, companyName }: DriveManagerProps) {
           </select>
 
           {/* View toggle */}
-          <div className="flex border border-black/[0.08] rounded-[1000px] overflow-hidden">
+          <div className="flex border border-[#2d2f33] rounded-[1000px] overflow-hidden">
             <button
               onClick={() => setViewMode('grid')}
-              className={`px-3 py-2 transition-all duration-150 ${viewMode === 'grid' ? 'bg-[#F43E01] text-white' : 'bg-[#FAFAF8] text-[#69695D] hover:text-[#26292E]'}`}
+              className={`px-3 py-2 transition-all duration-150 ${viewMode === 'grid' ? 'bg-[#F43E01] text-white' : 'bg-[#13151a] text-gray-400 hover:text-white'}`}
               title="Visualizacao em grade"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -446,7 +446,7 @@ export function DriveManager({ companyId, companyName }: DriveManagerProps) {
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`px-3 py-2 transition-all duration-150 ${viewMode === 'list' ? 'bg-[#F43E01] text-white' : 'bg-[#FAFAF8] text-[#69695D] hover:text-[#26292E]'}`}
+              className={`px-3 py-2 transition-all duration-150 ${viewMode === 'list' ? 'bg-[#F43E01] text-white' : 'bg-[#13151a] text-gray-400 hover:text-white'}`}
               title="Visualizacao em lista"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -466,7 +466,7 @@ export function DriveManager({ companyId, companyName }: DriveManagerProps) {
             className={`px-3 py-2 rounded-[1000px] border transition-all duration-150 ${
               starredOnly
                 ? 'border-[#F43E01] bg-[#F43E01]/[0.08] text-[#F43E01]'
-                : 'border-black/[0.08] bg-[#FAFAF8] text-[#69695D] hover:text-[#26292E]'
+                : 'border-[#2d2f33] bg-[#13151a] text-gray-400 hover:text-white'
             }`}
             title="Apenas favoritos"
           >
@@ -486,7 +486,7 @@ export function DriveManager({ companyId, companyName }: DriveManagerProps) {
 
       {/* ── Empty state ────────────────────────────────────────────────── */}
       {!loading && sortedFiles.length === 0 && (
-        <div className="bg-white rounded-[20px] border border-black/[0.08] p-12 text-center">
+        <div className="bg-[#1a1c1f] rounded-xl border border-[#2d2f33] p-12 text-center">
           <div className="w-20 h-20 mx-auto mb-6 rounded-[20px] bg-[#F43E01]/[0.06] flex items-center justify-center">
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" className="text-[#F43E01]">
               <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
@@ -494,8 +494,8 @@ export function DriveManager({ companyId, companyName }: DriveManagerProps) {
               <line x1="9" y1="14" x2="15" y2="14" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" />
             </svg>
           </div>
-          <h3 className="text-lg font-semibold text-[#26292E] mb-2">Seu Drive esta vazio</h3>
-          <p className="text-[#69695D] text-sm mb-6 max-w-md mx-auto">
+          <h3 className="text-lg font-semibold text-white mb-2">Seu Drive esta vazio</h3>
+          <p className="text-gray-400 text-sm mb-6 max-w-md mx-auto">
             Faca upload de documentos ou use o Consultor IA para gerar analises automaticamente
           </p>
           <button
@@ -522,7 +522,7 @@ export function DriveManager({ companyId, companyName }: DriveManagerProps) {
             return (
               <div
                 key={file.id}
-                className="bg-white rounded-[20px] border border-black/[0.08] p-4 hover:shadow-md hover:border-black/[0.14] transition-all duration-200 group relative"
+                className="bg-[#1a1c1f] rounded-xl border border-[#2d2f33] p-4 hover:border-[#F43E01]/20 transition-all duration-200 group relative"
               >
                 {/* Top row: icon + star + menu */}
                 <div className="flex items-start justify-between mb-3">
@@ -531,36 +531,36 @@ export function DriveManager({ companyId, companyName }: DriveManagerProps) {
                   </div>
                   <div className="flex items-center gap-1">
                     <button
-                      onClick={() => handleStar(file.id, file.starred)}
-                      className="p-1.5 rounded-full hover:bg-black/[0.04] transition-colors"
+                      onClick={() => handleStar(file.id, file.is_starred)}
+                      className="p-1.5 rounded-full hover:bg-[#2d2f33] transition-colors"
                     >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill={file.starred ? '#F43E01' : 'none'} stroke={file.starred ? '#F43E01' : '#69695D'} strokeWidth={2}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill={file.is_starred ? '#F43E01' : 'none'} stroke={file.is_starred ? '#F43E01' : '#6b7280'} strokeWidth={2}>
                         <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
                       </svg>
                     </button>
                     <div className="relative">
                       <button
                         onClick={(e) => { e.stopPropagation(); setMenuOpenId(menuOpenId === file.id ? null : file.id) }}
-                        className="p-1.5 rounded-full hover:bg-black/[0.04] transition-colors"
+                        className="p-1.5 rounded-full hover:bg-[#2d2f33] transition-colors"
                       >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="text-[#69695D]">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="text-gray-400">
                           <circle cx="12" cy="5" r="1.5" />
                           <circle cx="12" cy="12" r="1.5" />
                           <circle cx="12" cy="19" r="1.5" />
                         </svg>
                       </button>
                       {menuOpenId === file.id && (
-                        <div className="absolute right-0 top-8 z-20 w-44 bg-white rounded-xl border border-black/[0.08] shadow-lg py-1 animate-in fade-in slide-in-from-top-1">
-                          <button onClick={() => handleDownload(file.id)} className="w-full text-left px-3 py-2 text-sm text-[#26292E] hover:bg-black/[0.04] flex items-center gap-2">
+                        <div className="absolute right-0 top-8 z-20 w-44 bg-[#1a1c1f] rounded-xl border border-[#2d2f33] shadow-lg py-1 animate-in fade-in slide-in-from-top-1">
+                          <button onClick={() => handleDownload(file.id)} className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-[#2d2f33] flex items-center gap-2">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
                             Download
                           </button>
-                          <button onClick={() => { setRenameId(file.id); setRenameValue(file.file_name); setMenuOpenId(null) }} className="w-full text-left px-3 py-2 text-sm text-[#26292E] hover:bg-black/[0.04] flex items-center gap-2">
+                          <button onClick={() => { setRenameId(file.id); setRenameValue(file.file_name); setMenuOpenId(null) }} className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-[#2d2f33] flex items-center gap-2">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" /></svg>
                             Renomear
                           </button>
-                          <hr className="my-1 border-black/[0.06]" />
-                          <button onClick={() => handleDelete(file.id)} className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+                          <hr className="my-1 border-[#2d2f33]" />
+                          <button onClick={() => handleDelete(file.id)} className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-red-900/20 flex items-center gap-2">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
                             Excluir
                           </button>
@@ -578,12 +578,12 @@ export function DriveManager({ companyId, companyName }: DriveManagerProps) {
                       value={renameValue}
                       onChange={(e) => setRenameValue(e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') handleRename(file.id); if (e.key === 'Escape') setRenameId(null) }}
-                      className="flex-1 text-sm border border-black/[0.12] rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#F43E01]/20"
+                      className="flex-1 text-sm border border-[#2d2f33] rounded-lg px-2 py-1 bg-[#13151a] text-white focus:outline-none focus:ring-2 focus:ring-[#F43E01]/20"
                     />
                     <button onClick={() => handleRename(file.id)} className="text-xs px-2 py-1 bg-[#F43E01] text-white rounded-lg">OK</button>
                   </div>
                 ) : (
-                  <h3 className="text-sm font-semibold text-[#26292E] truncate mb-1" title={file.file_name}>
+                  <h3 className="text-sm font-semibold text-white truncate mb-1" title={file.file_name}>
                     {file.file_name}
                   </h3>
                 )}
@@ -595,7 +595,7 @@ export function DriveManager({ companyId, companyName }: DriveManagerProps) {
 
                 {/* Tender link */}
                 {file.tender_name && (
-                  <p className="text-xs text-[#69695D] mt-2 truncate" title={file.tender_name}>
+                  <p className="text-xs text-gray-400 mt-2 truncate" title={file.tender_name}>
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="inline mr-1 -mt-0.5">
                       <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
                       <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
@@ -605,9 +605,9 @@ export function DriveManager({ companyId, companyName }: DriveManagerProps) {
                 )}
 
                 {/* Meta: size + date */}
-                <div className="flex items-center justify-between mt-3 pt-3 border-t border-black/[0.06]">
-                  <span className="text-xs text-[#69695D]">{formatFileSize(file.file_size)}</span>
-                  <span className="text-xs text-[#69695D]">{formatDatePtBr(file.created_at)}</span>
+                <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#2d2f33]">
+                  <span className="text-xs text-gray-400">{formatFileSize(file.file_size)}</span>
+                  <span className="text-xs text-gray-400">{formatDatePtBr(file.created_at)}</span>
                 </div>
               </div>
             )
@@ -617,17 +617,17 @@ export function DriveManager({ companyId, companyName }: DriveManagerProps) {
 
       {/* ── List view ──────────────────────────────────────────────────── */}
       {!loading && sortedFiles.length > 0 && viewMode === 'list' && (
-        <div className="bg-white rounded-[20px] border border-black/[0.08] overflow-hidden">
+        <div className="bg-[#1a1c1f] rounded-xl border border-[#2d2f33] overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-black/[0.08]">
-                  <th className="text-left px-4 py-3 text-xs font-medium text-[#69695D] uppercase tracking-wider">Nome</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-[#69695D] uppercase tracking-wider hidden md:table-cell">Categoria</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-[#69695D] uppercase tracking-wider hidden sm:table-cell">Tamanho</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-[#69695D] uppercase tracking-wider hidden lg:table-cell">Fonte</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-[#69695D] uppercase tracking-wider">Data</th>
-                  <th className="text-right px-4 py-3 text-xs font-medium text-[#69695D] uppercase tracking-wider">Ações</th>
+                <tr className="border-b border-[#2d2f33]">
+                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Nome</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider hidden md:table-cell">Categoria</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider hidden sm:table-cell">Tamanho</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider hidden lg:table-cell">Fonte</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Data</th>
+                  <th className="text-right px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -635,7 +635,7 @@ export function DriveManager({ companyId, companyName }: DriveManagerProps) {
                   const catColor = CATEGORY_COLORS[file.category] || CATEGORY_COLORS.geral
 
                   return (
-                    <tr key={file.id} className="border-b border-black/[0.04] hover:bg-[#FAFAF8] transition-colors">
+                    <tr key={file.id} className="border-b border-[#2d2f33]/50 hover:bg-[#2d2f33]/30 transition-colors">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <FileIcon mimeType={file.mime_type} fileName={file.file_name} size={24} />
@@ -647,15 +647,15 @@ export function DriveManager({ companyId, companyName }: DriveManagerProps) {
                                   value={renameValue}
                                   onChange={(e) => setRenameValue(e.target.value)}
                                   onKeyDown={(e) => { if (e.key === 'Enter') handleRename(file.id); if (e.key === 'Escape') setRenameId(null) }}
-                                  className="text-sm border border-black/[0.12] rounded-lg px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-[#F43E01]/20"
+                                  className="text-sm border border-[#2d2f33] rounded-lg px-2 py-0.5 bg-[#13151a] text-white focus:outline-none focus:ring-2 focus:ring-[#F43E01]/20"
                                 />
                                 <button onClick={() => handleRename(file.id)} className="text-xs px-2 py-0.5 bg-[#F43E01] text-white rounded-lg">OK</button>
                               </div>
                             ) : (
-                              <p className="font-medium text-[#26292E] truncate max-w-[240px]" title={file.file_name}>{file.file_name}</p>
+                              <p className="font-medium text-white truncate max-w-[240px]" title={file.file_name}>{file.file_name}</p>
                             )}
                             {file.tender_name && (
-                              <p className="text-xs text-[#69695D] truncate max-w-[200px]">{file.tender_name}</p>
+                              <p className="text-xs text-gray-400 truncate max-w-[200px]">{file.tender_name}</p>
                             )}
                           </div>
                         </div>
@@ -665,26 +665,26 @@ export function DriveManager({ companyId, companyName }: DriveManagerProps) {
                           {file.category}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-[#69695D] hidden sm:table-cell">{formatFileSize(file.file_size)}</td>
-                      <td className="px-4 py-3 text-[#69695D] hidden lg:table-cell">{file.source || 'Upload'}</td>
-                      <td className="px-4 py-3 text-[#69695D]">{formatDatePtBr(file.created_at)}</td>
+                      <td className="px-4 py-3 text-gray-400 hidden sm:table-cell">{formatFileSize(file.file_size)}</td>
+                      <td className="px-4 py-3 text-gray-400 hidden lg:table-cell">{file.source || 'Upload'}</td>
+                      <td className="px-4 py-3 text-gray-400">{formatDatePtBr(file.created_at)}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-1">
                           <button
-                            onClick={() => handleStar(file.id, file.starred)}
-                            className="p-1.5 rounded-full hover:bg-black/[0.04] transition-colors"
+                            onClick={() => handleStar(file.id, file.is_starred)}
+                            className="p-1.5 rounded-full hover:bg-[#2d2f33] transition-colors"
                           >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill={file.starred ? '#F43E01' : 'none'} stroke={file.starred ? '#F43E01' : '#69695D'} strokeWidth={2}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill={file.is_starred ? '#F43E01' : 'none'} stroke={file.is_starred ? '#F43E01' : '#6b7280'} strokeWidth={2}>
                               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
                             </svg>
                           </button>
-                          <button onClick={() => handleDownload(file.id)} className="p-1.5 rounded-full hover:bg-black/[0.04] transition-colors" title="Download">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#69695D" strokeWidth={2}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+                          <button onClick={() => handleDownload(file.id)} className="p-1.5 rounded-full hover:bg-[#2d2f33] transition-colors" title="Download">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth={2}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
                           </button>
-                          <button onClick={() => { setRenameId(file.id); setRenameValue(file.file_name) }} className="p-1.5 rounded-full hover:bg-black/[0.04] transition-colors" title="Renomear">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#69695D" strokeWidth={2}><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" /></svg>
+                          <button onClick={() => { setRenameId(file.id); setRenameValue(file.file_name) }} className="p-1.5 rounded-full hover:bg-[#2d2f33] transition-colors" title="Renomear">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth={2}><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" /></svg>
                           </button>
-                          <button onClick={() => handleDelete(file.id)} className="p-1.5 rounded-full hover:bg-red-50 transition-colors" title="Excluir">
+                          <button onClick={() => handleDelete(file.id)} className="p-1.5 rounded-full hover:bg-red-900/20 transition-colors" title="Excluir">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth={2}><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
                           </button>
                         </div>
@@ -702,19 +702,19 @@ export function DriveManager({ companyId, companyName }: DriveManagerProps) {
       {showUpload && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => { if (!uploading) setShowUpload(false) }} />
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => { if (!uploading) setShowUpload(false) }} />
 
           {/* Modal */}
-          <div className="relative bg-white rounded-[20px] border border-black/[0.08] shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div className="relative bg-[#1a1c1f] rounded-xl border border-[#2d2f33] shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               {/* Header */}
               <div className="flex items-center justify-between mb-5">
-                <h2 className="text-lg font-bold text-[#26292E]">Upload de Arquivos</h2>
+                <h2 className="text-lg font-bold text-white">Upload de Arquivos</h2>
                 <button
                   onClick={() => { if (!uploading) setShowUpload(false) }}
-                  className="p-1.5 rounded-full hover:bg-black/[0.04] transition-colors"
+                  className="p-1.5 rounded-full hover:bg-[#2d2f33] transition-colors"
                 >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#69695D" strokeWidth={2} strokeLinecap="round">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth={2} strokeLinecap="round">
                     <line x1="18" y1="6" x2="6" y2="18" />
                     <line x1="6" y1="6" x2="18" y2="18" />
                   </svg>
@@ -730,7 +730,7 @@ export function DriveManager({ companyId, companyName }: DriveManagerProps) {
                 className={`border-2 border-dashed rounded-[16px] p-8 text-center cursor-pointer transition-all duration-200 ${
                   dragOver
                     ? 'border-[#F43E01] bg-[#F43E01]/[0.04]'
-                    : 'border-black/[0.12] hover:border-[#F43E01]/40 hover:bg-[#FAFAF8]'
+                    : 'border-[#2d2f33] hover:border-[#F43E01]/40 hover:bg-[#2d2f33]/30'
                 }`}
               >
                 <input
@@ -747,21 +747,21 @@ export function DriveManager({ companyId, companyName }: DriveManagerProps) {
                     <line x1="12" y1="3" x2="12" y2="15" />
                   </svg>
                 </div>
-                <p className="text-sm font-medium text-[#26292E]">Arraste arquivos aqui ou clique para selecionar</p>
-                <p className="text-xs text-[#69695D] mt-1">PDF, imagens, documentos, planilhas</p>
+                <p className="text-sm font-medium text-white">Arraste arquivos aqui ou clique para selecionar</p>
+                <p className="text-xs text-gray-400 mt-1">PDF, imagens, documentos, planilhas</p>
               </div>
 
               {/* Selected files */}
               {uploadFiles.length > 0 && (
                 <div className="mt-4 space-y-2">
                   {uploadFiles.map((f, i) => (
-                    <div key={i} className="flex items-center justify-between bg-[#FAFAF8] rounded-xl px-3 py-2">
+                    <div key={i} className="flex items-center justify-between bg-[#2d2f33]/50 rounded-xl px-3 py-2">
                       <div className="flex items-center gap-2 min-w-0">
                         <FileIcon mimeType={f.type} fileName={f.name} size={20} />
-                        <span className="text-sm text-[#26292E] truncate">{f.name}</span>
-                        <span className="text-xs text-[#69695D] flex-shrink-0">{formatFileSize(f.size)}</span>
+                        <span className="text-sm text-white truncate">{f.name}</span>
+                        <span className="text-xs text-gray-400 flex-shrink-0">{formatFileSize(f.size)}</span>
                       </div>
-                      <button onClick={() => removeUploadFile(i)} className="p-1 text-[#69695D] hover:text-red-500 flex-shrink-0">
+                      <button onClick={() => removeUploadFile(i)} className="p-1 text-gray-400 hover:text-red-400 flex-shrink-0">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                       </button>
                     </div>
@@ -771,11 +771,11 @@ export function DriveManager({ companyId, companyName }: DriveManagerProps) {
 
               {/* Category */}
               <div className="mt-4">
-                <label className="text-xs font-medium text-[#69695D] uppercase tracking-wider">Categoria</label>
+                <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">Categoria</label>
                 <select
                   value={uploadCategory}
                   onChange={(e) => setUploadCategory(e.target.value)}
-                  className="mt-1 w-full px-3 py-2 text-sm border border-black/[0.08] rounded-xl bg-[#FAFAF8] text-[#26292E] focus:outline-none focus:ring-2 focus:ring-[#F43E01]/20 cursor-pointer"
+                  className="mt-1 w-full px-3 py-2 text-sm border border-[#2d2f33] rounded-xl bg-[#13151a] text-white focus:outline-none focus:ring-2 focus:ring-[#F43E01]/20 cursor-pointer"
                 >
                   {CATEGORIES.filter((c) => c.key !== 'todos').map((cat) => (
                     <option key={cat.key} value={cat.key}>{cat.label}</option>
@@ -785,13 +785,13 @@ export function DriveManager({ companyId, companyName }: DriveManagerProps) {
 
               {/* Description */}
               <div className="mt-3">
-                <label className="text-xs font-medium text-[#69695D] uppercase tracking-wider">Descrição (opcional)</label>
+                <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">Descrição (opcional)</label>
                 <textarea
                   value={uploadDescription}
                   onChange={(e) => setUploadDescription(e.target.value)}
                   rows={2}
                   placeholder="Breve descrição dos arquivos..."
-                  className="mt-1 w-full px-3 py-2 text-sm border border-black/[0.08] rounded-xl bg-[#FAFAF8] text-[#26292E] placeholder:text-[#69695D]/50 focus:outline-none focus:ring-2 focus:ring-[#F43E01]/20 resize-none"
+                  className="mt-1 w-full px-3 py-2 text-sm border border-[#2d2f33] rounded-xl bg-[#13151a] text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#F43E01]/20 resize-none"
                 />
               </div>
 
@@ -799,10 +799,10 @@ export function DriveManager({ companyId, companyName }: DriveManagerProps) {
               {uploading && (
                 <div className="mt-4">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-[#69695D]">Enviando...</span>
+                    <span className="text-xs text-gray-400">Enviando...</span>
                     <span className="text-xs font-medium text-[#F43E01]">{uploadProgress}%</span>
                   </div>
-                  <div className="h-2 bg-black/[0.06] rounded-full overflow-hidden">
+                  <div className="h-2 bg-[#2d2f33] rounded-full overflow-hidden">
                     <div
                       className="h-full bg-[#F43E01] rounded-full transition-all duration-300 ease-out"
                       style={{ width: `${uploadProgress}%` }}
@@ -816,7 +816,7 @@ export function DriveManager({ companyId, companyName }: DriveManagerProps) {
                 <button
                   onClick={() => { if (!uploading) setShowUpload(false) }}
                   disabled={uploading}
-                  className="px-4 py-2 text-sm font-medium text-[#69695D] rounded-[1000px] hover:bg-black/[0.04] transition-all disabled:opacity-50"
+                  className="px-4 py-2 text-sm font-medium text-gray-400 rounded-[1000px] hover:bg-[#2d2f33] transition-all disabled:opacity-50"
                 >
                   Cancelar
                 </button>

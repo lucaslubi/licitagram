@@ -19,8 +19,8 @@ export default async function DrivePage() {
     return (
       <div>
         <h1 className="text-2xl font-bold mb-6">Drive Licitagram</h1>
-        <div className="rounded-2xl border border-black/[0.08] bg-white p-8 text-center">
-          <p className="text-[#69695D]">Configure sua empresa primeiro para usar o Drive.</p>
+        <div className="rounded-2xl border border-[#2d2f33] bg-[#1a1c1f] p-8 text-center">
+          <p className="text-gray-400">Configure sua empresa primeiro para usar o Drive.</p>
           <a href="/company" className="text-[#F43E01] underline mt-2 inline-block">
             Configurar Empresa
           </a>

@@ -255,9 +255,9 @@ export default function CompanyPage() {
   if (loading) return <div className="text-gray-400">Carregando...</div>
 
   const msgColors = {
-    success: 'bg-emerald-50 text-emerald-700',
-    error: 'bg-red-50 text-red-700',
-    info: 'bg-brand/5 text-brand',
+    success: 'bg-emerald-900/20 text-emerald-400',
+    error: 'bg-red-900/20 text-red-400',
+    info: 'bg-brand/10 text-brand',
   }
 
   return (

@@ -80,14 +80,14 @@ export function ComplianceChecker({
       <Card>
         <CardContent className="py-6">
           <div className="text-center space-y-3">
-            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+            <div className="w-12 h-12 bg-[#2d2f33] rounded-full flex items-center justify-center mx-auto">
               <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900">Checklist de Compliance</h3>
-              <p className="text-sm text-gray-500 mt-1">
+              <h3 className="font-semibold text-white">Checklist de Compliance</h3>
+              <p className="text-sm text-gray-400 mt-1">
                 Verifique automaticamente se sua empresa atende aos requisitos do edital.
               </p>
               <p className="text-xs text-gray-400 mt-2">
@@ -229,7 +229,7 @@ export function ComplianceChecker({
   if (loading) {
     return (
       <Card>
-        <CardContent className="py-6 text-center text-gray-500">
+        <CardContent className="py-6 text-center text-gray-400">
           Verificando compliance...
         </CardContent>
       </Card>
@@ -262,10 +262,10 @@ export function ComplianceChecker({
             {score}%
           </Badge>
         </CardTitle>
-        <div className="flex gap-3 text-xs text-gray-500">
+        <div className="flex gap-3 text-xs text-gray-400">
           <span className="text-green-600">{okCount} OK</span>
           <span className="text-yellow-600">{warnCount} Atenção</span>
-          <span className="text-red-600">{missCount} Pendente</span>
+          <span className="text-red-400">{missCount} Pendente</span>
         </div>
       </CardHeader>
       <CardContent className="space-y-2">
@@ -274,18 +274,18 @@ export function ComplianceChecker({
             key={i}
             className={`flex items-start gap-3 p-3 rounded-md border text-sm ${
               item.status === 'ok'
-                ? 'bg-green-50 border-green-200'
+                ? 'bg-green-900/20 border-green-900/30'
                 : item.status === 'warning'
-                  ? 'bg-yellow-50 border-yellow-200'
-                  : 'bg-red-50 border-red-200'
+                  ? 'bg-yellow-900/20 border-yellow-900/30'
+                  : 'bg-red-900/20 border-red-900/30'
             }`}
           >
             <span className="shrink-0 mt-0.5">
               {item.status === 'ok' ? '✅' : item.status === 'warning' ? '⚠️' : '❌'}
             </span>
             <div className="flex-1 min-w-0">
-              <p className="font-medium text-gray-900 line-clamp-2">{item.requisito}</p>
-              <p className="text-xs text-gray-500 mt-0.5">{item.message}</p>
+              <p className="font-medium text-white line-clamp-2">{item.requisito}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{item.message}</p>
             </div>
             {item.obrigatorio && (
               <Badge variant="outline" className="shrink-0 text-xs">Obrig.</Badge>

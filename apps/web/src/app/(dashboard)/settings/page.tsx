@@ -149,7 +149,7 @@ export default function SettingsPage() {
       <h1 className="text-2xl font-bold mb-6">Configurações</h1>
 
       {message && (
-        <div className={`mb-4 p-3 rounded-md text-sm ${message.includes('sucesso') ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>{message}</div>
+        <div className={`mb-4 p-3 rounded-md text-sm ${message.includes('sucesso') ? 'bg-emerald-900/20 text-emerald-400' : 'bg-red-900/20 text-red-400'}`}>{message}</div>
       )}
 
       <div className="space-y-6 max-w-2xl">
@@ -174,7 +174,7 @@ export default function SettingsPage() {
                   className="flex-1 accent-brand"
                 />
                 <span className={`text-lg font-bold w-12 text-center ${
-                  settings.min_score >= 80 ? 'text-emerald-600' : settings.min_score >= 70 ? 'text-sky-600' : settings.min_score >= 60 ? 'text-amber-600' : 'text-red-500'
+                  settings.min_score >= 80 ? 'text-emerald-400' : settings.min_score >= 70 ? 'text-sky-400' : settings.min_score >= 60 ? 'text-amber-400' : 'text-red-400'
                 }`}>{settings.min_score}%</span>
               </div>
               <div className="flex justify-between text-[10px] text-gray-400 mt-0.5 px-1">
@@ -183,12 +183,12 @@ export default function SettingsPage() {
               </div>
               <p className={`text-xs mt-2 px-2 py-1.5 rounded ${
                 settings.min_score >= 80
-                  ? 'bg-emerald-50 text-emerald-700'
+                  ? 'bg-emerald-900/20 text-emerald-400'
                   : settings.min_score >= 70
-                  ? 'bg-sky-50 text-sky-700'
+                  ? 'bg-sky-900/20 text-sky-400'
                   : settings.min_score >= 60
-                  ? 'bg-amber-50 text-amber-700'
-                  : 'bg-red-50 text-red-700'
+                  ? 'bg-amber-900/20 text-amber-400'
+                  : 'bg-red-900/20 text-red-400'
               }`}>
                 {settings.min_score >= 80
                   ? '✅ Recomendado — só oportunidades com alta compatibilidade'
@@ -206,7 +206,7 @@ export default function SettingsPage() {
               <Label>Telegram</Label>
               {settings.telegram_chat_id ? (
                 <div className="flex items-center gap-2 mt-2">
-                  <Badge variant="secondary" className="bg-emerald-100 text-emerald-800">
+                  <Badge variant="secondary" className="bg-emerald-900/20 text-emerald-400">
                     Conectado
                   </Badge>
                   <span className="text-sm text-gray-400">
@@ -214,16 +214,16 @@ export default function SettingsPage() {
                   </span>
                 </div>
               ) : (
-                <div className="mt-2 p-3 bg-gray-100 rounded-md">
-                  <p className="text-sm text-gray-500 mb-2">
+                <div className="mt-2 p-3 bg-[#111214] rounded-md">
+                  <p className="text-sm text-gray-400 mb-2">
                     Para receber alertas no Telegram:
                   </p>
-                  <ol className="text-sm text-gray-500 list-decimal list-inside space-y-1">
+                  <ol className="text-sm text-gray-400 list-decimal list-inside space-y-1">
                     <li>
                       Abra o Telegram e busque por <strong>@LicitagramBot</strong>
                     </li>
                     <li>
-                      Envie: <code className="bg-gray-200 px-1 rounded">/start {settings.email}</code>
+                      Envie: <code className="bg-[#2d2f33] px-1 rounded">/start {settings.email}</code>
                     </li>
                     <li>Pronto! Você receberá alertas automaticamente.</li>
                   </ol>
@@ -236,7 +236,7 @@ export default function SettingsPage() {
             <div>
               <Label>Canais de Notificação</Label>
               <div className="space-y-3 mt-2">
-                <label className="flex items-center justify-between p-3 border rounded-md cursor-pointer hover:bg-gray-100">
+                <label className="flex items-center justify-between p-3 border rounded-md cursor-pointer hover:bg-[#2d2f33]">
                   <div className="flex items-center gap-3">
                     <div>
                       <p className="text-sm font-medium">Telegram</p>
@@ -255,11 +255,11 @@ export default function SettingsPage() {
                         },
                       })
                     }
-                    className="h-5 w-5 rounded border-gray-200 text-brand focus:ring-brand"
+                    className="h-5 w-5 rounded border-[#2d2f33] text-brand focus:ring-brand"
                   />
                 </label>
 
-                <label className="flex items-center justify-between p-3 border rounded-md cursor-pointer hover:bg-gray-100">
+                <label className="flex items-center justify-between p-3 border rounded-md cursor-pointer hover:bg-[#2d2f33]">
                   <div className="flex items-center gap-3">
                     <div>
                       <p className="text-sm font-medium">WhatsApp</p>
@@ -278,7 +278,7 @@ export default function SettingsPage() {
                         },
                       })
                     }
-                    className="h-5 w-5 rounded border-gray-200 text-brand focus:ring-brand"
+                    className="h-5 w-5 rounded border-[#2d2f33] text-brand focus:ring-brand"
                   />
                 </label>
 
@@ -293,7 +293,7 @@ export default function SettingsPage() {
                     type="checkbox"
                     checked={false}
                     disabled
-                    className="h-5 w-5 rounded border-gray-200"
+                    className="h-5 w-5 rounded border-[#2d2f33]"
                   />
                 </label>
               </div>
@@ -393,7 +393,7 @@ export default function SettingsPage() {
                           className={`cursor-pointer transition-all ${
                             isEssential
                               ? 'bg-brand/10 text-brand border border-brand/30 font-semibold'
-                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                              : 'bg-[#2d2f33] text-gray-400 hover:bg-[#2d2f33]/80'
                           }`}
                           onClick={() => {
                             setEssentialKeywords(prev => {
@@ -422,7 +422,7 @@ export default function SettingsPage() {
               )}
               <div className="flex items-center gap-4 mt-2 text-[10px] text-gray-400">
                 <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-brand inline-block" /> Essencial — peso maior no score</span>
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gray-300 inline-block" /> Desejável — peso normal</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gray-500 inline-block" /> Desejável — peso normal</span>
               </div>
             </div>
           </CardContent>

@@ -29,7 +29,7 @@ export default async function TenderDetailPage({
   if (!tender) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">Licitação não encontrada</p>
+        <p className="text-gray-400">Licitação não encontrada</p>
         <Link href="/opportunities" className="text-blue-600 underline mt-2 inline-block">
           Voltar
         </Link>
@@ -42,7 +42,7 @@ export default async function TenderDetailPage({
       <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
         <Link
           href="/opportunities"
-          className="text-sm text-gray-500 hover:text-gray-700"
+          className="text-sm text-gray-400 hover:text-gray-300"
         >
           &larr; Voltar
         </Link>
@@ -58,9 +58,9 @@ export default async function TenderDetailPage({
             </CardTitle>
             <Badge variant="outline">{tender.status}</Badge>
             <Badge variant="outline" className={
-              tender.source === 'comprasgov' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-              tender.source === 'bec_sp' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-              'bg-green-50 text-green-700 border-green-200'
+              tender.source === 'comprasgov' ? 'bg-blue-900/20 text-blue-400 border-blue-900/30' :
+              tender.source === 'bec_sp' ? 'bg-amber-900/20 text-amber-400 border-amber-900/30' :
+              'bg-green-900/20 text-green-400 border-green-900/30'
             }>
               {tender.source === 'comprasgov' ? 'Compras.gov' : tender.source === 'bec_sp' ? 'BEC SP' : 'PNCP'}
             </Badge>
@@ -69,47 +69,47 @@ export default async function TenderDetailPage({
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <p className="text-sm text-gray-500">Órgão</p>
+              <p className="text-sm text-gray-400">Órgão</p>
               <p className="font-medium">{tender.orgao_nome}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">CNPJ</p>
+              <p className="text-sm text-gray-400">CNPJ</p>
               <p className="font-medium">{tender.orgao_cnpj || '-'}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Modalidade</p>
+              <p className="text-sm text-gray-400">Modalidade</p>
               <p className="font-medium">{tender.modalidade_nome}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">UF / Município</p>
+              <p className="text-sm text-gray-400">UF / Município</p>
               <p className="font-medium">{tender.uf || '-'} / {tender.municipio || '-'}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Valor Estimado</p>
+              <p className="text-sm text-gray-400">Valor Estimado</p>
               <p className="font-medium text-green-700">
                 {tender.valor_estimado ? formatCurrency(tender.valor_estimado) : 'Não informado'}
               </p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Valor Homologado</p>
+              <p className="text-sm text-gray-400">Valor Homologado</p>
               <p className="font-medium">
                 {tender.valor_homologado ? formatCurrency(tender.valor_homologado) : '-'}
               </p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Data Publicação</p>
+              <p className="text-sm text-gray-400">Data Publicação</p>
               <p className="font-medium">
                 {tender.data_publicacao ? formatDate(tender.data_publicacao) : '-'}
               </p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Data Abertura</p>
+              <p className="text-sm text-gray-400">Data Abertura</p>
               <p className="font-medium">
                 {tender.data_abertura ? formatDate(tender.data_abertura) : '-'}
               </p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Encerramento Propostas</p>
+              <p className="text-sm text-gray-400">Encerramento Propostas</p>
               {tender.data_encerramento ? (
                 <p className="font-medium">{formatDate(tender.data_encerramento)}</p>
               ) : (
@@ -117,12 +117,12 @@ export default async function TenderDetailPage({
               )}
             </div>
             <div>
-              <p className="text-sm text-gray-500">Situação</p>
+              <p className="text-sm text-gray-400">Situação</p>
               <p className="font-medium">{tender.situacao_nome || '-'}</p>
             </div>
             {(tender.link_sistema_origem || tender.link_pncp) && (
               <div>
-                <p className="text-sm text-gray-500">Link Original</p>
+                <p className="text-sm text-gray-400">Link Original</p>
                 <div className="flex flex-col gap-1">
                   {tender.link_sistema_origem && (
                     <a
@@ -158,7 +158,7 @@ export default async function TenderDetailPage({
             <CardTitle className="text-lg">Resumo IA</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-gray-700">{tender.resumo}</p>
+            <p className="text-gray-300">{tender.resumo}</p>
           </CardContent>
         </Card>
       )}
@@ -173,12 +173,12 @@ export default async function TenderDetailPage({
             <div className="space-y-3">
               {(tender.requisitos as { requisitos?: Array<{ categoria: string; descricao: string; obrigatorio: boolean }> })?.requisitos?.map(
                 (req: { categoria: string; descricao: string; obrigatorio: boolean }, i: number) => (
-                  <div key={i} className="flex gap-3 p-3 bg-gray-50 rounded-md">
+                  <div key={i} className="flex gap-3 p-3 bg-[#2d2f33] rounded-md">
                     <Badge variant={req.obrigatorio ? 'default' : 'secondary'} className="h-fit text-xs">
                       {req.obrigatorio ? 'Obrigatório' : 'Desejável'}
                     </Badge>
                     <div>
-                      <p className="text-xs text-gray-500 uppercase">{req.categoria}</p>
+                      <p className="text-xs text-gray-400 uppercase">{req.categoria}</p>
                       <p className="text-sm">{req.descricao}</p>
                     </div>
                   </div>
@@ -198,10 +198,10 @@ export default async function TenderDetailPage({
           <CardContent>
             <div className="space-y-2">
               {docs.map((doc) => (
-                <div key={doc.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-md">
+                <div key={doc.id} className="flex items-center justify-between p-3 bg-[#2d2f33] rounded-md">
                   <div>
                     <p className="text-sm font-medium">{doc.titulo}</p>
-                    <p className="text-xs text-gray-500">{doc.tipo}</p>
+                    <p className="text-xs text-gray-400">{doc.tipo}</p>
                   </div>
                   {doc.url && (
                     <a

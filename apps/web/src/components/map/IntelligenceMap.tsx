@@ -42,9 +42,9 @@ function DeadlineBadge({ dataEncerramento, className = '' }: { dataEncerramento:
   const days = daysUntilClose(dataEncerramento)
   if (days !== null && days > 3) return null
   if (days !== null) {
-    return <span className={`text-red-600 font-medium ${className}`}>⏰ {days <= 0 ? 'HOJE' : `${days}d`}</span>
+    return <span className={`text-red-400 font-medium ${className}`}>⏰ {days <= 0 ? 'HOJE' : `${days}d`}</span>
   }
-  return <span className={`text-amber-600 ${className}`}>⚠️ Prazo</span>
+  return <span className={`text-amber-400 ${className}`}>⚠️ Prazo</span>
 }
 
 type SheetPosition = 'collapsed' | 'half' | 'full'
@@ -443,7 +443,7 @@ export function IntelligenceMap({
             step={5}
             value={scoreFilter}
             onChange={(e) => setScoreFilter(Number(e.target.value))}
-            className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-brand"
+            className="w-full h-1.5 bg-[#2d2f33] rounded-lg appearance-none cursor-pointer accent-brand"
           />
           <div className="flex justify-between text-[9px] text-gray-400 mt-0.5">
             <span>50</span>
@@ -495,7 +495,7 @@ export function IntelligenceMap({
                 className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
                   regionFilter.has(r)
                     ? 'bg-brand text-white'
-                    : 'bg-[#1a1c1f] text-gray-500'
+                    : 'bg-[#1a1c1f] text-gray-400'
                 }`}
               >
                 {r}
@@ -523,30 +523,30 @@ export function IntelligenceMap({
             {selectedUfFilteredStats ? (
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <div className="bg-[#1a1c1f] rounded-lg p-2.5">
-                  <p className="text-xs text-gray-500">Oportunidades</p>
+                  <p className="text-xs text-gray-400">Oportunidades</p>
                   <p className="text-lg font-bold text-white">{selectedUfFilteredStats.count}</p>
                 </div>
                 <div className="bg-[#1a1c1f] rounded-lg p-2.5">
-                  <p className="text-xs text-gray-500">Valor Total</p>
+                  <p className="text-xs text-gray-400">Valor Total</p>
                   <p className="text-lg font-bold text-white">{formatCompactBRL(selectedUfFilteredStats.totalValue)}</p>
                 </div>
                 <div className="bg-[#1a1c1f] rounded-lg p-2.5">
-                  <p className="text-xs text-gray-500">Score Medio</p>
+                  <p className="text-xs text-gray-400">Score Medio</p>
                   <p className="text-lg font-bold">
-                    <span className={selectedUfFilteredStats.avgScore >= 70 ? 'text-emerald-600' : selectedUfFilteredStats.avgScore >= 50 ? 'text-amber-600' : 'text-red-500'}>
+                    <span className={selectedUfFilteredStats.avgScore >= 70 ? 'text-emerald-400' : selectedUfFilteredStats.avgScore >= 50 ? 'text-amber-400' : 'text-red-400'}>
                       {selectedUfFilteredStats.avgScore}
                     </span>
                   </p>
                 </div>
                 <div className={`rounded-lg p-2.5 ${selectedUfFilteredStats.hotCount > 0 ? 'bg-orange-900/20 border border-orange-800/30' : 'bg-[#1a1c1f]'}`}>
-                  <p className={`text-xs ${selectedUfFilteredStats.hotCount > 0 ? 'text-orange-400' : 'text-gray-500'}`}>
+                  <p className={`text-xs ${selectedUfFilteredStats.hotCount > 0 ? 'text-orange-400' : 'text-gray-400'}`}>
                     {selectedUfFilteredStats.hotCount > 0 ? '🔥 Super Quentes' : 'Maior Score'}
                   </p>
                   <p className="text-lg font-bold">
                     {selectedUfFilteredStats.hotCount > 0 ? (
-                      <span className="text-orange-600">{selectedUfFilteredStats.hotCount}</span>
+                      <span className="text-orange-400">{selectedUfFilteredStats.hotCount}</span>
                     ) : (
-                      <span className={selectedUfFilteredStats.maxScore >= 70 ? 'text-emerald-600' : selectedUfFilteredStats.maxScore >= 50 ? 'text-amber-600' : 'text-red-500'}>
+                      <span className={selectedUfFilteredStats.maxScore >= 70 ? 'text-emerald-400' : selectedUfFilteredStats.maxScore >= 50 ? 'text-amber-400' : 'text-red-400'}>
                         {selectedUfFilteredStats.maxScore}
                       </span>
                     )}
@@ -568,14 +568,14 @@ export function IntelligenceMap({
                   href={`/opportunities/${m.matchId}`}
                   className={`block p-3 rounded-lg transition-colors ${
                     m.isHot
-                      ? 'bg-orange-50 border border-orange-200 hover:bg-orange-100 ring-1 ring-orange-300/50'
+                      ? 'bg-orange-900/20 border border-orange-800/30 hover:bg-orange-900/30 ring-1 ring-orange-500/20'
                       : 'bg-[#1a1c1f] hover:bg-[#2d2f33]'
                   }`}
                   onMouseEnter={() => setSelectedMatch(m)}
                 >
                   {m.isHot && (
                     <div className="flex items-center gap-1 mb-1.5">
-                      <span className="text-[10px] font-bold text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded-full">
+                      <span className="text-[10px] font-bold text-orange-400 bg-orange-900/30 px-1.5 py-0.5 rounded-full">
                         🔥 SUPER QUENTE
                       </span>
                     </div>
@@ -597,8 +597,8 @@ export function IntelligenceMap({
                         {m.isHot ? '🔥' : m.score}
                       </span>
                       <span className={`text-[8px] font-medium ${
-                        m.isHot ? 'text-orange-600' :
-                        isAiMatch(m) ? 'text-blue-600' : 'text-gray-400'
+                        m.isHot ? 'text-orange-400' :
+                        isAiMatch(m) ? 'text-blue-400' : 'text-gray-400'
                       }`}>
                         {m.isHot && m.competitionScore != null ? `C:${m.competitionScore}` : isAiMatch(m) ? 'IA' : 'est.'}
                       </span>
@@ -609,22 +609,22 @@ export function IntelligenceMap({
                       </p>
                       {m.isHot && m.competitionScore != null && (
                         <span className={`inline-block text-[9px] font-medium px-1.5 py-0.5 rounded-full mt-0.5 ${
-                          m.competitionScore >= 75 ? 'bg-green-100 text-green-700' :
-                          m.competitionScore >= 50 ? 'bg-yellow-100 text-yellow-700' :
-                          'bg-red-100 text-red-700'
+                          m.competitionScore >= 75 ? 'bg-emerald-900/20 text-emerald-400' :
+                          m.competitionScore >= 50 ? 'bg-amber-900/20 text-amber-400' :
+                          'bg-red-900/20 text-red-400'
                         }`}>
                           {m.competitionScore >= 75 ? 'Baixa competicao' :
                            m.competitionScore >= 50 ? 'Competicao moderada' :
                            'Mercado disputado'}
                         </span>
                       )}
-                      <p className="text-[10px] text-gray-500 mt-1 truncate">{m.orgao}</p>
+                      <p className="text-[10px] text-gray-400 mt-1 truncate">{m.orgao}</p>
                       <div className="flex items-center gap-2 mt-1">
                         {m.municipio && (
-                          <span className="text-[10px] text-blue-500">{m.municipio}</span>
+                          <span className="text-[10px] text-blue-400">{m.municipio}</span>
                         )}
                         {m.valor && (
-                          <span className={`text-[10px] font-medium ${m.isHot ? 'text-orange-700 font-bold' : 'text-emerald-600'}`}>
+                          <span className={`text-[10px] font-medium ${m.isHot ? 'text-orange-400 font-bold' : 'text-emerald-400'}`}>
                             {m.isHot
                               ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(m.valor)
                               : formatCompactBRL(m.valor)}
@@ -665,7 +665,7 @@ export function IntelligenceMap({
                   </span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-white">{d.name}</p>
-                    <p className="text-[10px] text-gray-500">
+                    <p className="text-[10px] text-gray-400">
                       {d.count} oportunidade{d.count !== 1 ? 's' : ''} &middot; {formatCompactBRL(d.totalValue)}
                     </p>
                   </div>
@@ -795,22 +795,22 @@ export function IntelligenceMap({
                 maxWidth={isMobile ? '240px' : '300px'}
                 style={{ zIndex: 9999 }}
               >
-                <div className={isMobile ? 'min-w-[200px]' : 'min-w-[260px]'}>
+                <div className={`bg-[#1a1c1f] text-white rounded-lg ${isMobile ? 'min-w-[200px]' : 'min-w-[260px]'}`}>
                   {selectedMatch.isHot && (
                     <div className="bg-gradient-to-r from-orange-500 via-red-500 to-orange-600 px-4 py-2.5">
                       <p className={`font-bold text-white tracking-wide ${isMobile ? 'text-xs' : 'text-sm'}`}>🔥 SUPER QUENTE</p>
                     </div>
                   )}
                   {selectedGroup && selectedGroup.length > 1 && (
-                    <div className={`px-4 py-2.5 border-b border-black/[0.06] ${selectedMatch.isHot ? '' : 'pt-3'}`}>
-                      <p className={`font-semibold text-gray-200 ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                    <div className={`px-4 py-2.5 border-b border-[#2d2f33] ${selectedMatch.isHot ? '' : 'pt-3'}`}>
+                      <p className={`font-semibold text-white ${isMobile ? 'text-xs' : 'text-sm'}`}>
                         {selectedGroup.length} oportunidades em {selectedMatch.municipio || selectedMatch.uf}
                       </p>
                     </div>
                   )}
                   <div className={isMobile ? 'p-3' : 'p-4'}>
                     {(selectedGroup && selectedGroup.length > 1 ? selectedGroup.slice(0, 5) : [selectedMatch]).map((match, idx) => (
-                      <div key={match.matchId} className={idx > 0 ? 'mt-3 pt-3 border-t border-black/[0.06]' : ''}>
+                      <div key={match.matchId} className={idx > 0 ? 'mt-3 pt-3 border-t border-[#2d2f33]' : ''}>
                         <div className="flex items-center gap-2 mb-2">
                           <span
                             className={`inline-flex items-center justify-center w-9 h-9 rounded-xl font-bold text-sm shadow-sm ${getScoreBgClass(match.score)}`}
@@ -820,13 +820,13 @@ export function IntelligenceMap({
                           <div className="flex flex-col">
                             <span className={`font-medium px-1.5 py-0.5 rounded-md text-[10px] w-fit ${
                               isAiMatch(match)
-                                ? 'bg-blue-500/10 text-blue-700'
+                                ? 'bg-blue-500/10 text-blue-400'
                                 : 'bg-gray-500/20 text-gray-400'
                             }`}>
                               {isAiMatch(match) ? '✦ IA' : 'est.'}
                             </span>
                             {!selectedGroup && (
-                              <span className="text-gray-500 text-[10px] mt-0.5">
+                              <span className="text-gray-400 text-[10px] mt-0.5">
                                 {match.municipio ? `${match.municipio}/${match.uf}` : match.uf}
                               </span>
                             )}
@@ -835,10 +835,10 @@ export function IntelligenceMap({
                         <p className={`font-semibold text-white leading-snug line-clamp-2 mb-1.5 ${isMobile ? 'text-xs' : 'text-sm'}`}>
                           {match.objeto}
                         </p>
-                        <p className={`text-gray-500 truncate mb-2 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>{match.orgao}</p>
+                        <p className={`text-gray-400 truncate mb-2 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>{match.orgao}</p>
                         <div className={`flex items-center gap-3 mb-3 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
                           {match.valor && (
-                            <span className="font-bold text-emerald-600">
+                            <span className="font-bold text-emerald-400">
                               {formatCompactBRL(match.valor)}
                             </span>
                           )}
@@ -856,7 +856,7 @@ export function IntelligenceMap({
                       </div>
                     ))}
                     {selectedGroup && selectedGroup.length > 5 && (
-                      <p className={`mt-3 pt-3 border-t border-black/[0.06] text-gray-500 text-center ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
+                      <p className={`mt-3 pt-3 border-t border-[#2d2f33] text-gray-400 text-center ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
                         +{selectedGroup.length - 5} mais — clique no estado para ver todas
                       </p>
                     )}
@@ -933,7 +933,7 @@ export function IntelligenceMap({
             onTouchEnd={onTouchEnd}
             style={{ touchAction: 'none' }}
           >
-            <div className="w-10 h-1 rounded-full bg-gray-300" />
+            <div className="w-10 h-1 rounded-full bg-gray-600" />
           </div>
 
           {/* Scrollable content */}

@@ -42,7 +42,7 @@ function ScoreBadgeLarge({ score, verified, keywordScore }: { score: number; ver
   return (
     <div className="flex items-center gap-2">
       {showKeywordDiff && (
-        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-400 border border-gray-200 line-through">
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-[#2d2f33] text-gray-400 border border-[#2d2f33] line-through">
           {keywordScore}
           <span className="text-[10px] font-normal no-underline">est.</span>
         </span>

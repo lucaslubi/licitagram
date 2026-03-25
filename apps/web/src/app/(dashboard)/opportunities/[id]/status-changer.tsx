@@ -12,12 +12,12 @@ const supabase = createBrowserClient(
 )
 
 const STATUSES = [
-  { value: 'new', label: 'Nova', color: 'bg-gray-100 text-gray-800' },
+  { value: 'new', label: 'Nova', color: 'bg-[#2d2f33] text-gray-300' },
   { value: 'interested', label: 'Interesse', color: 'bg-blue-100 text-blue-800' },
   { value: 'applied', label: 'Participando', color: 'bg-purple-100 text-purple-800' },
   { value: 'won', label: 'Venceu', color: 'bg-green-100 text-green-800' },
   { value: 'lost', label: 'Perdeu', color: 'bg-red-100 text-red-800' },
-  { value: 'dismissed', label: 'Descartada', color: 'bg-gray-100 text-gray-500' },
+  { value: 'dismissed', label: 'Descartada', color: 'bg-[#2d2f33] text-gray-500' },
 ]
 
 export function StatusChanger({
@@ -54,9 +54,9 @@ export function StatusChanger({
 
   return (
     <div className="space-y-3">
-      {errorMsg && <p className="text-sm text-red-600 bg-red-50 px-3 py-1.5 rounded">{errorMsg}</p>}
+      {errorMsg && <p className="text-sm text-red-400 bg-red-900/20 px-3 py-1.5 rounded">{errorMsg}</p>}
       <div className="flex items-center gap-2">
-        <span className="text-sm text-gray-500">Atual:</span>
+        <span className="text-sm text-gray-400">Atual:</span>
         <Badge className={current?.color}>{current?.label || status}</Badge>
       </div>
       <div className="grid grid-cols-2 gap-2">

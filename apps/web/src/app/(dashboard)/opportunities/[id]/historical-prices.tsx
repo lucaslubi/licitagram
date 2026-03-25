@@ -293,10 +293,10 @@ export function HistoricalPrices({
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Summary stats */}
-        <div className="grid grid-cols-3 gap-3 p-3 bg-gray-100 rounded-lg">
+        <div className="grid grid-cols-3 gap-3 p-3 bg-[#2d2f33] rounded-lg">
           <div className="text-center">
             <p className="text-xs text-gray-400">Valor Estimado Medio</p>
-            <p className="text-sm font-bold text-gray-900">
+            <p className="text-sm font-bold text-white">
               {stats.avgEstimado > 0 ? formatCurrencyBR(stats.avgEstimado) : '-'}
             </p>
           </div>
@@ -317,8 +317,8 @@ export function HistoricalPrices({
         {/* Comparison with current */}
         {currentValorEstimado && stats.avgDesconto > 0 && (
           <div className="p-3 border border-brand/20 bg-brand/5 rounded-lg">
-            <p className="text-xs text-gray-500 mb-1">Sugestao de preco competitivo</p>
-            <p className="text-sm font-medium text-gray-900">
+            <p className="text-xs text-gray-400 mb-1">Sugestao de preco competitivo</p>
+            <p className="text-sm font-medium text-white">
               Com base no desconto mediano de {stats.avgDesconto.toFixed(1)}%, um preco competitivo
               seria em torno de{' '}
               <span className="font-bold text-brand">
@@ -339,17 +339,17 @@ export function HistoricalPrices({
             return (
               <div
                 key={t.id}
-                className="flex items-start justify-between gap-3 p-2.5 border rounded-md text-xs hover:bg-gray-100"
+                className="flex items-start justify-between gap-3 p-2.5 border rounded-md text-xs hover:bg-[#2d2f33]"
               >
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-900 line-clamp-1">{t.objeto}</p>
+                  <p className="font-medium text-white line-clamp-1">{t.objeto}</p>
                   <p className="text-gray-400 mt-0.5">
                     {t.orgao_nome} — {t.uf}
                     {t.data_abertura && ` — ${new Date(t.data_abertura).toLocaleDateString('pt-BR')}`}
                   </p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-gray-500">
+                  <p className="text-gray-400">
                     Est: {t.valor_estimado ? formatCurrencyBR(t.valor_estimado) : '-'}
                   </p>
                   {t.valor_homologado ? (

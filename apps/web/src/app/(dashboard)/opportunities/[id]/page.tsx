@@ -113,7 +113,7 @@ export default async function OpportunityDetailPage({
     >
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mb-6">
-        <Link href="/opportunities" className="text-sm text-gray-400 hover:text-gray-900">
+        <Link href="/opportunities" className="text-sm text-gray-400 hover:text-white">
           ← Voltar
         </Link>
         <h1 className="text-xl sm:text-2xl font-bold flex-1">Detalhes da Oportunidade</h1>
@@ -160,7 +160,7 @@ export default async function OpportunityDetailPage({
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div>
                   <label className="text-sm font-medium text-gray-400">Valor Estimado</label>
-                  <p className="text-sm font-medium text-emerald-700">
+                  <p className="text-sm font-medium text-emerald-400">
                     {tender?.valor_estimado
                       ? formatCurrency(tender.valor_estimado as number)
                       : 'Não informado'}
@@ -195,13 +195,13 @@ export default async function OpportunityDetailPage({
                   {tender?.data_encerramento ? (
                     <p className={`text-sm font-medium ${
                       new Date(tender.data_encerramento as string) < new Date()
-                        ? 'text-red-600'
-                        : 'text-emerald-700'
+                        ? 'text-red-400'
+                        : 'text-emerald-400'
                     }`}>
                       {formatDate(tender.data_encerramento as string)}
                     </p>
                   ) : (
-                    <p className="text-sm font-medium text-amber-600 flex items-center gap-1">
+                    <p className="text-sm font-medium text-amber-400 flex items-center gap-1">
                       ⚠️ Não informada — Pergunte ao consultor IA
                     </p>
                   )}
@@ -210,7 +210,7 @@ export default async function OpportunityDetailPage({
               {Boolean(tender?.resumo) && (
                 <div>
                   <label className="text-sm font-medium text-gray-400">Resumo</label>
-                  <p className="text-sm bg-gray-100 p-3 rounded-md">{tender.resumo as string}</p>
+                  <p className="text-sm bg-[#111214] p-3 rounded-md">{tender.resumo as string}</p>
                 </div>
               )}
             </CardContent>
@@ -235,9 +235,9 @@ export default async function OpportunityDetailPage({
                 Análise Competitiva
                 {match.competition_score != null && (
                   <span className={`text-xs px-2 py-0.5 rounded-full ${
-                    (match.competition_score as number) >= 75 ? 'bg-green-100 text-green-700' :
-                    (match.competition_score as number) >= 50 ? 'bg-yellow-100 text-yellow-700' :
-                    'bg-red-100 text-red-700'
+                    (match.competition_score as number) >= 75 ? 'bg-green-900/20 text-green-400' :
+                    (match.competition_score as number) >= 50 ? 'bg-yellow-900/20 text-yellow-400' :
+                    'bg-red-900/20 text-red-400'
                   }`}>
                     {match.competition_score as number}/100
                   </span>
@@ -248,12 +248,12 @@ export default async function OpportunityDetailPage({
               {/* Factor breakdown */}
               {match.competition_score != null && (
                 <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="bg-gray-50 rounded p-2">
-                    <div className="text-gray-500">Concorrentes no nicho</div>
+                  <div className="bg-[#111214] rounded p-2">
+                    <div className="text-gray-400">Concorrentes no nicho</div>
                     <div className="font-medium">{nicheCompetitors.length}</div>
                   </div>
-                  <div className="bg-gray-50 rounded p-2">
-                    <div className="text-gray-500">Competitividade</div>
+                  <div className="bg-[#111214] rounded p-2">
+                    <div className="text-gray-400">Competitividade</div>
                     <div className="font-medium">
                       {(match.competition_score as number) >= 75 ? 'Baixa' : (match.competition_score as number) >= 50 ? 'Moderada' : 'Alta'}
                     </div>
@@ -264,20 +264,20 @@ export default async function OpportunityDetailPage({
               {/* Known competitors table (enterprise: names, others: count + lock) */}
               {isEnterprise && nicheCompetitors.length > 0 ? (
                 <div className="space-y-1">
-                  <div className="text-xs text-gray-500 font-medium">Principais concorrentes:</div>
+                  <div className="text-xs text-gray-400 font-medium">Principais concorrentes:</div>
                   {nicheCompetitors.slice(0, 5).map((c, i) => (
                     <div key={i} className="flex items-center justify-between text-xs py-1 border-b last:border-0">
                       <span className="font-medium">{(c.razao_social as string) || 'N/I'}</span>
-                      <span className="text-gray-500">
+                      <span className="text-gray-400">
                         Win rate {Math.round(Number(c.win_rate || 0) * 100)}% · {(c.porte as string) || 'N/I'}
                       </span>
                     </div>
                   ))}
                 </div>
               ) : nicheCompetitors.length > 0 ? (
-                <div className="text-xs text-gray-500">
+                <div className="text-xs text-gray-400">
                   {nicheCompetitors.length} concorrentes identificados neste nicho.
-                  <span className="text-blue-600 ml-1">🔒 Nomes no plano Enterprise</span>
+                  <span className="text-blue-400 ml-1">🔒 Nomes no plano Enterprise</span>
                 </div>
               ) : (
                 <div className="text-xs text-gray-400">Sem dados competitivos para esta licitação.</div>
@@ -411,10 +411,10 @@ export default async function OpportunityDetailPage({
                   <Badge
                     className={`text-sm px-3 py-1 ${
                       recomendacao === 'participar'
-                        ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                        ? 'bg-emerald-900/20 text-emerald-400 border-emerald-800/30'
                         : recomendacao === 'avaliar_melhor'
-                          ? 'bg-amber-100 text-amber-800 border-amber-200'
-                          : 'bg-red-100 text-red-800 border-red-200'
+                          ? 'bg-amber-900/20 text-amber-400 border-amber-800/30'
+                          : 'bg-red-900/20 text-red-400 border-red-800/30'
                     }`}
                     variant="outline"
                   >

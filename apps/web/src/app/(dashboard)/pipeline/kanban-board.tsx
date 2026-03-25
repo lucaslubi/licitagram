@@ -34,11 +34,11 @@ interface Match {
 }
 
 const COLUMNS = [
-  { key: 'new', label: 'Nova', color: 'border-gray-400', bg: 'bg-gray-100' },
+  { key: 'new', label: 'Nova', color: 'border-gray-400', bg: 'bg-[#2d2f33]/40' },
   { key: 'interested', label: 'Interesse', color: 'border-brand', bg: 'bg-brand/5' },
-  { key: 'applied', label: 'Participando', color: 'border-purple-400', bg: 'bg-purple-50' },
-  { key: 'won', label: 'Venceu', color: 'border-emerald-400', bg: 'bg-emerald-50' },
-  { key: 'lost', label: 'Perdeu', color: 'border-red-400', bg: 'bg-red-50' },
+  { key: 'applied', label: 'Participando', color: 'border-purple-400', bg: 'bg-purple-900/10' },
+  { key: 'won', label: 'Venceu', color: 'border-emerald-400', bg: 'bg-emerald-900/10' },
+  { key: 'lost', label: 'Perdeu', color: 'border-red-400', bg: 'bg-red-900/10' },
 ]
 
 function formatCurrencyShort(val: number): string {
@@ -82,8 +82,8 @@ function DroppableColumn({
   return (
     <div className="min-w-[220px] sm:min-w-[260px] flex-1 flex flex-col">
       <div className={`border-t-4 ${color} rounded-t-md`}>
-        <div className="flex items-center justify-between p-3 bg-white rounded-t-md border-x border-b">
-          <h3 className="font-semibold text-sm">{label}</h3>
+        <div className="flex items-center justify-between p-3 bg-[#1a1c1f] rounded-t-md border-x border-b border-[#2d2f33]">
+          <h3 className="font-semibold text-sm text-white">{label}</h3>
           <Badge variant="secondary" className="text-xs">{matches.length}</Badge>
         </div>
       </div>
@@ -98,7 +98,7 @@ function DroppableColumn({
           <DraggableCard key={match.id} match={match} isDragging={activeId === match.id} />
         ))}
         {matches.length === 0 && (
-          <div className="text-center py-8 text-xs text-gray-400">
+          <div className="text-center py-8 text-xs text-gray-500">
             Arraste cards para cá
           </div>
         )}
@@ -124,9 +124,9 @@ function DraggableCard({ match, isDragging }: { match: Match; isDragging: boolea
 
   const countdown = tender?.data_encerramento ? timeUntil(tender.data_encerramento) : null
   const countdownColor = countdown?.urgency === 'critical'
-    ? 'text-red-600 font-semibold'
+    ? 'text-red-400 font-semibold'
     : countdown?.urgency === 'warning'
-      ? 'text-amber-600'
+      ? 'text-amber-400'
       : 'text-gray-400'
 
   return (
@@ -135,14 +135,14 @@ function DraggableCard({ match, isDragging }: { match: Match; isDragging: boolea
       style={style}
       {...listeners}
       {...attributes}
-      className={`bg-white rounded-lg border p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow ${
+      className={`bg-[#1a1c1f] rounded-lg border border-[#2d2f33] p-3 cursor-grab active:cursor-grabbing hover:border-[#F43E01]/20 transition-all ${
         isDragging ? 'opacity-50 shadow-lg' : ''
-      } ${isHot ? 'border-l-[3px] border-l-orange-500 bg-orange-50' : ''}`}
+      } ${isHot ? 'border-l-[3px] border-l-orange-500 bg-orange-900/10' : ''}`}
     >
       <div className="flex items-start justify-between mb-1.5">
         <a
           href={`/opportunities/${match.id}`}
-          className="text-xs font-medium text-gray-900 line-clamp-2 hover:text-brand flex-1 min-w-0"
+          className="text-xs font-medium text-white line-clamp-2 hover:text-brand flex-1 min-w-0"
           onClick={(e) => e.stopPropagation()}
         >
           {truncateText(tender?.objeto || 'N/A', 70)}
@@ -154,7 +154,7 @@ function DraggableCard({ match, isDragging }: { match: Match; isDragging: boolea
       <p className="text-xs text-gray-400 truncate">{tender?.orgao_nome || ''}</p>
       <div className="flex justify-between mt-1.5 text-xs text-gray-400">
         <span>{tender?.uf || ''}</span>
-        <span className={isHot ? 'font-bold text-gray-700' : ''}>
+        <span className={isHot ? 'font-bold text-gray-300' : ''}>
           {tender?.valor_estimado
             ? (isHot ? formatCurrencyFull(tender.valor_estimado) : formatCurrencyShort(tender.valor_estimado))
             : '-'}
@@ -168,9 +168,9 @@ function DraggableCard({ match, isDragging }: { match: Match; isDragging: boolea
       {match.isHot && match.competitionScore != null && (
         <div className="flex items-center gap-1 mt-1">
           <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
-            match.competitionScore >= 75 ? 'bg-green-100 text-green-700' :
-            match.competitionScore >= 50 ? 'bg-yellow-100 text-yellow-700' :
-            'bg-red-100 text-red-700'
+            match.competitionScore >= 75 ? 'bg-emerald-900/20 text-emerald-400' :
+            match.competitionScore >= 50 ? 'bg-amber-900/20 text-amber-400' :
+            'bg-red-900/20 text-red-400'
           }`}>
             {match.competitionScore >= 75 ? 'Baixa competição' :
              match.competitionScore >= 50 ? 'Moderada' :
@@ -188,9 +188,9 @@ function CardOverlay({ match }: { match: Match }) {
   const scoreColor = getScoreBgClass(match.score)
 
   return (
-    <div className={`bg-white rounded-lg border-2 p-3 shadow-xl w-[240px] rotate-2 ${isHot ? 'border-orange-500' : 'border-brand'}`}>
+    <div className={`bg-[#1a1c1f] rounded-lg border-2 p-3 shadow-xl w-[240px] rotate-2 ${isHot ? 'border-orange-500' : 'border-brand'}`}>
       <div className="flex items-start justify-between mb-1.5">
-        <p className="text-xs font-medium text-gray-900 line-clamp-2 flex-1">
+        <p className="text-xs font-medium text-white line-clamp-2 flex-1">
           {truncateText(tender?.objeto || 'N/A', 70)}
         </p>
         <span className={`ml-1 shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold ${scoreColor}`}>
@@ -279,7 +279,7 @@ export function KanbanBoard({ initialMatches }: { initialMatches: Match[] }) {
       onDragEnd={handleDragEnd}
     >
       {errorMsg && (
-        <div className="mb-3 px-4 py-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-md">
+        <div className="mb-3 px-4 py-2 bg-red-900/20 border border-red-900/30 text-red-400 text-sm rounded-md">
           {errorMsg}
         </div>
       )}

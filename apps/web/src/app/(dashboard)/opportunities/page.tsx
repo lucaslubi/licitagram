@@ -154,7 +154,7 @@ export default async function OpportunitiesPage({
           className={`px-3 sm:px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap ${
             view === 'tenders'
               ? 'bg-brand text-white'
-              : 'bg-gray-150 text-gray-900 hover:bg-gray-200'
+              : 'bg-[#2d2f33] text-gray-400 hover:bg-[#2d2f33]/80'
           }`}
         >
           Abertas ({tenderTotalCount ?? 0})
@@ -164,14 +164,14 @@ export default async function OpportunitiesPage({
           className={`px-3 sm:px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap ${
             view === 'matches'
               ? 'bg-brand text-white'
-              : 'bg-gray-150 text-gray-900 hover:bg-gray-200'
+              : 'bg-[#2d2f33] text-gray-400 hover:bg-[#2d2f33]/80'
           }`}
         >
           Matches IA ({matchCount})
         </Link>
         <Link
           href="/archive"
-          className="ml-auto text-xs text-gray-400 hover:text-gray-600 whitespace-nowrap"
+          className="ml-auto text-xs text-gray-400 hover:text-gray-300 whitespace-nowrap"
         >
           Ver arquivo →
         </Link>
@@ -183,7 +183,7 @@ export default async function OpportunitiesPage({
           <form className="space-y-4">
             <input type="hidden" name="view" value={view} />
             <div>
-              <label className="text-sm font-medium text-gray-900">Buscar</label>
+              <label className="text-sm font-medium text-gray-400">Buscar</label>
               <input
                 name="q"
                 type="text"
@@ -197,14 +197,14 @@ export default async function OpportunitiesPage({
                   name="busca_edital"
                   value="1"
                   defaultChecked={buscaEdital}
-                  className="rounded border-gray-200"
+                  className="rounded border-[#2d2f33]"
                 />
                 Buscar no texto do edital
               </label>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               <div>
-                <label className="text-sm font-medium text-gray-900">UF</label>
+                <label className="text-sm font-medium text-gray-400">UF</label>
                 <select
                   name="uf"
                   defaultValue={ufFilter}
@@ -219,7 +219,7 @@ export default async function OpportunitiesPage({
                 </select>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-900">Modalidade</label>
+                <label className="text-sm font-medium text-gray-400">Modalidade</label>
                 <select
                   name="modalidade"
                   defaultValue={modalidadeFilter}
@@ -232,7 +232,7 @@ export default async function OpportunitiesPage({
                 </select>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-900">Fonte</label>
+                <label className="text-sm font-medium text-gray-400">Fonte</label>
                 <select
                   name="fonte"
                   defaultValue={fonteFilter}
@@ -246,7 +246,7 @@ export default async function OpportunitiesPage({
                 </select>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-900">De</label>
+                <label className="text-sm font-medium text-gray-400">De</label>
                 <input
                   name="data_de"
                   type="date"
@@ -255,7 +255,7 @@ export default async function OpportunitiesPage({
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-900">Até</label>
+                <label className="text-sm font-medium text-gray-400">Até</label>
                 <input
                   name="data_ate"
                   type="date"
@@ -264,7 +264,7 @@ export default async function OpportunitiesPage({
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-900">Valor</label>
+                <label className="text-sm font-medium text-gray-400">Valor</label>
                 <select
                   name="ordem_valor"
                   defaultValue={ordemValorFilter}
@@ -286,7 +286,7 @@ export default async function OpportunitiesPage({
               {(searchQuery || modalidadeFilter || dataDeFilter || dataAteFilter || fonteFilter || ordemValorFilter || ordemDataFilter) && (
                 <Link
                   href={`/opportunities?view=${view}&uf=${ufFilter}`}
-                  className="h-10 px-3 flex items-center text-sm text-gray-400 hover:text-gray-900"
+                  className="h-10 px-3 flex items-center text-sm text-gray-400 hover:text-white"
                 >
                   Limpar filtros
                 </Link>
@@ -337,7 +337,7 @@ export default async function OpportunitiesPage({
             <TableBody>
               {tenders && tenders.length > 0 ? (
                 tenders.map((tender) => (
-                  <TableRow key={tender.id} className="cursor-pointer hover:bg-gray-100">
+                  <TableRow key={tender.id} className="cursor-pointer hover:bg-[#2d2f33]">
                     <TableCell>
                       <Link
                         href={`/opportunities/tender/${tender.id}`}
@@ -346,7 +346,7 @@ export default async function OpportunitiesPage({
                         {truncateText(tender.objeto || 'N/A', 100)}
                       </Link>
                     </TableCell>
-                    <TableCell className="text-sm text-gray-500">
+                    <TableCell className="text-sm text-gray-400">
                       {truncateText(tender.orgao_nome || '', 35)}
                     </TableCell>
                     <TableCell className="text-sm font-medium">{tender.uf || '-'}</TableCell>
@@ -393,18 +393,18 @@ export default async function OpportunitiesPage({
               {page > 1 && (
                 <Link
                   href={`/opportunities?page=${page - 1}&view=${view}&${baseParams.toString()}`}
-                  className="px-3 py-1 border rounded text-sm hover:bg-gray-100"
+                  className="px-3 py-1 border rounded text-sm hover:bg-[#2d2f33]"
                 >
                   Anterior
                 </Link>
               )}
-              <span className="px-3 py-1 text-sm text-gray-500">
+              <span className="px-3 py-1 text-sm text-gray-400">
                 Página {page} de {totalPages}
               </span>
               {page < totalPages && (
                 <Link
                   href={`/opportunities?page=${page + 1}&view=${view}&${baseParams.toString()}`}
-                  className="px-3 py-1 border rounded text-sm hover:bg-gray-100"
+                  className="px-3 py-1 border rounded text-sm hover:bg-[#2d2f33]"
                 >
                   Próxima
                 </Link>
@@ -454,7 +454,7 @@ function renderMatchesView(props: {
       <div className="flex gap-2 mb-4 overflow-x-auto items-center">
         <Link
           href={`/opportunities?view=tenders`}
-          className="px-3 sm:px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap bg-gray-150 text-gray-900 hover:bg-gray-200"
+          className="px-3 sm:px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap bg-[#2d2f33] text-gray-400 hover:bg-[#2d2f33]/80"
         >
           Abertas ({tenderCount ?? 0})
         </Link>
@@ -466,7 +466,7 @@ function renderMatchesView(props: {
         </Link>
         <Link
           href="/archive"
-          className="ml-auto text-xs text-gray-400 hover:text-gray-600 whitespace-nowrap"
+          className="ml-auto text-xs text-gray-400 hover:text-gray-300 whitespace-nowrap"
         >
           Ver arquivo →
         </Link>
@@ -478,7 +478,7 @@ function renderMatchesView(props: {
             <input type="hidden" name="view" value="matches" />
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
               <div>
-                <label className="text-sm font-medium text-gray-900">Score Min</label>
+                <label className="text-sm font-medium text-gray-400">Score Min</label>
                 <select
                   name="score_min"
                   defaultValue={scoreMinFilter > 0 ? String(scoreMinFilter) : ''}
@@ -491,7 +491,7 @@ function renderMatchesView(props: {
                 </select>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-900">UF</label>
+                <label className="text-sm font-medium text-gray-400">UF</label>
                 <select
                   name="uf"
                   defaultValue={ufFilter}
@@ -506,7 +506,7 @@ function renderMatchesView(props: {
                 </select>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-900">Modalidade</label>
+                <label className="text-sm font-medium text-gray-400">Modalidade</label>
                 <select
                   name="modalidade"
                   defaultValue={modalidadeFilter}
@@ -519,7 +519,7 @@ function renderMatchesView(props: {
                 </select>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-900">Fonte</label>
+                <label className="text-sm font-medium text-gray-400">Fonte</label>
                 <select
                   name="fonte"
                   defaultValue={fonteFilter}
@@ -533,7 +533,7 @@ function renderMatchesView(props: {
                 </select>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-900">De</label>
+                <label className="text-sm font-medium text-gray-400">De</label>
                 <input
                   name="data_de"
                   type="date"
@@ -542,7 +542,7 @@ function renderMatchesView(props: {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-900">Até</label>
+                <label className="text-sm font-medium text-gray-400">Até</label>
                 <input
                   name="data_ate"
                   type="date"
@@ -551,7 +551,7 @@ function renderMatchesView(props: {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-900">Valor</label>
+                <label className="text-sm font-medium text-gray-400">Valor</label>
                 <select
                   name="ordem_valor"
                   defaultValue={ordemValorFilter}
@@ -563,7 +563,7 @@ function renderMatchesView(props: {
                 </select>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-900">Data</label>
+                <label className="text-sm font-medium text-gray-400">Data</label>
                 <select
                   name="ordem_data"
                   defaultValue={ordemDataFilter}
@@ -585,7 +585,7 @@ function renderMatchesView(props: {
               {(modalidadeFilter || scoreMinFilter || dataDeFilter || dataAteFilter || fonteFilter || ordemValorFilter || ordemDataFilter) && (
                 <Link
                   href="/opportunities?view=matches"
-                  className="h-10 px-3 flex items-center text-sm text-gray-400 hover:text-gray-900"
+                  className="h-10 px-3 flex items-center text-sm text-gray-400 hover:text-white"
                 >
                   Limpar filtros
                 </Link>
@@ -645,7 +645,7 @@ function renderMatchesView(props: {
                   const tenderDocs = (tender?.tender_documents as unknown as Array<{ id: string }>) || []
                   const recomendacao = match.recomendacao as string | null
                   return (
-                    <TableRow key={match.id} className="cursor-pointer hover:bg-gray-100">
+                    <TableRow key={match.id} className="cursor-pointer hover:bg-[#2d2f33]">
                       <TableCell>
                         <Link href={`/opportunities/${match.id}`}>
                           <ScoreBadge score={match.score} matchSource={match.match_source} />
@@ -661,7 +661,7 @@ function renderMatchesView(props: {
                           </p>
                         </Link>
                       </TableCell>
-                      <TableCell className="text-sm text-gray-500 hidden lg:table-cell">
+                      <TableCell className="text-sm text-gray-400 hidden lg:table-cell">
                         {truncateText((tender?.orgao_nome as string) || '', 35)}
                       </TableCell>
                       <TableCell className="text-sm font-medium">{(tender?.uf as string) || '-'}</TableCell>
@@ -670,7 +670,7 @@ function renderMatchesView(props: {
                           ? formatCurrency(tender.valor_estimado as number)
                           : '-'}
                       </TableCell>
-                      <TableCell className="text-xs text-gray-500 hidden lg:table-cell">
+                      <TableCell className="text-xs text-gray-400 hidden lg:table-cell">
                         {truncateText((tender?.modalidade_nome as string) || '-', 25)}
                       </TableCell>
                       <TableCell className="text-sm hidden md:table-cell">
@@ -695,10 +695,10 @@ function renderMatchesView(props: {
                             variant="outline"
                             className={`text-xs ${
                               recomendacao === 'participar'
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                ? 'bg-emerald-900/20 text-emerald-400 border-emerald-800/30'
                                 : recomendacao === 'avaliar_melhor'
-                                  ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                  : 'bg-red-50 text-red-700 border-red-200'
+                                  ? 'bg-amber-900/20 text-amber-400 border-amber-800/30'
+                                  : 'bg-red-900/20 text-red-400 border-red-800/30'
                             }`}
                           >
                             {recomendacao === 'participar' ? 'Participar' : recomendacao === 'avaliar_melhor' ? 'Avaliar' : 'Não Rec.'}
@@ -723,18 +723,18 @@ function renderMatchesView(props: {
               {page > 1 && (
                 <Link
                   href={`/opportunities?page=${page - 1}&view=matches&${baseParams.toString()}`}
-                  className="px-3 py-1 border rounded text-sm hover:bg-gray-100"
+                  className="px-3 py-1 border rounded text-sm hover:bg-[#2d2f33]"
                 >
                   Anterior
                 </Link>
               )}
-              <span className="px-3 py-1 text-sm text-gray-500">
+              <span className="px-3 py-1 text-sm text-gray-400">
                 Página {page} de {totalPages}
               </span>
               {page < totalPages && (
                 <Link
                   href={`/opportunities?page=${page + 1}&view=matches&${baseParams.toString()}`}
-                  className="px-3 py-1 border rounded text-sm hover:bg-gray-100"
+                  className="px-3 py-1 border rounded text-sm hover:bg-[#2d2f33]"
                 >
                   Próxima
                 </Link>
@@ -753,12 +753,12 @@ function ScoreBadge({ score, matchSource }: { score: number; matchSource?: strin
   const isAi = matchSource === 'ai' || matchSource === 'ai_triage'
   const color =
     score >= 80
-      ? 'bg-orange-100 text-orange-800'
+      ? 'bg-orange-900/20 text-orange-400'
       : score >= 70
-        ? 'bg-emerald-100 text-emerald-800'
+        ? 'bg-emerald-900/20 text-emerald-400'
         : score >= 50
-          ? 'bg-amber-100 text-amber-800'
-          : 'bg-red-100 text-red-800'
+          ? 'bg-amber-900/20 text-amber-400'
+          : 'bg-red-900/20 text-red-400'
 
   return (
     <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${color}`}>
@@ -771,8 +771,8 @@ function ScoreBadge({ score, matchSource }: { score: number; matchSource?: strin
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
     new: 'bg-brand/10 text-brand',
-    analyzed: 'bg-emerald-100 text-emerald-800',
-    error: 'bg-amber-100 text-amber-800',
+    analyzed: 'bg-emerald-900/20 text-emerald-400',
+    error: 'bg-amber-900/20 text-amber-400',
   }
   const labels: Record<string, string> = {
     new: 'Novo',
@@ -782,7 +782,7 @@ function StatusBadge({ status }: { status: string }) {
   }
 
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colors[status] || 'bg-gray-150 text-gray-900'}`}>
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colors[status] || 'bg-[#2d2f33] text-gray-400'}`}>
       {labels[status] || status}
     </span>
   )
@@ -790,12 +790,12 @@ function StatusBadge({ status }: { status: string }) {
 
 function SourceBadge({ source }: { source: string }) {
   const config: Record<string, { label: string; color: string }> = {
-    pncp: { label: 'PNCP', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-    comprasgov: { label: 'Compras.gov', color: 'bg-blue-50 text-blue-700 border-blue-200' },
-    bec_sp: { label: 'BEC SP', color: 'bg-amber-50 text-amber-700 border-amber-200' },
-    portal_mg: { label: 'MG', color: 'bg-orange-50 text-orange-700 border-orange-200' },
+    pncp: { label: 'PNCP', color: 'bg-emerald-900/20 text-emerald-400 border-emerald-800/30' },
+    comprasgov: { label: 'Compras.gov', color: 'bg-blue-900/20 text-blue-400 border-blue-800/30' },
+    bec_sp: { label: 'BEC SP', color: 'bg-amber-900/20 text-amber-400 border-amber-800/30' },
+    portal_mg: { label: 'MG', color: 'bg-orange-900/20 text-orange-400 border-orange-800/30' },
   }
-  const { label, color } = config[source] || { label: source, color: 'bg-gray-100 text-gray-900 border-gray-200' }
+  const { label, color } = config[source] || { label: source, color: 'bg-[#2d2f33] text-gray-400 border-[#2d2f33]' }
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${color}`}>
       {label}
@@ -806,7 +806,7 @@ function SourceBadge({ source }: { source: string }) {
 function EncerramentoBadge({ dataEncerramento }: { dataEncerramento: string | null | undefined }) {
   if (!dataEncerramento) {
     return (
-      <span className="inline-flex items-center gap-1 text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/30 px-2 py-0.5 rounded" title="Data não informada pelo PNCP. Consulte o edital ou pergunte ao consultor IA.">
+      <span className="inline-flex items-center gap-1 text-xs text-amber-400 bg-amber-900/20 px-2 py-0.5 rounded" title="Data não informada pelo PNCP. Consulte o edital ou pergunte ao consultor IA.">
         ⚠️ Verificar prazo
       </span>
     )
@@ -826,14 +826,14 @@ function EncerramentoBadge({ dataEncerramento }: { dataEncerramento: string | nu
 
   if (diffDays <= 3) {
     return (
-      <span className="text-xs text-red-600 font-medium">
+      <span className="text-xs text-red-400 font-medium">
         {formatDate(dataEncerramento)} ({diffDays === 0 ? 'HOJE' : `${diffDays}d`})
       </span>
     )
   }
 
   return (
-    <span className="text-xs text-gray-600">
+    <span className="text-xs text-gray-400">
       {formatDate(dataEncerramento)}
     </span>
   )

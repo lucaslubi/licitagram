@@ -42,10 +42,10 @@ const FIT_LABELS: Record<string, string> = {
 type FitLevel = 'baixo' | 'medio' | 'alto' | 'excelente'
 
 const FIT_CONFIG: Record<FitLevel, { bg: string; text: string; border: string; dot: string; bar: string; barWidth: string }> = {
-  excelente: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', dot: 'bg-emerald-500', bar: 'bg-emerald-500', barWidth: 'w-full' },
-  alto:      { bg: 'bg-blue-50',    text: 'text-blue-700',    border: 'border-blue-200',    dot: 'bg-blue-500',    bar: 'bg-blue-500',    barWidth: 'w-3/4' },
-  medio:     { bg: 'bg-amber-50',   text: 'text-amber-700',   border: 'border-amber-200',   dot: 'bg-amber-500',   bar: 'bg-amber-500',   barWidth: 'w-1/2' },
-  baixo:     { bg: 'bg-red-50',     text: 'text-red-700',     border: 'border-red-200',     dot: 'bg-red-500',     bar: 'bg-red-500',     barWidth: 'w-1/4' },
+  excelente: { bg: 'bg-emerald-900/20', text: 'text-emerald-400', border: 'border-emerald-900/30', dot: 'bg-emerald-500', bar: 'bg-emerald-500', barWidth: 'w-full' },
+  alto:      { bg: 'bg-blue-900/20',    text: 'text-blue-400',    border: 'border-blue-900/30',    dot: 'bg-blue-500',    bar: 'bg-blue-500',    barWidth: 'w-3/4' },
+  medio:     { bg: 'bg-amber-900/20',   text: 'text-amber-400',   border: 'border-amber-900/30',   dot: 'bg-amber-500',   bar: 'bg-amber-500',   barWidth: 'w-1/2' },
+  baixo:     { bg: 'bg-red-900/20',     text: 'text-red-400',     border: 'border-red-900/30',     dot: 'bg-red-500',     bar: 'bg-red-500',     barWidth: 'w-1/4' },
 }
 
 /** Derive fit label from a numeric score (for backward compat with old AI responses) */
@@ -104,14 +104,14 @@ export function AiAnalysis({ matchId, initialData, matchSource, hasAccess = true
       <Card>
         <CardContent className="py-6">
           <div className="text-center space-y-3">
-            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+            <div className="w-12 h-12 bg-[#2d2f33] rounded-full flex items-center justify-center mx-auto">
               <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900">Análise com IA</h3>
-              <p className="text-sm text-gray-500 mt-1">
+              <h3 className="font-semibold text-white">Análise com IA</h3>
+              <p className="text-sm text-gray-400 mt-1">
                 Análise detalhada de compatibilidade da sua empresa com este edital.
               </p>
               <p className="text-xs text-gray-400 mt-2">
@@ -187,10 +187,10 @@ export function AiAnalysis({ matchId, initialData, matchSource, hasAccess = true
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            <div className="h-4 bg-gray-200 rounded animate-pulse w-3/4" />
-            <div className="h-4 bg-gray-200 rounded animate-pulse w-1/2" />
-            <div className="h-4 bg-gray-200 rounded animate-pulse w-2/3" />
-            <div className="h-12 bg-gray-200 rounded animate-pulse" />
+            <div className="h-4 bg-[#2d2f33] rounded animate-pulse w-3/4" />
+            <div className="h-4 bg-[#2d2f33] rounded animate-pulse w-1/2" />
+            <div className="h-4 bg-[#2d2f33] rounded animate-pulse w-2/3" />
+            <div className="h-12 bg-[#2d2f33] rounded animate-pulse" />
           </div>
         </CardContent>
       </Card>
@@ -204,7 +204,7 @@ export function AiAnalysis({ matchId, initialData, matchSource, hasAccess = true
           <CardTitle>Análise IA</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-red-600 mb-3">{error}</p>
+          <p className="text-sm text-red-400 mb-3">{error}</p>
           <Button onClick={runAnalysis} variant="outline" size="sm">
             Tentar novamente
           </Button>
@@ -221,7 +221,7 @@ export function AiAnalysis({ matchId, initialData, matchSource, hasAccess = true
         </CardHeader>
         <CardContent>
           <div className="text-center py-4">
-            <p className="text-sm text-gray-500">Aguardando análise automática da IA...</p>
+            <p className="text-sm text-gray-400">Aguardando análise automática da IA...</p>
             <p className="text-xs text-gray-400 mt-1">Esta licitação será analisada em breve pelo sistema.</p>
           </div>
         </CardContent>
@@ -242,12 +242,12 @@ export function AiAnalysis({ matchId, initialData, matchSource, hasAccess = true
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm">
+            <div className="flex items-center gap-3 p-3 bg-blue-900/20 border border-blue-900/30 rounded-lg">
+              <div className="w-10 h-10 rounded-full bg-blue-900/30 flex items-center justify-center text-blue-400 font-bold text-sm">
                 {data.score}
               </div>
               <div>
-                <p className="text-sm font-medium text-blue-900">Score verificado por IA</p>
+                <p className="text-sm font-medium text-blue-400">Score verificado por IA</p>
                 <p className="text-xs text-blue-600">
                   {data.recomendacao === 'participar'
                     ? 'Recomendado participar'
@@ -257,7 +257,7 @@ export function AiAnalysis({ matchId, initialData, matchSource, hasAccess = true
                 </p>
               </div>
             </div>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-400">
               Esta licitação foi avaliada pela triagem automática de IA. Para uma análise detalhada com parecer técnico completo, clique abaixo.
             </p>
             <Button onClick={runAnalysis} variant="outline" size="sm" className="w-full">
@@ -342,9 +342,9 @@ export function AiAnalysis({ matchId, initialData, matchSource, hasAccess = true
                   {/* Donut Chart */}
                   <div className="relative w-24 h-24 sm:w-28 sm:h-28 shrink-0">
                     <div className="w-full h-full rounded-full" style={{ background: conicGradient }} />
-                    <div className="absolute inset-2.5 sm:inset-3 bg-white rounded-full flex items-center justify-center shadow-inner">
+                    <div className="absolute inset-2.5 sm:inset-3 bg-[#1a1c1f] rounded-full flex items-center justify-center shadow-inner">
                       <div className="text-center">
-                        <p className="text-lg sm:text-xl font-bold text-gray-900">{avgScore}</p>
+                        <p className="text-lg sm:text-xl font-bold text-white">{avgScore}</p>
                         <p className="text-[8px] sm:text-[9px] text-gray-400 uppercase tracking-wider">Score</p>
                       </div>
                     </div>
@@ -364,10 +364,10 @@ export function AiAnalysis({ matchId, initialData, matchSource, hasAccess = true
                           <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between mb-0.5">
-                              <span className="text-xs font-medium text-gray-700">{CATEGORY_LABELS[item.category] || item.category}</span>
-                              <span className="text-xs font-semibold text-gray-900">{typeof item.score === 'number' ? item.score : fitLabel}</span>
+                              <span className="text-xs font-medium text-gray-300">{CATEGORY_LABELS[item.category] || item.category}</span>
+                              <span className="text-xs font-semibold text-white">{typeof item.score === 'number' ? item.score : fitLabel}</span>
                             </div>
-                            <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
+                            <div className="h-1 bg-[#2d2f33] rounded-full overflow-hidden">
                               <div className="h-full rounded-full transition-all duration-500" style={{ width: `${score}%`, backgroundColor: color }} />
                             </div>
                             <p className="text-[10px] text-gray-400 mt-0.5 truncate">{item.reason}</p>
@@ -407,7 +407,7 @@ export function AiAnalysis({ matchId, initialData, matchSource, hasAccess = true
                       <div className="w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center shrink-0 mt-0.5">
                         <span className="text-amber-600 text-xs font-bold">{i + 1}</span>
                       </div>
-                      <span className="text-gray-700 leading-relaxed">{risco}</span>
+                      <span className="text-gray-300 leading-relaxed">{risco}</span>
                     </li>
                   ))}
                 </ul>
@@ -436,7 +436,7 @@ export function AiAnalysis({ matchId, initialData, matchSource, hasAccess = true
                       <div className="w-5 h-5 rounded-full bg-brand/10 flex items-center justify-center shrink-0 mt-0.5">
                         <span className="text-brand text-xs font-bold">{i + 1}</span>
                       </div>
-                      <span className="text-gray-700 leading-relaxed">{acao}</span>
+                      <span className="text-gray-300 leading-relaxed">{acao}</span>
                     </li>
                   ))}
                 </ul>
