@@ -30,8 +30,8 @@ export default async function DashboardPage() {
   if (!companyId) {
     return (
       <div>
-        <h1 className="text-2xl font-bold mb-4 text-gray-900">Bem-vindo ao Licitagram!</h1>
-        <Card className="bg-white border-gray-100 shadow-sm">
+        <h1 className="text-2xl font-bold mb-4 text-white">Bem-vindo ao Licitagram!</h1>
+        <Card className="bg-[#1a1c1f] border-[#2d2f33]">
           <CardContent className="pt-6">
             <p className="text-gray-500 mb-4">
               Para começar a receber oportunidades, cadastre os dados da sua empresa.
@@ -248,13 +248,13 @@ export default async function DashboardPage() {
   const conversionRate = totalMatches > 0 ? Math.round((interestedCount / totalMatches) * 100) : 0
 
   return (
-    <div id="dashboard-overview" className="bg-[#FAFAF8] min-h-screen -m-4 p-4 md:-m-6 md:p-6">
+    <div id="dashboard-overview" className="bg-[#111214] min-h-screen -m-4 p-4 md:-m-6 md:p-6">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <h1 className="text-2xl font-bold text-white">Dashboard</h1>
           <p className="text-sm text-gray-400 mt-1">Visao geral das suas oportunidades</p>
         </div>
-        <p className="text-[10px] text-gray-400 bg-white px-3 py-1.5 rounded-full border border-gray-100">
+        <p className="text-[10px] text-gray-400 bg-[#1a1c1f] px-3 py-1.5 rounded-full border border-[#2d2f33]">
           Atualizado: {new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
         </p>
       </div>
@@ -278,7 +278,7 @@ export default async function DashboardPage() {
       {/* Win Rate Card */}
       {totalOutcomes > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <Card className="md:col-span-1 relative overflow-hidden bg-white border-gray-100 shadow-sm rounded-2xl">
+          <Card className="md:col-span-1 relative overflow-hidden bg-[#1a1c1f] border-[#2d2f33] rounded-2xl">
             <CardContent className="pt-5 pb-4 px-5">
               <WinRateCircle rate={overallWinRate} won={totalWon} lost={totalLost} />
               {recentTotal >= 3 && Math.abs(winRateDiff) > 10 && (
@@ -293,21 +293,21 @@ export default async function DashboardPage() {
 
       {/* Section Header */}
       <div className="flex items-center gap-3 mb-6">
-        <div className="h-px flex-1 bg-gray-200" />
+        <div className="h-px flex-1 bg-[#2d2f33]" />
         <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Analise de Performance</h2>
-        <div className="h-px flex-1 bg-gray-200" />
+        <div className="h-px flex-1 bg-[#2d2f33]" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <Card className="bg-white border-gray-100 shadow-sm rounded-2xl">
-          <CardHeader><CardTitle className="text-base text-gray-900">Distribuicao de Scores</CardTitle></CardHeader>
+        <Card className="bg-[#1a1c1f] border-[#2d2f33] rounded-2xl">
+          <CardHeader><CardTitle className="text-base text-white">Distribuicao de Scores</CardTitle></CardHeader>
           <CardContent>
             <ScoreDonut distribution={scoreDistribution.map(d => ({ ...d, percentage: scores.length > 0 ? Math.round((d.count / scores.length) * 100) : 0 }))} />
           </CardContent>
         </Card>
 
-        <Card className="bg-white border-gray-100 shadow-sm rounded-2xl">
-          <CardHeader><CardTitle className="text-base text-gray-900">Saude dos Documentos</CardTitle></CardHeader>
+        <Card className="bg-[#1a1c1f] border-[#2d2f33] rounded-2xl">
+          <CardHeader><CardTitle className="text-base text-white">Saude dos Documentos</CardTitle></CardHeader>
           <CardContent>
             <DocumentHealth valid={docs.length - docsExpiring - docsExpired} expiring={docsExpiring} expired={docsExpired} />
             {(docsExpiring > 0 || docsExpired > 0) && <Link href="/documents" className="block text-center text-sm text-brand hover:underline mt-4">Ver documentos</Link>}
@@ -317,8 +317,8 @@ export default async function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <Card className="bg-white border-gray-100 shadow-sm rounded-2xl">
-          <CardHeader><CardTitle className="text-base text-gray-900">Top 5 UFs com Oportunidades</CardTitle></CardHeader>
+        <Card className="bg-[#1a1c1f] border-[#2d2f33] rounded-2xl">
+          <CardHeader><CardTitle className="text-base text-white">Top 5 UFs com Oportunidades</CardTitle></CardHeader>
           <CardContent>
             {topUFs.length > 0 ? (
               <UFBarChart data={topUFs} />
@@ -326,8 +326,8 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-white border-gray-100 shadow-sm rounded-2xl">
-          <CardHeader><CardTitle className="text-base text-gray-900">Top 5 Modalidades</CardTitle></CardHeader>
+        <Card className="bg-[#1a1c1f] border-[#2d2f33] rounded-2xl">
+          <CardHeader><CardTitle className="text-base text-white">Top 5 Modalidades</CardTitle></CardHeader>
           <CardContent>
             {topModalidades.length > 0 ? (
               <ModalidadeBarChart data={topModalidades} />
@@ -337,10 +337,10 @@ export default async function DashboardPage() {
       </div>
 
       {/* Top opportunities */}
-      <Card className="bg-white border-gray-100 shadow-sm rounded-2xl">
+      <Card className="bg-[#1a1c1f] border-[#2d2f33] rounded-2xl">
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
-            <span className="text-gray-900">Melhores Oportunidades</span>
+            <span className="text-white">Melhores Oportunidades</span>
             <Link href="/opportunities" className="text-sm text-brand hover:underline font-normal">Ver todas</Link>
           </CardTitle>
         </CardHeader>
@@ -351,13 +351,13 @@ export default async function DashboardPage() {
                 const tender = (match.tenders as unknown) as Record<string, unknown> | null
                 const scoreColor = match.score >= 80 ? '#F43E01' : match.score >= 70 ? '#10B981' : match.score >= 50 ? '#FBBF24' : '#EF4444'
                 return (
-                  <Link key={match.id} href={`/opportunities/${match.id}`} className="flex items-center gap-4 p-4 rounded-xl border border-gray-100 hover:shadow-md hover:border-gray-200 transition-all duration-200 group">
+                  <Link key={match.id} href={`/opportunities/${match.id}`} className="flex items-center gap-4 p-4 rounded-xl border border-[#2d2f33] hover:border-[#F43E01]/30 transition-all duration-200 group">
                     {/* Score circle */}
                     <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 border-2" style={{ borderColor: scoreColor, backgroundColor: scoreColor + '10' }}>
                       <span className="text-sm font-bold" style={{ color: scoreColor }}>{match.score}</span>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate group-hover:text-[#F43E01] transition-colors">{(tender?.objeto as string) || 'N/A'}</p>
+                      <p className="text-sm font-medium text-white truncate group-hover:text-[#F43E01] transition-colors">{(tender?.objeto as string) || 'N/A'}</p>
                       <p className="text-xs text-gray-400 mt-0.5">
                         {(tender?.orgao_nome as string) || ''} — {(tender?.uf as string) || ''}
                         {tender?.valor_estimado ? (
@@ -399,13 +399,13 @@ export default async function DashboardPage() {
 
 function KPICard({ label, value, icon, accentColor, small }: { label: string; value: string; icon: string; accentColor: string; small?: boolean }) {
   return (
-    <Card className="relative overflow-hidden bg-white border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200 rounded-2xl">
+    <Card className="relative overflow-hidden bg-[#1a1c1f] border-[#2d2f33] hover:border-[#F43E01]/20 transition-all duration-200 rounded-2xl">
       <CardContent className="pt-5 pb-4 px-5">
         <div className="flex items-start justify-between mb-2">
           <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">{label}</p>
           <span className="text-lg">{icon}</span>
         </div>
-        <p className={`font-bold text-gray-900 ${small ? 'text-lg' : 'text-2xl'}`}>{value}</p>
+        <p className={`font-bold text-white ${small ? 'text-lg' : 'text-2xl'}`}>{value}</p>
       </CardContent>
       <div className="absolute bottom-0 left-0 right-0 h-1 rounded-b-2xl" style={{ backgroundColor: accentColor }} />
     </Card>
@@ -413,7 +413,7 @@ function KPICard({ label, value, icon, accentColor, small }: { label: string; va
 }
 
 function ScoreBadge({ score, source }: { score: number; source?: string | null }) {
-  const color = score >= 80 ? 'bg-orange-100 text-orange-800' : score >= 70 ? 'bg-emerald-100 text-emerald-800' : score >= 50 ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'
+  const color = score >= 80 ? 'bg-orange-900/30 text-orange-400' : score >= 70 ? 'bg-emerald-900/30 text-emerald-400' : score >= 50 ? 'bg-amber-900/30 text-amber-400' : 'bg-red-900/30 text-red-400'
   const isAI = source === 'ai' || source === 'ai_triage' || source === 'semantic'
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${color}`} title={isAI ? 'Score verificado por IA' : 'Score do matching automático'}>

@@ -78,7 +78,7 @@ export default async function DashboardLayout({
       maxCompanies={maxCompanies}
       multiCnpjEnabled={multiCnpjEnabled}
     >
-      <div className="flex h-screen bg-gray-50 font-roboto">
+      <div className="flex h-screen bg-[#111214] font-roboto">
         <DashboardSidebar
           navItems={visibleNavItems}
           isAdmin={!!user.isPlatformAdmin}
@@ -90,7 +90,7 @@ export default async function DashboardLayout({
         />
 
         {/* Main content — add top padding on mobile for the fixed top bar */}
-        <main className="flex-1 overflow-auto bg-gray-50">
+        <main className="flex-1 overflow-auto bg-[#111214]">
           <div className="pt-14 md:pt-0 h-full">
             <DashboardAiWrapper
               onboardingCompleted={user.onboardingCompleted}

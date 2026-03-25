@@ -396,21 +396,21 @@ export function IntelligenceMap({
   const sidebarContent = (
     <>
       {/* Header metrics — always reflect filtered data */}
-      <div className={`border-b border-gray-100 ${isMobile ? 'p-3' : 'p-5 pb-4'}`}>
-        <h2 className={`font-bold text-gray-900 tracking-tight ${isMobile ? 'text-base mb-3' : 'text-lg mb-4'}`}>Mapa de Inteligência</h2>
+      <div className={`border-b border-[#2d2f33] ${isMobile ? 'p-3' : 'p-5 pb-4'}`}>
+        <h2 className={`font-bold text-white tracking-tight ${isMobile ? 'text-base mb-3' : 'text-lg mb-4'}`}>Mapa de Inteligência</h2>
         <div className="grid grid-cols-3 gap-2">
-          <div className="text-center bg-gray-50 rounded-lg p-2.5">
+          <div className="text-center bg-[#1a1c1f] rounded-lg p-2.5">
             <p className={`font-bold text-[#F43E01] ${isMobile ? 'text-base' : 'text-xl'}`}>{filteredMarkers.length}</p>
             <p className="text-[9px] text-gray-400 uppercase tracking-wider font-medium mt-0.5">Oportunidades</p>
           </div>
-          <div className="text-center bg-gray-50 rounded-lg p-2.5">
-            <p className={`font-bold text-emerald-600 ${isMobile ? 'text-base' : 'text-xl'}`}>
+          <div className="text-center bg-[#1a1c1f] rounded-lg p-2.5">
+            <p className={`font-bold text-emerald-400 ${isMobile ? 'text-base' : 'text-xl'}`}>
               {formatCompactBRL(filteredMarkers.reduce((s, m) => s + (m.valor || 0), 0))}
             </p>
             <p className="text-[9px] text-gray-400 uppercase tracking-wider font-medium mt-0.5">Valor Total</p>
           </div>
-          <div className="text-center bg-gray-50 rounded-lg p-2.5">
-            <p className={`font-bold text-gray-800 ${isMobile ? 'text-base' : 'text-xl'}`}>
+          <div className="text-center bg-[#1a1c1f] rounded-lg p-2.5">
+            <p className={`font-bold text-white ${isMobile ? 'text-base' : 'text-xl'}`}>
               {filteredUfStats.length > 0 ? filteredUfStats[0].uf : '-'}
             </p>
             <p className="text-[9px] text-gray-400 uppercase tracking-wider font-medium mt-0.5">
@@ -421,10 +421,10 @@ export function IntelligenceMap({
       </div>
 
       {/* Filters */}
-      <div className={`border-b border-gray-200/60 ${isMobile ? 'p-3' : 'px-5 py-4'}`}>
+      <div className={`border-b border-[#2d2f33] ${isMobile ? 'p-3' : 'px-5 py-4'}`}>
         <div className="mb-4">
           <div className="flex items-center justify-between mb-1.5">
-            <label className="text-xs font-semibold text-gray-700 tracking-wide">
+            <label className="text-xs font-semibold text-gray-300 tracking-wide">
               Score mínimo: {scoreFilter > 0 ? scoreFilter : 'Todos'}
             </label>
             {scoreFilter > 60 && (
@@ -456,7 +456,7 @@ export function IntelligenceMap({
         </div>
         <div className="mb-3">
           <div className="flex items-center justify-between mb-1">
-            <label className="text-xs font-medium text-gray-600">
+            <label className="text-xs font-medium text-gray-400">
               Valor minimo: {minValor > 0 ? `R$ ${(minValor >= 1_000_000 ? (minValor / 1_000_000).toFixed(1) + 'M' : minValor >= 1_000 ? (minValor / 1_000).toFixed(0) + 'K' : minValor.toString())}` : 'Todos'}
             </label>
             {minValor > 0 && (
@@ -471,7 +471,7 @@ export function IntelligenceMap({
           <select
             value={minValor}
             onChange={(e) => setMinValor(Number(e.target.value))}
-            className="w-full text-xs border border-black/[0.08] rounded-lg px-3 py-2 bg-white/60 text-gray-700 focus:outline-none focus:ring-1 focus:ring-brand backdrop-blur-sm"
+            className="w-full text-xs border border-[#2d2f33] rounded-lg px-3 py-2 bg-[#1a1c1f] text-gray-300 focus:outline-none focus:ring-1 focus:ring-[#F43E01]"
           >
             <option value={0}>Todos os valores</option>
             <option value={10000}>Acima de R$ 10K</option>
@@ -486,7 +486,7 @@ export function IntelligenceMap({
           </select>
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-600 mb-1 block">Regiões</label>
+          <label className="text-xs font-medium text-gray-400 mb-1 block">Regiões</label>
           <div className="flex flex-wrap gap-1.5">
             {REGIONS.map((r) => (
               <button
@@ -495,7 +495,7 @@ export function IntelligenceMap({
                 className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
                   regionFilter.has(r)
                     ? 'bg-brand text-white'
-                    : 'bg-gray-100 text-gray-400'
+                    : 'bg-[#1a1c1f] text-gray-500'
                 }`}
               >
                 {r}
@@ -522,15 +522,15 @@ export function IntelligenceMap({
             {/* Metrics grid — uses filtered stats so numbers match the list below */}
             {selectedUfFilteredStats ? (
               <div className="grid grid-cols-2 gap-3 mb-4">
-                <div className="bg-gray-50 rounded-lg p-2.5">
+                <div className="bg-[#1a1c1f] rounded-lg p-2.5">
                   <p className="text-xs text-gray-500">Oportunidades</p>
-                  <p className="text-lg font-bold">{selectedUfFilteredStats.count}</p>
+                  <p className="text-lg font-bold text-white">{selectedUfFilteredStats.count}</p>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-2.5">
+                <div className="bg-[#1a1c1f] rounded-lg p-2.5">
                   <p className="text-xs text-gray-500">Valor Total</p>
-                  <p className="text-lg font-bold">{formatCompactBRL(selectedUfFilteredStats.totalValue)}</p>
+                  <p className="text-lg font-bold text-white">{formatCompactBRL(selectedUfFilteredStats.totalValue)}</p>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-2.5">
+                <div className="bg-[#1a1c1f] rounded-lg p-2.5">
                   <p className="text-xs text-gray-500">Score Medio</p>
                   <p className="text-lg font-bold">
                     <span className={selectedUfFilteredStats.avgScore >= 70 ? 'text-emerald-600' : selectedUfFilteredStats.avgScore >= 50 ? 'text-amber-600' : 'text-red-500'}>
@@ -538,8 +538,8 @@ export function IntelligenceMap({
                     </span>
                   </p>
                 </div>
-                <div className={`rounded-lg p-2.5 ${selectedUfFilteredStats.hotCount > 0 ? 'bg-orange-50 border border-orange-200' : 'bg-gray-50'}`}>
-                  <p className={`text-xs ${selectedUfFilteredStats.hotCount > 0 ? 'text-orange-600' : 'text-gray-500'}`}>
+                <div className={`rounded-lg p-2.5 ${selectedUfFilteredStats.hotCount > 0 ? 'bg-orange-900/20 border border-orange-800/30' : 'bg-[#1a1c1f]'}`}>
+                  <p className={`text-xs ${selectedUfFilteredStats.hotCount > 0 ? 'text-orange-400' : 'text-gray-500'}`}>
                     {selectedUfFilteredStats.hotCount > 0 ? '🔥 Super Quentes' : 'Maior Score'}
                   </p>
                   <p className="text-lg font-bold">
@@ -558,7 +558,7 @@ export function IntelligenceMap({
             )}
 
             {/* List all matches in this UF */}
-            <h4 className="text-sm font-semibold text-gray-700 mb-2">
+            <h4 className="text-sm font-semibold text-gray-300 mb-2">
               {selectedUfMarkers.length} oportunidade{selectedUfMarkers.length !== 1 ? 's' : ''}
             </h4>
             <div className="space-y-2">
@@ -569,7 +569,7 @@ export function IntelligenceMap({
                   className={`block p-3 rounded-lg transition-colors ${
                     m.isHot
                       ? 'bg-orange-50 border border-orange-200 hover:bg-orange-100 ring-1 ring-orange-300/50'
-                      : 'bg-gray-50 hover:bg-gray-100'
+                      : 'bg-[#1a1c1f] hover:bg-[#2d2f33]'
                   }`}
                   onMouseEnter={() => setSelectedMatch(m)}
                 >
@@ -604,7 +604,7 @@ export function IntelligenceMap({
                       </span>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-xs font-medium leading-snug line-clamp-2 ${m.isHot ? 'text-orange-900' : 'text-gray-900'}`}>
+                      <p className={`text-xs font-medium leading-snug line-clamp-2 ${m.isHot ? 'text-orange-300' : 'text-white'}`}>
                         {m.objeto}
                       </p>
                       {m.isHot && m.competitionScore != null && (
@@ -649,7 +649,7 @@ export function IntelligenceMap({
         ) : (
           /* Ranking by UF — computed from filtered markers */
           <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">
+            <h3 className="text-sm font-semibold text-gray-300 mb-3">
               Ranking por Estado ({filteredUfStats.length} UFs)
             </h3>
             <div className="space-y-1.5">
@@ -657,14 +657,14 @@ export function IntelligenceMap({
                 <button
                   key={d.uf}
                   onClick={() => selectUf(d.uf)}
-                  className="w-full flex items-center gap-2 p-2.5 rounded-lg hover:bg-gray-50 transition-colors text-left"
+                  className="w-full flex items-center gap-2 p-2.5 rounded-lg hover:bg-[#1a1c1f] transition-colors text-left"
                 >
                   <span className="text-xs text-gray-400 w-4">{index + 1}</span>
                   <span className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 bg-gray-700">
                     {d.uf}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900">{d.name}</p>
+                    <p className="text-sm font-medium text-white">{d.name}</p>
                     <p className="text-[10px] text-gray-500">
                       {d.count} oportunidade{d.count !== 1 ? 's' : ''} &middot; {formatCompactBRL(d.totalValue)}
                     </p>
@@ -772,7 +772,7 @@ export function IntelligenceMap({
                     </span>
                   </div>
                   {count > 1 && (
-                    <div className="absolute -top-1.5 -right-1.5 bg-white text-gray-800 rounded-full min-w-[18px] h-[18px] flex items-center justify-center text-[9px] font-bold shadow-md border border-gray-200 px-0.5">
+                    <div className="absolute -top-1.5 -right-1.5 bg-[#1a1c1f] text-white rounded-full min-w-[18px] h-[18px] flex items-center justify-center text-[9px] font-bold shadow-md border border-[#2d2f33] px-0.5">
                       {count}
                     </div>
                   )}
@@ -803,7 +803,7 @@ export function IntelligenceMap({
                   )}
                   {selectedGroup && selectedGroup.length > 1 && (
                     <div className={`px-4 py-2.5 border-b border-black/[0.06] ${selectedMatch.isHot ? '' : 'pt-3'}`}>
-                      <p className={`font-semibold text-gray-800 ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                      <p className={`font-semibold text-gray-200 ${isMobile ? 'text-xs' : 'text-sm'}`}>
                         {selectedGroup.length} oportunidades em {selectedMatch.municipio || selectedMatch.uf}
                       </p>
                     </div>
@@ -821,7 +821,7 @@ export function IntelligenceMap({
                             <span className={`font-medium px-1.5 py-0.5 rounded-md text-[10px] w-fit ${
                               isAiMatch(match)
                                 ? 'bg-blue-500/10 text-blue-700'
-                                : 'bg-gray-500/10 text-gray-500'
+                                : 'bg-gray-500/20 text-gray-400'
                             }`}>
                               {isAiMatch(match) ? '✦ IA' : 'est.'}
                             </span>
@@ -832,7 +832,7 @@ export function IntelligenceMap({
                             )}
                           </div>
                         </div>
-                        <p className={`font-semibold text-gray-900 leading-snug line-clamp-2 mb-1.5 ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                        <p className={`font-semibold text-white leading-snug line-clamp-2 mb-1.5 ${isMobile ? 'text-xs' : 'text-sm'}`}>
                           {match.objeto}
                         </p>
                         <p className={`text-gray-500 truncate mb-2 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>{match.orgao}</p>
@@ -911,7 +911,7 @@ export function IntelligenceMap({
 
       {/* Desktop Sidebar */}
       {!isMobile && (
-        <div className="w-full md:w-[30%] md:min-w-[320px] md:max-w-[400px] h-full overflow-y-auto bg-[#fafafa] border-l border-gray-200/60 shadow-[-4px_0_24px_rgba(0,0,0,0.06)]">
+        <div className="w-full md:w-[30%] md:min-w-[320px] md:max-w-[400px] h-full overflow-y-auto bg-[#111214] border-l border-[#2d2f33]">
           {sidebarContent}
         </div>
       )}
@@ -919,7 +919,7 @@ export function IntelligenceMap({
       {/* Mobile Bottom Sheet */}
       {isMobile && (
         <div
-          className="fixed bottom-0 left-0 right-0 z-[100] bg-white rounded-t-2xl shadow-[0_-4px_20px_rgba(0,0,0,0.15)] flex flex-col"
+          className="fixed bottom-0 left-0 right-0 z-[100] bg-[#111214] rounded-t-2xl shadow-[0_-4px_20px_rgba(0,0,0,0.4)] flex flex-col"
           style={{
             height: sheetHeight,
             transition: 'height 0.3s cubic-bezier(0.4, 0, 0.2, 1)',

@@ -95,7 +95,7 @@ export function DashboardSidebar({
 
   const sidebarContent = (
     <>
-      <div className={`mx-3 mt-3 mb-2 rounded-xl bg-white/90 backdrop-blur-lg border border-white/50 shadow-sm ${collapsed ? 'p-2 flex justify-center' : 'p-4'}`}>
+      <div className={`mx-3 mt-3 mb-2 rounded-xl bg-[#1a1c1f] border border-[#2d2f33] ${collapsed ? 'p-2 flex justify-center' : 'p-4'}`}>
         {collapsed ? (
           <Image src="/logo.png" alt="Licitagram" width={440} height={99} className="h-7 w-auto" />
         ) : (
@@ -107,7 +107,7 @@ export function DashboardSidebar({
       {companySwitcher && (
         <>
           {companySwitcher}
-          <div className="mx-4 h-px bg-gray-700" />
+          <div className="mx-4 h-px bg-[#2d2f33]" />
         </>
       )}
 
@@ -117,7 +117,7 @@ export function DashboardSidebar({
           return (
             <div key={item.href}>
               {item.separator && (
-                <div className="mx-1 my-2 h-px bg-gray-800" />
+                <div className="mx-1 my-2 h-px bg-[#2d2f33]" />
               )}
               <Link
                 href={item.href}
@@ -127,8 +127,8 @@ export function DashboardSidebar({
                   collapsed ? 'justify-center px-2 py-2.5' : 'px-3 py-2.5'
                 } rounded-lg text-[13px] font-medium transition-all duration-150 ${
                   isActive
-                    ? 'bg-gray-800 text-white'
-                    : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                    ? 'bg-[#F43E01] text-white'
+                    : 'text-gray-500 hover:bg-[#1a1c1f] hover:text-white'
                 }`}
               >
                 {collapsed ? (
@@ -143,7 +143,7 @@ export function DashboardSidebar({
 
         {isAdmin && (
           <>
-            <div className="mx-1 my-2 h-px bg-gray-800" />
+            <div className="mx-1 my-2 h-px bg-[#2d2f33]" />
             <Link
               href="/admin"
               title={collapsed ? 'Admin' : undefined}
@@ -151,8 +151,8 @@ export function DashboardSidebar({
                 collapsed ? 'justify-center px-2 py-2.5' : 'px-3 py-2.5'
               } rounded-lg text-[13px] font-medium transition-all duration-150 ${
                 pathname.startsWith('/admin')
-                  ? 'bg-gray-800 text-amber-300'
-                  : 'text-amber-400 hover:bg-gray-800 hover:text-amber-300'
+                  ? 'bg-[#1a1c1f] text-amber-300'
+                  : 'text-amber-400 hover:bg-[#1a1c1f] hover:text-amber-300'
               }`}
             >
               {collapsed ? 'A' : 'Admin'}
@@ -161,7 +161,7 @@ export function DashboardSidebar({
         )}
       </nav>
 
-      <div className="mx-4 h-px bg-gray-700" />
+      <div className="mx-4 h-px bg-[#2d2f33]" />
 
       <div className={`p-4 ${collapsed ? 'px-2' : ''}`}>
         {collapsed ? (
@@ -175,7 +175,7 @@ export function DashboardSidebar({
               <Button
                 variant="ghost"
                 size="sm"
-                className="w-full justify-center text-gray-500 hover:text-gray-300 hover:bg-gray-800 px-2"
+                className="w-full justify-center text-gray-500 hover:text-gray-300 hover:bg-[#1a1c1f] px-2"
                 title="Sair"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -197,7 +197,7 @@ export function DashboardSidebar({
                   {userName || userEmail}
                 </p>
                 {planName && (
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-gray-600 text-gray-500 mt-0.5">
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-[#2d2f33] text-gray-500 mt-0.5">
                     {planName}
                   </Badge>
                 )}
@@ -207,7 +207,7 @@ export function DashboardSidebar({
               <Button
                 variant="ghost"
                 size="sm"
-                className="w-full justify-start text-gray-500 hover:text-gray-300 hover:bg-gray-800"
+                className="w-full justify-start text-gray-500 hover:text-gray-300 hover:bg-[#1a1c1f]"
               >
                 Sair
               </Button>
@@ -221,10 +221,10 @@ export function DashboardSidebar({
   return (
     <>
       {/* Mobile top bar */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-40 h-14 bg-gray-900 border-b border-gray-700 flex items-center px-4 gap-3">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-40 h-14 bg-[#111214] border-b border-[#2d2f33] flex items-center px-4 gap-3">
         <button
           onClick={() => setOpen(true)}
-          className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+          className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#1a1c1f] transition-colors"
           aria-label="Abrir menu"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -244,14 +244,14 @@ export function DashboardSidebar({
 
       {/* Mobile sidebar (slide-in) */}
       <aside
-        className={`md:hidden fixed top-0 left-0 z-50 h-full w-72 bg-gray-900 flex flex-col transform transition-transform duration-300 ease-in-out ${
+        className={`md:hidden fixed top-0 left-0 z-50 h-full w-72 bg-[#111214] flex flex-col transform transition-transform duration-300 ease-in-out ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* Close button */}
         <button
           onClick={() => setOpen(false)}
-          className="absolute top-4 right-4 p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+          className="absolute top-4 right-4 p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#1a1c1f] transition-colors"
           aria-label="Fechar menu"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -263,7 +263,7 @@ export function DashboardSidebar({
 
       {/* Desktop sidebar (collapsible) */}
       <aside
-        className={`hidden md:flex border-r border-gray-700 bg-gray-900 flex-col shrink-0 relative transition-all duration-300 ease-in-out ${
+        className={`hidden md:flex border-r border-[#2d2f33] bg-[#111214] flex-col shrink-0 relative transition-all duration-300 ease-in-out ${
           collapsed ? 'w-16' : 'w-64'
         }`}
       >
@@ -272,7 +272,7 @@ export function DashboardSidebar({
         {/* Collapse/Expand toggle button */}
         <button
           onClick={toggleCollapsed}
-          className="absolute -right-3 top-1/2 -translate-y-1/2 z-10 w-6 h-6 rounded-full bg-gray-700 border border-gray-600 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-600 transition-colors shadow-md"
+          className="absolute -right-3 top-1/2 -translate-y-1/2 z-10 w-6 h-6 rounded-full bg-[#1a1c1f] border border-[#2d2f33] flex items-center justify-center text-gray-400 hover:text-white hover:bg-[#2d2f33] transition-colors shadow-md"
           aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
           title={collapsed ? 'Expandir menu' : 'Recolher menu'}
         >
