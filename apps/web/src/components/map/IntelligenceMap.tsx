@@ -396,24 +396,24 @@ export function IntelligenceMap({
   const sidebarContent = (
     <>
       {/* Header metrics — always reflect filtered data */}
-      <div className={`border-b border-gray-200/60 ${isMobile ? 'p-3' : 'p-5 pb-4'}`}>
-        <h2 className={`font-bold text-gray-900 tracking-tight ${isMobile ? 'text-base mb-3' : 'text-xl mb-4'}`}>Mapa de Inteligencia</h2>
-        <div className="grid grid-cols-3 gap-3">
-          <div className="text-center bg-white rounded-xl p-3 shadow-sm border border-gray-100">
-            <p className={`font-bold text-[#F43E01] ${isMobile ? 'text-lg' : 'text-2xl'}`}>{filteredMarkers.length}</p>
-            <p className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Oportunidades</p>
+      <div className={`border-b border-gray-100 ${isMobile ? 'p-3' : 'p-5 pb-4'}`}>
+        <h2 className={`font-bold text-gray-900 tracking-tight ${isMobile ? 'text-base mb-3' : 'text-lg mb-4'}`}>Mapa de Inteligência</h2>
+        <div className="grid grid-cols-3 gap-2">
+          <div className="text-center bg-gray-50 rounded-lg p-2.5">
+            <p className={`font-bold text-[#F43E01] ${isMobile ? 'text-base' : 'text-xl'}`}>{filteredMarkers.length}</p>
+            <p className="text-[9px] text-gray-400 uppercase tracking-wider font-medium mt-0.5">Oportunidades</p>
           </div>
-          <div className="text-center bg-white rounded-xl p-3 shadow-sm border border-gray-100">
-            <p className={`font-bold text-emerald-600 ${isMobile ? 'text-lg' : 'text-2xl'}`}>
+          <div className="text-center bg-gray-50 rounded-lg p-2.5">
+            <p className={`font-bold text-emerald-600 ${isMobile ? 'text-base' : 'text-xl'}`}>
               {formatCompactBRL(filteredMarkers.reduce((s, m) => s + (m.valor || 0), 0))}
             </p>
-            <p className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Valor Total</p>
+            <p className="text-[9px] text-gray-400 uppercase tracking-wider font-medium mt-0.5">Valor Total</p>
           </div>
-          <div className="text-center bg-white rounded-xl p-3 shadow-sm border border-gray-100">
-            <p className={`font-bold text-gray-900 ${isMobile ? 'text-lg' : 'text-2xl'}`}>
+          <div className="text-center bg-gray-50 rounded-lg p-2.5">
+            <p className={`font-bold text-gray-800 ${isMobile ? 'text-base' : 'text-xl'}`}>
               {filteredUfStats.length > 0 ? filteredUfStats[0].uf : '-'}
             </p>
-            <p className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">
+            <p className="text-[9px] text-gray-400 uppercase tracking-wider font-medium mt-0.5">
               {filteredUfStats.length > 0 ? `${filteredUfStats[0].count} matches` : 'Melhor UF'}
             </p>
           </div>
