@@ -338,20 +338,20 @@ export function AiAnalysis({ matchId, initialData, matchSource, hasAccess = true
               const conicGradient = `conic-gradient(${segments.join(', ')})`
 
               return (
-                <div className="flex items-center gap-8">
+                <div className="flex flex-col sm:flex-row items-center gap-5 sm:gap-8">
                   {/* Donut Chart */}
-                  <div className="relative w-28 h-28 shrink-0">
+                  <div className="relative w-24 h-24 sm:w-28 sm:h-28 shrink-0">
                     <div className="w-full h-full rounded-full" style={{ background: conicGradient }} />
-                    <div className="absolute inset-3 bg-white rounded-full flex items-center justify-center shadow-inner">
+                    <div className="absolute inset-2.5 sm:inset-3 bg-white rounded-full flex items-center justify-center shadow-inner">
                       <div className="text-center">
-                        <p className="text-xl font-bold text-gray-900">{avgScore}</p>
-                        <p className="text-[9px] text-gray-400 uppercase tracking-wider">Score</p>
+                        <p className="text-lg sm:text-xl font-bold text-gray-900">{avgScore}</p>
+                        <p className="text-[8px] sm:text-[9px] text-gray-400 uppercase tracking-wider">Score</p>
                       </div>
                     </div>
                   </div>
 
                   {/* Legend - thin elegant rows */}
-                  <div className="flex-1 space-y-3">
+                  <div className="flex-1 w-full space-y-3">
                     {breakdown.map((item) => {
                       const score = getScoreForItem(item)
                       const color = getColorForItem(item)
