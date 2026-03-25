@@ -874,7 +874,21 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
                     </span>
                   ) : isAssistant && msg.content ? (
                     <div className="prose prose-sm prose-gray max-w-none prose-headings:text-gray-900 prose-headings:font-semibold prose-headings:mt-4 prose-headings:mb-2 prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-strong:text-gray-900 prose-table:text-xs prose-th:bg-gray-50 prose-th:px-2 prose-th:py-1 prose-td:px-2 prose-td:py-1 prose-th:border prose-td:border">
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      <ReactMarkdown
+                        components={{
+                          // Suppress horizontal rules (AI often generates excessive ---)
+                          hr: () => <div className="my-3" />,
+                        }}
+                      >
+                        {msg.content
+                          // Remove excessive horizontal rules (3+ dashes on a line)
+                          .replace(/^-{3,}\s*$/gm, '')
+                          // Remove lines that are ONLY dashes/dots/underscores (common AI artifacts)
+                          .replace(/^[.\-_]{3,}\s*$/gm, '')
+                          // Collapse multiple blank lines into max 2
+                          .replace(/\n{4,}/g, '\n\n\n')
+                        }
+                      </ReactMarkdown>
                     </div>
                   ) : msg.content ? (
                     <span className="whitespace-pre-wrap">{msg.content}</span>
