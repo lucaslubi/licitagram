@@ -111,21 +111,20 @@
 
 /* Map popups — Glass morphism */
 .mapboxgl-popup {
-  z-index: 500 !important;
+  z-index: 150 !important;
+  max-height: 60vh !important;
 }
 .mapboxgl-popup-content {
-  z-index: 500 !important;
-  background: rgba(255, 255, 255, 0.82) !important;
-  backdrop-filter: blur(20px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.45) !important;
-  border-radius: 16px !important;
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.18),
-    0 2px 8px rgba(0, 0, 0, 0.08),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.15) !important;
+  z-index: 150 !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  backdrop-filter: blur(16px) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(150%) !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.06) !important;
   padding: 0 !important;
-  overflow: hidden;
+  overflow-y: auto;
+  max-height: 55vh !important;
 }
 .mapboxgl-popup-close-button {
   color: #555 !important;
@@ -149,10 +148,10 @@
   border-top-color: rgba(255, 255, 255, 0.82) !important;
   border-bottom-color: rgba(255, 255, 255, 0.82) !important;
 }
-/* Map controls above markers but below popups */
+/* Map controls ABOVE popups */
 .mapboxgl-ctrl-top-right,
 .mapboxgl-ctrl-top-left,
 .mapboxgl-ctrl-bottom-right,
 .mapboxgl-ctrl-bottom-left {
-  z-index: 300 !important;
+  z-index: 200 !important;
 }
