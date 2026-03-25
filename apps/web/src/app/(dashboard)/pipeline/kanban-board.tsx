@@ -152,11 +152,11 @@ function DraggableCard({ match, isDragging }: { match: Match; isDragging: boolea
         </span>
       </div>
       <p className="text-xs text-gray-400 truncate">{tender?.orgao_nome || ''}</p>
-      <div className="flex justify-between mt-1.5 text-xs text-gray-400">
-        <span>{tender?.uf || ''}</span>
-        <span className={isHot ? 'font-bold text-gray-300' : ''}>
+      <div className="flex justify-between items-center mt-1.5">
+        <span className="text-xs text-gray-400">{tender?.uf || ''}</span>
+        <span className={`text-sm font-bold ${tender?.valor_estimado ? 'text-emerald-400' : 'text-gray-500'}`}>
           {tender?.valor_estimado
-            ? (isHot ? formatCurrencyFull(tender.valor_estimado) : formatCurrencyShort(tender.valor_estimado))
+            ? formatCurrencyShort(tender.valor_estimado)
             : '-'}
         </span>
       </div>
