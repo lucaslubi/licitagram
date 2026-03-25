@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { formatCurrency } from '@licitagram/shared'
 import { AI_VERIFIED_SOURCES, MIN_DISPLAY_SCORE } from '@/lib/cache'
+import { ScoreDonut, UFBarChart, ModalidadeBarChart, DocumentHealth, WinRateCircle } from '@/components/dashboard/DashboardCharts'
 
 // Force dynamic rendering — dashboard must always show fresh data
 export const dynamic = 'force-dynamic'
@@ -30,7 +31,7 @@ export default async function DashboardPage() {
     return (
       <div>
         <h1 className="text-2xl font-bold mb-4 text-gray-900">Bem-vindo ao Licitagram!</h1>
-        <Card>
+        <Card className="bg-white border-gray-100 shadow-sm">
           <CardContent className="pt-6">
             <p className="text-gray-500 mb-4">
               Para começar a receber oportunidades, cadastre os dados da sua empresa.
@@ -192,14 +193,13 @@ export default async function DashboardPage() {
   const avgScore = scores.length > 0 ? Math.round(scores.reduce((a: number, b: number) => a + b, 0) / scores.length) : 0
 
   const scoreDistribution = [
-    { range: '90-100', count: scores.filter((s: number) => s >= 90).length, color: 'bg-emerald-500' },
-    { range: '70-89', count: scores.filter((s: number) => s >= 70 && s < 90).length, color: 'bg-emerald-400' },
-    { range: '50-69', count: scores.filter((s: number) => s >= 50 && s < 70).length, color: 'bg-amber-400' },
+    { range: '90-100', count: scores.filter((s: number) => s >= 90).length, color: '#10B981' },
+    { range: '70-89', count: scores.filter((s: number) => s >= 70 && s < 90).length, color: '#34D399' },
+    { range: '50-69', count: scores.filter((s: number) => s >= 50 && s < 70).length, color: '#FBBF24' },
     ...(minScore < 50 ? [
-      { range: `${minScore}-49`, count: scores.filter((s: number) => s >= minScore && s < 50).length, color: 'bg-red-400' },
+      { range: `${minScore}-49`, count: scores.filter((s: number) => s >= minScore && s < 50).length, color: '#EF4444' },
     ] : []),
   ]
-  const maxScoreCount = Math.max(...scoreDistribution.map((d) => d.count), 1)
 
   // Valor em Análise, Top UFs, Top Modalidades — from ALL matches (no limit)
   const matchDetails = (matchesForStats.data || []) as Array<{ score: number; tenders: unknown }>
@@ -248,134 +248,96 @@ export default async function DashboardPage() {
   const conversionRate = totalMatches > 0 ? Math.round((interestedCount / totalMatches) * 100) : 0
 
   return (
-    <div id="dashboard-overview">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-[10px] text-gray-400">
+    <div id="dashboard-overview" className="bg-[#FAFAF8] min-h-screen -m-4 p-4 md:-m-6 md:p-6">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-sm text-gray-400 mt-1">Visao geral das suas oportunidades</p>
+        </div>
+        <p className="text-[10px] text-gray-400 bg-white px-3 py-1.5 rounded-full border border-gray-100">
           Atualizado: {new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
         </p>
       </div>
 
       {/* Primary KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <KPICard label="Licitações Abertas" value={totalTenders.toLocaleString('pt-BR')} />
-        <KPICard label="Matches Este Mês" value={monthMatches.toLocaleString('pt-BR')} />
-        <KPICard label="Score 70+" value={highMatches.toLocaleString('pt-BR')} accent />
-        <KPICard label="Novas Esta Semana" value={weekTenders.toLocaleString('pt-BR')} />
+        <KPICard label="Licitacoes Abertas" value={totalTenders.toLocaleString('pt-BR')} icon="📋" accentColor="#F43E01" />
+        <KPICard label="Matches Este Mes" value={monthMatches.toLocaleString('pt-BR')} icon="🎯" accentColor="#10B981" />
+        <KPICard label="Score 70+" value={highMatches.toLocaleString('pt-BR')} icon="🔥" accentColor="#F97316" />
+        <KPICard label="Novas Esta Semana" value={weekTenders.toLocaleString('pt-BR')} icon="✨" accentColor="#6366F1" />
       </div>
 
       {/* Secondary KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <KPICard label="Score Médio" value={`${avgScore}/100`} />
-        <KPICard label="Taxa de Interesse" value={`${conversionRate}%`} />
-        <KPICard label="Valor em Análise" value={totalValueInAnalysis > 0 ? formatCurrency(totalValueInAnalysis) : 'R$ 0'} small />
-        <KPICard label="Total de Matches" value={totalMatches.toLocaleString('pt-BR')} />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <KPICard label="Score Medio" value={`${avgScore}/100`} icon="📊" accentColor="#8B5CF6" />
+        <KPICard label="Taxa de Interesse" value={`${conversionRate}%`} icon="💡" accentColor="#0EA5E9" />
+        <KPICard label="Valor em Analise" value={totalValueInAnalysis > 0 ? formatCurrency(totalValueInAnalysis) : 'R$ 0'} icon="💰" accentColor="#10B981" small />
+        <KPICard label="Total de Matches" value={totalMatches.toLocaleString('pt-BR')} icon="🏆" accentColor="#F43E01" />
       </div>
 
       {/* Win Rate Card */}
       {totalOutcomes > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <Card className="md:col-span-1">
-            <CardContent className="pt-4 pb-3">
-              <p className="text-xs font-medium text-gray-400 mb-1">Taxa de Vitória</p>
-              <div className="flex items-baseline gap-2">
-                <p className="text-3xl font-bold text-gray-900">{overallWinRate}%</p>
-                {recentTotal >= 3 && Math.abs(winRateDiff) > 10 && (
-                  <span className={`text-sm font-medium ${winRateDiff > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                    {winRateDiff > 0 ? '\u2191' : '\u2193'} {Math.abs(winRateDiff)}% (30d)
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-gray-400 mt-1">{totalWon} ganhas / {totalLost} perdidas</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <Card className="md:col-span-1 relative overflow-hidden bg-white border-gray-100 shadow-sm rounded-2xl">
+            <CardContent className="pt-5 pb-4 px-5">
+              <WinRateCircle rate={overallWinRate} won={totalWon} lost={totalLost} />
+              {recentTotal >= 3 && Math.abs(winRateDiff) > 10 && (
+                <p className={`text-xs mt-3 font-medium ${winRateDiff > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                  {winRateDiff > 0 ? '\u2191' : '\u2193'} {Math.abs(winRateDiff)}% nos ultimos 30 dias
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>
       )}
 
+      {/* Section Header */}
+      <div className="flex items-center gap-3 mb-6">
+        <div className="h-px flex-1 bg-gray-200" />
+        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Analise de Performance</h2>
+        <div className="h-px flex-1 bg-gray-200" />
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <Card>
-          <CardHeader><CardTitle className="text-base text-gray-900">Distribuição de Scores</CardTitle></CardHeader>
+        <Card className="bg-white border-gray-100 shadow-sm rounded-2xl">
+          <CardHeader><CardTitle className="text-base text-gray-900">Distribuicao de Scores</CardTitle></CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {scoreDistribution.map((d) => (
-                <div key={d.range} className="flex items-center gap-3">
-                  <span className="text-sm font-mono w-14 shrink-0 text-gray-500">{d.range}</span>
-                  <div className="flex-1 bg-gray-150 rounded-full h-6 overflow-hidden">
-                    <div className={`h-full ${d.color} rounded-full flex items-center justify-end px-2`} style={{ width: `${Math.max((d.count / maxScoreCount) * 100, 8)}%` }}>
-                      <span className="text-xs text-white font-bold">{d.count}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <ScoreDonut distribution={scoreDistribution.map(d => ({ ...d, percentage: scores.length > 0 ? Math.round((d.count / scores.length) * 100) : 0 }))} />
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader><CardTitle className="text-base text-gray-900">Saúde dos Documentos</CardTitle></CardHeader>
+        <Card className="bg-white border-gray-100 shadow-sm rounded-2xl">
+          <CardHeader><CardTitle className="text-base text-gray-900">Saude dos Documentos</CardTitle></CardHeader>
           <CardContent>
-            <div className="grid grid-cols-3 gap-4 text-center mb-4">
-              <div>
-                <p className="text-2xl font-bold text-emerald-600">{docs.length - docsExpiring - docsExpired}</p>
-                <p className="text-xs text-gray-400">Válidos</p>
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-amber-500">{docsExpiring}</p>
-                <p className="text-xs text-gray-400">Vencendo</p>
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-red-500">{docsExpired}</p>
-                <p className="text-xs text-gray-400">Vencidos</p>
-              </div>
-            </div>
-            {(docsExpiring > 0 || docsExpired > 0) && <Link href="/documents" className="block text-center text-sm text-brand hover:underline">Ver documentos</Link>}
-            {docs.length === 0 && <Link href="/documents" className="block text-center text-sm text-brand hover:underline">Cadastrar documentos</Link>}
+            <DocumentHealth valid={docs.length - docsExpiring - docsExpired} expiring={docsExpiring} expired={docsExpired} />
+            {(docsExpiring > 0 || docsExpired > 0) && <Link href="/documents" className="block text-center text-sm text-brand hover:underline mt-4">Ver documentos</Link>}
+            {docs.length === 0 && <Link href="/documents" className="block text-center text-sm text-brand hover:underline mt-4">Cadastrar documentos</Link>}
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <Card>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <Card className="bg-white border-gray-100 shadow-sm rounded-2xl">
           <CardHeader><CardTitle className="text-base text-gray-900">Top 5 UFs com Oportunidades</CardTitle></CardHeader>
           <CardContent>
             {topUFs.length > 0 ? (
-              <div className="space-y-2">
-                {topUFs.map(([uf, count], i) => (
-                  <div key={uf} className="flex items-center justify-between p-2 rounded-lg bg-gray-100">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-gray-400 w-5">{i + 1}.</span>
-                      <span className="text-sm font-medium text-gray-900">{uf}</span>
-                    </div>
-                    <Badge variant="secondary">{count} matches</Badge>
-                  </div>
-                ))}
-              </div>
+              <UFBarChart data={topUFs} />
             ) : <p className="text-center text-sm text-gray-400 py-4">Sem dados ainda</p>}
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-white border-gray-100 shadow-sm rounded-2xl">
           <CardHeader><CardTitle className="text-base text-gray-900">Top 5 Modalidades</CardTitle></CardHeader>
           <CardContent>
             {topModalidades.length > 0 ? (
-              <div className="space-y-2">
-                {topModalidades.map(([mod, count], i) => (
-                  <div key={mod} className="flex items-center justify-between p-2 rounded-lg bg-gray-100">
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <span className="text-sm font-bold text-gray-400 w-5 shrink-0">{i + 1}.</span>
-                      <span className="text-sm font-medium text-gray-900 truncate">{mod}</span>
-                    </div>
-                    <Badge variant="secondary" className="shrink-0 ml-2">{count}</Badge>
-                  </div>
-                ))}
-              </div>
+              <ModalidadeBarChart data={topModalidades} />
             ) : <p className="text-center text-sm text-gray-400 py-4">Sem dados ainda</p>}
           </CardContent>
         </Card>
       </div>
 
       {/* Top opportunities */}
-      <Card>
+      <Card className="bg-white border-gray-100 shadow-sm rounded-2xl">
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span className="text-gray-900">Melhores Oportunidades</span>
@@ -387,13 +349,20 @@ export default async function DashboardPage() {
             <div className="space-y-3">
               {topMatchesResult.data.map((match) => {
                 const tender = (match.tenders as unknown) as Record<string, unknown> | null
+                const scoreColor = match.score >= 80 ? '#F43E01' : match.score >= 70 ? '#10B981' : match.score >= 50 ? '#FBBF24' : '#EF4444'
                 return (
-                  <Link key={match.id} href={`/opportunities/${match.id}`} className="flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors duration-150">
+                  <Link key={match.id} href={`/opportunities/${match.id}`} className="flex items-center gap-4 p-4 rounded-xl border border-gray-100 hover:shadow-md hover:border-gray-200 transition-all duration-200 group">
+                    {/* Score circle */}
+                    <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 border-2" style={{ borderColor: scoreColor, backgroundColor: scoreColor + '10' }}>
+                      <span className="text-sm font-bold" style={{ color: scoreColor }}>{match.score}</span>
+                    </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{(tender?.objeto as string) || 'N/A'}</p>
-                      <p className="text-xs text-gray-400">
+                      <p className="text-sm font-medium text-gray-900 truncate group-hover:text-[#F43E01] transition-colors">{(tender?.objeto as string) || 'N/A'}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">
                         {(tender?.orgao_nome as string) || ''} — {(tender?.uf as string) || ''}
-                        {tender?.valor_estimado ? ` — ${formatCurrency(tender.valor_estimado as number)}` : ''}
+                        {tender?.valor_estimado ? (
+                          <span className="text-emerald-600 font-medium"> — {formatCurrency(tender.valor_estimado as number)}</span>
+                        ) : ''}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 ml-3 shrink-0">
@@ -414,10 +383,11 @@ export default async function DashboardPage() {
               })}
             </div>
           ) : (
-            <div className="text-center py-6">
-              <p className="text-gray-400 text-sm mb-3">A IA está processando suas licitações. Os matches aparecerão aqui.</p>
+            <div className="text-center py-8">
+              <p className="text-4xl mb-3">🔍</p>
+              <p className="text-gray-400 text-sm mb-3">A IA esta processando suas licitacoes. Os matches aparecerao aqui.</p>
               <Link href="/opportunities" className="inline-flex items-center px-4 py-2 bg-brand text-white rounded-lg hover:bg-brand-dark text-sm transition-colors duration-150">
-                Ver licitações
+                Ver licitacoes
               </Link>
             </div>
           )}
@@ -427,13 +397,17 @@ export default async function DashboardPage() {
   )
 }
 
-function KPICard({ label, value, small, accent }: { label: string; value: string; small?: boolean; accent?: boolean }) {
+function KPICard({ label, value, icon, accentColor, small }: { label: string; value: string; icon: string; accentColor: string; small?: boolean }) {
   return (
-    <Card>
-      <CardContent className="pt-4 pb-3">
-        <p className="text-xs font-medium text-gray-400 mb-1">{label}</p>
-        <p className={`font-bold ${small ? 'text-lg' : 'text-2xl'} ${accent ? 'text-brand' : 'text-gray-900'}`}>{value}</p>
+    <Card className="relative overflow-hidden bg-white border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200 rounded-2xl">
+      <CardContent className="pt-5 pb-4 px-5">
+        <div className="flex items-start justify-between mb-2">
+          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">{label}</p>
+          <span className="text-lg">{icon}</span>
+        </div>
+        <p className={`font-bold text-gray-900 ${small ? 'text-lg' : 'text-2xl'}`}>{value}</p>
       </CardContent>
+      <div className="absolute bottom-0 left-0 right-0 h-1 rounded-b-2xl" style={{ backgroundColor: accentColor }} />
     </Card>
   )
 }
