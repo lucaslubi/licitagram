@@ -95,7 +95,7 @@ export function DashboardSidebar({
 
   const sidebarContent = (
     <>
-      <div className={`mx-3 mt-3 mb-2 rounded-xl bg-white/[0.08] backdrop-blur-md border border-white/[0.1] ${collapsed ? 'p-2 flex justify-center' : 'p-4'}`}>
+      <div className={`mx-3 mt-3 mb-2 rounded-xl bg-white/90 backdrop-blur-lg border border-white/50 shadow-sm ${collapsed ? 'p-2 flex justify-center' : 'p-4'}`}>
         {collapsed ? (
           <Image src="/logo.png" alt="Licitagram" width={440} height={99} className="h-7 w-auto" />
         ) : (
