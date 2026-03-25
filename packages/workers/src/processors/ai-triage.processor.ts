@@ -113,19 +113,29 @@ REGRAS DE PONTUACAO:
 - 81-100: EXCELENTE — match DIRETO, exatamente o que a empresa faz no dia-a-dia
 
 FILTROS OBRIGATORIOS (score 0-15 automatico):
-- Empresa de TI e licitacao pede: alimentacao, limpeza, transporte, seguranca patrimonial, construcao civil, obras, uniformes, mobiliario, combustivel, medicamentos, material hospitalar, veiculos
-- Empresa de alimentacao e licitacao pede: software, TI, engenharia, construcao
-- Qualquer combinacao onde o CNAE principal da empresa NAO cobre o objeto
+- O objeto da licitacao e COMPLETAMENTE fora do setor/atividade da empresa (ex: empresa de saude e licitacao de combustivel; empresa de TI e licitacao de uniformes)
+- A empresa NAO tem nenhum CNAE (principal ou secundario) que cubra a atividade
 
-SCORE 66+ SOMENTE SE:
-- O CNAE principal ou secundarios da empresa cobrem DIRETAMENTE a atividade
-- A descricao de servicos da empresa MENCIONA este tipo de trabalho
-- A empresa REALMENTE poderia executar o contrato
+SCORE 66-80 (BOA) quando:
+- O CNAE principal OU secundarios da empresa cobrem a atividade
+- A descricao de servicos da empresa TEM relacao com o objeto
+- A empresa poderia participar com suas competencias declaradas
+- IMPORTANTE: aplique este criterio IGUALMENTE para TODOS os setores (saude, TI, construcao, etc.)
+
+SCORE 81-100 (EXCELENTE) quando:
+- Match DIRETO com o CNAE principal
+- O objeto e EXATAMENTE o que a empresa faz no dia-a-dia
+- Alta probabilidade de execucao bem-sucedida
+
+IMPORTANTE - NEUTRALIDADE ENTRE SETORES:
+- Avalie TODOS os setores com os MESMOS criterios. Uma empresa de saude que faz "prestacao de servicos medicos" deve receber score tao alto quanto uma empresa de TI que faz "desenvolvimento de software" quando o match e direto
+- NAO penalize setores nao-tecnologicos. Saude, construcao, alimentacao, transporte sao tao validos quanto TI
+- O que importa e: o CNAE cobre? A descricao de servicos menciona? A empresa PODE executar?
 
 NAO de score alto para:
 - Objetos genericos que "qualquer empresa" poderia fazer
-- Licitacoes que mencionam TI como componente menor de um objeto principal diferente
 - Objetos onde a empresa precisaria de capacidade que NAO possui
+- Licitacoes que mencionam o setor da empresa apenas como componente MENOR
 
 Responda APENAS com JSON valido, sem texto adicional, sem markdown`
 

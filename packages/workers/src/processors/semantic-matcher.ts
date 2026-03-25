@@ -140,8 +140,10 @@ function computePrecisionScores(
         objetoLower.includes(kw.toLowerCase())
       )
       if (matchedKeywords.length > 0) {
-        // More keyword matches = higher score
-        cnaeScore = Math.min(100, cnaeScore + 30 + matchedKeywords.length * 10)
+        // Diminishing returns per keyword to avoid inflation from generic terms
+        // 1 match = 40, 2 = 55, 3 = 65, 4 = 72, 5+ = caps at ~80
+        const kwBonus = Math.round(40 + 20 * (1 - Math.exp(-0.3 * (matchedKeywords.length - 1))))
+        cnaeScore = Math.min(100, Math.max(cnaeScore, kwBonus))
       }
     }
 

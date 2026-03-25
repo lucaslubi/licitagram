@@ -190,9 +190,10 @@ function computePhraseScore(
   for (const phrase of phrases) {
     if (phrase.length > 0 && phrase.every((t) => tenderTokens.has(t))) {
       matchedPhrases.push(phrase.join(' '))
-      // Multi-word phrases are stronger signals than single-word matches
-      // 1 token = 0.3 weight (generic), 2 tokens = 0.7 (moderate), 3+ tokens = 1.0 (specific)
-      weightedMatches += phrase.length === 1 ? 0.3 : phrase.length === 2 ? 0.7 : 1.0
+      // Phrase weighting — balanced across sectors to avoid bias
+      // Single-word matches (e.g. "saude", "hospital") are valid signals in many sectors
+      // 1 token = 0.6 weight, 2 tokens = 0.8, 3+ tokens = 1.0
+      weightedMatches += phrase.length === 1 ? 0.6 : phrase.length === 2 ? 0.8 : 1.0
     }
   }
 
