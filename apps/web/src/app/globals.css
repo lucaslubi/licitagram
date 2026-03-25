@@ -109,12 +109,45 @@
   50% { box-shadow: 0 0 22px 10px rgba(255, 165, 0, 0.85); }
 }
 
-/* Map popups ALWAYS above all markers (markers use z-index = score, max ~100) */
+/* Map popups — Glass morphism */
 .mapboxgl-popup {
   z-index: 500 !important;
 }
 .mapboxgl-popup-content {
   z-index: 500 !important;
+  background: rgba(255, 255, 255, 0.82) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.45) !important;
+  border-radius: 16px !important;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.18),
+    0 2px 8px rgba(0, 0, 0, 0.08),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.15) !important;
+  padding: 0 !important;
+  overflow: hidden;
+}
+.mapboxgl-popup-close-button {
+  color: #555 !important;
+  font-size: 20px !important;
+  right: 10px !important;
+  top: 8px !important;
+  width: 24px !important;
+  height: 24px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 50% !important;
+  transition: background 0.15s !important;
+  z-index: 10 !important;
+}
+.mapboxgl-popup-close-button:hover {
+  background: rgba(0, 0, 0, 0.08) !important;
+  color: #222 !important;
+}
+.mapboxgl-popup-tip {
+  border-top-color: rgba(255, 255, 255, 0.82) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.82) !important;
 }
 /* Map controls above markers but below popups */
 .mapboxgl-ctrl-top-right,

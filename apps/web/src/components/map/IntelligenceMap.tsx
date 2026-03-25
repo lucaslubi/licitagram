@@ -795,68 +795,72 @@ export function IntelligenceMap({
                 maxWidth={isMobile ? '240px' : '300px'}
                 style={{ zIndex: 9999 }}
               >
-                <div className={isMobile ? 'p-2 min-w-[180px]' : 'p-3 min-w-[220px]'}>
+                <div className={isMobile ? 'min-w-[200px]' : 'min-w-[260px]'}>
                   {selectedMatch.isHot && (
-                    <div className={`pb-2 border-b border-orange-200 bg-gradient-to-r from-orange-500 to-red-500 ${isMobile ? '-m-2 mb-2 p-1.5' : '-m-3 mb-2 p-2'} rounded-t`}>
-                      <p className={`font-bold text-white ${isMobile ? 'text-[10px]' : 'text-xs'}`}>🔥 SUPER QUENTE</p>
+                    <div className="bg-gradient-to-r from-orange-500 via-red-500 to-orange-600 px-4 py-2.5">
+                      <p className={`font-bold text-white tracking-wide ${isMobile ? 'text-xs' : 'text-sm'}`}>🔥 SUPER QUENTE</p>
                     </div>
                   )}
                   {selectedGroup && selectedGroup.length > 1 && (
-                    <div className="mb-2 pb-2 border-b border-gray-200">
-                      <p className={`font-semibold text-gray-700 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
+                    <div className={`px-4 py-2.5 border-b border-black/[0.06] ${selectedMatch.isHot ? '' : 'pt-3'}`}>
+                      <p className={`font-semibold text-gray-800 ${isMobile ? 'text-xs' : 'text-sm'}`}>
                         {selectedGroup.length} oportunidades em {selectedMatch.municipio || selectedMatch.uf}
                       </p>
                     </div>
                   )}
-                  {(selectedGroup && selectedGroup.length > 1 ? selectedGroup.slice(0, 5) : [selectedMatch]).map((match, idx) => (
-                    <div key={match.matchId} className={idx > 0 ? 'mt-2 pt-2 border-t border-gray-100' : ''}>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full font-bold ${isMobile ? 'text-[10px]' : 'text-xs'} ${getScoreBgClass(match.score)}`}
+                  <div className={isMobile ? 'p-3' : 'p-4'}>
+                    {(selectedGroup && selectedGroup.length > 1 ? selectedGroup.slice(0, 5) : [selectedMatch]).map((match, idx) => (
+                      <div key={match.matchId} className={idx > 0 ? 'mt-3 pt-3 border-t border-black/[0.06]' : ''}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span
+                            className={`inline-flex items-center justify-center w-9 h-9 rounded-xl font-bold text-sm shadow-sm ${getScoreBgClass(match.score)}`}
+                          >
+                            {match.score}
+                          </span>
+                          <div className="flex flex-col">
+                            <span className={`font-medium px-1.5 py-0.5 rounded-md text-[10px] w-fit ${
+                              isAiMatch(match)
+                                ? 'bg-blue-500/10 text-blue-700'
+                                : 'bg-gray-500/10 text-gray-500'
+                            }`}>
+                              {isAiMatch(match) ? '✦ IA' : 'est.'}
+                            </span>
+                            {!selectedGroup && (
+                              <span className="text-gray-500 text-[10px] mt-0.5">
+                                {match.municipio ? `${match.municipio}/${match.uf}` : match.uf}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <p className={`font-semibold text-gray-900 leading-snug line-clamp-2 mb-1.5 ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                          {match.objeto}
+                        </p>
+                        <p className={`text-gray-500 truncate mb-2 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>{match.orgao}</p>
+                        <div className={`flex items-center gap-3 mb-3 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
+                          {match.valor && (
+                            <span className="font-bold text-emerald-600">
+                              {formatCompactBRL(match.valor)}
+                            </span>
+                          )}
+                          {match.modalidade && (
+                            <span className="text-gray-400">{match.modalidade}</span>
+                          )}
+                          <DeadlineBadge dataEncerramento={match.dataEncerramento} />
+                        </div>
+                        <Link
+                          href={`/opportunities/${match.matchId}`}
+                          className={`inline-flex items-center gap-1 font-medium text-white bg-[#F43E01] hover:bg-[#D63500] rounded-full transition-colors duration-150 ${isMobile ? 'text-[10px] px-3 py-1' : 'text-xs px-4 py-1.5'}`}
                         >
-                          {match.score}
-                        </span>
-                        <span className={`font-medium px-1 py-0.5 rounded ${isMobile ? 'text-[8px]' : 'text-[9px]'} ${
-                          isAiMatch(match)
-                            ? 'bg-blue-100 text-blue-700'
-                            : 'bg-gray-100 text-gray-500'
-                        }`}>
-                          {isAiMatch(match) ? 'IA' : 'estimado'}
-                        </span>
-                        {!selectedGroup && (
-                          <span className={`text-gray-500 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
-                            {match.municipio ? `${match.municipio}/${match.uf}` : match.uf}
-                          </span>
-                        )}
+                          Ver detalhes <span>&rarr;</span>
+                        </Link>
                       </div>
-                      <p className={`font-medium text-gray-900 leading-snug line-clamp-2 mb-1 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
-                        {match.objeto}
+                    ))}
+                    {selectedGroup && selectedGroup.length > 5 && (
+                      <p className={`mt-3 pt-3 border-t border-black/[0.06] text-gray-500 text-center ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
+                        +{selectedGroup.length - 5} mais — clique no estado para ver todas
                       </p>
-                      <p className={`text-gray-500 truncate mb-1 ${isMobile ? 'text-[9px]' : 'text-[10px]'}`}>{match.orgao}</p>
-                      <div className={`flex items-center gap-3 ${isMobile ? 'text-[9px]' : 'text-[10px]'}`}>
-                        {match.valor && (
-                          <span className="font-medium text-emerald-600">
-                            {formatCompactBRL(match.valor)}
-                          </span>
-                        )}
-                        {match.modalidade && (
-                          <span className="text-gray-400">{match.modalidade}</span>
-                        )}
-                        <DeadlineBadge dataEncerramento={match.dataEncerramento} />
-                      </div>
-                      <Link
-                        href={`/opportunities/${match.matchId}`}
-                        className={`mt-1 block font-medium text-brand hover:underline ${isMobile ? 'text-[10px]' : 'text-xs'}`}
-                      >
-                        Ver detalhes &rarr;
-                      </Link>
-                    </div>
-                  ))}
-                  {selectedGroup && selectedGroup.length > 5 && (
-                    <p className={`mt-2 pt-2 border-t border-gray-100 text-gray-500 text-center ${isMobile ? 'text-[9px]' : 'text-[10px]'}`}>
-                      +{selectedGroup.length - 5} mais oportunidades — clique no estado para ver todas
-                    </p>
-                  )}
+                    )}
+                  </div>
                 </div>
               </Popup>
             )}
