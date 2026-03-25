@@ -306,29 +306,48 @@ export async function POST(request: NextRequest) {
   const docsNeedingExtraction = docs.filter((doc) => !doc.texto_extraido && doc.url && isSafeUrl(doc.url))
 
   if (docsNeedingExtraction.length > 0) {
-    const serviceSupabase = getServiceSupabase()
-    console.log(`[Chat PDF] Extracting ${docsNeedingExtraction.length} documents`)
+    console.log(`[Chat PDF] Extracting ${docsNeedingExtraction.length} documents via VPS proxy`)
+
+    // Use VPS proxy for PDF extraction (no timeout issues, direct access to PNCP)
+    const VPS_URL = process.env.VPS_MONITORING_URL || 'http://187.77.241.93:9090'
+    const VPS_TOKEN = process.env.VPS_MONITORING_TOKEN || ''
 
     await Promise.allSettled(
       docsNeedingExtraction.map(async (doc) => {
-        const { text, error } = await extractPdfText(doc.url)
-        if (text) {
-          doc.texto_extraido = text
-          doc.status = 'done'
-          serviceSupabase
-            .from('tender_documents')
-            .update({ texto_extraido: text, status: 'done' })
-            .eq('id', doc.id)
-            .then(({ error: dbErr }) => {
-              if (dbErr) console.error(`[Chat PDF] DB save failed:`, dbErr)
-            })
-        } else {
-          console.warn(`[Chat PDF] Failed: ${doc.id} — ${error}`)
-          serviceSupabase
-            .from('tender_documents')
-            .update({ status: 'error' })
-            .eq('id', doc.id)
-            .then(() => {})
+        try {
+          // Try VPS proxy first (45s timeout, no Vercel limits)
+          const vpsRes = await fetch(`${VPS_URL}/extract-pdf`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${VPS_TOKEN}`,
+            },
+            body: JSON.stringify({ pdfUrl: doc.url, docId: doc.id }),
+            signal: AbortSignal.timeout(50_000),
+          })
+
+          if (vpsRes.ok) {
+            const result = await vpsRes.json() as { text: string; chars: number }
+            if (result.text) {
+              doc.texto_extraido = result.text
+              doc.status = 'done'
+              console.log(`[Chat PDF] VPS extracted ${result.chars} chars for ${doc.id}`)
+              return
+            }
+          }
+
+          // Fallback: try direct extraction from Vercel
+          const { text, error } = await extractPdfText(doc.url)
+          if (text) {
+            doc.texto_extraido = text
+            doc.status = 'done'
+            const serviceSupabase = getServiceSupabase()
+            serviceSupabase.from('tender_documents').update({ texto_extraido: text, status: 'done' }).eq('id', doc.id).then(() => {})
+          } else {
+            console.warn(`[Chat PDF] Failed: ${doc.id} — ${error}`)
+          }
+        } catch (err) {
+          console.warn(`[Chat PDF] Error extracting ${doc.id}:`, err)
         }
       }),
     )

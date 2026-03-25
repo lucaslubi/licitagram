@@ -396,6 +396,88 @@ const server = http.createServer(async (req, res) => {
       return
     }
 
+    // POST /extract-pdf — on-demand PDF text extraction for chat
+    if (req.method === 'POST' && url.pathname === '/extract-pdf') {
+      const raw = await readBody(req)
+      let body: any
+      try {
+        body = JSON.parse(raw)
+      } catch {
+        sendJson(res, 400, { error: 'Invalid JSON' })
+        return
+      }
+
+      const { pdfUrl, docId } = body
+      if (!pdfUrl || typeof pdfUrl !== 'string') {
+        sendJson(res, 400, { error: 'pdfUrl is required' })
+        return
+      }
+
+      try {
+        const pdfParse = require('pdf-parse')
+        const AdmZip = require('adm-zip')
+
+        const pdfResponse = await fetch(pdfUrl, {
+          signal: AbortSignal.timeout(45_000),
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            Accept: 'application/pdf, application/zip, application/octet-stream, */*',
+          },
+          redirect: 'follow',
+        })
+
+        if (!pdfResponse.ok) {
+          sendJson(res, 502, { error: `PDF fetch failed: HTTP ${pdfResponse.status}` })
+          return
+        }
+
+        const buffer = Buffer.from(await pdfResponse.arrayBuffer())
+        if (buffer.length < 100) {
+          sendJson(res, 422, { error: 'File empty' })
+          return
+        }
+
+        let text = ''
+
+        // Detect ZIP
+        const isZip = buffer[0] === 0x50 && buffer[1] === 0x4B && buffer[2] === 0x03 && buffer[3] === 0x04
+        if (isZip) {
+          const zip = new AdmZip(buffer)
+          const entries = zip.getEntries()
+          const pdfEntries = entries.filter((e: any) => !e.isDirectory && e.entryName.toLowerCase().endsWith('.pdf'))
+          const texts: string[] = []
+          for (const entry of pdfEntries) {
+            try {
+              const data = await pdfParse(entry.getData())
+              const t = data.text.replace(/\s+/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
+              if (t && t.length >= 50) texts.push(`--- ${entry.entryName} ---\n${t}`)
+            } catch { /* skip */ }
+          }
+          text = texts.join('\n\n')
+        } else {
+          const data = await pdfParse(buffer)
+          text = data.text.replace(/\s+/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
+        }
+
+        if (!text || text.length < 50) {
+          sendJson(res, 422, { error: 'No extractable text' })
+          return
+        }
+
+        // Save to DB if docId provided
+        if (docId) {
+          const { createClient } = require('@supabase/supabase-js')
+          const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+          await supabase.from('tender_documents').update({ texto_extraido: text, status: 'done' }).eq('id', docId)
+        }
+
+        sendJson(res, 200, { text, chars: text.length })
+      } catch (err: any) {
+        sendJson(res, 500, { error: err.message || 'Extraction failed' })
+      }
+      return
+    }
+
     sendJson(res, 404, { error: 'Not found' })
   } catch (err: any) {
     console.error('[monitoring] Request error:', err.message)
