@@ -29,7 +29,7 @@ function LoginForm() {
     <div className="w-full max-w-md">
       <div className="text-center mb-8">
         <div className="mb-6">
-          <Image src="/logo.png" alt="Licitagram" width={234} height={52} className="h-13 w-auto mx-auto" />
+          <Image src="/logo-login.png" alt="Licitagram" width={400} height={120} className="h-16 w-auto mx-auto" />
         </div>
         <h1 className="text-2xl font-bold text-foreground tracking-tight">Bem-vindo de volta</h1>
         <p className="text-sm text-muted-foreground mt-2">Entre na sua conta para continuar</p>
@@ -39,14 +39,14 @@ function LoginForm() {
         {message && (
           <div className={`mb-4 rounded-lg p-3 text-sm ${
             searchParams.get('type') === 'error'
-              ? 'bg-red-50 border border-red-200 text-red-700'
-              : 'bg-emerald-50 border border-emerald-200 text-emerald-700'
+              ? 'bg-red-900/20 border border-red-900/30 text-red-400'
+              : 'bg-emerald-900/20 border border-emerald-900/30 text-emerald-400'
           }`}>
             {message}
           </div>
         )}
         {error && (
-          <div className="mb-4 rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">
+          <div className="mb-4 rounded-lg bg-red-900/20 border border-red-900/30 p-3 text-sm text-red-400">
             {error}
           </div>
         )}
