@@ -191,10 +191,12 @@ export async function addCompanyAction(
         .filter(Boolean)
       const allCnaes = cnaePrincipal ? [cnaePrincipal, ...cnaesSecundarios] : cnaesSecundarios
 
-      // Update company with CNAE data
+      // Update company with CNAE data (both legacy and new fields)
       await supabase.from('companies').update({
         razao_social: brasilData.razao_social || input.razao_social,
         nome_fantasia: brasilData.nome_fantasia || input.nome_fantasia,
+        cnae_principal: cnaePrincipal,
+        cnaes_secundarios: cnaesSecundarios,
         cnaes: allCnaes,
         uf: brasilData.uf || null,
         municipio: brasilData.municipio || null,

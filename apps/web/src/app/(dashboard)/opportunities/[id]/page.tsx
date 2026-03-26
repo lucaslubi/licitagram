@@ -44,33 +44,44 @@ export default async function OpportunityDetailPage({
   const tenderUf = tender?.uf as string | null
   const supabase = await createClient()
 
-  // Fetch company CNAE divisions
-  const companyCnaeDivisions: string[] = []
-  if (companyId) {
+  // Use tender CNAEs first, fall back to company CNAEs
+  const tenderCnaeDivisions: string[] = []
+  const tenderCnaes = (tender as unknown as Record<string, unknown>)?.cnaes as string[] | null
+  if (tenderCnaes && tenderCnaes.length > 0) {
+    for (const c of tenderCnaes) {
+      const div = c.substring(0, 2)
+      if (!tenderCnaeDivisions.includes(div)) tenderCnaeDivisions.push(div)
+    }
+  }
+  // Fallback to company CNAEs if tender has none
+  if (tenderCnaeDivisions.length === 0 && companyId) {
     const { data: company } = await supabase
       .from('companies')
       .select('cnae_principal, cnaes_secundarios')
       .eq('id', companyId)
       .single()
-    if (company?.cnae_principal) companyCnaeDivisions.push(company.cnae_principal.substring(0, 2))
+    if (company?.cnae_principal) tenderCnaeDivisions.push(company.cnae_principal.substring(0, 2))
     if (company?.cnaes_secundarios) {
       for (const c of company.cnaes_secundarios as string[]) {
         const div = c.substring(0, 2)
-        if (!companyCnaeDivisions.includes(div)) companyCnaeDivisions.push(div)
+        if (!tenderCnaeDivisions.includes(div)) tenderCnaeDivisions.push(div)
       }
     }
   }
 
   let nicheCompetitors: Array<Record<string, unknown>> = []
-  if (tenderUf && companyCnaeDivisions.length > 0) {
+  if (tenderUf && tenderCnaeDivisions.length > 0) {
     try {
       const allResults: Array<Record<string, unknown>> = []
-      for (const cnaeDiv of companyCnaeDivisions.slice(0, 3)) {
-        const { data: stats } = await supabase.rpc('find_competitors_by_cnae_uf', {
+      const rpcCalls = tenderCnaeDivisions.slice(0, 3).map(cnaeDiv =>
+        supabase.rpc('find_competitors_by_cnae_uf', {
           p_cnae_divisao: cnaeDiv,
           p_uf: tenderUf,
           p_limit: 10,
         })
+      )
+      const results = await Promise.all(rpcCalls)
+      for (const { data: stats } of results) {
         if (stats) allResults.push(...stats)
       }
       const seen = new Set<string>()
