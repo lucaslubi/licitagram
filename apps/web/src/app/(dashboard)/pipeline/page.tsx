@@ -20,13 +20,6 @@ export default async function PipelinePage() {
 
   if (!profile?.company_id) redirect('/company')
 
-  // Get all company IDs in this user's group for cross-company data
-  const { data: userCompanies } = await supabase
-    .from('user_companies')
-    .select('company_id')
-    .eq('user_id', user.id)
-  const groupCompanyIds = userCompanies?.map((uc: any) => uc.company_id) || [profile.company_id]
-
   const today = new Date().toISOString().split('T')[0]
 
   const [matchesResult, pendingOutcomesResult] = await Promise.all([
@@ -35,7 +28,7 @@ export default async function PipelinePage() {
       .select(
         'id, score, status, is_hot, competition_score, tenders!inner(objeto, orgao_nome, uf, valor_estimado, data_abertura, data_encerramento, modalidade_id)',
       )
-      .in('company_id', groupCompanyIds)
+      .eq('company_id', profile.company_id)
       .in('status', COLUMN_KEYS)
       .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
@@ -47,7 +40,7 @@ export default async function PipelinePage() {
       .select(
         'id, score, status, tenders!inner(objeto, orgao_nome, uf, data_encerramento, modalidade_id)',
       )
-      .in('company_id', groupCompanyIds)
+      .eq('company_id', profile.company_id)
       .in('status', ['interested', 'applied'])
       .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
       .lt('tenders.data_encerramento', today)

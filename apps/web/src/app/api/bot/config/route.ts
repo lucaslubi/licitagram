@@ -23,17 +23,10 @@ export async function GET() {
       return NextResponse.json({ error: 'Empresa nao configurada' }, { status: 400 })
     }
 
-    // Get all company IDs in this user's group for cross-company data
-    const { data: userCompanies } = await supabase
-      .from('user_companies')
-      .select('company_id')
-      .eq('user_id', user.id)
-    const groupCompanyIds = userCompanies?.map((uc: any) => uc.company_id) || [profile.company_id]
-
     const { data: configs, error } = await supabase
       .from('bot_configs')
       .select('*')
-      .in('company_id', groupCompanyIds)
+      .eq('company_id', profile.company_id)
       .order('created_at', { ascending: false })
 
     if (error) {

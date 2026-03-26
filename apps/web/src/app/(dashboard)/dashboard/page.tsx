@@ -27,13 +27,6 @@ export default async function DashboardPage() {
   const companyId = profile?.company_id
   const minScore = Math.max(MIN_DISPLAY_SCORE, profile?.min_score ?? 10)
 
-  // Get all company IDs in this user's group for cross-company data
-  const { data: userCompanies } = await supabase
-    .from('user_companies')
-    .select('company_id')
-    .eq('user_id', user.id)
-  const groupCompanyIds = userCompanies?.map((uc: any) => uc.company_id) || (companyId ? [companyId] : [])
-
   if (!companyId) {
     return (
       <div>
@@ -79,7 +72,7 @@ export default async function DashboardPage() {
     supabase
       .from('matches')
       .select('id, tenders!inner(data_encerramento, modalidade_id)', { count: 'exact', head: true })
-      .in('company_id', groupCompanyIds)
+      .eq('company_id', companyId)
       .in('match_source', [...AI_VERIFIED_SOURCES])
       .gte('score', minScore)
       .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
@@ -89,7 +82,7 @@ export default async function DashboardPage() {
     supabase
       .from('matches')
       .select('id, tenders!inner(data_encerramento, modalidade_id)', { count: 'exact', head: true })
-      .in('company_id', groupCompanyIds)
+      .eq('company_id', companyId)
       .in('match_source', [...AI_VERIFIED_SOURCES])
       .gte('score', 70)
       .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
@@ -114,7 +107,7 @@ export default async function DashboardPage() {
     supabase
       .from('matches')
       .select('score, tenders!inner(data_encerramento, modalidade_id)')
-      .in('company_id', groupCompanyIds)
+      .eq('company_id', companyId)
       .in('match_source', [...AI_VERIFIED_SOURCES])
       .gte('score', minScore)
       .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
@@ -125,7 +118,7 @@ export default async function DashboardPage() {
     supabase
       .from('matches')
       .select('id, score, status, match_source, created_at, tenders!inner(objeto, orgao_nome, uf, valor_estimado, data_encerramento, modalidade_id)')
-      .in('company_id', groupCompanyIds)
+      .eq('company_id', companyId)
       .in('match_source', [...AI_VERIFIED_SOURCES])
       .gte('score', minScore)
       .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
@@ -137,7 +130,7 @@ export default async function DashboardPage() {
     supabase
       .from('matches')
       .select('id, tenders!inner(data_encerramento, modalidade_id)', { count: 'exact', head: true })
-      .in('company_id', groupCompanyIds)
+      .eq('company_id', companyId)
       .in('match_source', [...AI_VERIFIED_SOURCES])
       .gte('score', minScore)
       .gte('created_at', thirtyDaysAgo.toISOString())
@@ -148,7 +141,7 @@ export default async function DashboardPage() {
     supabase
       .from('matches')
       .select('id, tenders!inner(data_encerramento, modalidade_id)', { count: 'exact', head: true })
-      .in('company_id', groupCompanyIds)
+      .eq('company_id', companyId)
       .in('match_source', [...AI_VERIFIED_SOURCES])
       .in('status', ['interested', 'applied'])
       .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
@@ -159,7 +152,7 @@ export default async function DashboardPage() {
     supabase
       .from('matches')
       .select('score, tenders!inner(uf, modalidade_nome, modalidade_id, valor_estimado, data_encerramento)')
-      .in('company_id', groupCompanyIds)
+      .eq('company_id', companyId)
       .in('match_source', [...AI_VERIFIED_SOURCES])
       .gte('score', minScore)
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
@@ -170,20 +163,20 @@ export default async function DashboardPage() {
     supabase
       .from('company_documents')
       .select('id, validade')
-      .in('company_id', groupCompanyIds),
+      .eq('company_id', companyId),
 
     // Win stats overall
     supabase
       .from('bid_outcomes')
       .select('outcome', { count: 'exact' })
-      .in('company_id', groupCompanyIds)
+      .eq('company_id', companyId)
       .in('outcome', ['won', 'lost']),
 
     // Win stats last 30 days
     supabase
       .from('bid_outcomes')
       .select('outcome')
-      .in('company_id', groupCompanyIds)
+      .eq('company_id', companyId)
       .in('outcome', ['won', 'lost'])
       .gte('reported_at', thirtyDaysAgo.toISOString()),
   ])

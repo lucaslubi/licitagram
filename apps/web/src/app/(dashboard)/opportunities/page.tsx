@@ -47,7 +47,7 @@ export default async function OpportunitiesPage({
   ])
   if (!auth) redirect('/login')
 
-  const { companyId, groupCompanyIds, minScore: userMinScore } = auth
+  const { companyId, minScore: userMinScore } = auth
   const canExport = user ? hasFeature(user, 'export_excel') : false
   const allowedPortals: string[] = (user?.features as PlanFeatures | null)?.portais || []
   const hasAllPortals = user?.isPlatformAdmin || allowedPortals.length >= 5
@@ -84,7 +84,6 @@ export default async function OpportunitiesPage({
     const [matchResult, tenderCount, matchTotalCount] = await Promise.all([
       getMatchList({
         companyId,
-        groupCompanyIds,
         page,
         pageSize,
         minScore: userMinScore,
@@ -98,7 +97,7 @@ export default async function OpportunitiesPage({
         ordemData: ordemDataFilter || undefined,
       }),
       getTenderCount(),
-      getMatchCount(companyId, userMinScore, groupCompanyIds),
+      getMatchCount(companyId, userMinScore),
     ])
 
     return renderMatchesView({

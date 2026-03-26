@@ -48,13 +48,6 @@ export default async function DocumentsPage() {
     )
   }
 
-  // Get all company IDs in this user's group for cross-company data
-  const { data: userCompanies } = await supabase
-    .from('user_companies')
-    .select('company_id')
-    .eq('user_id', user.id)
-  const groupCompanyIds = userCompanies?.map((uc: any) => uc.company_id) || [profile.company_id]
-
   // Fetch company data for CNPJ and documents in parallel
   const [companyResult, docsResult] = await Promise.all([
     supabase
@@ -65,7 +58,7 @@ export default async function DocumentsPage() {
     supabase
       .from('company_documents')
       .select('*')
-      .in('company_id', groupCompanyIds)
+      .eq('company_id', profile.company_id)
       .order('validade', { ascending: true }),
   ])
 

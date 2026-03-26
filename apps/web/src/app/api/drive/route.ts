@@ -16,13 +16,6 @@ export async function GET(req: NextRequest) {
   if (!profile?.company_id) return NextResponse.json({ error: 'No company' }, { status: 400 })
   const company = { id: profile.company_id }
 
-  // Get all company IDs in this user's group for cross-company data
-  const { data: userCompanies } = await supabase
-    .from('user_companies')
-    .select('company_id')
-    .eq('user_id', user.id)
-  const groupCompanyIds = userCompanies?.map((uc: any) => uc.company_id) || [company.id]
-
   const url = new URL(req.url)
   const folder = url.searchParams.get('folder') || '/'
   const category = url.searchParams.get('category')
@@ -38,7 +31,7 @@ export async function GET(req: NextRequest) {
     let query = supabase
       .from('drive_files')
       .select('*', { count: 'exact' })
-      .in('company_id', groupCompanyIds)
+      .eq('company_id', company.id)
 
     if (folder !== 'all') query = query.eq('folder', folder)
     if (category && category !== 'all') query = query.eq('category', category)
@@ -62,7 +55,7 @@ export async function GET(req: NextRequest) {
       const { data: usageRows } = await supabase
         .from('drive_usage')
         .select('*')
-        .in('company_id', groupCompanyIds)
+        .eq('company_id', company.id)
       if (usageRows && usageRows.length > 0) {
         usage = usageRows.reduce((acc: any, row: any) => ({
           total_files: acc.total_files + (row.total_files || 0),
@@ -76,7 +69,7 @@ export async function GET(req: NextRequest) {
     const { data: folderData } = await supabase
       .from('drive_files')
       .select('folder')
-      .in('company_id', groupCompanyIds)
+      .eq('company_id', company.id)
       .order('folder')
 
     const uniqueFolders = [...new Set((folderData || []).map((f: any) => f.folder))]

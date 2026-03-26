@@ -32,19 +32,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Empresa nao configurada' }, { status: 400 })
     }
 
-    // Get all company IDs in this user's group for cross-company data
-    const { data: userCompanies } = await supabase
-      .from('user_companies')
-      .select('company_id')
-      .eq('user_id', user.id)
-    const groupCompanyIds = userCompanies?.map((uc: any) => uc.company_id) || [profile.company_id]
-
-    // Verify session belongs to this company group
+    // Verify session belongs to this company
     const { data: session } = await supabase
       .from('bot_sessions')
       .select('id')
       .eq('id', sessionId)
-      .in('company_id', groupCompanyIds)
+      .eq('company_id', profile.company_id)
       .single()
 
     if (!session) {
