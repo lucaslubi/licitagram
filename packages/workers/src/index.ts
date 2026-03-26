@@ -422,7 +422,9 @@ async function setupRepeatableJobs() {
     logger.error({ err }, 'Failed to enqueue startup competition analysis')
   })
 
-  // Trigger immediate scrape on startup (last 30 days for comprehensive coverage)
+  // Delay initial scrapes by 5 minutes to avoid startup query storm
+  // Repeatable jobs (every 4h) still run on schedule — this only delays the first burst
+  const STARTUP_DELAY = 5 * 60 * 1000 // 5 minutes
   const thirtyDaysAgo = new Date()
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
   const startDate = formatDatePNCP(thirtyDaysAgo)
@@ -436,16 +438,17 @@ async function setupRepeatableJobs() {
         dataFinal: today,
         pagina: 1,
       },
+      { delay: STARTUP_DELAY },
     )
   }
 
-  logger.info('Initial PNCP scraping jobs queued (last 30 days)')
+  logger.info('Initial PNCP scraping jobs queued (delayed 5min to reduce startup load)')
 
-  // Trigger immediate dadosabertos scrape (all modalidades, last 30 days)
-  await comprasgovScrapingQueue.add('comprasgov-initial', { pagina: 1 })
-  logger.info('Initial dadosabertos.compras.gov.br scraping job queued')
+  // Trigger dadosabertos scrape (delayed)
+  await comprasgovScrapingQueue.add('comprasgov-initial', { pagina: 1 }, { delay: STARTUP_DELAY })
+  logger.info('Initial dadosabertos.compras.gov.br scraping job queued (delayed 5min)')
 
-  // Trigger immediate PNCP SP+MG scrape (last 30 days)
+  // Trigger PNCP SP+MG scrape (delayed)
   for (const uf of ['SP', 'MG']) {
     for (const modalidadeId of ALL_SCRAPING_MODALITIES) {
       await scrapingQueue.add(
@@ -457,16 +460,17 @@ async function setupRepeatableJobs() {
           pagina: 1,
           uf,
         },
+        { delay: STARTUP_DELAY },
       )
     }
   }
-  logger.info('Initial PNCP SP+MG UF-specific scraping jobs queued (last 30 days)')
+  logger.info('Initial PNCP SP+MG UF-specific scraping jobs queued (delayed 5min)')
 
-  // Trigger immediate ARP and legacy scrape
-  await arpScrapingQueue.add('arp-initial', { pagina: 1 })
-  logger.info('Initial ARP scraping job queued')
+  // Trigger ARP and legacy scrape (delayed)
+  await arpScrapingQueue.add('arp-initial', { pagina: 1 }, { delay: STARTUP_DELAY })
+  logger.info('Initial ARP scraping job queued (delayed 5min)')
 
-  await legadoScrapingQueue.add('legado-initial', { pagina: 1 })
+  await legadoScrapingQueue.add('legado-initial', { pagina: 1 }, { delay: STARTUP_DELAY })
   logger.info('Initial legacy pregoes scraping job queued')
 
   // Re-queue extraction for tenders stuck in 'new' status
@@ -491,11 +495,13 @@ async function setupRepeatableJobs() {
     logger.error({ err }, 'CNAE classification backfill failed on startup')
   })
 
-  // Run keyword matching sweep on startup (non-blocking)
-  // Now processes ALL tenders (classifies on-the-fly when needed)
-  runKeywordMatchingSweep().catch(err => {
-    logger.error({ err }, 'Keyword matching sweep failed on startup')
-  })
+  // DISABLED: keyword sweep on startup was causing 12M+ Supabase requests/day
+  // The sweep already runs every 4h via setInterval, and new companies trigger
+  // instant matching via the 'company-saved' Redis pub/sub pipeline.
+  // runKeywordMatchingSweep().catch(err => {
+  //   logger.error({ err }, 'Keyword matching sweep failed on startup')
+  // })
+  logger.info('Keyword matching sweep skipped on startup (runs every 4h + on company-saved trigger)')
 }
 
 /**

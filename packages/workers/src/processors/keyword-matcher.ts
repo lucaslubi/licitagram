@@ -342,7 +342,7 @@ async function upsertMatchAndNotify(
     return false // Already triaged, skip
   }
 
-  const { error } = await supabase.from('matches').upsert(
+  const { data: upserted, error } = await supabase.from('matches').upsert(
     {
       company_id: companyId,
       tender_id: tenderId,
@@ -359,14 +359,14 @@ async function upsertMatchAndNotify(
       }),
     },
     { onConflict: 'company_id,tender_id', ignoreDuplicates: false },
-  )
+  ).select('id').single()
 
   if (error) {
     logger.error({ companyId, tenderId, error }, 'Failed to upsert match')
     return false
   }
 
-  // Plan limit check
+  // Plan limit check (non-blocking)
   try {
     const { data: limitCheck } = await supabase.rpc('increment_match_count', {
       p_company_id: companyId,
@@ -375,23 +375,15 @@ async function upsertMatchAndNotify(
     if (limitCheck?.[0]?.limit_reached) {
       logger.info({ companyId }, 'Match limit reached after this match')
     }
-  } catch (limitErr) {
-    logger.warn({ companyId, err: limitErr }, 'Match limit RPC failed (non-critical)')
+  } catch {
+    // non-critical
   }
 
   await invalidateMatchCaches(companyId)
   await incrementStat('matches-today')
   await enqueueNotifications(companyId, tenderId, finalScore)
 
-  // Fetch the match ID for AI triage enqueue
-  const { data: newMatch } = await supabase
-    .from('matches')
-    .select('id')
-    .eq('company_id', companyId)
-    .eq('tender_id', tenderId)
-    .single()
-
-  return newMatch?.id || false
+  return upserted?.id || false
 }
 
 // ─── Main Matching Function (Phrase-Based, CNAE-Gated) ───────────────────
