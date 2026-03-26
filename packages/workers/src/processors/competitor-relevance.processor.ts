@@ -104,42 +104,72 @@ async function discoverCompetitorsByCNAE(
   },
   existingCnpjs: Set<string>,
 ): Promise<Array<{ cnpj: string; razao_social: string | null; cnae_divisao: string | null }>> {
-  // Extract CNAE divisions (first 2 digits) from principal and secondary CNAEs
+  // Extract CNAE groups (first 4 digits) for precise competitor matching
+  // Falls back to divisions (2 digits) only if 4-digit data is unavailable
+  const cnaeGrupos = new Set<string>()
   const cnaeDivisoes = new Set<string>()
 
-  if (company.cnae_principal && company.cnae_principal.length >= 2) {
+  if (company.cnae_principal && company.cnae_principal.length >= 4) {
+    cnaeGrupos.add(company.cnae_principal.substring(0, 4))
+    cnaeDivisoes.add(company.cnae_principal.substring(0, 2))
+  } else if (company.cnae_principal && company.cnae_principal.length >= 2) {
     cnaeDivisoes.add(company.cnae_principal.substring(0, 2))
   }
 
   if (company.cnaes_secundarios) {
     for (const cnae of company.cnaes_secundarios) {
-      if (cnae && cnae.length >= 2) {
+      if (cnae && cnae.length >= 4) {
+        cnaeGrupos.add(cnae.substring(0, 4))
+        cnaeDivisoes.add(cnae.substring(0, 2))
+      } else if (cnae && cnae.length >= 2) {
         cnaeDivisoes.add(cnae.substring(0, 2))
       }
     }
   }
 
-  if (cnaeDivisoes.size === 0) {
+  if (cnaeGrupos.size === 0 && cnaeDivisoes.size === 0) {
     return []
   }
 
-  const divisaoList = [...cnaeDivisoes]
-
-  // Query competitor_stats for companies in the same CNAE divisions, ordered by participation count
   const allCnaeCompetitors: Array<{ cnpj: string; razao_social: string | null; cnae_divisao: string | null }> = []
 
-  for (const divisao of divisaoList) {
-    const { data, error } = await supabase
-      .from('competitor_stats')
-      .select('cnpj, razao_social, cnae_divisao')
-      .eq('cnae_divisao', divisao)
-      .order('total_participacoes', { ascending: false })
-      .limit(50)
+  // First: try 4-digit CNAE group matching (most precise)
+  if (cnaeGrupos.size > 0) {
+    const grupoList = [...cnaeGrupos]
+    for (const grupo of grupoList) {
+      const { data, error } = await supabase
+        .from('competitor_stats')
+        .select('cnpj, razao_social, cnae_divisao')
+        .eq('cnae_grupo', grupo)
+        .order('total_participacoes', { ascending: false })
+        .limit(50)
 
-    if (!error && data) {
-      for (const row of data) {
-        if (row.cnpj && !existingCnpjs.has(row.cnpj)) {
-          allCnaeCompetitors.push(row)
+      if (!error && data) {
+        for (const row of data) {
+          if (row.cnpj && !existingCnpjs.has(row.cnpj)) {
+            allCnaeCompetitors.push(row)
+          }
+        }
+      }
+    }
+  }
+
+  // If 4-digit match found enough competitors, skip 2-digit fallback
+  if (allCnaeCompetitors.length < 10) {
+    const divisaoList = [...cnaeDivisoes]
+    for (const divisao of divisaoList) {
+      const { data, error } = await supabase
+        .from('competitor_stats')
+        .select('cnpj, razao_social, cnae_divisao')
+        .eq('cnae_divisao', divisao)
+        .order('total_participacoes', { ascending: false })
+        .limit(50)
+
+      if (!error && data) {
+        for (const row of data) {
+          if (row.cnpj && !existingCnpjs.has(row.cnpj)) {
+            allCnaeCompetitors.push(row)
+          }
         }
       }
     }
