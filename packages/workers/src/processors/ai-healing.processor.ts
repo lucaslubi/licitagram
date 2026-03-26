@@ -303,7 +303,7 @@ async function executeBusinessAction(issue: DetectedIssue): Promise<{ success: b
           .eq('status', 'new')
           .is('notified_at', null)
           .lt('created_at', thirtyDaysAgo)
-          .select('id', { count: 'exact' })
+          .select('id')
 
         if (error) throw error
         return { success: true, result: `${count ?? 0} matches antigos marcados como dismissed` }
