@@ -41,11 +41,18 @@ export async function GET(request: NextRequest) {
     .eq('id', userCtx.userId)
     .single()
 
+  // Get all company IDs in this user's group for cross-company data
+  const { data: userCompanies } = await supabase
+    .from('user_companies')
+    .select('company_id')
+    .eq('user_id', userCtx.userId)
+  const groupCompanyIds = userCompanies?.map((uc: any) => uc.company_id) || (profile?.company_id ? [profile.company_id] : [])
+
   let rows: Record<string, unknown>[] = []
 
   const today = new Date().toISOString().split('T')[0]
 
-  if (view === 'matches' && profile?.company_id) {
+  if (view === 'matches' && groupCompanyIds.length > 0) {
     let query = supabase
       .from('matches')
       .select(`
@@ -55,7 +62,7 @@ export async function GET(request: NextRequest) {
           data_publicacao, modalidade_nome, modalidade_id, data_encerramento, source
         )
       `)
-      .eq('company_id', profile.company_id)
+      .in('company_id', groupCompanyIds)
       .in('match_source', [...AI_VERIFIED_SOURCES])
       .gte('score', scoreMin || 45)
       .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')

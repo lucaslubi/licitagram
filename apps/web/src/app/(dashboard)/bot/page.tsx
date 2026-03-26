@@ -15,17 +15,24 @@ export default async function BotPage() {
 
   if (!profile?.company_id) redirect('/company')
 
+  // Get all company IDs in this user's group for cross-company data
+  const { data: userCompanies } = await supabase
+    .from('user_companies')
+    .select('company_id')
+    .eq('user_id', user.id)
+  const groupCompanyIds = userCompanies?.map((uc: any) => uc.company_id) || [profile.company_id]
+
   // Get bot configs
   const { data: configs } = await supabase
     .from('bot_configs')
     .select('*')
-    .eq('company_id', profile.company_id)
+    .in('company_id', groupCompanyIds)
 
   // Get recent sessions with their actions
   const { data: sessions } = await supabase
     .from('bot_sessions')
     .select('*, bot_actions(id, action_type, details, created_at)')
-    .eq('company_id', profile.company_id)
+    .in('company_id', groupCompanyIds)
     .order('created_at', { ascending: false })
     .limit(20)
 
@@ -52,7 +59,7 @@ export default async function BotPage() {
         link_pncp
       )
     `)
-    .eq('company_id', profile.company_id)
+    .in('company_id', groupCompanyIds)
     .in('status', ['new', 'notified', 'viewed', 'interested', 'applied'])
     .order('score', { ascending: false })
     .limit(50)

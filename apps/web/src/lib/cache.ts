@@ -37,6 +37,7 @@ export function hashFilters(params: Record<string, string | number | undefined>)
 interface AuthResult {
   userId: string
   companyId: string | null
+  groupCompanyIds: string[]
   minScore: number
   fullName: string | null
 }
@@ -59,6 +60,13 @@ export async function getAuthAndProfile(): Promise<AuthResult | null> {
 
   const companyId = profile?.company_id ?? null
 
+  // Get all company IDs in this user's group for cross-company data
+  const { data: userCompanies } = await supabase
+    .from('user_companies')
+    .select('company_id')
+    .eq('user_id', user.id)
+  const groupCompanyIds = userCompanies?.map((uc: any) => uc.company_id) || (companyId ? [companyId] : [])
+
   // Read min_score from company (per-company setting), fallback to user's legacy value
   let minScore = profile?.min_score ?? 50
   if (companyId) {
@@ -73,6 +81,7 @@ export async function getAuthAndProfile(): Promise<AuthResult | null> {
   return {
     userId: user.id,
     companyId,
+    groupCompanyIds,
     minScore,
     fullName: profile?.full_name ?? null,
   }
@@ -237,6 +246,7 @@ async function fetchTenderListFromDB(params: TenderListParams): Promise<TenderLi
 
 interface MatchListParams {
   companyId: string
+  groupCompanyIds?: string[]
   page: number
   pageSize: number
   minScore: number
@@ -274,6 +284,7 @@ export async function getMatchList(params: MatchListParams): Promise<MatchListRe
     sm: params.scoreMin,
     ov: params.ordemValor,
     od: params.ordemData,
+    grp: params.groupCompanyIds?.sort().join(','),
   })
 
   return cached(
@@ -285,8 +296,9 @@ export async function getMatchList(params: MatchListParams): Promise<MatchListRe
 
 async function fetchMatchListFromDB(params: MatchListParams): Promise<MatchListResult> {
   const supabase = await createClient()
-  const { companyId, page, pageSize, uf, modalidade, dataFrom, dataTo, fonte, ordemValor, ordemData } = params
+  const { companyId, groupCompanyIds, page, pageSize, uf, modalidade, dataFrom, dataTo, fonte, ordemValor, ordemData } = params
   const effectiveMinScore = Math.max(MIN_DISPLAY_SCORE, (params.scoreMin && params.scoreMin > 0) ? params.scoreMin : params.minScore)
+  const companyIds = groupCompanyIds && groupCompanyIds.length > 0 ? groupCompanyIds : [companyId]
 
   // NOTE: Supabase .order() with referencedTable only orders the EMBEDDED
   // resource (nested tenders array), NOT the parent match rows. Since each
@@ -304,7 +316,7 @@ async function fetchMatchListFromDB(params: MatchListParams): Promise<MatchListR
        )`,
       { count: 'exact' },
     )
-    .eq('company_id', companyId)
+    .in('company_id', companyIds)
     .in('match_source', [...AI_VERIFIED_SOURCES])
     .gte('score', effectiveMinScore)
 
@@ -387,18 +399,19 @@ async function fetchMatchListFromDB(params: MatchListParams): Promise<MatchListR
  * Get match count for tab badge (cached).
  * Only counts matches with OPEN tenders (not expired).
  */
-export async function getMatchCount(companyId: string, minScore: number): Promise<number> {
+export async function getMatchCount(companyId: string, minScore: number, groupCompanyIds?: string[]): Promise<number> {
   return cached(
     CacheKeys.matchCount(companyId, minScore),
     async () => {
       const supabase = await createClient()
       const today = new Date().toISOString().split('T')[0]
+      const companyIds = groupCompanyIds && groupCompanyIds.length > 0 ? groupCompanyIds : [companyId]
       // IMPORTANT: use head:true + count:'exact' to get accurate count
       // without being capped by PostgREST max_rows=1000
       const { count } = await supabase
         .from('matches')
         .select('id, tenders!inner(data_encerramento, modalidade_id)', { count: 'exact', head: true })
-        .eq('company_id', companyId)
+        .in('company_id', companyIds)
         .in('match_source', [...AI_VERIFIED_SOURCES])
         .gte('score', Math.max(MIN_DISPLAY_SCORE, minScore))
         .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
@@ -509,13 +522,14 @@ export interface DashboardStats {
 /**
  * Get dashboard stats for a company (cached 10 min).
  */
-export async function getDashboardStats(companyId: string | null): Promise<DashboardStats> {
+export async function getDashboardStats(companyId: string | null, groupCompanyIds?: string[]): Promise<DashboardStats> {
   const cacheKey = companyId ? `dashboard:${companyId}` : 'dashboard:global'
 
   return cached(
     CacheKeys.stats(cacheKey),
     async () => {
       const supabase = await createClient()
+      const companyIds = groupCompanyIds && groupCompanyIds.length > 0 ? groupCompanyIds : (companyId ? [companyId] : [])
 
       const now = new Date()
       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
@@ -527,19 +541,19 @@ export async function getDashboardStats(companyId: string | null): Promise<Dashb
         supabase.from('tenders').select('id', { count: 'exact', head: true }),
         supabase.from('tenders').select('id', { count: 'exact', head: true })
           .gte('data_publicacao', sevenDaysAgo),
-        companyId
+        companyIds.length > 0
           ? supabase.from('matches')
               .select('id, tenders!inner(data_encerramento, modalidade_id)', { count: 'exact', head: true })
-              .eq('company_id', companyId)
+              .in('company_id', companyIds)
               .in('match_source', [...AI_VERIFIED_SOURCES])
               .gte('score', MIN_DISPLAY_SCORE)
               .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
               .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
           : Promise.resolve({ count: 0 }),
-        companyId
+        companyIds.length > 0
           ? supabase.from('matches')
               .select('id, tenders!inner(data_encerramento, modalidade_id)', { count: 'exact', head: true })
-              .eq('company_id', companyId)
+              .in('company_id', companyIds)
               .in('match_source', [...AI_VERIFIED_SOURCES])
               .gte('score', 70)
               .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')

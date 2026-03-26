@@ -16,6 +16,13 @@ export async function GET(req: NextRequest) {
   if (!profile?.company_id) return NextResponse.json({ error: 'No company' }, { status: 400 })
   const company = { id: profile.company_id }
 
+  // Get all company IDs in this user's group for cross-company data
+  const { data: userCompanies } = await supabase
+    .from('user_companies')
+    .select('company_id')
+    .eq('user_id', user.id)
+  const groupCompanyIds = userCompanies?.map((uc: any) => uc.company_id) || [company.id]
+
   const url = new URL(req.url)
   const folder = url.searchParams.get('folder') || '/'
   const category = url.searchParams.get('category')
@@ -31,7 +38,7 @@ export async function GET(req: NextRequest) {
     let query = supabase
       .from('drive_files')
       .select('*', { count: 'exact' })
-      .eq('company_id', company.id)
+      .in('company_id', groupCompanyIds)
 
     if (folder !== 'all') query = query.eq('folder', folder)
     if (category && category !== 'all') query = query.eq('category', category)
@@ -52,19 +59,24 @@ export async function GET(req: NextRequest) {
     // Get usage stats (may not exist if no files yet)
     let usage = { total_files: 0, total_bytes: 0, total_folders: 0 }
     try {
-      const { data: usageData } = await supabase
+      const { data: usageRows } = await supabase
         .from('drive_usage')
         .select('*')
-        .eq('company_id', company.id)
-        .single()
-      if (usageData) usage = usageData
+        .in('company_id', groupCompanyIds)
+      if (usageRows && usageRows.length > 0) {
+        usage = usageRows.reduce((acc: any, row: any) => ({
+          total_files: acc.total_files + (row.total_files || 0),
+          total_bytes: acc.total_bytes + (row.total_bytes || 0),
+          total_folders: acc.total_folders + (row.total_folders || 0),
+        }), { total_files: 0, total_bytes: 0, total_folders: 0 })
+      }
     } catch { /* no files yet, use defaults */ }
 
     // Get distinct folders
     const { data: folderData } = await supabase
       .from('drive_files')
       .select('folder')
-      .eq('company_id', company.id)
+      .in('company_id', groupCompanyIds)
       .order('folder')
 
     const uniqueFolders = [...new Set((folderData || []).map((f: any) => f.folder))]
