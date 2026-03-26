@@ -159,6 +159,164 @@ async function collectAllMetrics(): Promise<SystemMetrics> {
   return { pm2, queues, ram, cpu, disk }
 }
 
+// ─── Business Logic Health Checks ────────────────────────────────────────────
+
+interface BusinessMetrics {
+  notificationsSent2h: number
+  pendingMatchesOlderThan30d: number
+  repeatableJobsRegistered: string[]
+  matchesCreated24h: number
+}
+
+const REQUIRED_REPEATABLE_JOBS = [
+  'pending-notifications-5min',
+  'hot-scan-30m-repeat',
+  'urgency-check-repeat',
+  'new-matches-digest-3h-repeat',
+]
+
+async function collectBusinessMetrics(): Promise<BusinessMetrics> {
+  const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+
+  const [notifResult, staleResult, matchesResult] = await Promise.all([
+    // Notifications sent in last 2h
+    supabase
+      .from('matches')
+      .select('id', { count: 'exact', head: true })
+      .gte('notified_at', twoHoursAgo),
+    // Pending matches older than 30 days that are still 'new' + not notified
+    supabase
+      .from('matches')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'new')
+      .is('notified_at', null)
+      .lt('created_at', thirtyDaysAgo),
+    // Matches created in last 24h
+    supabase
+      .from('matches')
+      .select('id', { count: 'exact', head: true })
+      .gte('created_at', oneDayAgo),
+  ])
+
+  // Check which repeatable jobs are registered in BullMQ
+  const registeredJobs: string[] = []
+  for (const queueName of ['pending-notifications', 'hot-alerts']) {
+    const q = new Queue(queueName, { connection })
+    try {
+      const repeatable = await q.getRepeatableJobs()
+      for (const job of repeatable) {
+        if (job.id) registeredJobs.push(job.id)
+        else if (job.key) registeredJobs.push(job.key)
+      }
+    } catch { /* queue may not exist */ }
+    finally { await q.close() }
+  }
+
+  return {
+    notificationsSent2h: notifResult.count ?? 0,
+    pendingMatchesOlderThan30d: staleResult.count ?? 0,
+    repeatableJobsRegistered: registeredJobs,
+    matchesCreated24h: matchesResult.count ?? 0,
+  }
+}
+
+async function detectBusinessIssues(): Promise<DetectedIssue[]> {
+  const issues: DetectedIssue[] = []
+  const biz = await collectBusinessMetrics()
+
+  // --- Missing repeatable jobs (CRITICAL — notifications will stop entirely) ---
+  const missingJobs = REQUIRED_REPEATABLE_JOBS.filter(
+    jobId => !biz.repeatableJobsRegistered.some(r => r.includes(jobId))
+  )
+  if (missingJobs.length > 0) {
+    issues.push({
+      action_type: 'reregister_notification_jobs',
+      severity: 'autonomous',
+      description: `Jobs repeatable de notificação ausentes no BullMQ: ${missingJobs.join(', ')}. Re-registrando automaticamente.`,
+      details: { missingJobs, registeredJobs: biz.repeatableJobsRegistered },
+      triggered_by: 'system',
+    })
+  }
+
+  // --- No notifications sent in 2h (with active matches being created) ---
+  if (biz.notificationsSent2h === 0 && biz.matchesCreated24h > 0 && missingJobs.length === 0) {
+    issues.push({
+      action_type: 'notification_throughput_zero',
+      severity: 'approval_required',
+      description: `Nenhuma notificação enviada nas últimas 2h, mas ${biz.matchesCreated24h} matches criados em 24h. Possível problema no pipeline de notificações.`,
+      details: { notificationsSent2h: biz.notificationsSent2h, matchesCreated24h: biz.matchesCreated24h },
+      triggered_by: 'system',
+    })
+  }
+
+  // --- Stale unnotified matches (data hygiene) ---
+  if (biz.pendingMatchesOlderThan30d > 100) {
+    issues.push({
+      action_type: 'clean_stale_matches',
+      severity: 'autonomous',
+      description: `${biz.pendingMatchesOlderThan30d.toLocaleString()} matches com 30+ dias ainda "new" e sem notificação. Marcando como "dismissed" para limpeza.`,
+      details: { count: biz.pendingMatchesOlderThan30d },
+      triggered_by: 'system',
+    })
+  }
+
+  return issues
+}
+
+async function executeBusinessAction(issue: DetectedIssue): Promise<{ success: boolean; result: string }> {
+  switch (issue.action_type) {
+    case 'reregister_notification_jobs': {
+      try {
+        const { pendingNotificationsQueue } = await import('../queues/pending-notifications.queue')
+        const { hotAlertsQueue } = await import('../queues/hot-alerts.queue')
+
+        await pendingNotificationsQueue.add('check-pending', {}, {
+          repeat: { every: 5 * 60 * 1000 },
+          jobId: 'pending-notifications-5min',
+        })
+        await hotAlertsQueue.add('hot-daily', {}, {
+          repeat: { every: 30 * 60 * 1000 },
+          jobId: 'hot-scan-30m-repeat',
+        })
+        await hotAlertsQueue.add('urgency-check', {}, {
+          repeat: { every: 60 * 60 * 1000 },
+          jobId: 'urgency-check-repeat',
+        })
+        await hotAlertsQueue.add('new-matches-digest', {}, {
+          repeat: { every: 3 * 60 * 60 * 1000 },
+          jobId: 'new-matches-digest-3h-repeat',
+        })
+        return { success: true, result: 'Jobs repeatable de notificação re-registrados com sucesso' }
+      } catch (err) {
+        return { success: false, result: `Erro ao re-registrar jobs: ${(err as Error).message}` }
+      }
+    }
+
+    case 'clean_stale_matches': {
+      try {
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+        const { count, error } = await supabase
+          .from('matches')
+          .update({ status: 'dismissed' })
+          .eq('status', 'new')
+          .is('notified_at', null)
+          .lt('created_at', thirtyDaysAgo)
+          .select('id', { count: 'exact', head: true })
+
+        if (error) throw error
+        return { success: true, result: `${count ?? 0} matches antigos marcados como dismissed` }
+      } catch (err) {
+        return { success: false, result: `Erro ao limpar matches: ${(err as Error).message}` }
+      }
+    }
+
+    default:
+      return { success: false, result: `Business action "${issue.action_type}" sem handler` }
+  }
+}
+
 // ─── Rule-Based Detection ───────────────────────────────────────────────────
 
 function detectIssuesFromRules(metrics: SystemMetrics): DetectedIssue[] {
@@ -634,12 +792,23 @@ async function processHealing(job: Job) {
     cpuLoad: metrics.cpu.loadAvg1,
   }, 'Healing: metrics collected')
 
-  // Step 2: Rule-based detection
+  // Step 2: Rule-based detection (infrastructure)
   const ruleIssues = detectIssuesFromRules(metrics)
+
+  // Step 2b: Business logic health checks (notification pipeline, stale data)
+  let businessIssues: DetectedIssue[] = []
+  try {
+    businessIssues = await detectBusinessIssues()
+    if (businessIssues.length > 0) {
+      logger.info({ businessIssueCount: businessIssues.length }, 'Healing: business logic issues detected')
+    }
+  } catch (err) {
+    logger.warn({ err }, 'Healing: business logic checks failed (non-critical)')
+  }
 
   // Step 3: AI analysis (only if no critical rule-based issues to save costs)
   let aiIssues: DetectedIssue[] = []
-  const hasCriticalRuleIssues = ruleIssues.some(i => i.severity === 'approval_required')
+  const hasCriticalRuleIssues = [...ruleIssues, ...businessIssues].some(i => i.severity === 'approval_required')
   if (!hasCriticalRuleIssues) {
     // Fetch recent actions for context
     const { data: recentActions } = await supabase
@@ -651,7 +820,7 @@ async function processHealing(job: Job) {
     aiIssues = await runAIAnalysis(metrics, (recentActions || []) as Record<string, unknown>[])
   }
 
-  const allIssues = [...ruleIssues, ...aiIssues]
+  const allIssues = [...ruleIssues, ...businessIssues, ...aiIssues]
 
   if (allIssues.length === 0) {
     logger.info({ durationMs: Date.now() - startTime }, 'Healing: no issues detected')
@@ -667,8 +836,11 @@ async function processHealing(job: Job) {
   for (const issue of allIssues) {
     switch (issue.severity) {
       case 'autonomous': {
-        // Execute immediately
-        const { success, result } = await executeAction(issue)
+        // Execute immediately — try business actions first, then infra actions
+        const isBusinessAction = ['reregister_notification_jobs', 'clean_stale_matches', 'notification_throughput_zero'].includes(issue.action_type)
+        const { success, result } = isBusinessAction
+          ? await executeBusinessAction(issue)
+          : await executeAction(issue)
         const status = success ? 'executed' : 'failed'
         await logHealingAction(issue, status, result, null)
 
