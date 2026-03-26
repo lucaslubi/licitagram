@@ -16,6 +16,7 @@ export interface CompanyInfo {
   cnpj: string
   razao_social: string
   nome_fantasia: string | null
+  is_default?: boolean
 }
 
 interface CompanyContextValue {
