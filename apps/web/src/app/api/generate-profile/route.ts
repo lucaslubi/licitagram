@@ -3,9 +3,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { CNAE_GROUPS } from '@licitagram/shared'
 
-const deepseekClient = new OpenAI({
-  apiKey: process.env.DEEPSEEK_API_KEY || '',
-  baseURL: 'https://api.deepseek.com',
+const groqClient = new OpenAI({
+  apiKey: process.env.GROQ_API_KEY || '',
+  baseURL: 'https://api.groq.com/openai/v1',
   timeout: 45_000, // 45s timeout (Vercel function has 60s max)
 })
 
@@ -64,8 +64,8 @@ Retorne APENAS a descricao, sem formatacao, sem markdown, sem aspas.`
 
     try {
       console.log('[GENERATE] Description request for:', razao_social, '| CNAEs:', cnaeDescriptions.length)
-      const response = await deepseekClient.chat.completions.create({
-        model: 'deepseek-chat',
+      const response = await groqClient.chat.completions.create({
+        model: 'qwen-qwq-32b',
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 600,
         temperature: 0.4,
@@ -112,8 +112,8 @@ INSTRUCOES:
 Retorne APENAS os termos, um por linha, sem numeracao, sem explicacao, sem marcadores.`
 
     try {
-      const response = await deepseekClient.chat.completions.create({
-        model: 'deepseek-chat',
+      const response = await groqClient.chat.completions.create({
+        model: 'qwen-qwq-32b',
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 800,
         temperature: 0.4,

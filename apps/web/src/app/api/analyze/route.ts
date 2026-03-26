@@ -6,9 +6,9 @@ import { invalidateCache, invalidateKey, CacheKeys } from '@/lib/redis'
 import OpenAI from 'openai'
 import { CNAE_GROUPS } from '@licitagram/shared'
 
-const deepseekClient = new OpenAI({
-  apiKey: process.env.DEEPSEEK_API_KEY || '',
-  baseURL: 'https://api.deepseek.com',
+const groqClient = new OpenAI({
+  apiKey: process.env.GROQ_API_KEY || '',
+  baseURL: 'https://api.groq.com/openai/v1',
 })
 
 function cleanCompanyProfile(company: Record<string, unknown>): Record<string, unknown> {
@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  if (!process.env.DEEPSEEK_API_KEY) {
+  if (!process.env.GROQ_API_KEY) {
     return NextResponse.json({ error: 'AI not configured' }, { status: 503 })
   }
 
@@ -234,8 +234,8 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const completion = await deepseekClient.chat.completions.create({
-      model: 'deepseek-chat',
+    const completion = await groqClient.chat.completions.create({
+      model: 'qwen-qwq-32b',
       max_tokens: 4096,
       temperature: 0.1,
       response_format: { type: 'json_object' },

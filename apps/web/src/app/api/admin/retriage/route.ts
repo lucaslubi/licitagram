@@ -5,9 +5,9 @@ import { invalidateCache } from '@/lib/redis'
 import OpenAI from 'openai'
 import { CNAE_GROUPS } from '@licitagram/shared'
 
-const deepseekClient = new OpenAI({
-  apiKey: process.env.DEEPSEEK_API_KEY || '',
-  baseURL: 'https://api.deepseek.com',
+const groqClient = new OpenAI({
+  apiKey: process.env.GROQ_API_KEY || '',
+  baseURL: 'https://api.groq.com/openai/v1',
 })
 
 function buildCompanyContext(company: Record<string, unknown>): string {
@@ -64,8 +64,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Admin only' }, { status: 403 })
   }
 
-  if (!process.env.DEEPSEEK_API_KEY) {
-    return NextResponse.json({ error: 'DEEPSEEK_API_KEY not set' }, { status: 503 })
+  if (!process.env.GROQ_API_KEY) {
+    return NextResponse.json({ error: 'GROQ_API_KEY not set' }, { status: 503 })
   }
 
   const supabase = await createClient()
@@ -139,8 +139,8 @@ export async function GET(request: NextRequest) {
       const userPrompt = `${companyContext}\n\n---\n\nAvalie CADA licitacao abaixo. Retorne um JSON array com o score de compatibilidade de cada uma.\n\nLICITACOES:\n${tenderList}\n\nRetorne APENAS JSON valido (sem markdown):\n[\n  {"matchId": "id_aqui", "score": 0-100, "recomendacao": "participar|avaliar_melhor|nao_recomendado"},\n  ...\n]\n\nLEMBRE: score 0-15 para objetos TOTALMENTE fora do escopo da empresa.`
 
       try {
-        const response = await deepseekClient.chat.completions.create({
-          model: 'deepseek-chat',
+        const response = await groqClient.chat.completions.create({
+          model: 'qwen-qwq-32b',
           messages: [
             { role: 'system', content: TRIAGE_SYSTEM_PROMPT },
             { role: 'user', content: userPrompt },

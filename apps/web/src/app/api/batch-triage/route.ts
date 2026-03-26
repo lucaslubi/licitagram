@@ -6,9 +6,9 @@ import { invalidateCache, CacheKeys } from '@/lib/redis'
 import OpenAI from 'openai'
 import { CNAE_GROUPS } from '@licitagram/shared'
 
-const deepseekClient = new OpenAI({
-  apiKey: process.env.DEEPSEEK_API_KEY || '',
-  baseURL: 'https://api.deepseek.com',
+const groqClient = new OpenAI({
+  apiKey: process.env.GROQ_API_KEY || '',
+  baseURL: 'https://api.groq.com/openai/v1',
 })
 
 function buildCompanyContext(company: Record<string, unknown>): string {
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  if (!process.env.DEEPSEEK_API_KEY) {
+  if (!process.env.GROQ_API_KEY) {
     return NextResponse.json({ error: 'AI not configured' }, { status: 503 })
   }
 
@@ -181,8 +181,8 @@ Retorne APENAS JSON valido (sem markdown):
 LEMBRE: score 0-15 para objetos TOTALMENTE fora do escopo da empresa.`
 
   try {
-    const response = await deepseekClient.chat.completions.create({
-      model: 'deepseek-chat',
+    const response = await groqClient.chat.completions.create({
+      model: 'qwen-qwq-32b',
       messages: [
         { role: 'system', content: TRIAGE_SYSTEM_PROMPT },
         { role: 'user', content: userPrompt },

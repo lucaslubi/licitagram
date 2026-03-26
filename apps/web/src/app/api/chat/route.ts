@@ -9,7 +9,7 @@ import OpenAI from 'openai'
 // Primary: Gemini 2.5 Flash Preview via OpenRouter (1M token context)
 // Fallback: DeepSeek V3 (64K context, if OpenRouter fails)
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || ''
-const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || ''
+const DEEPSEEK_API_KEY = process.env.GROQ_API_KEY || ''
 const DEEPSEEK_BASE_URL = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com'
 
 const openrouter = new OpenAI({
@@ -22,7 +22,7 @@ const openrouter = new OpenAI({
 })
 
 const deepseek = new OpenAI({
-  apiKey: DEEPSEEK_API_KEY,
+  apiKey: GROQ_API_KEY,
   baseURL: DEEPSEEK_BASE_URL,
 })
 
@@ -167,7 +167,7 @@ export async function POST(request: NextRequest) {
 
   const supabase = await createClient()
 
-  if (!OPENROUTER_API_KEY && !DEEPSEEK_API_KEY) {
+  if (!OPENROUTER_API_KEY && !GROQ_API_KEY) {
     return NextResponse.json({ error: 'Chat AI not configured' }, { status: 503 })
   }
 
@@ -523,7 +523,7 @@ ${context}`
   }
 
   // ── Fallback: DeepSeek V3 ──────────────────────────────────────────
-  if (!DEEPSEEK_API_KEY) {
+  if (!GROQ_API_KEY) {
     return NextResponse.json({ error: 'Serviço de chat indisponível. Tente novamente mais tarde.' }, { status: 503 })
   }
 
@@ -555,7 +555,7 @@ ${context}`
     console.log(`[Chat] Using DeepSeek V3 fallback — ${dsContext.length} chars context`)
 
     const completion = await deepseek.chat.completions.create({
-      model: 'deepseek-chat',
+      model: 'qwen-qwq-32b',
       messages: dsMessages,
       max_tokens: 8192,
       temperature: 0.2,
