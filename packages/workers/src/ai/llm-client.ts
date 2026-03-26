@@ -57,7 +57,7 @@ const TASK_CONFIG: Record<TaskType, { maxTokens: number; temperature: number }> 
 const PROVIDERS = [
   { client: deepseekClient,  model: 'deepseek-chat',                label: 'DeepSeek-V3' },
   { client: togetherClient,  model: 'deepseek-ai/DeepSeek-V3',     label: 'Together/DeepSeek-V3' },
-  { client: groqClient,      model: 'qwen/qwen3-32b',                label: 'Groq/Qwen3-32B' },
+  { client: groqClient,      model: 'llama-3.3-70b-versatile',     label: 'Groq/Llama-3.3-70B' },
 ]
 
 // ─── Throttle (respect rate limits) ──────────────────────────────────────────
