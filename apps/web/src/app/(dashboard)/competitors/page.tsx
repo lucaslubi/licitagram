@@ -23,16 +23,23 @@ export default async function CompetitorsPage({
     .eq('id', user.id)
     .single()
 
+  // Get all company IDs in this user's group for cross-company data
+  const { data: userCompanies } = await supabase
+    .from('user_companies')
+    .select('company_id')
+    .eq('user_id', user.id)
+  const groupCompanyIds = userCompanies?.map((uc: any) => uc.company_id) || (profile?.company_id ? [profile.company_id] : [])
+
   const tab = params.tab || 'mercado'
   const searchQuery = params.q || ''
 
-  // Fetch AI relevance data once for all tabs
+  // Fetch AI relevance data once for all tabs (across all group companies)
   let relevanceMap: Record<string, { score: number; type: string; reason: string }> = {}
-  if (profile?.company_id) {
+  if (groupCompanyIds.length > 0) {
     const { data: relevanceData } = await supabase
       .from('competitor_relevance')
       .select('competitor_cnpj, relevance_score, relationship_type, reason')
-      .eq('company_id', profile.company_id)
+      .in('company_id', groupCompanyIds)
 
     if (relevanceData) {
       for (const r of relevanceData) {
@@ -45,11 +52,11 @@ export default async function CompetitorsPage({
     }
   }
 
-  // Get watchlist
+  // Get watchlist (across all group companies)
   const { data: watchlist } = await supabase
     .from('competitor_watchlist')
     .select('*')
-    .eq('company_id', profile?.company_id || '')
+    .in('company_id', groupCompanyIds)
     .order('created_at', { ascending: false })
 
   // Get competitor stats for watchlist items
@@ -119,7 +126,7 @@ export default async function CompetitorsPage({
   const { data: activeMatches } = await supabase
     .from('matches')
     .select('tenders!inner(uf)')
-    .eq('company_id', profile?.company_id || '')
+    .in('company_id', groupCompanyIds)
     .in('status', ['new', 'notified', 'viewed', 'interested'])
 
   const activeUfs = [...new Set((activeMatches || []).map((m) => {
@@ -237,11 +244,11 @@ export default async function CompetitorsPage({
     }
   }
 
-  // Enterprise gating
+  // Enterprise gating (check across all group companies)
   const { data: subscription } = await supabase
     .from('subscriptions')
     .select('plan')
-    .eq('company_id', profile?.company_id || '')
+    .in('company_id', groupCompanyIds)
     .eq('status', 'active')
     .limit(1)
     .single()
@@ -569,7 +576,7 @@ export default async function CompetitorsPage({
       const { data: matchedTenders } = await supabase
         .from('matches')
         .select('tender_id')
-        .eq('company_id', profile.company_id)
+        .in('company_id', groupCompanyIds)
         .order('created_at', { ascending: false })
         .limit(300)
 
