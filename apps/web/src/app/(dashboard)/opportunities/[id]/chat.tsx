@@ -873,7 +873,7 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
                       Análise estratégica do edital
                     </span>
                   ) : isAssistant && msg.content ? (
-                    <div className="prose prose-sm prose-gray max-w-none prose-headings:text-white prose-headings:font-semibold prose-headings:mt-4 prose-headings:mb-2 prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-strong:text-white prose-table:text-xs prose-th:bg-[#2d2f33] prose-th:px-2 prose-th:py-1 prose-td:px-2 prose-td:py-1 prose-th:border prose-td:border">
+                    <div className="prose prose-sm prose-invert max-w-none prose-headings:text-white prose-headings:font-semibold prose-headings:mt-4 prose-headings:mb-2 prose-p:text-gray-300 prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:text-gray-300 prose-li:my-0.5 prose-strong:text-white prose-a:text-brand prose-table:text-xs prose-th:bg-[#2d2f33] prose-th:text-gray-200 prose-th:px-2 prose-th:py-1 prose-td:text-gray-300 prose-td:px-2 prose-td:py-1 prose-th:border prose-td:border prose-td:border-[#2d2f33] prose-th:border-[#2d2f33]">
                       <ReactMarkdown
                         components={{
                           // Fix list items with emoji overlap
