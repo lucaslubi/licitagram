@@ -92,25 +92,25 @@ export default async function DocumentsPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <Card>
           <CardContent className="pt-6 text-center">
-            <p className="text-3xl font-bold text-emerald-400">{validCount}</p>
+            <p className="text-3xl font-bold text-white">{validCount}</p>
             <p className="text-sm font-medium text-gray-400">Válidos</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6 text-center">
-            <p className="text-3xl font-bold text-amber-400">{expiringCount}</p>
+            <p className="text-3xl font-bold text-white">{expiringCount}</p>
             <p className="text-sm font-medium text-gray-400">Vencendo em 30 dias</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6 text-center">
-            <p className="text-3xl font-bold text-red-400">{expiredCount}</p>
+            <p className="text-3xl font-bold text-white">{expiredCount}</p>
             <p className="text-sm font-medium text-gray-400">Vencidos</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6 text-center">
-            <p className="text-3xl font-bold text-blue-400">{autoCount}</p>
+            <p className="text-3xl font-bold text-white">{autoCount}</p>
             <p className="text-sm font-medium text-gray-400">Consultados via API</p>
           </CardContent>
         </Card>
