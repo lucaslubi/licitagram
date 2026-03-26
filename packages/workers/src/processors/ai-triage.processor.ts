@@ -395,6 +395,9 @@ const aiTriageWorker = new Worker<AiTriageJobData>(
       'Background AI triage complete',
     )
 
+    // Mark company as ready after triage
+    await supabase.from('companies').update({ matching_status: 'ready' }).eq('id', companyId).eq('matching_status', 'triaging')
+
     // Trigger immediate notification check for this company (don't wait for 5-min sweep)
     try {
       const { pendingNotificationsQueue } = await import('../queues/pending-notifications.queue')

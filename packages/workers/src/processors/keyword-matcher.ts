@@ -783,6 +783,9 @@ export async function runKeywordMatchingForCompany(companyId: string): Promise<n
     return 0
   }
 
+  // Update matching status to scanning
+  await supabase.from('companies').update({ matching_status: 'scanning' }).eq('id', company.id)
+
   // 2. Build company phrases and compute CNAE divisions
   const { cnaePhrases, userPhrases, descTokens, allCnaes } = buildCompanyPhrases(company)
   const { direct: directDivs, related: relatedDivs } = getCompanyDivisions(allCnaes)
@@ -936,6 +939,14 @@ export async function runKeywordMatchingForCompany(companyId: string): Promise<n
     elapsed: `${elapsed}s`,
     mode: 'rescore-all',
   }, 'CNAE-filtered keyword matching complete')
+
+  // Update matching status to triaging (AI triage will run next)
+  if (matchCount > 0) {
+    await supabase.from('companies').update({
+      matching_status: 'triaging',
+      first_match_at: new Date().toISOString()
+    }).eq('id', companyId).is('first_match_at', null)
+  }
 
   return matchCount
 }

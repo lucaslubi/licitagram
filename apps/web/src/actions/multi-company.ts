@@ -207,7 +207,9 @@ export async function addCompanyAction(
     console.error('[MULTI-COMPANY] BrasilAPI lookup failed:', err)
   }
 
-  // 7. Trigger matching via VPS (fire-and-forget, fast)
+  // 7. Set initial matching status and trigger matching via VPS (fire-and-forget, fast)
+  await supabase.from('companies').update({ matching_status: 'pending' }).eq('id', companyId)
+
   try {
     const VPS_URL = process.env.VPS_MONITORING_URL || 'http://187.77.241.93:3998'
     const MONITORING_KEY = process.env.MONITORING_API_KEY || ''

@@ -8,6 +8,7 @@ import { DashboardAiWrapper } from '@/components/dashboard-ai-wrapper'
 import { CompanyProvider } from '@/contexts/company-context'
 import { CompanySwitcher } from './company-switcher'
 import { getUserCompanies } from '@/actions/multi-company'
+import { MatchingProgressBanner } from '@/components/matching-progress-banner'
 import type { PlanFeatureKey } from '@licitagram/shared'
 
 interface NavItem {
@@ -71,6 +72,28 @@ export default async function DashboardLayout({
   // Show company switcher if user has multi_cnpj OR already has >1 company
   const showSwitcher = multiCnpjEnabled || userCompanies.length > 1
 
+  // ── Matching progress banner ───────────────────────────────────────────
+  let matchingStatus: string | null = null
+  let initialMatchCount = 0
+  if (user.companyId) {
+    const supabase = await createClient()
+    const { data: companyData } = await supabase
+      .from('companies')
+      .select('matching_status')
+      .eq('id', user.companyId)
+      .single()
+    matchingStatus = companyData?.matching_status || null
+
+    if (matchingStatus && matchingStatus !== 'ready') {
+      const { count } = await supabase
+        .from('matches')
+        .select('id', { count: 'exact', head: true })
+        .eq('company_id', user.companyId)
+        .gte('score', 50)
+      initialMatchCount = count || 0
+    }
+  }
+
   return (
     <CompanyProvider
       initialCompanies={userCompanies}
@@ -92,6 +115,12 @@ export default async function DashboardLayout({
         {/* Main content — add top padding on mobile for the fixed top bar */}
         <main className="flex-1 overflow-auto bg-[#111214]">
           <div className="pt-14 md:pt-0 h-full">
+            {matchingStatus && matchingStatus !== 'ready' && (
+              <MatchingProgressBanner
+                initialStatus={matchingStatus}
+                initialMatchCount={initialMatchCount}
+              />
+            )}
             <DashboardAiWrapper
               onboardingCompleted={user.onboardingCompleted}
               userUfs={user.ufsInteresse}
