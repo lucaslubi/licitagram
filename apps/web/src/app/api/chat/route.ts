@@ -9,8 +9,7 @@ import OpenAI from 'openai'
 // Primary: Gemini 2.5 Flash Preview via OpenRouter (1M token context)
 // Fallback: DeepSeek V3 (64K context, if OpenRouter fails)
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || ''
-const DEEPSEEK_API_KEY = process.env.GROQ_API_KEY || ''
-const DEEPSEEK_BASE_URL = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com'
+const GROQ_API_KEY = process.env.GROQ_API_KEY || ''
 
 const openrouter = new OpenAI({
   apiKey: OPENROUTER_API_KEY,
@@ -21,9 +20,9 @@ const openrouter = new OpenAI({
   },
 })
 
-const deepseek = new OpenAI({
+const groq = new OpenAI({
   apiKey: GROQ_API_KEY,
-  baseURL: DEEPSEEK_BASE_URL,
+  baseURL: 'https://api.groq.com/openai/v1',
 })
 
 // DeepSeek fallback limit: ~64K tokens ≈ ~150K chars
@@ -554,7 +553,7 @@ ${context}`
   try {
     console.log(`[Chat] Using DeepSeek V3 fallback — ${dsContext.length} chars context`)
 
-    const completion = await deepseek.chat.completions.create({
+    const completion = await groq.chat.completions.create({
       model: 'qwen-qwq-32b',
       messages: dsMessages,
       max_tokens: 8192,

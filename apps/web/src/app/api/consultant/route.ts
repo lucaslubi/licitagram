@@ -8,8 +8,7 @@ import OpenAI from 'openai'
 // Primary: Gemini 2.5 Flash Preview via OpenRouter (1M token context)
 // Fallback: DeepSeek V3 (64K context, if OpenRouter fails)
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || ''
-const DEEPSEEK_API_KEY = process.env.GROQ_API_KEY || ''
-const DEEPSEEK_BASE_URL = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com'
+const GROQ_API_KEY = process.env.GROQ_API_KEY || ''
 
 const openrouter = new OpenAI({
   apiKey: OPENROUTER_API_KEY,
@@ -20,13 +19,13 @@ const openrouter = new OpenAI({
   },
 })
 
-const deepseek = new OpenAI({
+const groq = new OpenAI({
   apiKey: GROQ_API_KEY,
-  baseURL: DEEPSEEK_BASE_URL,
+  baseURL: 'https://api.groq.com/openai/v1',
 })
 
-// DeepSeek fallback limit: ~64K tokens ≈ ~150K chars
-const DEEPSEEK_MAX_CONTEXT = 150_000
+// Groq fallback limit: ~32K tokens ≈ ~80K chars
+const GROQ_MAX_CONTEXT = 80_000
 
 function smartTruncate(text: string, maxChars: number): string {
   if (text.length <= maxChars) return text
@@ -188,8 +187,8 @@ export async function POST(request: NextRequest) {
   }
 
   // Truncate system prompt for DeepSeek's 64K limit
-  const wasTruncated = systemPrompt.length > DEEPSEEK_MAX_CONTEXT
-  const dsSystemPrompt = wasTruncated ? smartTruncate(systemPrompt, DEEPSEEK_MAX_CONTEXT) : systemPrompt
+  const wasTruncated = systemPrompt.length > GROQ_MAX_CONTEXT
+  const dsSystemPrompt = wasTruncated ? smartTruncate(systemPrompt, GROQ_MAX_CONTEXT) : systemPrompt
 
   if (wasTruncated) {
     console.log(`[Consultant] DeepSeek fallback — prompt truncated: ${systemPrompt.length} → ${dsSystemPrompt.length} chars`)
@@ -211,7 +210,7 @@ export async function POST(request: NextRequest) {
   try {
     console.log(`[Consultant] Using DeepSeek V3 fallback — ${dsSystemPrompt.length} chars prompt`)
 
-    const completion = await deepseek.chat.completions.create({
+    const completion = await groq.chat.completions.create({
       model: 'qwen-qwq-32b',
       messages: dsMessages,
       max_tokens: 2048,
