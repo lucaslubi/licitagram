@@ -118,9 +118,37 @@ export async function lookupCNPJ(cnpj: string) {
     return { error: 'CNPJ deve ter 14 dígitos' }
   }
 
+  // Try BrasilAPI first (more reliable from serverless)
+  try {
+    const brasilRes = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${clean}`, {
+      signal: AbortSignal.timeout(10000),
+    })
+    if (brasilRes.ok) {
+      const d = await brasilRes.json()
+      return {
+        data: {
+          nome: d.razao_social,
+          fantasia: d.nome_fantasia,
+          uf: d.uf,
+          municipio: d.municipio,
+          porte: d.porte,
+          atividade_principal: d.cnae_fiscal
+            ? [{ code: String(d.cnae_fiscal), text: d.cnae_fiscal_descricao }]
+            : [],
+          atividades_secundarias: (d.cnaes_secundarios || []).map((c: { codigo: number; descricao: string }) => ({
+            code: String(c.codigo),
+            text: c.descricao,
+          })),
+        },
+      }
+    }
+  } catch { /* fallback below */ }
+
+  // Fallback to ReceitaWS
   try {
     const res = await fetch(`https://receitaws.com.br/v1/cnpj/${clean}`, {
       headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(10000),
     })
     const data = await res.json()
 
