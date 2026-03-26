@@ -37,39 +37,39 @@ export default async function AdminUsersPage({
           <option value="user">User</option>
           <option value="viewer">Viewer</option>
         </select>
-        <button type="submit" className="px-4 py-2 bg-gray-900 text-white rounded-md text-sm">
+        <button type="submit" className="px-4 py-2 bg-brand text-white rounded-md text-sm">
           Filtrar
         </button>
       </form>
 
-      <div className="bg-white rounded-lg border overflow-x-auto">
+      <div className="bg-[#1a1c1f] rounded-lg border overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b">
+          <thead className="bg-[#1a1c1f] border-b">
             <tr>
-              <th className="text-left px-4 py-3 font-medium text-gray-500">Nome</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-500 hidden sm:table-cell">Email</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-500">Status</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Admin</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Cadastro</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-500">Ações</th>
+              <th className="text-left px-4 py-3 font-medium text-gray-400">Nome</th>
+              <th className="text-left px-4 py-3 font-medium text-gray-400 hidden sm:table-cell">Email</th>
+              <th className="text-left px-4 py-3 font-medium text-gray-400">Status</th>
+              <th className="text-left px-4 py-3 font-medium text-gray-400 hidden md:table-cell">Admin</th>
+              <th className="text-left px-4 py-3 font-medium text-gray-400 hidden md:table-cell">Cadastro</th>
+              <th className="text-left px-4 py-3 font-medium text-gray-400">Ações</th>
             </tr>
           </thead>
           <tbody>
             {result.users.map((user: any) => (
-              <tr key={user.id} className="border-b hover:bg-gray-50">
+              <tr key={user.id} className="border-b hover:bg-[#2d2f33]">
                 <td className="px-4 py-3 font-medium">{user.full_name || '—'}</td>
-                <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">{user.email || '—'}</td>
+                <td className="px-4 py-3 text-gray-400 hidden sm:table-cell">{user.email || '—'}</td>
                 <td className="px-4 py-3">
                   <Badge variant="outline" className={
-                    user.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
+                    user.is_active ? 'bg-emerald-900/20 text-emerald-400' : 'bg-red-900/20 text-red-400'
                   }>
                     {user.is_active ? 'Ativo' : 'Inativo'}
                   </Badge>
                 </td>
                 <td className="px-4 py-3 hidden md:table-cell">
-                  {user.is_platform_admin && <Badge className="bg-amber-100 text-amber-800 border-amber-200" variant="outline">Admin</Badge>}
+                  {user.is_platform_admin && <Badge className="bg-amber-900/20 text-amber-400 border-amber-800" variant="outline">Admin</Badge>}
                 </td>
-                <td className="px-4 py-3 text-gray-500 hidden md:table-cell">
+                <td className="px-4 py-3 text-gray-400 hidden md:table-cell">
                   {new Date(user.created_at).toLocaleDateString('pt-BR')}
                 </td>
                 <td className="px-4 py-3">
@@ -85,13 +85,13 @@ export default async function AdminUsersPage({
       </div>
 
       <div className="flex justify-between items-center mt-4">
-        <p className="text-sm text-gray-500">{result.count} usuários · Página {page} de {result.totalPages || 1}</p>
+        <p className="text-sm text-gray-400">{result.count} usuários · Página {page} de {result.totalPages || 1}</p>
         <div className="flex gap-2">
           {page > 1 && (
-            <Link href={`/admin/users?page=${page - 1}&search=${params.search || ''}&role=${params.role || ''}`} className="px-3 py-1.5 border rounded text-sm hover:bg-gray-50">Anterior</Link>
+            <Link href={`/admin/users?page=${page - 1}&search=${params.search || ''}&role=${params.role || ''}`} className="px-3 py-1.5 border rounded text-sm hover:bg-[#2d2f33]">Anterior</Link>
           )}
           {page < result.totalPages && (
-            <Link href={`/admin/users?page=${page + 1}&search=${params.search || ''}&role=${params.role || ''}`} className="px-3 py-1.5 border rounded text-sm hover:bg-gray-50">Próxima</Link>
+            <Link href={`/admin/users?page=${page + 1}&search=${params.search || ''}&role=${params.role || ''}`} className="px-3 py-1.5 border rounded text-sm hover:bg-[#2d2f33]">Próxima</Link>
           )}
         </div>
       </div>

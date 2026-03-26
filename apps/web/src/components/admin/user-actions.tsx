@@ -37,7 +37,7 @@ export function UserActions({ user }: { user: any }) {
         value={user.role}
         onChange={(e) => handleRoleChange(e.target.value)}
         disabled={isPending}
-        className="px-1.5 py-1 border rounded text-xs bg-white"
+        className="px-1.5 py-1 border rounded text-xs bg-[#23262a]"
       >
         <option value="admin">admin</option>
         <option value="user">user</option>
@@ -49,8 +49,8 @@ export function UserActions({ user }: { user: any }) {
         disabled={isPending}
         className={`px-2 py-1 rounded text-xs ${
           user.is_active
-            ? 'bg-red-50 text-red-700 hover:bg-red-100'
-            : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+            ? 'bg-red-900/20 text-red-400 hover:bg-red-900/30'
+            : 'bg-emerald-900/20 text-emerald-400 hover:bg-emerald-900/30'
         }`}
       >
         {user.is_active ? 'Desativar' : 'Ativar'}
@@ -60,7 +60,7 @@ export function UserActions({ user }: { user: any }) {
         <button
           onClick={() => setConfirmDelete(true)}
           disabled={isPending}
-          className="px-2 py-1 rounded text-xs text-red-600 hover:bg-red-50"
+          className="px-2 py-1 rounded text-xs text-red-400 hover:bg-red-900/20"
         >
           Excluir
         </button>
@@ -75,7 +75,7 @@ export function UserActions({ user }: { user: any }) {
           </button>
           <button
             onClick={() => setConfirmDelete(false)}
-            className="px-2 py-1 rounded text-xs border hover:bg-gray-50"
+            className="px-2 py-1 rounded text-xs border hover:bg-[#2d2f33]"
           >
             ×
           </button>

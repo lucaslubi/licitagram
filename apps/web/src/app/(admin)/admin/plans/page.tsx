@@ -10,7 +10,7 @@ export default async function AdminPlansPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Planos</h1>
-        <p className="text-sm text-gray-500">{plans.length} plano(s)</p>
+        <p className="text-sm text-gray-400">{plans.length} plano(s)</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

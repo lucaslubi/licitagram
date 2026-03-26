@@ -52,28 +52,28 @@ function AlertBanner({ alerts }: { alerts: SystemHealth['alerts'] }) {
   return (
     <div className="space-y-2">
       {criticals.map((a, i) => (
-        <div key={`c-${i}`} className="bg-red-50 border border-red-300 rounded-lg p-4">
+        <div key={`c-${i}`} className="bg-red-900/20 border border-red-800 rounded-lg p-4">
           <div className="flex items-center gap-2">
             <span className="text-lg">🚨</span>
-            <span className="text-red-800 font-semibold">{a.message}</span>
+            <span className="text-red-400 font-semibold">{a.message}</span>
           </div>
-          {a.detail && <p className="text-red-600 text-sm mt-1 ml-7">{a.detail}</p>}
+          {a.detail && <p className="text-red-400 text-sm mt-1 ml-7">{a.detail}</p>}
         </div>
       ))}
       {warnings.map((a, i) => (
-        <div key={`w-${i}`} className="bg-amber-50 border border-amber-300 rounded-lg p-3">
+        <div key={`w-${i}`} className="bg-amber-900/20 border border-amber-800 rounded-lg p-3">
           <div className="flex items-center gap-2">
             <span>⚠️</span>
-            <span className="text-amber-800 text-sm font-medium">{a.message}</span>
+            <span className="text-amber-400 text-sm font-medium">{a.message}</span>
           </div>
-          {a.detail && <p className="text-amber-600 text-xs mt-1 ml-7">{a.detail}</p>}
+          {a.detail && <p className="text-amber-400 text-xs mt-1 ml-7">{a.detail}</p>}
         </div>
       ))}
       {infos.map((a, i) => (
-        <div key={`i-${i}`} className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+        <div key={`i-${i}`} className="bg-blue-900/20 border border-blue-800 rounded-lg p-3">
           <div className="flex items-center gap-2">
             <span>ℹ️</span>
-            <span className="text-blue-800 text-sm">{a.message}</span>
+            <span className="text-blue-400 text-sm">{a.message}</span>
           </div>
         </div>
       ))}
@@ -88,13 +88,13 @@ function MetricCard({ title, value, sub, icon, status }: {
     <Card>
       <CardContent className="pt-5 pb-4">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-gray-500 text-xs font-medium uppercase tracking-wide">{title}</span>
+          <span className="text-gray-400 text-xs font-medium uppercase tracking-wide">{title}</span>
           <div className="flex items-center gap-2">
             {status && <StatusDot status={status} />}
             <span className="text-lg">{icon}</span>
           </div>
         </div>
-        <p className="text-2xl font-bold text-gray-900 font-mono">{typeof value === 'number' ? formatNumber(value) : value}</p>
+        <p className="text-2xl font-bold text-white font-mono">{typeof value === 'number' ? formatNumber(value) : value}</p>
         {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
       </CardContent>
     </Card>
@@ -107,10 +107,10 @@ function ProgressBar({ label, value, max, unit }: { label: string; value: number
   return (
     <div className="space-y-1">
       <div className="flex justify-between text-xs">
-        <span className="text-gray-500">{label}</span>
-        <span className="text-gray-700 font-mono">{formatNumber(value)} / {formatNumber(max)} {unit || ''}</span>
+        <span className="text-gray-400">{label}</span>
+        <span className="text-gray-300 font-mono">{formatNumber(value)} / {formatNumber(max)} {unit || ''}</span>
       </div>
-      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+      <div className="h-2 bg-[#2d2f33] rounded-full overflow-hidden">
         <div className={`h-full ${color} rounded-full transition-all duration-500`} style={{ width: `${pct}%` }} />
       </div>
     </div>
@@ -119,13 +119,13 @@ function ProgressBar({ label, value, max, unit }: { label: string; value: number
 
 function SourcePill({ source, count }: { source: string; count: number }) {
   const colors: Record<string, string> = {
-    ai_triage: 'bg-purple-100 text-purple-700 border-purple-300',
-    semantic: 'bg-blue-100 text-blue-700 border-blue-300',
-    keyword: 'bg-gray-100 text-gray-600 border-gray-300',
-    ai: 'bg-emerald-100 text-emerald-700 border-emerald-300',
+    ai_triage: 'bg-purple-900/20 text-purple-400 border-purple-800',
+    semantic: 'bg-blue-900/20 text-blue-400 border-blue-800',
+    keyword: 'bg-[#2d2f33] text-gray-400 border-[#2d2f33]',
+    ai: 'bg-emerald-900/20 text-emerald-400 border-emerald-800',
   }
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${colors[source] || 'bg-gray-100 text-gray-600 border-gray-300'}`}>
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${colors[source] || 'bg-[#2d2f33] text-gray-400 border-[#2d2f33]'}`}>
       {source} <span className="font-mono">{formatNumber(count)}</span>
     </span>
   )
@@ -172,8 +172,8 @@ export function SystemHealthDashboard() {
 
   if (error && !data) {
     return (
-      <div className="bg-red-50 border border-red-300 rounded-lg p-6 text-center">
-        <p className="text-red-600">Erro ao carregar dados: {error}</p>
+      <div className="bg-red-900/20 border border-red-800 rounded-lg p-6 text-center">
+        <p className="text-red-400">Erro ao carregar dados: {error}</p>
         <button onClick={fetchHealth} className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-500">
           Tentar novamente
         </button>
@@ -191,8 +191,8 @@ export function SystemHealthDashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">System Health</h1>
-          <p className="text-gray-500 text-sm">
+          <h1 className="text-2xl font-bold text-white">System Health</h1>
+          <p className="text-gray-400 text-sm">
             Monitoramento em tempo real &middot; Auto-refresh 60s
             {lastRefresh && (
               <span className="ml-2 text-gray-400">
@@ -204,7 +204,7 @@ export function SystemHealthDashboard() {
         <button
           onClick={fetchHealth}
           disabled={loading}
-          className="px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 rounded-lg text-sm border border-gray-300 disabled:opacity-50 shadow-sm"
+          className="px-4 py-2 bg-[#23262a] hover:bg-[#2d2f33] text-gray-300 rounded-lg text-sm border border-[#2d2f33] disabled:opacity-50 shadow-sm"
         >
           {loading ? 'Atualizando...' : 'Atualizar'}
         </button>
@@ -271,41 +271,41 @@ export function SystemHealthDashboard() {
             <CardTitle className="text-base">Infraestrutura</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            <div className="flex items-center justify-between p-3 bg-[#1a1c1f] rounded-lg">
               <div className="flex items-center gap-3">
                 <StatusDot status="ok" />
                 <div>
-                  <p className="text-sm font-medium text-gray-900">Supabase</p>
-                  <p className="text-xs text-gray-500">{infra.supabase.plan}</p>
+                  <p className="text-sm font-medium text-white">Supabase</p>
+                  <p className="text-xs text-gray-400">{infra.supabase.plan}</p>
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-xs text-gray-600">{infra.supabase.ram} RAM</p>
+                <p className="text-xs text-gray-400">{infra.supabase.ram} RAM</p>
                 <p className="text-xs text-gray-400">{infra.supabase.cpu}</p>
               </div>
             </div>
 
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            <div className="flex items-center justify-between p-3 bg-[#1a1c1f] rounded-lg">
               <div className="flex items-center gap-3">
                 <StatusDot status="ok" />
                 <div>
-                  <p className="text-sm font-medium text-gray-900">VPS ({infra.vps.provider})</p>
-                  <p className="text-xs text-gray-500">{infra.vps.workers} workers PM2</p>
+                  <p className="text-sm font-medium text-white">VPS ({infra.vps.provider})</p>
+                  <p className="text-xs text-gray-400">{infra.vps.workers} workers PM2</p>
                 </div>
               </div>
-              <p className="text-xs text-gray-600">{infra.vps.ram} RAM</p>
+              <p className="text-xs text-gray-400">{infra.vps.ram} RAM</p>
             </div>
 
             {infra.redis && (
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-between p-3 bg-[#1a1c1f] rounded-lg">
                 <div className="flex items-center gap-3">
                   <StatusDot status={infra.redis.status === 'connected' ? 'ok' : 'error'} />
                   <div>
-                    <p className="text-sm font-medium text-gray-900">Redis ({infra.redis.provider})</p>
+                    <p className="text-sm font-medium text-white">Redis ({infra.redis.provider})</p>
                     <p className="text-xs text-gray-400 font-mono">{infra.redis.host || ''}</p>
                   </div>
                 </div>
-                <span className={`text-xs px-2 py-0.5 rounded ${infra.redis.status === 'connected' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                <span className={`text-xs px-2 py-0.5 rounded ${infra.redis.status === 'connected' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-900/20 text-red-400'}`}>
                   {infra.redis.status}
                 </span>
               </div>
@@ -315,9 +315,9 @@ export function SystemHealthDashboard() {
               <p className="text-xs text-gray-400 mb-2">Assinaturas por plano:</p>
               <div className="grid grid-cols-2 gap-2">
                 {Object.entries(data.subscriptions.byPlan).map(([plan, count]) => (
-                  <div key={plan} className="flex items-center justify-between bg-gray-50 rounded px-2.5 py-1.5">
-                    <span className="text-xs text-gray-500 capitalize">{plan}</span>
-                    <span className="text-xs font-mono text-gray-900 font-bold">{count}</span>
+                  <div key={plan} className="flex items-center justify-between bg-[#1a1c1f] rounded px-2.5 py-1.5">
+                    <span className="text-xs text-gray-400 capitalize">{plan}</span>
+                    <span className="text-xs font-mono text-white font-bold">{count}</span>
                   </div>
                 ))}
               </div>
@@ -341,10 +341,10 @@ export function SystemHealthDashboard() {
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {['scraping', 'extraction', 'matching', 'alerts', 'telegram', 'whatsapp', 'queue-metrics'].map(name => (
-              <div key={name} className="flex items-center gap-2 p-2.5 bg-gray-50 rounded-lg">
+              <div key={name} className="flex items-center gap-2 p-2.5 bg-[#1a1c1f] rounded-lg">
                 <StatusDot status="ok" />
                 <div>
-                  <p className="text-xs font-medium text-gray-900">worker-{name}</p>
+                  <p className="text-xs font-medium text-white">worker-{name}</p>
                   <p className="text-xs text-gray-400">online</p>
                 </div>
               </div>

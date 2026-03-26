@@ -95,10 +95,10 @@ function statusColor(status: string): string {
 }
 
 function statusBadgeClasses(status: string): string {
-  if (status === 'online') return 'bg-emerald-100 text-emerald-700 border-emerald-300'
-  if (status === 'errored' || status === 'error') return 'bg-red-100 text-red-700 border-red-300'
-  if (status === 'stopped') return 'bg-gray-100 text-gray-600 border-gray-300'
-  return 'bg-yellow-100 text-yellow-700 border-yellow-300'
+  if (status === 'online') return 'bg-emerald-900/20 text-emerald-400 border-emerald-800'
+  if (status === 'errored' || status === 'error') return 'bg-red-900/20 text-red-400 border-red-800'
+  if (status === 'stopped') return 'bg-[#2d2f33] text-gray-400 border-[#2d2f33]'
+  return 'bg-yellow-900/20 text-yellow-400 border-yellow-800'
 }
 
 function mbToGb(mb: number): number {
@@ -369,7 +369,7 @@ function QueueEcgSparkline({ data, width = 200, height = 32 }: {
 function MiniBar({ value, max, color = 'bg-blue-500' }: { value: number; max: number; color?: string }) {
   const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0
   return (
-    <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
+    <div className="h-1.5 w-full bg-[#2d2f33] rounded-full overflow-hidden">
       <div
         className={`h-full rounded-full transition-all duration-500 ${color}`}
         style={{ width: `${pct}%` }}
@@ -386,14 +386,14 @@ function GaugeBar({ label, value, max, unit, color }: {
   return (
     <div className="space-y-1.5">
       <div className="flex justify-between text-xs">
-        <span className="text-gray-500">{label}</span>
-        <span className="text-gray-700 font-mono">
+        <span className="text-gray-400">{label}</span>
+        <span className="text-gray-300 font-mono">
           {typeof value === 'number' ? value.toFixed(1) : value} / {typeof max === 'number' ? max.toFixed(1) : max}{' '}
           {unit || ''}
           <span className="text-gray-400 ml-1">({pct.toFixed(0)}%)</span>
         </span>
       </div>
-      <div className="h-2.5 bg-gray-200 rounded-full overflow-hidden">
+      <div className="h-2.5 bg-[#2d2f33] rounded-full overflow-hidden">
         <div className={`h-full rounded-full transition-all duration-700 ${barColor}`} style={{ width: `${pct}%` }} />
       </div>
     </div>
@@ -453,7 +453,7 @@ function MiniLineChart({ data, lines, height = 120 }: {
  * ════════════════════════════════════════════════════════════════════════════ */
 
 function Skeleton({ className = '' }: { className?: string }) {
-  return <div className={`animate-pulse bg-gray-200 rounded ${className}`} />
+  return <div className={`animate-pulse bg-[#2d2f33] rounded ${className}`} />
 }
 
 function DashboardSkeleton() {
@@ -462,7 +462,7 @@ function DashboardSkeleton() {
       <Skeleton className="h-8 w-64" />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="bg-white rounded-xl p-5 border border-gray-200">
+          <div key={i} className="bg-[#23262a] rounded-xl p-5 border border-[#2d2f33]">
             <Skeleton className="h-4 w-24 mb-3" />
             <Skeleton className="h-8 w-16 mb-2" />
             <Skeleton className="h-3 w-32" />
@@ -471,7 +471,7 @@ function DashboardSkeleton() {
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {Array.from({ length: 7 }).map((_, i) => (
-          <div key={i} className="bg-white rounded-xl p-4 border border-gray-200">
+          <div key={i} className="bg-[#23262a] rounded-xl p-4 border border-[#2d2f33]">
             <Skeleton className="h-4 w-28 mb-2" />
             <Skeleton className="h-3 w-20 mb-2" />
             <Skeleton className="h-1.5 w-full" />
@@ -489,14 +489,14 @@ function DashboardSkeleton() {
 function SummaryCard({ title, value, status, icon, bar }: {
   title: string; value: string; status: 'ok' | 'warning' | 'error'; icon: React.ReactNode; bar?: { value: number; max: number }
 }) {
-  const borderColor = status === 'ok' ? 'border-emerald-200' : status === 'warning' ? 'border-amber-200' : 'border-red-200'
+  const borderColor = status === 'ok' ? 'border-emerald-800' : status === 'warning' ? 'border-amber-800' : 'border-red-800'
   const dotColor = status === 'ok' ? 'bg-emerald-500' : status === 'warning' ? 'bg-amber-500' : 'bg-red-500'
-  const iconColor = status === 'ok' ? 'text-emerald-600' : status === 'warning' ? 'text-amber-600' : 'text-red-600'
+  const iconColor = status === 'ok' ? 'text-emerald-600' : status === 'warning' ? 'text-amber-400' : 'text-red-400'
 
   return (
-    <div className={`bg-white rounded-xl border ${borderColor} p-4 sm:p-5`}>
+    <div className={`bg-[#23262a] rounded-xl border ${borderColor} p-4 sm:p-5`}>
       <div className="flex items-center justify-between mb-2">
-        <span className="text-gray-500 text-xs font-medium uppercase tracking-wide">{title}</span>
+        <span className="text-gray-400 text-xs font-medium uppercase tracking-wide">{title}</span>
         <div className="flex items-center gap-2">
           <span className="relative flex h-2.5 w-2.5">
             {status === 'ok' && <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${dotColor} opacity-75`} />}
@@ -505,7 +505,7 @@ function SummaryCard({ title, value, status, icon, bar }: {
           <span className={iconColor}>{icon}</span>
         </div>
       </div>
-      <p className="text-xl sm:text-2xl font-bold text-gray-900 font-mono">{value}</p>
+      <p className="text-xl sm:text-2xl font-bold text-white font-mono">{value}</p>
       {bar && (
         <div className="mt-2">
           <MiniBar value={bar.value} max={bar.max} color={bar.max > 0 && bar.value / bar.max > 0.9 ? 'bg-red-500' : bar.max > 0 && bar.value / bar.max > 0.7 ? 'bg-amber-500' : 'bg-emerald-500'} />
@@ -627,10 +627,10 @@ export function MonitoringDashboard() {
 
   if (error && !data) {
     return (
-      <div className="bg-red-50 border border-red-300 rounded-xl p-6 text-center max-w-lg mx-auto mt-12">
-        <p className="text-red-600 mb-3">Erro ao carregar monitoramento</p>
+      <div className="bg-red-900/20 border border-red-800 rounded-xl p-6 text-center max-w-lg mx-auto mt-12">
+        <p className="text-red-400 mb-3">Erro ao carregar monitoramento</p>
         <p className="text-red-400 text-sm mb-4">{error}</p>
-        <button onClick={fetchData} className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-500">
+        <button onClick={fetchData} className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700">
           Tentar novamente
         </button>
       </div>
@@ -692,8 +692,8 @@ export function MonitoringDashboard() {
       {/* ─── Header ─────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Monitoramento</h1>
-          <p className="text-gray-500 text-sm">
+          <h1 className="text-2xl font-bold text-white">Monitoramento</h1>
+          <p className="text-gray-400 text-sm">
             Tempo real &middot; Atualiza a cada 5s
             {lastRefresh && (
               <span className="ml-2 text-gray-400">
@@ -714,7 +714,7 @@ export function MonitoringDashboard() {
           <button
             onClick={() => { fetchData(); fetchHistory() }}
             disabled={loading}
-            className="px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 rounded-lg text-sm border border-gray-300 disabled:opacity-50 shadow-sm transition-colors"
+            className="px-4 py-2 bg-[#23262a] hover:bg-[#2d2f33] text-gray-300 rounded-lg text-sm border border-[#2d2f33] disabled:opacity-50 shadow-sm transition-colors"
           >
             {loading ? 'Atualizando...' : 'Atualizar'}
           </button>
@@ -725,33 +725,33 @@ export function MonitoringDashboard() {
       {alerts.length > 0 && (
         <div className="space-y-2">
           {alerts.filter((a) => a.level === 'critical').map((a, i) => (
-            <div key={`c-${i}`} className="bg-red-50 border border-red-300 rounded-lg p-3 flex items-start gap-2">
+            <div key={`c-${i}`} className="bg-red-900/20 border border-red-800 rounded-lg p-3 flex items-start gap-2">
               <span className="text-red-500 mt-0.5 shrink-0">
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" /></svg>
               </span>
               <div>
-                <p className="text-red-800 text-sm font-medium">{a.message}</p>
-                {a.detail && <p className="text-red-600 text-xs mt-0.5">{a.detail}</p>}
+                <p className="text-red-400 text-sm font-medium">{a.message}</p>
+                {a.detail && <p className="text-red-400 text-xs mt-0.5">{a.detail}</p>}
               </div>
             </div>
           ))}
           {alerts.filter((a) => a.level === 'warning').map((a, i) => (
-            <div key={`w-${i}`} className="bg-amber-50 border border-amber-300 rounded-lg p-3 flex items-start gap-2">
+            <div key={`w-${i}`} className="bg-amber-900/20 border border-amber-800 rounded-lg p-3 flex items-start gap-2">
               <span className="text-amber-500 mt-0.5 shrink-0">
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" /></svg>
               </span>
               <div>
-                <p className="text-amber-800 text-sm font-medium">{a.message}</p>
-                {a.detail && <p className="text-amber-600 text-xs mt-0.5">{a.detail}</p>}
+                <p className="text-amber-400 text-sm font-medium">{a.message}</p>
+                {a.detail && <p className="text-amber-400 text-xs mt-0.5">{a.detail}</p>}
               </div>
             </div>
           ))}
           {alerts.filter((a) => a.level === 'info').map((a, i) => (
-            <div key={`i-${i}`} className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start gap-2">
+            <div key={`i-${i}`} className="bg-blue-900/20 border border-blue-800 rounded-lg p-3 flex items-start gap-2">
               <span className="text-blue-500 mt-0.5 shrink-0">
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" /></svg>
               </span>
-              <p className="text-blue-800 text-sm">{a.message}</p>
+              <p className="text-blue-400 text-sm">{a.message}</p>
             </div>
           ))}
         </div>
@@ -788,7 +788,7 @@ export function MonitoringDashboard() {
 
       {/* ─── 2. Workers Section ──────────────────────────────────────── */}
       <section>
-        <h2 className="text-lg font-semibold text-gray-800 mb-3">Workers PM2</h2>
+        <h2 className="text-lg font-semibold text-white mb-3">Workers PM2</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {workers.map((w) => {
             const sparkData = workerSparkHistory[w.name] || []
@@ -796,18 +796,18 @@ export function MonitoringDashboard() {
             const cpuLine = sparkData.map((p) => p.cpu)
 
             return (
-              <div key={w.name} className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow">
+              <div key={w.name} className="bg-[#23262a] rounded-xl border border-[#2d2f33] p-4 hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <span className="relative flex h-2.5 w-2.5">
                       {w.status === 'online' && <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${statusColor(w.status)} opacity-75`} />}
                       <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${statusColor(w.status)}`} />
                     </span>
-                    <span className="text-sm font-medium text-gray-900 truncate">{w.name}</span>
+                    <span className="text-sm font-medium text-white truncate">{w.name}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     {w.restarts > 5 && (
-                      <span className="text-[10px] px-1.5 py-0.5 bg-red-100 text-red-700 rounded-full font-mono">{w.restarts}x</span>
+                      <span className="text-[10px] px-1.5 py-0.5 bg-red-900/20 text-red-400 rounded-full font-mono">{w.restarts}x</span>
                     )}
                     <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${statusBadgeClasses(w.status)}`}>{w.status}</span>
                   </div>
@@ -828,39 +828,39 @@ export function MonitoringDashboard() {
 
                 <div className="space-y-2 text-xs">
                   <div>
-                    <div className="flex justify-between text-gray-500 mb-0.5">
+                    <div className="flex justify-between text-gray-400 mb-0.5">
                       <span>Memoria</span>
-                      <span className="font-mono text-gray-700">{w.memory > 0 ? `${w.memory.toFixed(0)} MB` : '\u2014'}</span>
+                      <span className="font-mono text-gray-300">{w.memory > 0 ? `${w.memory.toFixed(0)} MB` : '\u2014'}</span>
                     </div>
                     <MiniBar value={w.memory} max={512} color="bg-blue-500" />
                   </div>
                   <div>
-                    <div className="flex justify-between text-gray-500 mb-0.5">
+                    <div className="flex justify-between text-gray-400 mb-0.5">
                       <span>CPU</span>
-                      <span className="font-mono text-gray-700">{w.cpu > 0 ? `${w.cpu.toFixed(1)}%` : '\u2014'}</span>
+                      <span className="font-mono text-gray-300">{w.cpu > 0 ? `${w.cpu.toFixed(1)}%` : '\u2014'}</span>
                     </div>
                     <MiniBar value={w.cpu} max={100} color="bg-purple-500" />
                   </div>
-                  <div className="flex justify-between text-gray-500 pt-1">
+                  <div className="flex justify-between text-gray-400 pt-1">
                     <span>Uptime</span>
-                    <span className="font-mono text-gray-700">{w.uptime || '\u2014'}</span>
+                    <span className="font-mono text-gray-300">{w.uptime || '\u2014'}</span>
                   </div>
                   {w.pid > 0 && (
-                    <div className="flex justify-between text-gray-500">
+                    <div className="flex justify-between text-gray-400">
                       <span>PID</span>
-                      <span className="font-mono text-gray-700">{w.pid}</span>
+                      <span className="font-mono text-gray-300">{w.pid}</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-gray-500">
+                  <div className="flex justify-between text-gray-400">
                     <span>Restarts</span>
-                    <span className={`font-mono ${w.restarts > 5 ? 'text-red-600 font-bold' : 'text-gray-700'}`}>{w.restarts}</span>
+                    <span className={`font-mono ${w.restarts > 5 ? 'text-red-400 font-bold' : 'text-gray-300'}`}>{w.restarts}</span>
                   </div>
                 </div>
 
                 <button
                   onClick={() => handleAction('restart_worker', w.name)}
                   disabled={actionLoading === `restart_worker:${w.name}`}
-                  className="mt-3 w-full text-xs py-1.5 px-3 bg-gray-50 hover:bg-red-50 text-gray-600 hover:text-red-700 rounded-lg border border-gray-200 hover:border-red-300 transition-colors disabled:opacity-50"
+                  className="mt-3 w-full text-xs py-1.5 px-3 bg-[#1a1c1f] hover:bg-red-900/20 text-gray-400 hover:text-red-400 rounded-lg border border-[#2d2f33] hover:border-red-800 transition-colors disabled:opacity-50"
                 >
                   {actionLoading === `restart_worker:${w.name}` ? 'Reiniciando...' : 'Forcar Restart'}
                 </button>
@@ -872,7 +872,7 @@ export function MonitoringDashboard() {
 
       {/* ─── 3. Queue Charts Section ─────────────────────────────────── */}
       <section>
-        <h2 className="text-lg font-semibold text-gray-800 mb-3">Filas (Ultimas 24h)</h2>
+        <h2 className="text-lg font-semibold text-white mb-3">Filas (Ultimas 24h)</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {chartQueues.map((qName) => {
             const queueData = queues[qName]
@@ -880,13 +880,13 @@ export function MonitoringDashboard() {
             const qSparkData = (queueSparkHistory[qName] || []).map((p) => p.waiting)
 
             return (
-              <div key={qName} className="bg-white rounded-xl border border-gray-200 p-4">
+              <div key={qName} className="bg-[#23262a] rounded-xl border border-[#2d2f33] p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-semibold text-gray-800">{qName}</h3>
+                  <h3 className="text-sm font-semibold text-white">{qName}</h3>
                   <button
                     onClick={() => handleAction('drain_queue', qName)}
                     disabled={actionLoading === `drain_queue:${qName}`}
-                    className="text-[10px] py-1 px-2 bg-gray-50 hover:bg-amber-50 text-gray-500 hover:text-amber-700 rounded border border-gray-200 hover:border-amber-300 transition-colors disabled:opacity-50"
+                    className="text-[10px] py-1 px-2 bg-[#1a1c1f] hover:bg-amber-900/20 text-gray-400 hover:text-amber-400 rounded border border-[#2d2f33] hover:border-amber-800 transition-colors disabled:opacity-50"
                   >
                     {actionLoading === `drain_queue:${qName}` ? '...' : 'Limpar Fila'}
                   </button>
@@ -897,7 +897,7 @@ export function MonitoringDashboard() {
                   <QueueEcgSparkline data={qSparkData} width={200} height={32} />
                 </div>
 
-                <div className="bg-gray-50 rounded-lg p-1 mb-3">
+                <div className="bg-[#1a1c1f] rounded-lg p-1 mb-3">
                   <MiniLineChart
                     data={chartData}
                     lines={[
@@ -909,7 +909,7 @@ export function MonitoringDashboard() {
                   />
                 </div>
 
-                <div className="flex items-center gap-3 mb-2 text-[10px] text-gray-500">
+                <div className="flex items-center gap-3 mb-2 text-[10px] text-gray-400">
                   <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500" /> Aguardando</span>
                   <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500" /> Ativo</span>
                   <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" /> Falhas</span>
@@ -919,7 +919,7 @@ export function MonitoringDashboard() {
                   <div className="grid grid-cols-4 gap-2 text-center">
                     <div>
                       <p className="text-[10px] text-gray-400">Aguard.</p>
-                      <p className="text-sm font-bold text-amber-600 font-mono">{formatNumber(queueData.wait)}</p>
+                      <p className="text-sm font-bold text-amber-400 font-mono">{formatNumber(queueData.wait)}</p>
                     </div>
                     <div>
                       <p className="text-[10px] text-gray-400">Ativo</p>
@@ -931,7 +931,7 @@ export function MonitoringDashboard() {
                     </div>
                     <div>
                       <p className="text-[10px] text-gray-400">Falhas</p>
-                      <p className="text-sm font-bold text-red-600 font-mono">{formatNumber(queueData.failed)}</p>
+                      <p className="text-sm font-bold text-red-400 font-mono">{formatNumber(queueData.failed)}</p>
                     </div>
                   </div>
                 )}
@@ -941,14 +941,14 @@ export function MonitoringDashboard() {
         </div>
 
         {/* All queues table */}
-        <div className="mt-4 bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-100">
-            <h3 className="text-sm font-semibold text-gray-800">Todas as Filas</h3>
+        <div className="mt-4 bg-[#23262a] rounded-xl border border-[#2d2f33] overflow-hidden">
+          <div className="px-4 py-3 border-b border-[#2d2f33]">
+            <h3 className="text-sm font-semibold text-white">Todas as Filas</h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="bg-gray-50 text-gray-500 border-b border-gray-100">
+                <tr className="bg-[#1a1c1f] text-gray-400 border-b border-[#2d2f33]">
                   <th className="text-left px-4 py-2 font-medium">Fila</th>
                   <th className="text-right px-3 py-2 font-medium">Aguardando</th>
                   <th className="text-right px-3 py-2 font-medium">Ativo</th>
@@ -960,22 +960,22 @@ export function MonitoringDashboard() {
               </thead>
               <tbody>
                 {queueEntries.map(([name, q]) => (
-                  <tr key={name} className="border-b border-gray-50 hover:bg-gray-50/50">
-                    <td className="px-4 py-2 font-medium text-gray-800">{name}</td>
+                  <tr key={name} className="border-b border-[#2d2f33] hover:bg-[#2d2f33]/50">
+                    <td className="px-4 py-2 font-medium text-white">{name}</td>
                     <td className="text-right px-3 py-2 font-mono">
-                      <span className={q.wait > 100 ? 'text-amber-600 font-bold' : 'text-gray-600'}>{formatNumber(q.wait)}</span>
+                      <span className={q.wait > 100 ? 'text-amber-400 font-bold' : 'text-gray-400'}>{formatNumber(q.wait)}</span>
                     </td>
                     <td className="text-right px-3 py-2 font-mono text-blue-600">{formatNumber(q.active)}</td>
-                    <td className="text-right px-3 py-2 font-mono text-gray-500">{formatNumber(q.delayed)}</td>
+                    <td className="text-right px-3 py-2 font-mono text-gray-400">{formatNumber(q.delayed)}</td>
                     <td className="text-right px-3 py-2 font-mono text-emerald-600">{formatNumber(q.completed)}</td>
                     <td className="text-right px-3 py-2 font-mono">
-                      <span className={q.failed > 0 ? 'text-red-600 font-bold' : 'text-gray-400'}>{formatNumber(q.failed)}</span>
+                      <span className={q.failed > 0 ? 'text-red-400 font-bold' : 'text-gray-400'}>{formatNumber(q.failed)}</span>
                     </td>
                     <td className="text-right px-4 py-2">
                       <button
                         onClick={() => handleAction('drain_queue', name)}
                         disabled={actionLoading === `drain_queue:${name}`}
-                        className="text-[10px] py-0.5 px-2 bg-gray-100 hover:bg-amber-100 text-gray-500 hover:text-amber-700 rounded transition-colors disabled:opacity-50"
+                        className="text-[10px] py-0.5 px-2 bg-[#2d2f33] hover:bg-amber-900/20 text-gray-400 hover:text-amber-400 rounded transition-colors disabled:opacity-50"
                       >
                         Limpar
                       </button>
@@ -990,13 +990,13 @@ export function MonitoringDashboard() {
 
       {/* ─── 4. VPS Metrics Section ──────────────────────────────────── */}
       <section>
-        <h2 className="text-lg font-semibold text-gray-800 mb-3">Metricas VPS</h2>
+        <h2 className="text-lg font-semibold text-white mb-3">Metricas VPS</h2>
         {vps ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* RAM Chart */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <h3 className="text-sm font-semibold text-gray-800 mb-2">RAM (24h)</h3>
-              <div className="bg-gray-50 rounded-lg p-1 mb-3">
+            <div className="bg-[#23262a] rounded-xl border border-[#2d2f33] p-4">
+              <h3 className="text-sm font-semibold text-white mb-2">RAM (24h)</h3>
+              <div className="bg-[#1a1c1f] rounded-lg p-1 mb-3">
                 <MiniLineChart
                   data={getVpsChartData('ram_used')}
                   lines={[{ key: 'value', color: '#3b82f6', fill: true }]}
@@ -1007,9 +1007,9 @@ export function MonitoringDashboard() {
             </div>
 
             {/* CPU Chart */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <h3 className="text-sm font-semibold text-gray-800 mb-2">CPU Load (24h)</h3>
-              <div className="bg-gray-50 rounded-lg p-1 mb-3">
+            <div className="bg-[#23262a] rounded-xl border border-[#2d2f33] p-4">
+              <h3 className="text-sm font-semibold text-white mb-2">CPU Load (24h)</h3>
+              <div className="bg-[#1a1c1f] rounded-lg p-1 mb-3">
                 <MiniLineChart
                   data={getVpsChartData('cpu_load')}
                   lines={[{ key: 'value', color: '#8b5cf6', fill: true }]}
@@ -1025,17 +1025,17 @@ export function MonitoringDashboard() {
                   color={cpuLoad > 8 ? 'bg-red-500' : cpuLoad > 4 ? 'bg-amber-500' : 'bg-purple-500'}
                 />
                 {vps.cpu_load.length >= 3 && (
-                  <div className="flex gap-4 text-xs text-gray-500">
-                    <span>5min: <span className="font-mono text-gray-700">{vps.cpu_load[1]?.toFixed(2)}</span></span>
-                    <span>15min: <span className="font-mono text-gray-700">{vps.cpu_load[2]?.toFixed(2)}</span></span>
+                  <div className="flex gap-4 text-xs text-gray-400">
+                    <span>5min: <span className="font-mono text-gray-300">{vps.cpu_load[1]?.toFixed(2)}</span></span>
+                    <span>15min: <span className="font-mono text-gray-300">{vps.cpu_load[2]?.toFixed(2)}</span></span>
                   </div>
                 )}
               </div>
             </div>
 
             {/* Disk */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4 md:col-span-2">
-              <h3 className="text-sm font-semibold text-gray-800 mb-3">Disco</h3>
+            <div className="bg-[#23262a] rounded-xl border border-[#2d2f33] p-4 md:col-span-2">
+              <h3 className="text-sm font-semibold text-white mb-3">Disco</h3>
               <GaugeBar
                 label="Uso de Disco"
                 value={vps.disk_used_pct}
@@ -1051,7 +1051,7 @@ export function MonitoringDashboard() {
             </div>
           </div>
         ) : (
-          <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 text-center">
+          <div className="bg-[#1a1c1f] border border-[#2d2f33] rounded-xl p-6 text-center">
             <p className="text-gray-400 text-sm">VPS nao acessivel — metricas indisponiveis</p>
           </div>
         )}
@@ -1059,11 +1059,11 @@ export function MonitoringDashboard() {
 
       {/* ─── 5. Database Section ─────────────────────────────────────── */}
       <section>
-        <h2 className="text-lg font-semibold text-gray-800 mb-3">Banco de Dados</h2>
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <h2 className="text-lg font-semibold text-white mb-3">Banco de Dados</h2>
+        <div className="bg-[#23262a] rounded-xl border border-[#2d2f33] overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 text-gray-500 border-b border-gray-100">
+              <tr className="bg-[#1a1c1f] text-gray-400 border-b border-[#2d2f33]">
                 <th className="text-left px-4 py-2.5 font-medium text-xs">Tabela</th>
                 <th className="text-right px-4 py-2.5 font-medium text-xs">Registros</th>
                 <th className="text-right px-4 py-2.5 font-medium text-xs">Status</th>
@@ -1071,9 +1071,9 @@ export function MonitoringDashboard() {
             </thead>
             <tbody>
               {Object.entries(database).map(([table, count]) => (
-                <tr key={table} className="border-b border-gray-50 hover:bg-gray-50/50">
-                  <td className="px-4 py-2.5 font-medium text-gray-800">{table}</td>
-                  <td className="text-right px-4 py-2.5 font-mono text-gray-700">{formatNumber(count)}</td>
+                <tr key={table} className="border-b border-[#2d2f33] hover:bg-[#2d2f33]/50">
+                  <td className="px-4 py-2.5 font-medium text-white">{table}</td>
+                  <td className="text-right px-4 py-2.5 font-mono text-gray-300">{formatNumber(count)}</td>
                   <td className="text-right px-4 py-2.5">
                     <span className="inline-flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />

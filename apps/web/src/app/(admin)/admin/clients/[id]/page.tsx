@@ -30,7 +30,7 @@ export default async function ClientDetailPage({
   return (
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-6">
-        <Link href="/admin/clients" className="text-sm text-gray-500 hover:text-gray-700">← Clientes</Link>
+        <Link href="/admin/clients" className="text-sm text-gray-400 hover:text-gray-300">← Clientes</Link>
         <h1 className="text-xl sm:text-2xl font-bold truncate">{company.razao_social || company.cnpj}</h1>
       </div>
 
@@ -39,12 +39,12 @@ export default async function ClientDetailPage({
         <Card>
           <CardHeader><CardTitle>Dados da Empresa</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <div className="flex justify-between"><span className="text-gray-500">CNPJ</span><span className="font-mono">{company.cnpj}</span></div>
-            <div className="flex justify-between"><span className="text-gray-500">Razão Social</span><span>{company.razao_social}</span></div>
-            {company.nome_fantasia && <div className="flex justify-between"><span className="text-gray-500">Nome Fantasia</span><span>{company.nome_fantasia}</span></div>}
-            <div className="flex justify-between"><span className="text-gray-500">UF</span><span>{company.uf || '—'}</span></div>
-            <div className="flex justify-between"><span className="text-gray-500">Porte</span><span>{company.porte || '—'}</span></div>
-            <div className="flex justify-between"><span className="text-gray-500">Cadastro</span><span>{new Date(company.created_at).toLocaleDateString('pt-BR')}</span></div>
+            <div className="flex justify-between"><span className="text-gray-400">CNPJ</span><span className="font-mono">{company.cnpj}</span></div>
+            <div className="flex justify-between"><span className="text-gray-400">Razão Social</span><span>{company.razao_social}</span></div>
+            {company.nome_fantasia && <div className="flex justify-between"><span className="text-gray-400">Nome Fantasia</span><span>{company.nome_fantasia}</span></div>}
+            <div className="flex justify-between"><span className="text-gray-400">UF</span><span>{company.uf || '—'}</span></div>
+            <div className="flex justify-between"><span className="text-gray-400">Porte</span><span>{company.porte || '—'}</span></div>
+            <div className="flex justify-between"><span className="text-gray-400">Cadastro</span><span>{new Date(company.created_at).toLocaleDateString('pt-BR')}</span></div>
           </CardContent>
         </Card>
 
@@ -53,20 +53,20 @@ export default async function ClientDetailPage({
           <CardHeader><CardTitle>Assinatura</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-500">Plano</span>
+              <span className="text-gray-400">Plano</span>
               <span className="font-medium">{plan?.name || 'Nenhum'}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500">Status</span>
+              <span className="text-gray-400">Status</span>
               <Badge variant="outline" className={
-                sub?.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-50 text-gray-500'
+                sub?.status === 'active' ? 'bg-emerald-900/20 text-emerald-400' : 'bg-[#2d2f33] text-gray-400'
               }>{sub?.status || 'N/A'}</Badge>
             </div>
             {plan?.price_cents && (
-              <div className="flex justify-between"><span className="text-gray-500">Valor</span><span>{formatBRL(plan.price_cents)}/mês</span></div>
+              <div className="flex justify-between"><span className="text-gray-400">Valor</span><span>{formatBRL(plan.price_cents)}/mês</span></div>
             )}
-            <div className="flex justify-between"><span className="text-gray-500">Matches usados</span><span>{sub?.matches_used_this_month ?? 0} / {plan?.max_matches_per_month ?? '∞'}</span></div>
-            <div className="flex justify-between"><span className="text-gray-500">Total Matches</span><span>{detail.matchCount}</span></div>
+            <div className="flex justify-between"><span className="text-gray-400">Matches usados</span><span>{sub?.matches_used_this_month ?? 0} / {plan?.max_matches_per_month ?? '∞'}</span></div>
+            <div className="flex justify-between"><span className="text-gray-400">Total Matches</span><span>{detail.matchCount}</span></div>
 
             <ClientSubscriptionActions
               companyId={id}
@@ -85,24 +85,24 @@ export default async function ClientDetailPage({
           <table className="w-full text-sm">
             <thead className="border-b">
               <tr>
-                <th className="text-left py-2 text-gray-500 font-medium">Nome</th>
-                <th className="text-left py-2 text-gray-500 font-medium hidden sm:table-cell">Email</th>
-                <th className="text-left py-2 text-gray-500 font-medium">Status</th>
-                <th className="text-left py-2 text-gray-500 font-medium hidden md:table-cell">Cadastro</th>
-                <th className="text-left py-2 text-gray-500 font-medium">Ações</th>
+                <th className="text-left py-2 text-gray-400 font-medium">Nome</th>
+                <th className="text-left py-2 text-gray-400 font-medium hidden sm:table-cell">Email</th>
+                <th className="text-left py-2 text-gray-400 font-medium">Status</th>
+                <th className="text-left py-2 text-gray-400 font-medium hidden md:table-cell">Cadastro</th>
+                <th className="text-left py-2 text-gray-400 font-medium">Ações</th>
               </tr>
             </thead>
             <tbody>
               {detail.users.map((u: any) => (
                 <tr key={u.id} className="border-b last:border-0">
                   <td className="py-2">{u.full_name || u.email || u.id}</td>
-                  <td className="py-2 text-gray-500 hidden sm:table-cell">{u.email}</td>
+                  <td className="py-2 text-gray-400 hidden sm:table-cell">{u.email}</td>
                   <td className="py-2">
-                    <Badge variant="outline" className={u.is_active !== false ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}>
+                    <Badge variant="outline" className={u.is_active !== false ? 'bg-emerald-900/20 text-emerald-400' : 'bg-red-900/20 text-red-400'}>
                       {u.is_active !== false ? 'Ativo' : 'Inativo'}
                     </Badge>
                   </td>
-                  <td className="py-2 text-gray-500 hidden md:table-cell">{new Date(u.created_at).toLocaleDateString('pt-BR')}</td>
+                  <td className="py-2 text-gray-400 hidden md:table-cell">{new Date(u.created_at).toLocaleDateString('pt-BR')}</td>
                   <td className="py-2">
                     <UserActions user={u} />
                   </td>

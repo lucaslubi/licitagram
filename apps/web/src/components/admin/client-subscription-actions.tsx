@@ -5,11 +5,11 @@ import { useRouter } from 'next/navigation'
 import { updateClientSubscription } from '@/actions/admin/clients'
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  active: { label: 'Ativo', color: 'bg-emerald-100 text-emerald-800' },
-  trialing: { label: 'Trial', color: 'bg-blue-100 text-blue-800' },
-  past_due: { label: 'Pagamento Pendente', color: 'bg-amber-100 text-amber-800' },
-  canceled: { label: 'Cancelado', color: 'bg-red-100 text-red-700' },
-  inactive: { label: 'Inativo', color: 'bg-gray-100 text-gray-600' },
+  active: { label: 'Ativo', color: 'bg-emerald-900/20 text-emerald-400' },
+  trialing: { label: 'Trial', color: 'bg-blue-900/20 text-blue-400' },
+  past_due: { label: 'Pagamento Pendente', color: 'bg-amber-900/20 text-amber-400' },
+  canceled: { label: 'Cancelado', color: 'bg-red-900/20 text-red-400' },
+  inactive: { label: 'Inativo', color: 'bg-[#2d2f33] text-gray-400' },
 }
 
 export function ClientSubscriptionActions({
@@ -80,25 +80,25 @@ export function ClientSubscriptionActions({
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100)
   }
 
-  const statusInfo = STATUS_LABELS[currentStatus] || { label: currentStatus, color: 'bg-gray-100 text-gray-600' }
+  const statusInfo = STATUS_LABELS[currentStatus] || { label: currentStatus, color: 'bg-[#2d2f33] text-gray-400' }
   const needsActivation = currentStatus !== 'active' && currentStatus !== 'trialing'
 
   return (
     <div className="space-y-3 pt-3 border-t">
       {needsActivation && (
-        <div className="rounded bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
+        <div className="rounded bg-amber-900/20 border border-amber-800 px-3 py-2 text-xs text-amber-400">
           Status <strong>{statusInfo.label}</strong> — features do plano estao bloqueadas.
           Troque o plano ou ative o status para liberar.
         </div>
       )}
 
       <div>
-        <label className="text-xs text-gray-500 block mb-1">Alterar Plano</label>
+        <label className="text-xs text-gray-400 block mb-1">Alterar Plano</label>
         <select
           value={currentPlanId || ''}
           onChange={(e) => handlePlanChange(e.target.value)}
           disabled={isPending}
-          className="w-full px-2 py-1.5 border rounded text-sm bg-white disabled:opacity-50"
+          className="w-full px-2 py-1.5 border rounded text-sm bg-[#23262a] disabled:opacity-50"
         >
           <option value="" disabled>Selecionar plano...</option>
           {allPlans.map((p) => (
@@ -108,19 +108,19 @@ export function ClientSubscriptionActions({
           ))}
         </select>
         {needsActivation && currentPlanId && (
-          <p className="text-xs text-amber-600 mt-1">
+          <p className="text-xs text-amber-400 mt-1">
             Ao trocar o plano, o status sera ativado automaticamente.
           </p>
         )}
       </div>
 
       <div>
-        <label className="text-xs text-gray-500 block mb-1">Alterar Status</label>
+        <label className="text-xs text-gray-400 block mb-1">Alterar Status</label>
         <select
           value={currentStatus}
           onChange={(e) => handleStatusChange(e.target.value)}
           disabled={isPending}
-          className="w-full px-2 py-1.5 border rounded text-sm bg-white disabled:opacity-50"
+          className="w-full px-2 py-1.5 border rounded text-sm bg-[#23262a] disabled:opacity-50"
         >
           {Object.entries(STATUS_LABELS).map(([value, { label }]) => (
             <option key={value} value={value}>{label}</option>
@@ -129,7 +129,7 @@ export function ClientSubscriptionActions({
       </div>
 
       {msg && (
-        <p className={`text-xs font-medium ${msg.type === 'error' ? 'text-red-600' : 'text-emerald-600'}`}>
+        <p className={`text-xs font-medium ${msg.type === 'error' ? 'text-red-400' : 'text-emerald-400'}`}>
           {msg.type === 'error' ? 'Erro: ' : '✓ '}{msg.text}
         </p>
       )}

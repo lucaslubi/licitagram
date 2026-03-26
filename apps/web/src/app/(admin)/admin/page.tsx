@@ -83,14 +83,14 @@ export default async function AdminDashboardPage() {
       </div>
 
       {/* Revenue by Plan */}
-      <div className="bg-white rounded-lg border p-4 sm:p-6 mb-8">
+      <div className="bg-[#1a1c1f] rounded-lg border p-4 sm:p-6 mb-8">
         <h2 className="text-lg font-semibold mb-4">Receita por Plano</h2>
         <div className="space-y-3">
           {Object.entries(metrics.revenueByPlan).map(([slug, data]) => (
             <div key={slug} className="flex items-center justify-between py-2 border-b last:border-0">
               <div>
                 <p className="font-medium">{data.name}</p>
-                <p className="text-sm text-gray-500">{data.count} assinaturas</p>
+                <p className="text-sm text-gray-400">{data.count} assinaturas</p>
               </div>
               <p className="font-bold">{formatBRL(data.revenue)}/mes</p>
             </div>
@@ -102,19 +102,19 @@ export default async function AdminDashboardPage() {
       </div>
 
       {/* Recent Clients */}
-      <div className="bg-white rounded-lg border p-4 sm:p-6">
+      <div className="bg-[#1a1c1f] rounded-lg border p-4 sm:p-6">
         <h2 className="text-lg font-semibold mb-4">Clientes Recentes</h2>
         <div className="space-y-2">
           {clientsResult.clients.slice(0, 5).map((client: any) => (
             <div key={client.company_id} className="flex items-center justify-between py-2 border-b last:border-0">
               <div>
                 <p className="font-medium text-sm">{client.razao_social || client.cnpj}</p>
-                <p className="text-xs text-gray-500">{client.plan_name || 'Sem plano'} · {client.uf || '—'}</p>
+                <p className="text-xs text-gray-400">{client.plan_name || 'Sem plano'} · {client.uf || '—'}</p>
               </div>
               <span className={`text-xs px-2 py-0.5 rounded-full ${
-                client.subscription_status === 'active' ? 'bg-emerald-100 text-emerald-700'
-                : client.subscription_status === 'trialing' ? 'bg-blue-100 text-blue-700'
-                : 'bg-gray-100 text-gray-500'
+                client.subscription_status === 'active' ? 'bg-emerald-900/20 text-emerald-400'
+                : client.subscription_status === 'trialing' ? 'bg-blue-900/20 text-blue-400'
+                : 'bg-[#2d2f33] text-gray-400'
               }`}>
                 {client.subscription_status || 'N/A'}
               </span>

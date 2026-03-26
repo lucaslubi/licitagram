@@ -43,24 +43,24 @@ export function AdminCard({ admin }: { admin: any }) {
         <div className="flex items-center justify-between">
           <CardTitle className="text-base">{admin.full_name || admin.email || admin.id}</CardTitle>
           {isSuperAdmin ? (
-            <Badge className="bg-amber-100 text-amber-800 border-amber-200" variant="outline">Super Admin</Badge>
+            <Badge className="bg-amber-900/20 text-amber-400 border-amber-800" variant="outline">Super Admin</Badge>
           ) : (
             <Badge variant="outline">Delegado</Badge>
           )}
         </div>
       </CardHeader>
       <CardContent className="text-sm space-y-2">
-        <p className="text-gray-500">{admin.email}</p>
+        <p className="text-gray-400">{admin.email}</p>
         <p className="text-xs text-gray-400">Desde {new Date(admin.created_at).toLocaleDateString('pt-BR')}</p>
 
         {!editing && perms && (
           <div className="pt-2 border-t">
-            <p className="text-xs text-gray-500 mb-1">Permissões:</p>
+            <p className="text-xs text-gray-400 mb-1">Permissões:</p>
             <div className="flex flex-wrap gap-1">
               {Object.entries(perms)
                 .filter(([, v]) => v)
                 .map(([k]) => (
-                  <span key={k} className="bg-blue-50 text-blue-700 text-[10px] px-1.5 py-0.5 rounded">{k}</span>
+                  <span key={k} className="bg-blue-900/20 text-blue-400 text-[10px] px-1.5 py-0.5 rounded">{k}</span>
                 ))}
             </div>
           </div>
@@ -68,7 +68,7 @@ export function AdminCard({ admin }: { admin: any }) {
 
         {editing && (
           <div className="pt-2 border-t space-y-2">
-            <p className="text-xs text-gray-500">Editar permissões:</p>
+            <p className="text-xs text-gray-400">Editar permissões:</p>
             <div className="grid grid-cols-2 gap-1.5">
               {ALL_SECTIONS.map((section) => (
                 <label key={section} className="flex items-center gap-1.5 text-xs cursor-pointer">
@@ -76,7 +76,7 @@ export function AdminCard({ admin }: { admin: any }) {
                     type="checkbox"
                     checked={!!localPerms[section]}
                     onChange={() => setLocalPerms((p) => ({ ...p, [section]: !p[section] }))}
-                    className="rounded border-gray-300"
+                    className="rounded border-[#2d2f33]"
                   />
                   {section}
                 </label>
@@ -86,7 +86,7 @@ export function AdminCard({ admin }: { admin: any }) {
               <button onClick={handleSavePerms} disabled={isPending} className="px-3 py-1.5 bg-blue-600 text-white rounded text-xs hover:bg-blue-500">
                 {isPending ? 'Salvando...' : 'Salvar'}
               </button>
-              <button onClick={() => setEditing(false)} className="px-3 py-1.5 border rounded text-xs hover:bg-gray-50">
+              <button onClick={() => setEditing(false)} className="px-3 py-1.5 border rounded text-xs hover:bg-[#2d2f33]">
                 Cancelar
               </button>
             </div>
@@ -95,12 +95,12 @@ export function AdminCard({ admin }: { admin: any }) {
 
         <div className="pt-2 border-t flex gap-2">
           {!isSuperAdmin && !editing && (
-            <button onClick={() => setEditing(true)} className="px-3 py-1.5 bg-gray-900 text-white rounded text-xs hover:bg-gray-700">
+            <button onClick={() => setEditing(true)} className="px-3 py-1.5 bg-brand text-white rounded text-xs hover:bg-brand/80">
               Editar Permissões
             </button>
           )}
           {!confirmRevoke ? (
-            <button onClick={() => setConfirmRevoke(true)} className="px-3 py-1.5 border border-red-200 text-red-600 rounded text-xs hover:bg-red-50">
+            <button onClick={() => setConfirmRevoke(true)} className="px-3 py-1.5 border border-red-800 text-red-400 rounded text-xs hover:bg-red-900/20">
               Remover Admin
             </button>
           ) : (
@@ -151,7 +151,7 @@ export function AddAdminForm({ existingAdminIds }: { existingAdminIds: string[] 
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
         <div>
-          <label className="text-xs text-gray-500 block mb-1">User ID (UUID)</label>
+          <label className="text-xs text-gray-400 block mb-1">User ID (UUID)</label>
           <input
             value={userId}
             onChange={(e) => setUserId(e.target.value)}
@@ -164,15 +164,15 @@ export function AddAdminForm({ existingAdminIds }: { existingAdminIds: string[] 
             type="checkbox"
             checked={asSuperAdmin}
             onChange={() => setAsSuperAdmin(!asSuperAdmin)}
-            className="rounded border-gray-300"
+            className="rounded border-[#2d2f33]"
           />
           Super Admin (acesso total, sem restrição)
         </label>
-        {msg && <p className={`text-xs ${msg.startsWith('Erro') ? 'text-red-600' : 'text-emerald-600'}`}>{msg}</p>}
+        {msg && <p className={`text-xs ${msg.startsWith('Erro') ? 'text-red-400' : 'text-emerald-400'}`}>{msg}</p>}
         <button
           onClick={handleAdd}
           disabled={isPending || !userId.trim()}
-          className="px-4 py-2 bg-gray-900 text-white rounded text-xs hover:bg-gray-700 disabled:opacity-50"
+          className="px-4 py-2 bg-brand text-white rounded text-xs hover:bg-brand/80 disabled:opacity-50"
         >
           {isPending ? 'Adicionando...' : 'Adicionar'}
         </button>

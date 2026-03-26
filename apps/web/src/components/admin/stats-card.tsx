@@ -11,13 +11,13 @@ export function StatsCard({ title, value, description, trend }: StatsCardProps) 
   return (
     <Card>
       <CardContent className="pt-6">
-        <p className="text-sm font-medium text-gray-500">{title}</p>
+        <p className="text-sm font-medium text-gray-400">{title}</p>
         <p className="text-2xl font-bold mt-1">{value}</p>
         {description && (
           <p className="text-xs text-gray-400 mt-1">{description}</p>
         )}
         {trend && (
-          <p className={`text-xs mt-2 ${trend.value >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+          <p className={`text-xs mt-2 ${trend.value >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
             {trend.value >= 0 ? '+' : ''}{trend.value}% {trend.label}
           </p>
         )}

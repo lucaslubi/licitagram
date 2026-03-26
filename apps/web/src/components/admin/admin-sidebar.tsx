@@ -44,11 +44,11 @@ export function AdminSidebar({ visibleItems, userEmail }: AdminSidebarProps) {
 
   const sidebarContent = (
     <>
-      <div className="p-4 border-b border-gray-200">
-        <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-700">
+      <div className="p-4 border-b border-[#2d2f33]">
+        <Link href="/dashboard" className="text-sm text-gray-400 hover:text-gray-300">
           &larr; Voltar ao painel
         </Link>
-        <h2 className="text-lg font-bold mt-2 text-gray-900">Admin</h2>
+        <h2 className="text-lg font-bold mt-2 text-white">Admin</h2>
       </div>
 
       <nav className="flex-1 p-2 space-y-0.5">
@@ -60,8 +60,8 @@ export function AdminSidebar({ visibleItems, userEmail }: AdminSidebarProps) {
               href={item.href}
               className={`block px-3 py-2 rounded-md text-[13px] font-medium transition-colors ${
                 isActive
-                  ? 'bg-gray-100 text-gray-900'
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  ? 'bg-[#2d2f33] text-white'
+                  : 'text-gray-400 hover:bg-[#2d2f33] hover:text-white'
               }`}
             >
               {item.label}
@@ -70,7 +70,7 @@ export function AdminSidebar({ visibleItems, userEmail }: AdminSidebarProps) {
         })}
       </nav>
 
-      <div className="p-4 border-t border-gray-200">
+      <div className="p-4 border-t border-[#2d2f33]">
         <p className="text-[11px] text-gray-400">{userEmail}</p>
       </div>
     </>
@@ -79,18 +79,18 @@ export function AdminSidebar({ visibleItems, userEmail }: AdminSidebarProps) {
   return (
     <>
       {/* Mobile top bar */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-40 h-14 bg-white border-b border-gray-200 flex items-center px-4 gap-3">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-40 h-14 bg-[#1a1c1f] border-b border-[#2d2f33] flex items-center px-4 gap-3">
         <button
           onClick={() => setOpen(true)}
-          className="p-1.5 rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+          className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#2d2f33] transition-colors"
           aria-label="Abrir menu admin"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
-        <span className="text-sm font-bold text-gray-900">Admin</span>
-        <Link href="/dashboard" className="ml-auto text-xs text-gray-500 hover:text-gray-700">
+        <span className="text-sm font-bold text-white">Admin</span>
+        <Link href="/dashboard" className="ml-auto text-xs text-gray-400 hover:text-gray-300">
           &larr; Painel
         </Link>
       </div>
@@ -105,13 +105,13 @@ export function AdminSidebar({ visibleItems, userEmail }: AdminSidebarProps) {
 
       {/* Mobile sidebar (slide-in) */}
       <aside
-        className={`md:hidden fixed top-0 left-0 z-50 h-full w-64 bg-white flex flex-col transform transition-transform duration-300 ease-in-out shadow-xl ${
+        className={`md:hidden fixed top-0 left-0 z-50 h-full w-64 bg-[#1a1c1f] flex flex-col transform transition-transform duration-300 ease-in-out shadow-xl ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         <button
           onClick={() => setOpen(false)}
-          className="absolute top-4 right-4 p-1.5 rounded-lg text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+          className="absolute top-4 right-4 p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#2d2f33] transition-colors"
           aria-label="Fechar menu"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -122,7 +122,7 @@ export function AdminSidebar({ visibleItems, userEmail }: AdminSidebarProps) {
       </aside>
 
       {/* Desktop sidebar (always visible) */}
-      <aside className="hidden md:flex w-56 border-r border-gray-200 bg-white flex-col min-h-screen shrink-0">
+      <aside className="hidden md:flex w-56 border-r border-[#2d2f33] bg-[#1a1c1f] flex-col min-h-screen shrink-0">
         {sidebarContent}
       </aside>
     </>
