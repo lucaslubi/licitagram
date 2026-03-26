@@ -1,5 +1,5 @@
 /**
- * GLOBAL SCORE COLOR SYSTEM
+ * GLOBAL SCORE COLOR SYSTEM (Dark Theme)
  *
  * Single source of truth for all score-based colors across the entire app.
  * Rules:
@@ -11,18 +11,18 @@
 
 /** Tailwind bg+text classes for score badges */
 export function getScoreBgClass(score: number): string {
-  if (score >= 80) return 'bg-orange-100 text-orange-800'
-  if (score >= 70) return 'bg-emerald-100 text-emerald-800'
-  if (score >= 50) return 'bg-amber-100 text-amber-800'
-  return 'bg-red-100 text-red-800'
+  if (score >= 80) return 'bg-orange-500/15 text-orange-400'
+  if (score >= 70) return 'bg-emerald-500/15 text-emerald-400'
+  if (score >= 50) return 'bg-amber-500/15 text-amber-400'
+  return 'bg-red-500/15 text-red-400'
 }
 
 /** Tailwind bg+text+border classes for score badges with border */
 export function getScoreBorderClass(score: number): string {
-  if (score >= 80) return 'bg-orange-100 text-orange-800 border-orange-200'
-  if (score >= 70) return 'bg-emerald-100 text-emerald-800 border-emerald-200'
-  if (score >= 50) return 'bg-amber-100 text-amber-800 border-amber-200'
-  return 'bg-red-100 text-red-800 border-red-200'
+  if (score >= 80) return 'bg-orange-500/15 text-orange-400 border-orange-500/30'
+  if (score >= 70) return 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+  if (score >= 50) return 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+  return 'bg-red-500/15 text-red-400 border-red-500/30'
 }
 
 /** Hex color for map markers and charts */
