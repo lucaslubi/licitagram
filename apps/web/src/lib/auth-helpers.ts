@@ -74,8 +74,36 @@ export async function getUserWithPlan(): Promise<UserWithPlan | null> {
       .from('subscriptions')
       .select(`*, plans(*)`)
       .eq('company_id', profile.company_id)
+      .in('status', ['active', 'trialing'])
       .single()
     subscription = sub as SubscriptionWithPlan | null
+
+    // Fallback: check sibling companies in the user's group
+    if (!subscription) {
+      const { data: siblings } = await supabase
+        .from('user_companies')
+        .select('company_id')
+        .eq('user_id', user.id)
+
+      if (siblings && siblings.length > 0) {
+        const siblingIds = siblings
+          .map((s: any) => s.company_id)
+          .filter((id: string) => id !== profile.company_id)
+
+        if (siblingIds.length > 0) {
+          const { data: bestSub } = await supabase
+            .from('subscriptions')
+            .select(`*, plans(*)`)
+            .in('company_id', siblingIds)
+            .in('status', ['active', 'trialing'])
+            .order('plan_id', { ascending: false })
+            .limit(1)
+            .single()
+
+          if (bestSub) subscription = bestSub as SubscriptionWithPlan
+        }
+      }
+    }
   }
 
   const plan = subscription?.plans || null

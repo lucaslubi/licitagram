@@ -90,18 +90,51 @@ export async function getPlanById(planId: string): Promise<Plan | null> {
  */
 export async function getCompanySubscription(
   companyId: string,
+  userId?: string,
 ): Promise<SubscriptionWithPlan | null> {
   return cached(
     CacheKeys.companySubscription(companyId),
     async () => {
       const supabase = await createClient()
+
+      // Try current company first
       const { data } = await supabase
         .from('subscriptions')
         .select(`*, plans(*)`)
         .eq('company_id', companyId)
+        .in('status', ['active', 'trialing'])
         .single()
 
-      return data as SubscriptionWithPlan | null
+      if (data) return data as SubscriptionWithPlan
+
+      // Fallback: check sibling companies if userId provided
+      if (userId) {
+        const { data: siblings } = await supabase
+          .from('user_companies')
+          .select('company_id')
+          .eq('user_id', userId)
+
+        if (siblings && siblings.length > 0) {
+          const siblingIds = siblings
+            .map((s: any) => s.company_id)
+            .filter((id: string) => id !== companyId)
+
+          if (siblingIds.length > 0) {
+            const { data: bestSub } = await supabase
+              .from('subscriptions')
+              .select(`*, plans(*)`)
+              .in('company_id', siblingIds)
+              .in('status', ['active', 'trialing'])
+              .order('plan_id', { ascending: false })
+              .limit(1)
+              .single()
+
+            if (bestSub) return bestSub as SubscriptionWithPlan
+          }
+        }
+      }
+
+      return null
     },
     TTL.companySubscription,
   )

@@ -193,11 +193,40 @@ async function buildPlanContextFromDB(
       }
     }
 
-    const { data: sub } = await supabase
+    // Try current company first
+    let { data: sub } = await supabase
       .from('subscriptions')
       .select(`status, plan_id, plans(slug, features)`)
       .eq('company_id', profile.company_id)
+      .in('status', ['active', 'trialing'])
       .single()
+
+    // Fallback: check sibling companies in the same user group
+    if (!sub) {
+      const { data: siblings } = await supabase
+        .from('user_companies')
+        .select('company_id')
+        .eq('user_id', userId)
+
+      if (siblings && siblings.length > 0) {
+        const siblingIds = siblings
+          .map((s: any) => s.company_id)
+          .filter((id: string) => id !== profile.company_id)
+
+        if (siblingIds.length > 0) {
+          const { data: bestSub } = await supabase
+            .from('subscriptions')
+            .select(`status, plan_id, company_id, plans(slug, features)`)
+            .in('company_id', siblingIds)
+            .in('status', ['active', 'trialing'])
+            .order('plan_id', { ascending: false })
+            .limit(1)
+            .single()
+
+          if (bestSub) sub = bestSub
+        }
+      }
+    }
 
     if (!sub) {
       return {
