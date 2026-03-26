@@ -608,7 +608,7 @@ export const RELATED_DIVISIONS: Record<string, string[]> = {
 export const SECTOR_GROUPS: Record<string, { name: string; divisions: string[] }> = {
   construction: {
     name: 'Construção & Engenharia',
-    divisions: ['41', '42', '43', '23'],
+    divisions: ['41', '42', '43', '23', '71'],
   },
   it: {
     name: 'Tecnologia da Informação',
@@ -645,6 +645,14 @@ export const SECTOR_GROUPS: Record<string, { name: string; divisions: string[] }
   agriculture: {
     name: 'Agricultura & Pecuária',
     divisions: ['01', '02', '03'],
+  },
+  engineering: {
+    name: 'Engenharia & Arquitetura',
+    divisions: ['71', '74'],
+  },
+  consulting: {
+    name: 'Consultoria & Gestão',
+    divisions: ['70', '69'],
   },
 }
 
@@ -733,6 +741,11 @@ export const SECTOR_NEGATIVE_PHRASES: Record<string, string[]> = {
     'tecido algodao', 'confeccao uniforme', 'roupa cama',
     'toalha banho', 'lencol hospitalar', 'cortina persiana',
   ],
+  engineering: [
+    'engenharia arquitetura', 'projeto estrutural', 'laudo tecnico', 'pericia engenharia',
+    'topografia levantamento', 'geotecnia sondagem', 'calculo estrutural',
+    'projeto eletrico', 'projeto hidraulico', 'projeto arquitetonico',
+  ],
 }
 
 /**
@@ -781,6 +794,10 @@ export const SECTOR_STRONG_WORDS: Record<string, string[]> = {
   ],
   furniture: [
     'mobiliario',
+  ],
+  engineering: [
+    'engenharia', 'arquitetura', 'topografia', 'geotecnia',
+    'pericia', 'laudo', 'estrutural',
   ],
 }
 

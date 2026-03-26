@@ -103,10 +103,9 @@ export async function validateNotification(matchId: string): Promise<GuardResult
     return { allowed: false, reason: `tender_status_${tenderStatus}` }
   }
 
-  // 7. Block if already notified (race condition between Telegram + WhatsApp)
-  if (match.notified_at) {
-    return { allowed: false, reason: 'already_notified' }
-  }
+  // 7. notified_at guard REMOVED — BullMQ jobId dedup (tg-${userId}-${matchId} / wa-${userId}-${matchId})
+  // already prevents double-sends on the SAME channel. The old guard blocked cross-channel sends
+  // (e.g., Telegram finishing first would prevent WhatsApp from sending).
 
   return {
     allowed: true,

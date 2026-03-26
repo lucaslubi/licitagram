@@ -4,7 +4,7 @@ import { type AiTriageJobData } from '../queues/ai-triage.queue'
 import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
 import { invalidateMatchCaches } from '../lib/redis-cache'
-import { CNAE_GROUPS } from '@licitagram/shared'
+import { CNAE_GROUPS, getCompanyDivisions } from '@licitagram/shared'
 import { callLLM } from '../ai/llm-client'
 import OpenAI from 'openai'
 
@@ -137,6 +137,14 @@ NAO de score alto para:
 - Objetos onde a empresa precisaria de capacidade que NAO possui
 - Licitacoes que mencionam o setor da empresa apenas como componente MENOR
 
+REGRAS ABSOLUTAS (nunca viole):
+- Se NENHUM CNAE da empresa cobre o objeto da licitacao → score MAXIMO 30
+- Se apenas CNAEs SECUNDARIOS cobrem parcialmente → score MAXIMO 60
+- CNAE principal da empresa DEVE estar diretamente relacionado ao objeto para score > 70
+- Empresa de engenharia civil (CNAE 41-43, 71) NAO pode ter score > 30 em licitacao de software/TI (CNAE 62, 63)
+- Empresa de TI (CNAE 62, 63) NAO pode ter score > 30 em licitacao de construcao civil (CNAE 41-43)
+- Termos genericos como "gestao", "projeto", "sistema" NAO indicam compatibilidade se os CNAEs sao de setores diferentes
+
 Responda APENAS com JSON valido, sem texto adicional, sem markdown`
 
 // ─── Triage a Single Batch ───────────────────────────────────────────────────
@@ -153,12 +161,13 @@ async function triageBatch(
   matchIds: string[],
   companyContext: string,
   companyId: string,
+  companyCnaes: string[],
 ): Promise<TriageResult[]> {
   // Fetch matches with tender objects, skipping expired tenders
   const today = new Date().toISOString().split('T')[0]
   const { data: matches } = await supabase
     .from('matches')
-    .select('id, company_id, tender_id, score, match_source, tenders!inner(id, objeto, valor_estimado, orgao, data_encerramento)')
+    .select('id, company_id, tender_id, score, match_source, tenders!inner(id, objeto, valor_estimado, orgao, data_encerramento, cnae_classificados)')
     .in('id', matchIds)
     .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
 
@@ -182,6 +191,7 @@ async function triageBatch(
         orgao: ((t.orgao as string) || '').slice(0, 80),
         originalScore: m.score as number,
         matchSource: m.match_source as string,
+        tenderCnaes: (t.cnae_classificados as string[]) || [],
       }
     })
 
@@ -240,9 +250,23 @@ LEMBRE: score 0-15 para objetos TOTALMENTE fora do escopo da empresa. Avalie TOD
   for (const item of parsed) {
     try {
       if (!item.matchId || typeof item.score !== 'number') continue
-      const safeScore = Math.min(100, Math.max(0, Math.round(item.score)))
+      let safeScore = Math.min(100, Math.max(0, Math.round(item.score)))
       const match = items.find((m) => m.matchId === item.matchId)
       if (!match) continue
+
+      // Post-AI CNAE validation gate
+      const tenderDivisions = match.tenderCnaes.map((c: string) => c.substring(0, 2))
+      const companyDivs = getCompanyDivisions(companyCnaes)
+      const hasDirectOverlap = tenderDivisions.some((d: string) => companyDivs.direct.has(d))
+      const hasRelatedOverlap = tenderDivisions.some((d: string) => companyDivs.related.has(d))
+
+      if (tenderDivisions.length > 0 && !hasDirectOverlap && !hasRelatedOverlap) {
+        // AI gave high score but ZERO CNAE overlap — cap at 35
+        safeScore = Math.min(safeScore, 35)
+      } else if (tenderDivisions.length > 0 && !hasDirectOverlap && hasRelatedOverlap) {
+        // Only related CNAE match — cap at 65
+        safeScore = Math.min(safeScore, 65)
+      }
 
       const updatePayload: Record<string, unknown> = {
         score: safeScore,
@@ -331,6 +355,11 @@ const aiTriageWorker = new Worker<AiTriageJobData>(
 
     const companyContext = buildCompanyContext(companyData)
 
+    // Build company CNAEs list for CNAE validation gate
+    const companyCnaes: string[] = []
+    if (companyData.cnae_principal) companyCnaes.push(String(companyData.cnae_principal))
+    if (Array.isArray(companyData.cnaes_secundarios)) companyCnaes.push(...(companyData.cnaes_secundarios as string[]))
+
     // Process in batches of BATCH_SIZE
     let triaged = 0
     let lowScoreCount = 0
@@ -339,7 +368,7 @@ const aiTriageWorker = new Worker<AiTriageJobData>(
       const batch = matchIds.slice(i, i + BATCH_SIZE)
 
       try {
-        const results = await triageBatch(batch, companyContext, companyId)
+        const results = await triageBatch(batch, companyContext, companyId, companyCnaes)
         triaged += results.length
 
         for (const r of results) {

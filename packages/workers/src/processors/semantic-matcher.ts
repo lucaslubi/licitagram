@@ -318,10 +318,20 @@ export async function runSemanticMatching(companyId: string): Promise<{
 
   const precisionResults = computePrecisionScores(filteredCandidates, companyDivisions, companyKeywords)
 
+  // CNAE hard gate: block matches with zero CNAE overlap (same logic as keyword matcher)
+  // cnaeScore === 0 means no CNAE keywords from company's divisions appeared in tender text
+  const cnaeFiltered = precisionResults.filter((r) => {
+    if (r.cnaeScore === 0) {
+      stats.skipped++
+      return false
+    }
+    return true
+  })
+
   // Filter: only keep scores >= MIN_FINAL_SCORE
-  const aboveThreshold = precisionResults.filter((r) => r.combinedScore >= MIN_FINAL_SCORE)
+  const aboveThreshold = cnaeFiltered.filter((r) => r.combinedScore >= MIN_FINAL_SCORE)
   logger.info(
-    { companyId, aboveThreshold: aboveThreshold.length, total: precisionResults.length },
+    { companyId, aboveThreshold: aboveThreshold.length, cnaeBlocked: precisionResults.length - cnaeFiltered.length, total: precisionResults.length },
     'Layer 2: Precision filtering done',
   )
 

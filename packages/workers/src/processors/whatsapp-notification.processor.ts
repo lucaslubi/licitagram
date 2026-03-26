@@ -101,7 +101,7 @@ const whatsappNotificationWorker = new Worker<WhatsAppNotificationJobData>(
         },
         matchId,
       )
-      // Mark match as notified (prevents re-sending on next pending check)
+      // Mark match as notified — both channels can set this independently; last-write-wins is fine
       await supabase
         .from('matches')
         .update({
@@ -109,7 +109,6 @@ const whatsappNotificationWorker = new Worker<WhatsAppNotificationJobData>(
           status: 'notified',
         })
         .eq('id', matchId)
-        .is('notified_at', null) // Only if not already notified by Telegram
 
       logger.info({ matchId, whatsappNumber: whatsappNumber.slice(-4) }, 'WhatsApp notification sent')
     } catch (err) {
