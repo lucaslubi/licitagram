@@ -239,6 +239,82 @@ export async function addCompanyAction(
   return { company }
 }
 
+// ─── Remove Company from Tenant ──────────────────────────────────────────────
+
+export async function removeCompanyAction(companyId: string): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'Não autenticado' }
+
+  // Verify user owns this company
+  const { data: link } = await supabase
+    .from('user_companies')
+    .select('id, is_default')
+    .eq('user_id', user.id)
+    .eq('company_id', companyId)
+    .single()
+
+  if (!link) return { success: false, error: 'Empresa não encontrada' }
+
+  // Can't delete the default/primary company
+  if (link.is_default) {
+    return { success: false, error: 'Não é possível remover a empresa principal. Defina outra como principal primeiro.' }
+  }
+
+  // Count user's companies — must have at least 1
+  const { count } = await supabase
+    .from('user_companies')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+
+  if ((count || 0) <= 1) {
+    return { success: false, error: 'Você precisa ter pelo menos uma empresa cadastrada.' }
+  }
+
+  // Check if this is the active company
+  const { data: profile } = await supabase
+    .from('users')
+    .select('company_id')
+    .eq('id', user.id)
+    .single()
+
+  // Remove the link (keeps the company record for other users)
+  const { error: deleteError } = await supabase
+    .from('user_companies')
+    .delete()
+    .eq('user_id', user.id)
+    .eq('company_id', companyId)
+
+  if (deleteError) return { success: false, error: deleteError.message }
+
+  // Delete matches for this company owned by this user
+  await supabase.from('matches').delete().eq('company_id', companyId)
+
+  // Delete competitor watchlist
+  await supabase.from('competitor_watchlist').delete().eq('company_id', companyId)
+
+  // Delete subscription copy (if any)
+  await supabase.from('subscriptions').delete().eq('company_id', companyId)
+
+  // If user was on this company, switch to the default
+  if (profile?.company_id === companyId) {
+    const { data: defaultLink } = await supabase
+      .from('user_companies')
+      .select('company_id')
+      .eq('user_id', user.id)
+      .eq('is_default', true)
+      .single()
+
+    const newCompanyId = defaultLink?.company_id || null
+    if (newCompanyId) {
+      await supabase.from('users').update({ company_id: newCompanyId }).eq('id', user.id)
+    }
+  }
+
+  revalidatePath('/', 'layout')
+  return { success: true }
+}
+
 // ─── Get User Companies ─────────────────────────────────────────────────────
 
 export async function getUserCompanies(): Promise<CompanyInfo[]> {

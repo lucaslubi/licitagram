@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useTransition } from 'react'
 import { useCompanyContext } from '@/contexts/company-context'
 import { AddCompanyDialog } from './add-company-dialog'
+import { removeCompanyAction } from '@/actions/multi-company'
 
 /** Format CNPJ: 12345678000199 → 12.345.678/0001-99 */
 function formatCNPJ(cnpj: string): string {
@@ -20,6 +21,8 @@ export function CompanySwitcher({ collapsed = false }: CompanySwitcherProps) {
     useCompanyContext()
   const [open, setOpen] = useState(false)
   const [showAddDialog, setShowAddDialog] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
   const ref = useRef<HTMLDivElement>(null)
 
   const activeCompany = companies.find((c) => c.id === activeCompanyId)
@@ -108,25 +111,78 @@ export function CompanySwitcher({ collapsed = false }: CompanySwitcherProps) {
           <div className="max-h-48 overflow-y-auto">
             {companies.map((company) => {
               const isActive = company.id === activeCompanyId
+              const isDefault = company.is_default
               const name = company.nome_fantasia || company.razao_social
+              const isConfirming = confirmDelete === company.id
+
               return (
-                <button
-                  key={company.id}
-                  onClick={() => {
-                    if (!isActive) switchCompany(company.id)
-                    setOpen(false)
-                  }}
-                  className={`w-full text-left px-3 py-2.5 text-[12px] transition-colors ${
-                    isActive
-                      ? 'bg-gray-700 text-white'
-                      : 'text-gray-400 hover:bg-gray-750 hover:text-gray-200'
-                  }`}
-                >
-                  <p className="font-medium truncate">{name}</p>
-                  <p className="text-[11px] text-gray-400 mt-0.5">
-                    {formatCNPJ(company.cnpj)}
-                  </p>
-                </button>
+                <div key={company.id} className={`flex items-center transition-colors ${
+                  isActive ? 'bg-gray-700' : 'hover:bg-gray-750'
+                }`}>
+                  <button
+                    onClick={() => {
+                      if (!isActive) switchCompany(company.id)
+                      setOpen(false)
+                      setConfirmDelete(null)
+                    }}
+                    className={`flex-1 text-left px-3 py-2.5 text-[12px] ${
+                      isActive ? 'text-white' : 'text-gray-400 hover:text-gray-200'
+                    }`}
+                  >
+                    <p className="font-medium truncate">{name}</p>
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      {formatCNPJ(company.cnpj)}
+                      {isDefault && <span className="ml-1 text-brand">(principal)</span>}
+                    </p>
+                  </button>
+
+                  {/* Delete button — only for non-default, non-active, when more than 1 company */}
+                  {!isDefault && companies.length > 1 && (
+                    <div className="pr-2 shrink-0">
+                      {isConfirming ? (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => {
+                              startTransition(async () => {
+                                const result = await removeCompanyAction(company.id)
+                                if (result.success) {
+                                  setConfirmDelete(null)
+                                  window.location.reload()
+                                } else {
+                                  alert(result.error || 'Erro ao remover')
+                                  setConfirmDelete(null)
+                                }
+                              })
+                            }}
+                            disabled={isPending}
+                            className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors disabled:opacity-50"
+                          >
+                            {isPending ? '...' : 'Sim'}
+                          </button>
+                          <button
+                            onClick={() => setConfirmDelete(null)}
+                            className="text-[10px] px-1.5 py-0.5 rounded bg-[#2d2f33] text-gray-400 hover:text-white transition-colors"
+                          >
+                            Não
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setConfirmDelete(company.id)
+                          }}
+                          title="Remover empresa"
+                          className="p-1 rounded text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               )
             })}
           </div>
