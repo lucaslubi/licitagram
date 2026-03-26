@@ -97,9 +97,9 @@ export function DashboardSidebar({
     <>
       <div className={`mx-3 mt-3 mb-2 rounded-xl bg-[#1a1c1f] border border-[#2d2f33] ${collapsed ? 'p-2 flex justify-center' : 'p-4 flex items-center justify-center'}`}>
         {collapsed ? (
-          <Image src="/logo-sidebar.png" alt="Licitagram" width={880} height={198} className="h-7 w-auto" />
+          <Image src="/logo-sidebar.png" alt="Licitagram" width={880} height={198} className="h-10 w-auto" />
         ) : (
-          <Image src="/logo-sidebar.png" alt="Licitagram" width={880} height={198} className="h-14 w-auto" />
+          <Image src="/logo-sidebar.png" alt="Licitagram" width={880} height={198} className="h-20 w-auto" />
         )}
       </div>
 
