@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { formatCurrency } from '@licitagram/shared'
-import { AI_VERIFIED_SOURCES, MIN_DISPLAY_SCORE } from '@/lib/cache'
+import { AI_VERIFIED_SOURCES, MIN_DISPLAY_SCORE, getAuthAndProfile } from '@/lib/cache'
 import { ScoreDonut, UFBarChart, ModalidadeBarChart, DocumentHealth, WinRateCircle } from '@/components/dashboard/DashboardCharts'
 
 // Force dynamic rendering — dashboard must always show fresh data
@@ -12,20 +12,12 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 export default async function DashboardPage() {
+  const auth = await getAuthAndProfile()
+  if (!auth) redirect('/login')
+
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  const { data: profile } = await supabase
-    .from('users')
-    .select('company_id, min_score')
-    .eq('id', user.id)
-    .single()
-
-  const companyId = profile?.company_id
-  const minScore = Math.max(MIN_DISPLAY_SCORE, profile?.min_score ?? 10)
+  const companyId = auth.companyId
+  const minScore = Math.max(MIN_DISPLAY_SCORE, auth.minScore)
 
   if (!companyId) {
     return (
@@ -159,20 +151,20 @@ export default async function DashboardPage() {
       .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
       .limit(1000),
 
-    // Company documents for health check
+    // Company documents for health check (table may not exist yet)
     supabase
       .from('company_documents')
       .select('id, validade')
       .eq('company_id', companyId),
 
-    // Win stats overall
+    // Win stats overall (table may not exist yet)
     supabase
       .from('bid_outcomes')
       .select('outcome', { count: 'exact' })
       .eq('company_id', companyId)
       .in('outcome', ['won', 'lost']),
 
-    // Win stats last 30 days
+    // Win stats last 30 days (table may not exist yet)
     supabase
       .from('bid_outcomes')
       .select('outcome')
@@ -220,30 +212,48 @@ export default async function DashboardPage() {
   const topUFs = Object.entries(ufCounts).sort((a, b) => b[1] - a[1]).slice(0, 5)
   const topModalidades = Object.entries(modalidadeCounts).sort((a, b) => b[1] - a[1]).slice(0, 5)
 
-  // Document health
-  const docs = (documentsResult.data || []) as Array<{ id: string; validade: string | null }>
-  const docsExpiring = docs.filter((d) => {
-    if (!d.validade) return false
-    const diff = Math.ceil((new Date(d.validade).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-    return diff >= 0 && diff <= 30
-  }).length
-  const docsExpired = docs.filter((d) => {
-    if (!d.validade) return false
-    return new Date(d.validade) < now
-  }).length
+  // Document health — wrapped in try/catch (table may not exist yet)
+  let docs: Array<{ id: string; validade: string | null }> = []
+  let docsExpiring = 0
+  let docsExpired = 0
+  try {
+    docs = (documentsResult.data || []) as Array<{ id: string; validade: string | null }>
+    if (documentsResult.error) throw documentsResult.error
+    docsExpiring = docs.filter((d) => {
+      if (!d.validade) return false
+      const diff = Math.ceil((new Date(d.validade).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+      return diff >= 0 && diff <= 30
+    }).length
+    docsExpired = docs.filter((d) => {
+      if (!d.validade) return false
+      return new Date(d.validade) < now
+    }).length
+  } catch { /* company_documents table may not exist */ }
 
-  // Win rate calculations
-  const winStatsAll = (winStatsOverall.data || []) as Array<{ outcome: string }>
-  const totalWon = winStatsAll.filter((o) => o.outcome === 'won').length
-  const totalLost = winStatsAll.filter((o) => o.outcome === 'lost').length
-  const totalOutcomes = totalWon + totalLost
-  const overallWinRate = totalOutcomes > 0 ? Math.round((totalWon / totalOutcomes) * 100) : 0
+  // Win rate calculations — wrapped in try/catch (table may not exist yet)
+  let totalWon = 0
+  let totalLost = 0
+  let totalOutcomes = 0
+  let overallWinRate = 0
+  let recentWon = 0
+  let recentTotal = 0
+  let recentWinRate = 0
+  let winRateDiff = 0
+  try {
+    if (winStatsOverall.error) throw winStatsOverall.error
+    const winStatsAll = (winStatsOverall.data || []) as Array<{ outcome: string }>
+    totalWon = winStatsAll.filter((o) => o.outcome === 'won').length
+    totalLost = winStatsAll.filter((o) => o.outcome === 'lost').length
+    totalOutcomes = totalWon + totalLost
+    overallWinRate = totalOutcomes > 0 ? Math.round((totalWon / totalOutcomes) * 100) : 0
 
-  const recentOutcomes = (winStatsRecent.data || []) as Array<{ outcome: string }>
-  const recentWon = recentOutcomes.filter((o) => o.outcome === 'won').length
-  const recentTotal = recentOutcomes.length
-  const recentWinRate = recentTotal > 0 ? Math.round((recentWon / recentTotal) * 100) : 0
-  const winRateDiff = recentWinRate - overallWinRate
+    if (winStatsRecent.error) throw winStatsRecent.error
+    const recentOutcomes = (winStatsRecent.data || []) as Array<{ outcome: string }>
+    recentWon = recentOutcomes.filter((o) => o.outcome === 'won').length
+    recentTotal = recentOutcomes.length
+    recentWinRate = recentTotal > 0 ? Math.round((recentWon / recentTotal) * 100) : 0
+    winRateDiff = recentWinRate - overallWinRate
+  } catch { /* bid_outcomes table may not exist */ }
 
   const conversionRate = totalMatches > 0 ? Math.round((interestedCount / totalMatches) * 100) : 0
 
