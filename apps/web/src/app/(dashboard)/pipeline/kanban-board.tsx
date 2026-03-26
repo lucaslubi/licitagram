@@ -78,7 +78,7 @@ function DroppableColumn({
       <div className={`rounded-t-lg border-t-2 ${accent} bg-[#23262a] border-x border-b border-[#2d2f33]`}>
         <div className="flex items-center justify-between px-3 py-2.5">
           <h3 className="font-semibold text-sm text-white">{label}</h3>
-          <span className="text-xs text-gray-500 tabular-nums">{matches.length}</span>
+          <span className="text-xs text-gray-400 tabular-nums">{matches.length}</span>
         </div>
       </div>
 
@@ -93,7 +93,7 @@ function DroppableColumn({
           <DraggableCard key={match.id} match={match} isDragging={activeId === match.id} />
         ))}
         {matches.length === 0 && (
-          <div className="text-center py-8 text-xs text-gray-500">
+          <div className="text-center py-8 text-xs text-gray-400">
             Arraste cards para cá
           </div>
         )}
@@ -121,7 +121,7 @@ function DraggableCard({ match, isDragging }: { match: Match; isDragging: boolea
     ? 'text-red-400'
     : countdown?.urgency === 'warning'
       ? 'text-amber-400'
-      : 'text-gray-500'
+      : 'text-gray-400'
 
   return (
     <div
@@ -148,12 +148,12 @@ function DraggableCard({ match, isDragging }: { match: Match; isDragging: boolea
       </div>
 
       {/* Org name */}
-      <p className="text-[11px] text-gray-500 truncate mb-2">{tender?.orgao_nome || ''}</p>
+      <p className="text-[11px] text-gray-400 truncate mb-2">{tender?.orgao_nome || ''}</p>
 
       {/* UF + Value */}
       <div className="flex justify-between items-center">
-        <span className="text-[11px] text-gray-500 uppercase tracking-wide">{tender?.uf || ''}</span>
-        <span className={`text-sm font-semibold tabular-nums ${tender?.valor_estimado ? 'text-white' : 'text-gray-600'}`}>
+        <span className="text-[11px] text-gray-400 uppercase tracking-wide">{tender?.uf || ''}</span>
+        <span className={`text-sm font-semibold tabular-nums ${tender?.valor_estimado ? 'text-white' : 'text-gray-500'}`}>
           {tender?.valor_estimado
             ? formatCurrencyShort(tender.valor_estimado)
             : '—'}
@@ -201,7 +201,7 @@ function CardOverlay({ match }: { match: Match }) {
           {isHot ? '🔥 ' : ''}{match.score}
         </span>
       </div>
-      <p className="text-[11px] text-gray-500 truncate">{tender?.orgao_nome || ''}</p>
+      <p className="text-[11px] text-gray-400 truncate">{tender?.orgao_nome || ''}</p>
     </div>
   )
 }
