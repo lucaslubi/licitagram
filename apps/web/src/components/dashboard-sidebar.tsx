@@ -95,11 +95,11 @@ export function DashboardSidebar({
 
   const sidebarContent = (
     <>
-      <div className={`mx-3 mt-3 mb-2 rounded-xl bg-[#1a1c1f] border border-[#2d2f33] ${collapsed ? 'p-2 flex justify-center' : 'p-4'}`}>
+      <div className={`mx-3 mt-3 mb-2 rounded-xl bg-[#1a1c1f] border border-[#2d2f33] ${collapsed ? 'p-2 flex justify-center' : 'p-4 flex items-center justify-center'}`}>
         {collapsed ? (
-          <Image src="/logo.png" alt="Licitagram" width={440} height={99} className="h-7 w-auto" />
+          <Image src="/logo-borda-branca.png" alt="Licitagram" width={880} height={198} className="h-7 w-auto" />
         ) : (
-          <Image src="/logo.png" alt="Licitagram" width={440} height={99} className="h-[4.5rem] w-auto" />
+          <Image src="/logo-borda-branca.png" alt="Licitagram" width={880} height={198} className="h-14 w-auto" />
         )}
       </div>
 
@@ -231,7 +231,7 @@ export function DashboardSidebar({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
-        <Image src="/logo.png" alt="Licitagram" width={293} height={68} className="h-[3.94rem] w-auto" />
+        <Image src="/logo-borda-branca.png" alt="Licitagram" width={880} height={198} className="h-12 w-auto" />
       </div>
 
       {/* Mobile overlay */}
