@@ -52,47 +52,51 @@ export default async function DashboardLayout({
   const userEmail = user.email || ''
   const userInitial = (user.fullName || user.email || 'U')[0].toUpperCase()
 
-  // Fetch WhatsApp status for onboarding wizard
-  let hasWhatsapp = false
-  if (!user.onboardingCompleted) {
-    const supabase = await createClient()
-    const { data: wpData } = await supabase
-      .from('users')
-      .select('whatsapp_verified')
-      .eq('id', user.userId)
-      .single()
-    hasWhatsapp = !!wpData?.whatsapp_verified
-  }
+  // ── Parallel data fetching ─────────────────────────────────────────────
+  // Run all independent queries concurrently to avoid sequential waterfalls
+  const supabase = await createClient()
+
+  const whatsappPromise = !user.onboardingCompleted
+    ? supabase
+        .from('users')
+        .select('whatsapp_verified')
+        .eq('id', user.userId)
+        .single()
+        .then(({ data }) => !!data?.whatsapp_verified)
+    : Promise.resolve(false)
+
+  const companiesPromise = getUserCompanies()
+
+  const matchingPromise = user.companyId
+    ? supabase
+        .from('companies')
+        .select('matching_status')
+        .eq('id', user.companyId)
+        .single()
+        .then(async ({ data }) => {
+          const status = data?.matching_status || null
+          let matchCount = 0
+          if (status && status !== 'ready') {
+            const { count } = await supabase
+              .from('matches')
+              .select('id', { count: 'exact', head: true })
+              .eq('company_id', user.companyId!)
+              .gte('score', 50)
+            matchCount = count || 0
+          }
+          return { status, matchCount }
+        })
+    : Promise.resolve({ status: null as string | null, matchCount: 0 })
+
+  const [hasWhatsapp, userCompanies, { status: matchingStatus, matchCount: initialMatchCount }] =
+    await Promise.all([whatsappPromise, companiesPromise, matchingPromise])
 
   // ── Multi-company support ──────────────────────────────────────────────
   const multiCnpjEnabled = hasFeature(user, 'multi_cnpj')
   const maxCompanies = user.subscription?.max_companies || 1
-  const userCompanies = await getUserCompanies()
 
   // Show company switcher if user has multi_cnpj OR already has >1 company
   const showSwitcher = multiCnpjEnabled || userCompanies.length > 1
-
-  // ── Matching progress banner ───────────────────────────────────────────
-  let matchingStatus: string | null = null
-  let initialMatchCount = 0
-  if (user.companyId) {
-    const supabase = await createClient()
-    const { data: companyData } = await supabase
-      .from('companies')
-      .select('matching_status')
-      .eq('id', user.companyId)
-      .single()
-    matchingStatus = companyData?.matching_status || null
-
-    if (matchingStatus && matchingStatus !== 'ready') {
-      const { count } = await supabase
-        .from('matches')
-        .select('id', { count: 'exact', head: true })
-        .eq('company_id', user.companyId)
-        .gte('score', 50)
-      initialMatchCount = count || 0
-    }
-  }
 
   return (
     <CompanyProvider

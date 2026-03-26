@@ -26,35 +26,27 @@ export default async function MapPage() {
   const companyId = profile.company_id
 
   // ── Query matches for ACTIVE company only (map is company-specific) ──────
-  const PAGE_SIZE = 1000
   const today = new Date().toISOString().split('T')[0]
-  const liveData: any[] = []
 
-  for (let offset = 0; offset < 10000; offset += PAGE_SIZE) {
-    const { data: page } = await supabase
-      .from('matches')
-      .select(`
-        id, score, is_hot, match_source, recomendacao,
-        tenders!inner (
-          id, objeto, orgao_nome, uf, municipio,
-          valor_estimado, modalidade_nome, modalidade_id,
-          data_abertura, data_encerramento, status
-        )
-      `)
-      .eq('company_id', companyId)
-      .in('match_source', [...AI_VERIFIED_SOURCES])
-      .gte('score', MIN_DISPLAY_SCORE)
-      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
-      .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
-      .order('score', { ascending: false })
-      .range(offset, offset + PAGE_SIZE - 1)
+  const { data: liveData } = await supabase
+    .from('matches')
+    .select(`
+      id, score, is_hot, match_source, recomendacao,
+      tenders!inner (
+        id, objeto, orgao_nome, uf, municipio,
+        valor_estimado, modalidade_nome, modalidade_id,
+        data_abertura, data_encerramento, status
+      )
+    `)
+    .eq('company_id', companyId)
+    .in('match_source', [...AI_VERIFIED_SOURCES])
+    .gte('score', MIN_DISPLAY_SCORE)
+    .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
+    .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
+    .order('score', { ascending: false })
+    .limit(10000)
 
-    if (!page || page.length === 0) break
-    liveData.push(...page)
-    if (page.length < PAGE_SIZE) break
-  }
-
-  const matches = liveData.map((m: any) => {
+  const matches = (liveData || []).map((m: any) => {
     const t = m.tenders as Record<string, any>
     return {
       id: m.id as string,
