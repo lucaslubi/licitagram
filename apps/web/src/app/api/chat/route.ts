@@ -554,7 +554,7 @@ ${context}`
     console.log(`[Chat] Using DeepSeek V3 fallback — ${dsContext.length} chars context`)
 
     const completion = await groq.chat.completions.create({
-      model: 'qwen-qwq-32b',
+      model: 'llama-3.3-70b-versatile',
       messages: dsMessages,
       max_tokens: 8192,
       temperature: 0.2,

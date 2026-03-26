@@ -182,7 +182,7 @@ LEMBRE: score 0-15 para objetos TOTALMENTE fora do escopo da empresa.`
 
   try {
     const response = await groqClient.chat.completions.create({
-      model: 'qwen-qwq-32b',
+      model: 'llama-3.3-70b-versatile',
       messages: [
         { role: 'system', content: TRIAGE_SYSTEM_PROMPT },
         { role: 'user', content: userPrompt },

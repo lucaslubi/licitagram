@@ -211,7 +211,7 @@ export async function POST(request: NextRequest) {
     console.log(`[Consultant] Using DeepSeek V3 fallback — ${dsSystemPrompt.length} chars prompt`)
 
     const completion = await groq.chat.completions.create({
-      model: 'qwen-qwq-32b',
+      model: 'llama-3.3-70b-versatile',
       messages: dsMessages,
       max_tokens: 2048,
       temperature: 0.2,

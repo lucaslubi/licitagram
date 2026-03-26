@@ -235,7 +235,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const completion = await groqClient.chat.completions.create({
-      model: 'qwen-qwq-32b',
+      model: 'llama-3.3-70b-versatile',
       max_tokens: 4096,
       temperature: 0.1,
       response_format: { type: 'json_object' },
