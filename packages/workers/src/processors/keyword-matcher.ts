@@ -63,8 +63,8 @@ const MIN_MATCH_SCORE_A = 40
 // Mode B: Keyword-only scoring weights (tender has NO CNAE data)
 const KEYWORD_WEIGHT_B = 0.60
 const DESCRIPTION_WEIGHT_B = 0.40
-const MIN_MATCH_SCORE_B = 50     // Higher threshold — no CNAE gate
-const MIN_PHRASE_MATCHES_B = 2   // Require at least 2 keyword phrases to match
+const MIN_MATCH_SCORE_B = 60     // Higher threshold — no CNAE gate (was 50, too many false positives)
+const MIN_PHRASE_MATCHES_B = 4   // Require at least 4 keyword phrases to match (was 2, too permissive)
 
 const DIRECT_CNAE_SCORE = 100
 const RELATED_CNAE_SCORE = 50
@@ -73,7 +73,7 @@ const RELATED_CNAE_SCORE = 50
 // Higher caps = more matches visible immediately (better first impression).
 // AI triage will re-score and can adjust up or down.
 const MAX_KEYWORD_SCORE_MODE_A = 90  // CNAE-gated: high initial confidence (CNAE overlap is strong signal)
-const MAX_KEYWORD_SCORE_MODE_B = 75  // Keyword-only: moderate confidence, AI will refine
+const MAX_KEYWORD_SCORE_MODE_B = 65  // Keyword-only: moderate confidence, AI will refine (was 75, lowered for precision)
 
 // ─── Portuguese Stopwords (expanded) ──────────────────────────────────────
 
