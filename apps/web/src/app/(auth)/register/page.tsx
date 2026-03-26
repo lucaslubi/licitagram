@@ -32,7 +32,7 @@ export default function RegisterPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="mb-6">
-            <Image src="/logo-login.png" alt="Licitagram" width={400} height={120} className="h-16 w-auto mx-auto" />
+            <Image src="/logo-login.png" alt="Licitagram" width={800} height={240} className="h-32 w-auto mx-auto" />
           </div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">Criar conta</h1>
           <p className="text-sm text-muted-foreground mt-2">Comece a monitorar licitações agora</p>
