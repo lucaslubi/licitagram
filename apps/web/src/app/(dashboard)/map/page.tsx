@@ -25,14 +25,7 @@ export default async function MapPage() {
 
   const companyId = profile.company_id
 
-  // Get all company IDs in this user's group for cross-company data
-  const { data: userCompanies } = await supabase
-    .from('user_companies')
-    .select('company_id')
-    .eq('user_id', user.id)
-  const groupCompanyIds = userCompanies?.map((uc: any) => uc.company_id) || [companyId]
-
-  // ── Query matches directly (always fresh, no stale cache) ────────────────
+  // ── Query matches for ACTIVE company only (map is company-specific) ──────
   const PAGE_SIZE = 1000
   const today = new Date().toISOString().split('T')[0]
   const liveData: any[] = []
@@ -48,7 +41,7 @@ export default async function MapPage() {
           data_abertura, data_encerramento, status
         )
       `)
-      .in('company_id', groupCompanyIds)
+      .eq('company_id', companyId)
       .in('match_source', [...AI_VERIFIED_SOURCES])
       .gte('score', MIN_DISPLAY_SCORE)
       .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
