@@ -99,7 +99,7 @@ export function DashboardSidebar({
         {collapsed ? (
           <Image src="/logo-only.png" alt="Licitagram" width={200} height={200} className="h-8 w-8 object-contain" />
         ) : (
-          <Image src="/logo-sidebar.png" alt="Licitagram" width={880} height={198} className="h-16 w-auto" />
+          <Image src="/logo-login.png" alt="Licitagram" width={880} height={198} className="h-16 w-auto" />
         )}
       </div>
 
@@ -231,7 +231,7 @@ export function DashboardSidebar({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
-        <Image src="/logo-sidebar.png" alt="Licitagram" width={880} height={198} className="h-12 w-auto" />
+        <Image src="/logo-login.png" alt="Licitagram" width={880} height={198} className="h-12 w-auto" />
       </div>
 
       {/* Mobile overlay */}
