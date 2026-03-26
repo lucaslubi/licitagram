@@ -156,12 +156,18 @@ const pendingNotificationsWorker = new Worker(
 
       // Find matches for this user's company that are 'new' (not yet notified)
       // ONLY notify AI-verified matches — keyword-only matches are unreliable
+      // Only notify matches created in the last 30 days — prevents sending stale/old matches
+      const thirtyDaysAgo = new Date()
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+      const cutoffDate = thirtyDaysAgo.toISOString()
+
       const { data: pendingMatches } = await supabase
         .from('matches')
         .select('id, score, match_source, created_at, tenders(data_encerramento, modalidade_id)')
         .eq('company_id', user.company_id)
         .eq('status', 'new')
         .gte('score', minScore)
+        .gte('created_at', cutoffDate)
         .in('match_source', ['ai', 'ai_triage', 'semantic'])
         .is('notified_at', null)
         .order('created_at', { ascending: false })  // Newest first!

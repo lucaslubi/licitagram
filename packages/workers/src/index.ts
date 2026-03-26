@@ -499,6 +499,57 @@ async function setupRepeatableJobs() {
 }
 
 /**
+ * Registers ONLY the notification & hot-alert repeatable jobs.
+ * Called by the 'alerts' worker group so these jobs survive Redis/PM2 restarts
+ * even when the 'scraping' group is not running.
+ */
+async function setupAlertRepeatableJobs() {
+  // Pending notifications every 5 minutes
+  await pendingNotificationsQueue.add(
+    'check-pending',
+    {},
+    {
+      repeat: { every: 5 * 60 * 1000 },
+      jobId: 'pending-notifications-5min',
+    },
+  )
+  logger.info('[alerts] Pending notifications job scheduled (every 5 min)')
+
+  // Hot alerts scan every 30 min
+  await hotAlertsQueue.add(
+    'hot-daily',
+    {},
+    {
+      repeat: { every: 30 * 60 * 1000 },
+      jobId: 'hot-scan-30m-repeat',
+    },
+  )
+  logger.info('[alerts] Hot alerts scan scheduled (every 30m)')
+
+  // Urgency check every hour
+  await hotAlertsQueue.add(
+    'urgency-check',
+    {},
+    {
+      repeat: { every: 60 * 60 * 1000 },
+      jobId: 'urgency-check-repeat',
+    },
+  )
+  logger.info('[alerts] Urgency check job scheduled (every 1h)')
+
+  // New-matches digest every 3 hours
+  await hotAlertsQueue.add(
+    'new-matches-digest',
+    {},
+    {
+      repeat: { every: 3 * 60 * 60 * 1000 },
+      jobId: 'new-matches-digest-3h-repeat',
+    },
+  )
+  logger.info('[alerts] New matches digest scheduled (every 3h)')
+}
+
+/**
  * One-time backfill: fetch PNCP documents for comprasgov tenders that have none.
  * These tenders were scraped before document fetching was added to the comprasgov processor.
  * Runs in batches with rate limiting to avoid overwhelming the PNCP API.
@@ -582,9 +633,12 @@ async function main() {
   allWorkers = await loadWorkers()
   logger.info({ workerCount: allWorkers.length, groups: selectedGroups }, 'Workers loaded')
 
-  // Only the scraping group or full mode sets up repeatable jobs (avoid duplicates)
+  // Set up repeatable jobs — scraping group registers all jobs,
+  // alerts group registers only notification/hot-alert jobs (so they survive Redis restarts)
   if (isFullMode || selectedGroups.includes('scraping')) {
     await setupRepeatableJobs()
+  } else if (selectedGroups.includes('alerts')) {
+    await setupAlertRepeatableJobs()
   }
 
   // Telegram bot polling — only ONE process should run the bot (avoid duplicate polling)

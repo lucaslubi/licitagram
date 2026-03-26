@@ -232,11 +232,12 @@ const notificationWorker = new Worker<NotificationJobData>(
       })
       logger.info({ matchId, telegramChatId }, 'Telegram notification sent')
 
-      // Mark as notified
+      // Mark as notified (guard: only if not already notified — prevents race with WhatsApp processor)
       const { error: updateErr } = await supabase
         .from('matches')
         .update({ status: 'notified', notified_at: new Date().toISOString() })
         .eq('id', matchId)
+        .is('notified_at', null)
 
       if (updateErr) logger.error({ matchId, error: updateErr }, 'Failed to mark match as notified')
     } catch (err) {
