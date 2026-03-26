@@ -155,13 +155,14 @@ const pendingNotificationsWorker = new Worker(
       const minScore = user.min_score ?? 50
 
       // Find matches for this user's company that are 'new' (not yet notified)
-      // ONLY notify AI-verified matches — keyword-only matches are unreliable
+      // Notify AI-verified matches OR high-score keyword matches (≥70)
       // Only notify matches created in the last 30 days — prevents sending stale/old matches
       const thirtyDaysAgo = new Date()
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
       const cutoffDate = thirtyDaysAgo.toISOString()
 
-      const { data: pendingMatches } = await supabase
+      // Fetch AI-verified matches (any score above minScore)
+      const { data: aiMatches } = await supabase
         .from('matches')
         .select('id, score, match_source, created_at, tenders(data_encerramento, modalidade_id)')
         .eq('company_id', user.company_id)
@@ -170,8 +171,25 @@ const pendingNotificationsWorker = new Worker(
         .gte('created_at', cutoffDate)
         .in('match_source', ['ai', 'ai_triage', 'semantic'])
         .is('notified_at', null)
-        .order('created_at', { ascending: false })  // Newest first!
+        .order('created_at', { ascending: false })
         .limit(MAX_NOTIFICATIONS_PER_USER)
+
+      // Also fetch high-score keyword matches (≥70) that haven't been triaged yet
+      const { data: keywordMatches } = await supabase
+        .from('matches')
+        .select('id, score, match_source, created_at, tenders(data_encerramento, modalidade_id)')
+        .eq('company_id', user.company_id)
+        .eq('status', 'new')
+        .gte('score', 70)
+        .gte('created_at', cutoffDate)
+        .eq('match_source', 'keyword')
+        .is('notified_at', null)
+        .order('score', { ascending: false })
+        .limit(MAX_NOTIFICATIONS_PER_USER)
+
+      const pendingMatches = [...(aiMatches || []), ...(keywordMatches || [])]
+        .sort((a, b) => (b.score || 0) - (a.score || 0))
+        .slice(0, MAX_NOTIFICATIONS_PER_USER)
 
       if (!pendingMatches || pendingMatches.length === 0) continue
 
