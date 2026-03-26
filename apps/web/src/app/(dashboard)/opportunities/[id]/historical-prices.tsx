@@ -302,7 +302,7 @@ export function HistoricalPrices({
           </div>
           <div className="text-center">
             <p className="text-xs text-gray-400">Valor Vencedor Medio</p>
-            <p className="text-sm font-bold text-emerald-700">
+            <p className="text-sm font-bold text-emerald-400">
               {stats.avgHomologado > 0 ? formatCurrencyBR(stats.avgHomologado) : '-'}
             </p>
           </div>
@@ -353,7 +353,7 @@ export function HistoricalPrices({
                     Est: {t.valor_estimado ? formatCurrencyBR(t.valor_estimado) : '-'}
                   </p>
                   {t.valor_homologado ? (
-                    <p className="text-emerald-700 font-medium">
+                    <p className="text-emerald-400 font-medium">
                       Ven: {formatCurrencyBR(t.valor_homologado)}
                       {desconto !== null && desconto >= 0 && (
                         <span className="text-brand ml-1">(-{desconto.toFixed(0)}%)</span>

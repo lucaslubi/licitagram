@@ -126,10 +126,10 @@ export function AddCompanyDialog({ onClose }: AddCompanyDialogProps) {
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
       {/* Dialog */}
-      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 p-6 z-[10001]">
+      <div className="relative bg-[#1a1c1f] rounded-xl shadow-2xl w-full max-w-md mx-4 p-6 z-[10001]">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-400 transition-colors"
           aria-label="Fechar"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -137,26 +137,26 @@ export function AddCompanyDialog({ onClose }: AddCompanyDialogProps) {
           </svg>
         </button>
 
-        <h2 className="text-lg font-semibold text-gray-900 mb-1">
+        <h2 className="text-lg font-semibold text-white mb-1">
           Adicionar Empresa
         </h2>
-        <p className="text-sm text-gray-500 mb-5">
+        <p className="text-sm text-gray-400 mb-5">
           Vincule mais um CNPJ à sua conta ({companies.length}/{maxCompanies})
         </p>
 
         {success ? (
           <div className="text-center py-6">
-            <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-green-100 flex items-center justify-center">
-              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-emerald-900/20 flex items-center justify-center">
+              <svg className="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <p className="text-sm font-medium text-gray-900">Empresa adicionada com sucesso!</p>
+            <p className="text-sm font-medium text-white">Empresa adicionada com sucesso!</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <Label htmlFor="cnpj" className="text-sm font-medium text-gray-700">
+              <Label htmlFor="cnpj" className="text-sm font-medium text-gray-300">
                 CNPJ
               </Label>
               <Input
@@ -184,7 +184,7 @@ export function AddCompanyDialog({ onClose }: AddCompanyDialogProps) {
             {companyName && (
               <>
                 <div>
-                  <Label htmlFor="razao" className="text-sm font-medium text-gray-700">
+                  <Label htmlFor="razao" className="text-sm font-medium text-gray-300">
                     Razão Social
                   </Label>
                   <Input
@@ -199,7 +199,7 @@ export function AddCompanyDialog({ onClose }: AddCompanyDialogProps) {
 
                 {fantasia && (
                   <div>
-                    <Label htmlFor="fantasia" className="text-sm font-medium text-gray-700">
+                    <Label htmlFor="fantasia" className="text-sm font-medium text-gray-300">
                       Nome Fantasia
                     </Label>
                     <Input
@@ -216,7 +216,7 @@ export function AddCompanyDialog({ onClose }: AddCompanyDialogProps) {
             )}
 
             {error && (
-              <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
+              <p className="text-sm text-red-400 bg-red-900/20 rounded-lg px-3 py-2">{error}</p>
             )}
 
             <div className="flex gap-3 pt-2">

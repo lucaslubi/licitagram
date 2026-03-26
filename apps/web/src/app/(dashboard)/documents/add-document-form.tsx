@@ -59,7 +59,7 @@ export function AddDocumentForm({
   return (
     <form onSubmit={handleSubmit} className="flex flex-wrap gap-3 items-end">
       <div className="min-w-[200px]">
-        <label className="text-sm font-medium text-gray-700">Tipo *</label>
+        <label className="text-sm font-medium text-gray-300">Tipo *</label>
         <select
           value={tipo}
           onChange={(e) => setTipo(e.target.value)}
@@ -73,7 +73,7 @@ export function AddDocumentForm({
         </select>
       </div>
       <div className="flex-1 min-w-[160px]">
-        <label className="text-sm font-medium text-gray-700">Descrição</label>
+        <label className="text-sm font-medium text-gray-300">Descrição</label>
         <input
           type="text"
           value={descricao}
@@ -83,7 +83,7 @@ export function AddDocumentForm({
         />
       </div>
       <div className="min-w-[120px]">
-        <label className="text-sm font-medium text-gray-700">Número</label>
+        <label className="text-sm font-medium text-gray-300">Número</label>
         <input
           type="text"
           value={numero}
@@ -93,7 +93,7 @@ export function AddDocumentForm({
         />
       </div>
       <div className="min-w-[140px]">
-        <label className="text-sm font-medium text-gray-700">Validade</label>
+        <label className="text-sm font-medium text-gray-300">Validade</label>
         <input
           type="date"
           value={validade}
@@ -108,8 +108,8 @@ export function AddDocumentForm({
       >
         {loading ? 'Adicionando...' : 'Adicionar'}
       </button>
-      {error && <p className="w-full text-sm text-red-600">{error}</p>}
-      {success && <p className="w-full text-sm text-green-600">Documento adicionado com sucesso!</p>}
+      {error && <p className="w-full text-sm text-red-400">{error}</p>}
+      {success && <p className="w-full text-sm text-emerald-400">Documento adicionado com sucesso!</p>}
     </form>
   )
 }

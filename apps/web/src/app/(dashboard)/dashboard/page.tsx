@@ -33,7 +33,7 @@ export default async function DashboardPage() {
         <h1 className="text-2xl font-bold mb-4 text-white">Bem-vindo ao Licitagram!</h1>
         <Card className="bg-[#1a1c1f] border-[#2d2f33]">
           <CardContent className="pt-6">
-            <p className="text-gray-500 mb-4">
+            <p className="text-gray-400 mb-4">
               Para começar a receber oportunidades, cadastre os dados da sua empresa.
             </p>
             <Link
@@ -282,7 +282,7 @@ export default async function DashboardPage() {
             <CardContent className="pt-5 pb-4 px-5">
               <WinRateCircle rate={overallWinRate} won={totalWon} lost={totalLost} />
               {recentTotal >= 3 && Math.abs(winRateDiff) > 10 && (
-                <p className={`text-xs mt-3 font-medium ${winRateDiff > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                <p className={`text-xs mt-3 font-medium ${winRateDiff > 0 ? 'text-emerald-400' : 'text-red-500'}`}>
                   {winRateDiff > 0 ? '\u2191' : '\u2193'} {Math.abs(winRateDiff)}% nos ultimos 30 dias
                 </p>
               )}
@@ -361,7 +361,7 @@ export default async function DashboardPage() {
                       <p className="text-xs text-gray-400 mt-0.5">
                         {(tender?.orgao_nome as string) || ''} — {(tender?.uf as string) || ''}
                         {tender?.valor_estimado ? (
-                          <span className="text-emerald-600 font-medium"> — {formatCurrency(tender.valor_estimado as number)}</span>
+                          <span className="text-emerald-400 font-medium"> — {formatCurrency(tender.valor_estimado as number)}</span>
                         ) : ''}
                       </p>
                     </div>

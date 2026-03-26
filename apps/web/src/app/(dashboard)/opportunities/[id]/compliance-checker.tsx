@@ -253,18 +253,18 @@ export function ComplianceChecker({
             variant="outline"
             className={`text-sm ${
               score >= 70
-                ? 'bg-green-100 text-green-800 border-green-200'
+                ? 'bg-emerald-900/20 text-emerald-400 border-emerald-900/30'
                 : score >= 50
-                  ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
-                  : 'bg-red-100 text-red-800 border-red-200'
+                  ? 'bg-yellow-900/20 text-yellow-400 border-yellow-900/30'
+                  : 'bg-red-900/20 text-red-400 border-red-900/30'
             }`}
           >
             {score}%
           </Badge>
         </CardTitle>
         <div className="flex gap-3 text-xs text-gray-400">
-          <span className="text-green-600">{okCount} OK</span>
-          <span className="text-yellow-600">{warnCount} Atenção</span>
+          <span className="text-emerald-400">{okCount} OK</span>
+          <span className="text-yellow-400">{warnCount} Atenção</span>
           <span className="text-red-400">{missCount} Pendente</span>
         </div>
       </CardHeader>

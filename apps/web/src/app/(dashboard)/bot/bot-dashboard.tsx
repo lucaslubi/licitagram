@@ -64,12 +64,12 @@ const STRATEGY_OPTIONS = [
 ]
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
-  pending: { label: 'Pendente', bg: 'bg-amber-50', text: 'text-amber-700' },
-  active: { label: 'Ativo', bg: 'bg-blue-50', text: 'text-blue-700' },
-  completed: { label: 'Concluido', bg: 'bg-emerald-50', text: 'text-emerald-700' },
-  failed: { label: 'Falhou', bg: 'bg-red-50', text: 'text-red-700' },
-  paused: { label: 'Pausado', bg: 'bg-gray-100', text: 'text-gray-600' },
-  cancelled: { label: 'Cancelado', bg: 'bg-gray-100', text: 'text-gray-500' },
+  pending: { label: 'Pendente', bg: 'bg-amber-900/20', text: 'text-amber-400' },
+  active: { label: 'Ativo', bg: 'bg-blue-900/20', text: 'text-blue-400' },
+  completed: { label: 'Concluido', bg: 'bg-emerald-900/20', text: 'text-emerald-400' },
+  failed: { label: 'Falhou', bg: 'bg-red-900/20', text: 'text-red-400' },
+  paused: { label: 'Pausado', bg: 'bg-[#2d2f33]', text: 'text-gray-400' },
+  cancelled: { label: 'Cancelado', bg: 'bg-[#2d2f33]', text: 'text-gray-400' },
 }
 
 /* ── Spinner ────────────────────────────────────────────────────────────────── */
@@ -332,26 +332,26 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
     <div className="space-y-6">
       {/* Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="rounded-xl border border-gray-200 bg-white shadow-sm p-6">
+        <div className="rounded-xl border border-[#2d2f33] bg-[#1a1c1f] shadow-sm p-6">
           <p className="text-sm text-gray-400 font-medium uppercase tracking-wider">Total sessões</p>
-          <p className="text-3xl font-bold text-gray-900 mt-1">{sessions.length}</p>
+          <p className="text-3xl font-bold text-white mt-1">{sessions.length}</p>
         </div>
-        <div className="rounded-xl border border-gray-200 bg-white shadow-sm p-6">
+        <div className="rounded-xl border border-[#2d2f33] bg-[#1a1c1f] shadow-sm p-6">
           <p className="text-sm text-gray-400 font-medium uppercase tracking-wider">Bots ativos</p>
-          <p className="text-3xl font-bold text-blue-600 mt-1">{activeSessions.length}</p>
+          <p className="text-3xl font-bold text-blue-400 mt-1">{activeSessions.length}</p>
         </div>
-        <div className="rounded-xl border border-gray-200 bg-white shadow-sm p-6">
+        <div className="rounded-xl border border-[#2d2f33] bg-[#1a1c1f] shadow-sm p-6">
           <p className="text-sm text-gray-400 font-medium uppercase tracking-wider">Taxa de sucesso</p>
-          <p className="text-3xl font-bold text-emerald-600 mt-1">{winRate}%</p>
+          <p className="text-3xl font-bold text-emerald-400 mt-1">{winRate}%</p>
         </div>
-        <div className="rounded-xl border border-gray-200 bg-white shadow-sm p-6">
+        <div className="rounded-xl border border-[#2d2f33] bg-[#1a1c1f] shadow-sm p-6">
           <p className="text-sm text-gray-400 font-medium uppercase tracking-wider">Lances realizados</p>
-          <p className="text-3xl font-bold text-gray-900 mt-1">{totalBids}</p>
+          <p className="text-3xl font-bold text-white mt-1">{totalBids}</p>
         </div>
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex gap-1 border-b border-gray-200">
+      <div className="flex gap-1 border-b border-[#2d2f33]">
         {[
           { key: 'configs' as const, label: 'Portais Configurados' },
           { key: 'sessions' as const, label: `Sessões Ativas (${activeSessions.length})` },
@@ -363,7 +363,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
             className={`px-4 py-2.5 text-base font-medium transition-colors border-b-2 -mb-px ${
               activeTab === tab.key
                 ? 'border-[#F43E01] text-[#F43E01]'
-                : 'border-transparent text-gray-400 hover:text-gray-900'
+                : 'border-transparent text-gray-400 hover:text-white'
             }`}
           >
             {tab.label}
@@ -375,39 +375,39 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
       {activeTab === 'configs' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-gray-900">Configurações de Portal</h2>
+            <h2 className="text-xl font-semibold text-white">Configurações de Portal</h2>
             <button onClick={openAddConfig} className="bg-[#F43E01] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[#D63500] transition-colors">
               Adicionar Portal
             </button>
           </div>
 
           {configs.length === 0 ? (
-            <div className="rounded-xl border border-gray-200 bg-white shadow-sm p-8 text-center">
+            <div className="rounded-xl border border-[#2d2f33] bg-[#1a1c1f] shadow-sm p-8 text-center">
               <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
               </svg>
-              <p className="mt-3 text-base text-gray-600">Nenhum portal configurado ainda.</p>
+              <p className="mt-3 text-base text-gray-400">Nenhum portal configurado ainda.</p>
               <p className="text-sm text-gray-400 mt-1">Adicione suas credenciais de portal para usar o bot.</p>
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {configs.map(config => (
-                <div key={config.id} className="rounded-xl border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow p-6">
+                <div key={config.id} className="rounded-xl border border-[#2d2f33] bg-[#1a1c1f] shadow-sm hover:shadow-md transition-shadow p-6">
                   <div className="flex items-start justify-between">
                     <div>
-                      <h3 className="font-semibold text-gray-900 text-lg">
+                      <h3 className="font-semibold text-white text-lg">
                         {PORTAL_OPTIONS.find(p => p.value === config.portal)?.label || config.portal}
                       </h3>
                       <p className="text-sm text-gray-400 mt-0.5 font-mono">{maskCpf(config.username)}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                        config.is_active ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-gray-100 text-gray-500'
+                        config.is_active ? 'bg-emerald-900/20 text-emerald-400 border border-emerald-900/30' : 'bg-[#2d2f33] text-gray-400'
                       }`}>
                         {config.is_active ? 'Ativo' : 'Inativo'}
                       </span>
                       {connectedPortals.has(config.id) ? (
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-emerald-900/20 text-emerald-400 border border-emerald-900/30">
                           Conectado
                         </span>
                       ) : (
@@ -421,7 +421,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                       )}
                       <button
                         onClick={() => openEditConfig(config)}
-                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                        className="text-gray-400 hover:text-gray-400 transition-colors"
                         title="Editar"
                       >
                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -450,7 +450,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
       {activeTab === 'sessions' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-gray-900">Sessões Ativas</h2>
+            <h2 className="text-xl font-semibold text-white">Sessões Ativas</h2>
             <button
               onClick={openNewSession}
               disabled={configs.length === 0}
@@ -461,11 +461,11 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
           </div>
 
           {activeSessions.length === 0 ? (
-            <div className="rounded-xl border border-gray-200 bg-white shadow-sm p-8 text-center">
+            <div className="rounded-xl border border-[#2d2f33] bg-[#1a1c1f] shadow-sm p-8 text-center">
               <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <p className="mt-3 text-base text-gray-600">Nenhuma sessao ativa no momento.</p>
+              <p className="mt-3 text-base text-gray-400">Nenhuma sessao ativa no momento.</p>
               {configs.length === 0 && (
                 <p className="text-sm text-gray-400 mt-1">Configure um portal primeiro para iniciar uma sessao.</p>
               )}
@@ -473,10 +473,10 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {activeSessions.map(session => (
-                <div key={session.id} className="rounded-xl border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow p-6">
+                <div key={session.id} className="rounded-xl border border-[#2d2f33] bg-[#1a1c1f] shadow-sm hover:shadow-md transition-shadow p-6">
                   <div className="flex items-start justify-between">
                     <div>
-                      <h3 className="font-semibold text-gray-900 text-lg">Pregao {session.pregao_id}</h3>
+                      <h3 className="font-semibold text-white text-lg">Pregao {session.pregao_id}</h3>
                       <p className="text-sm text-gray-400 mt-0.5">
                         {PORTAL_OPTIONS.find(p => p.value === session.portal)?.label || session.portal}
                       </p>
@@ -487,11 +487,11 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                   <div className="mt-4 grid grid-cols-3 gap-4 text-center">
                     <div>
                       <p className="text-sm text-gray-400 font-medium">Lances</p>
-                      <p className="text-2xl font-bold text-gray-900">{session.bids_placed}</p>
+                      <p className="text-2xl font-bold text-white">{session.bids_placed}</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-400 font-medium">Preco atual</p>
-                      <p className="text-xl font-bold text-gray-900">
+                      <p className="text-xl font-bold text-white">
                         {session.current_price != null
                           ? `R$ ${session.current_price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
                           : '-'}
@@ -499,7 +499,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                     </div>
                     <div>
                       <p className="text-sm text-gray-400 font-medium">Estrategia</p>
-                      <p className="text-sm font-medium text-gray-600 mt-1">
+                      <p className="text-sm font-medium text-gray-400 mt-1">
                         {STRATEGY_OPTIONS.find(s => s.value === session.strategy)?.label.split(' - ')[0] || session.strategy}
                       </p>
                     </div>
@@ -507,16 +507,16 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
 
                   {session.status === 'active' && (
                     <div className="mt-3 flex items-center gap-1">
-                      <Spinner className="h-3 w-3 text-blue-600" />
-                      <span className="text-sm text-blue-600 font-medium">Bot em execucao...</span>
+                      <Spinner className="h-3 w-3 text-blue-400" />
+                      <span className="text-sm text-blue-400 font-medium">Bot em execucao...</span>
                     </div>
                   )}
 
-                  <div className="mt-4 flex items-center gap-2 border-t border-gray-200 pt-4">
+                  <div className="mt-4 flex items-center gap-2 border-t border-[#2d2f33] pt-4">
                     {session.status === 'active' && (
                       <button
                         onClick={() => handleSessionAction(session.id, 'pause')}
-                        className="text-sm px-3 py-1.5 rounded-md border border-gray-300 text-gray-600 hover:bg-gray-100 transition-colors font-medium"
+                        className="text-sm px-3 py-1.5 rounded-md border border-[#2d2f33] text-gray-400 hover:bg-[#2d2f33] transition-colors font-medium"
                       >
                         Pausar
                       </button>
@@ -531,7 +531,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                     )}
                     <button
                       onClick={() => handleSessionAction(session.id, 'cancel')}
-                      className="text-sm px-3 py-1.5 rounded-md border border-red-500/20 text-red-600 hover:bg-red-500/10 transition-colors font-medium"
+                      className="text-sm px-3 py-1.5 rounded-md border border-red-500/20 text-red-400 hover:bg-red-900/10 transition-colors font-medium"
                     >
                       Cancelar
                     </button>
@@ -553,18 +553,18 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
       {/* ═══ Tab: History ═══ */}
       {activeTab === 'history' && (
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold text-gray-900">Histórico de Sessões</h2>
+          <h2 className="text-xl font-semibold text-white">Histórico de Sessões</h2>
 
           {historySessions.length === 0 ? (
-            <div className="rounded-xl border border-gray-200 bg-white shadow-sm p-8 text-center">
-              <p className="text-base text-gray-600">Nenhuma sessao finalizada ainda.</p>
+            <div className="rounded-xl border border-[#2d2f33] bg-[#1a1c1f] shadow-sm p-8 text-center">
+              <p className="text-base text-gray-400">Nenhuma sessao finalizada ainda.</p>
             </div>
           ) : (
-            <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+            <div className="rounded-xl border border-[#2d2f33] bg-[#1a1c1f] shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-gray-200 bg-gray-50">
+                    <tr className="border-b border-[#2d2f33] bg-[#1a1c1f]">
                       <th className="text-left px-4 py-3 text-sm font-medium text-gray-400 uppercase tracking-wider">Pregao</th>
                       <th className="text-left px-4 py-3 text-sm font-medium text-gray-400 uppercase tracking-wider">Portal</th>
                       <th className="text-left px-4 py-3 text-sm font-medium text-gray-400 uppercase tracking-wider">Status</th>
@@ -575,16 +575,16 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {historySessions.map(session => (
-                      <tr key={session.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-4 py-3 font-medium text-gray-900">{session.pregao_id}</td>
-                        <td className="px-4 py-3 text-gray-600">
+                      <tr key={session.id} className="hover:bg-[#1a1c1f] transition-colors">
+                        <td className="px-4 py-3 font-medium text-white">{session.pregao_id}</td>
+                        <td className="px-4 py-3 text-gray-400">
                           {PORTAL_OPTIONS.find(p => p.value === session.portal)?.label || session.portal}
                         </td>
                         <td className="px-4 py-3">
                           <StatusBadge status={session.status} />
                         </td>
-                        <td className="px-4 py-3 text-gray-600">{session.bids_placed}</td>
-                        <td className="px-4 py-3 text-gray-600">
+                        <td className="px-4 py-3 text-gray-400">{session.bids_placed}</td>
+                        <td className="px-4 py-3 text-gray-400">
                           {session.current_price != null
                             ? `R$ ${session.current_price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
                             : '-'}
@@ -605,13 +605,13 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
       {/* ═══ Config Dialog ═══ */}
       {showConfigDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="bg-white border border-gray-200 rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+          <div className="bg-[#1a1c1f] border border-[#2d2f33] rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-gray-900">
+                <h3 className="text-lg font-semibold text-white">
                   {editingConfig ? 'Editar Portal' : 'Adicionar Portal'}
                 </h3>
-                <button onClick={() => setShowConfigDialog(false)} className="text-gray-400 hover:text-gray-600">
+                <button onClick={() => setShowConfigDialog(false)} className="text-gray-400 hover:text-gray-400">
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
@@ -621,11 +621,11 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
               <div className="space-y-4">
                 {/* Portal */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-600 mb-1">Portal *</label>
+                  <label className="block text-sm font-semibold text-gray-400 mb-1">Portal *</label>
                   <select
                     value={configForm.portal}
                     onChange={e => setConfigForm(f => ({ ...f, portal: e.target.value }))}
-                    className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
+                    className="w-full bg-[#1a1c1f] border border-[#2d2f33] text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
                   >
                     <option value="">Selecione...</option>
                     {PORTAL_OPTIONS.map(p => (
@@ -636,35 +636,35 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
 
                 {/* Username (CPF) */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-600 mb-1">CPF/Usuario *</label>
+                  <label className="block text-sm font-semibold text-gray-400 mb-1">CPF/Usuario *</label>
                   <input
                     type="text"
                     placeholder="000.000.000-00"
                     value={configForm.username}
                     onChange={e => setConfigForm(f => ({ ...f, username: e.target.value }))}
-                    className="w-full bg-white border border-gray-300 text-gray-900 placeholder:text-gray-400 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
+                    className="w-full bg-[#1a1c1f] border border-[#2d2f33] text-white placeholder:text-gray-400 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
                   />
                 </div>
 
                 {/* Password */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-600 mb-1">Senha *</label>
+                  <label className="block text-sm font-semibold text-gray-400 mb-1">Senha *</label>
                   <input
                     type="password"
                     placeholder={editingConfig ? 'Deixe vazio para manter' : 'Senha do portal'}
                     value={configForm.password}
                     onChange={e => setConfigForm(f => ({ ...f, password: e.target.value }))}
-                    className="w-full bg-white border border-gray-300 text-gray-900 placeholder:text-gray-400 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
+                    className="w-full bg-[#1a1c1f] border border-[#2d2f33] text-white placeholder:text-gray-400 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
                   />
                 </div>
 
                 {/* Strategy */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-600 mb-1">Estrategia *</label>
+                  <label className="block text-sm font-semibold text-gray-400 mb-1">Estrategia *</label>
                   <select
                     value={configForm.strategy}
                     onChange={e => setConfigForm(f => ({ ...f, strategy: e.target.value }))}
-                    className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
+                    className="w-full bg-[#1a1c1f] border border-[#2d2f33] text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
                   >
                     {STRATEGY_OPTIONS.map(s => (
                       <option key={s.value} value={s.value}>{s.label}</option>
@@ -675,40 +675,40 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                 {/* Min decrease */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-600 mb-1">Decremento min (R$)</label>
+                    <label className="block text-sm font-semibold text-gray-400 mb-1">Decremento min (R$)</label>
                     <input
                       type="number"
                       step="0.01"
                       placeholder="0.01"
                       value={configForm.min_decrease_value}
                       onChange={e => setConfigForm(f => ({ ...f, min_decrease_value: e.target.value }))}
-                      className="w-full bg-white border border-gray-300 text-gray-900 placeholder:text-gray-400 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
+                      className="w-full bg-[#1a1c1f] border border-[#2d2f33] text-white placeholder:text-gray-400 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-600 mb-1">Decremento min (%)</label>
+                    <label className="block text-sm font-semibold text-gray-400 mb-1">Decremento min (%)</label>
                     <input
                       type="number"
                       step="0.1"
                       placeholder="0.5"
                       value={configForm.min_decrease_percent}
                       onChange={e => setConfigForm(f => ({ ...f, min_decrease_percent: e.target.value }))}
-                      className="w-full bg-white border border-gray-300 text-gray-900 placeholder:text-gray-400 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
+                      className="w-full bg-[#1a1c1f] border border-[#2d2f33] text-white placeholder:text-gray-400 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
                     />
                   </div>
                 </div>
 
                 {error && (
-                  <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-3">
-                    <p className="text-sm text-red-600">{error}</p>
+                  <div className="rounded-lg border border-red-500/20 bg-red-900/10 p-3">
+                    <p className="text-sm text-red-400">{error}</p>
                   </div>
                 )}
               </div>
 
-              <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
+              <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-[#2d2f33]">
                 <button
                   onClick={() => setShowConfigDialog(false)}
-                  className="px-4 py-2 text-sm text-gray-400 hover:text-gray-900 transition-colors"
+                  className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
                 >
                   Cancelar
                 </button>
@@ -742,11 +742,11 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
       {/* ═══ New Session Dialog ═══ */}
       {showSessionDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="bg-white border border-gray-200 rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+          <div className="bg-[#1a1c1f] border border-[#2d2f33] rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-gray-900">Nova Sessão de Bot</h3>
-                <button onClick={() => setShowSessionDialog(false)} className="text-gray-400 hover:text-gray-600">
+                <h3 className="text-lg font-semibold text-white">Nova Sessão de Bot</h3>
+                <button onClick={() => setShowSessionDialog(false)} className="text-gray-400 hover:text-gray-400">
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
@@ -756,11 +756,11 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
               <div className="space-y-4">
                 {/* Config (Portal) */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-600 mb-1">Portal *</label>
+                  <label className="block text-sm font-semibold text-gray-400 mb-1">Portal *</label>
                   <select
                     value={sessionForm.config_id}
                     onChange={e => setSessionForm(f => ({ ...f, config_id: e.target.value }))}
-                    className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
+                    className="w-full bg-[#1a1c1f] border border-[#2d2f33] text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
                   >
                     <option value="">Selecione...</option>
                     {configs.filter(c => c.is_active).map(c => (
@@ -773,48 +773,48 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
 
                 {/* Pregao ID */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-600 mb-1">ID do Pregao *</label>
+                  <label className="block text-sm font-semibold text-gray-400 mb-1">ID do Pregao *</label>
                   <input
                     type="text"
                     placeholder="Ex: PE-2026/001"
                     value={sessionForm.pregao_id}
                     onChange={e => setSessionForm(f => ({ ...f, pregao_id: e.target.value }))}
-                    className="w-full bg-white border border-gray-300 text-gray-900 placeholder:text-gray-400 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
+                    className="w-full bg-[#1a1c1f] border border-[#2d2f33] text-white placeholder:text-gray-400 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
                   />
                 </div>
 
                 {/* Min price */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-600 mb-1">Preco minimo (R$)</label>
+                  <label className="block text-sm font-semibold text-gray-400 mb-1">Preco minimo (R$)</label>
                   <input
                     type="number"
                     step="0.01"
                     placeholder="Valor minimo para lances"
                     value={sessionForm.min_price}
                     onChange={e => setSessionForm(f => ({ ...f, min_price: e.target.value }))}
-                    className="w-full bg-white border border-gray-300 text-gray-900 placeholder:text-gray-400 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
+                    className="w-full bg-[#1a1c1f] border border-[#2d2f33] text-white placeholder:text-gray-400 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
                   />
                 </div>
 
                 {/* Max bids */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-600 mb-1">Max. lances</label>
+                  <label className="block text-sm font-semibold text-gray-400 mb-1">Max. lances</label>
                   <input
                     type="number"
                     placeholder="Limite de lances (opcional)"
                     value={sessionForm.max_bids}
                     onChange={e => setSessionForm(f => ({ ...f, max_bids: e.target.value }))}
-                    className="w-full bg-white border border-gray-300 text-gray-900 placeholder:text-gray-400 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
+                    className="w-full bg-[#1a1c1f] border border-[#2d2f33] text-white placeholder:text-gray-400 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
                   />
                 </div>
 
                 {/* Strategy override */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-600 mb-1">Estrategia (override)</label>
+                  <label className="block text-sm font-semibold text-gray-400 mb-1">Estrategia (override)</label>
                   <select
                     value={sessionForm.strategy}
                     onChange={e => setSessionForm(f => ({ ...f, strategy: e.target.value }))}
-                    className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
+                    className="w-full bg-[#1a1c1f] border border-[#2d2f33] text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
                   >
                     <option value="">Usar padrao do portal</option>
                     {STRATEGY_OPTIONS.map(s => (
@@ -824,16 +824,16 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                 </div>
 
                 {error && (
-                  <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-3">
-                    <p className="text-sm text-red-600">{error}</p>
+                  <div className="rounded-lg border border-red-500/20 bg-red-900/10 p-3">
+                    <p className="text-sm text-red-400">{error}</p>
                   </div>
                 )}
               </div>
 
-              <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
+              <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-[#2d2f33]">
                 <button
                   onClick={() => setShowSessionDialog(false)}
-                  className="px-4 py-2 text-sm text-gray-400 hover:text-gray-900 transition-colors"
+                  className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
                 >
                   Cancelar
                 </button>

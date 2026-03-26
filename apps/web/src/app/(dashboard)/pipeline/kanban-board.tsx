@@ -98,7 +98,7 @@ function DroppableColumn({
           <DraggableCard key={match.id} match={match} isDragging={activeId === match.id} />
         ))}
         {matches.length === 0 && (
-          <div className="text-center py-8 text-xs text-gray-500">
+          <div className="text-center py-8 text-xs text-gray-400">
             Arraste cards para cá
           </div>
         )}
@@ -154,7 +154,7 @@ function DraggableCard({ match, isDragging }: { match: Match; isDragging: boolea
       <p className="text-xs text-gray-400 truncate">{tender?.orgao_nome || ''}</p>
       <div className="flex justify-between items-center mt-1.5">
         <span className="text-xs text-gray-400">{tender?.uf || ''}</span>
-        <span className={`text-sm font-bold ${tender?.valor_estimado ? 'text-emerald-400' : 'text-gray-500'}`}>
+        <span className={`text-sm font-bold ${tender?.valor_estimado ? 'text-emerald-400' : 'text-gray-400'}`}>
           {tender?.valor_estimado
             ? formatCurrencyShort(tender.valor_estimado)
             : '-'}

@@ -700,7 +700,7 @@ export default async function CompetitorsPage({
                     concorrente_direto: { className: 'bg-red-900/20 text-red-400 border-red-800/30', label: 'Direto' },
                     concorrente_indireto: { className: 'bg-yellow-900/20 text-yellow-400 border-yellow-800/30', label: 'Indireto' },
                     potencial_parceiro: { className: 'bg-blue-900/20 text-blue-400 border-blue-800/30', label: 'Parceiro' },
-                    irrelevante: { className: 'bg-[#2d2f33] text-gray-500 border-[#2d2f33]', label: 'Irrelevante' },
+                    irrelevante: { className: 'bg-[#2d2f33] text-gray-400 border-[#2d2f33]', label: 'Irrelevante' },
                   }
                   const wRelConfig = wRel?.type ? relBadgeConfig[wRel.type] : null
 
@@ -895,7 +895,7 @@ export default async function CompetitorsPage({
                         <div className="flex items-start gap-3">
                           {/* Rank number */}
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-sm font-bold ${
-                            isTopThreat ? 'bg-orange-500 text-white' : 'bg-[#2d2f33] text-gray-400'
+                            isTopThreat ? 'bg-orange-400 text-white' : 'bg-[#2d2f33] text-gray-400'
                           }`}>
                             {i + 1}
                           </div>
@@ -1005,7 +1005,7 @@ export default async function CompetitorsPage({
                   </p>
                   <Link
                     href="/billing"
-                    className="inline-block px-6 py-2.5 bg-orange-500 text-white rounded-md hover:bg-orange-600 text-sm font-medium"
+                    className="inline-block px-6 py-2.5 bg-orange-400 text-white rounded-md hover:bg-orange-600 text-sm font-medium"
                   >
                     Ver planos
                   </Link>
@@ -1023,7 +1023,7 @@ export default async function CompetitorsPage({
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <span className="inline-block w-1.5 h-5 bg-orange-500 rounded-full" />
+                    <span className="inline-block w-1.5 h-5 bg-orange-400 rounded-full" />
                     Visao Geral do Setor
                   </CardTitle>
                 </CardHeader>
@@ -1079,7 +1079,7 @@ export default async function CompetitorsPage({
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <span className="inline-block w-1.5 h-5 bg-orange-500 rounded-full" />
+                      <span className="inline-block w-1.5 h-5 bg-orange-400 rounded-full" />
                       Mapa de Calor por UF
                     </CardTitle>
                   </CardHeader>
@@ -1113,7 +1113,7 @@ export default async function CompetitorsPage({
                                   <div className="flex items-center justify-center gap-2">
                                     <div className="w-16 bg-[#2d2f33] rounded-full h-2">
                                       <div
-                                        className={`h-2 rounded-full ${row.opportunityScore >= 80 ? 'bg-orange-500' : row.opportunityScore >= 70 ? 'bg-green-500' : row.opportunityScore >= 50 ? 'bg-yellow-500' : 'bg-red-400'}`}
+                                        className={`h-2 rounded-full ${row.opportunityScore >= 80 ? 'bg-orange-400' : row.opportunityScore >= 70 ? 'bg-green-500' : row.opportunityScore >= 50 ? 'bg-yellow-500' : 'bg-red-400'}`}
                                         style={{ width: `${row.opportunityScore}%` }}
                                       />
                                     </div>
@@ -1135,7 +1135,7 @@ export default async function CompetitorsPage({
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <span className="inline-block w-1.5 h-5 bg-orange-500 rounded-full" />
+                      <span className="inline-block w-1.5 h-5 bg-orange-400 rounded-full" />
                       Seus Concorrentes Monitorados no Setor
                     </CardTitle>
                   </CardHeader>
@@ -1248,7 +1248,7 @@ export default async function CompetitorsPage({
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <span className="inline-block w-1.5 h-5 bg-orange-500 rounded-full" />
+                  <span className="inline-block w-1.5 h-5 bg-orange-400 rounded-full" />
                   Classificação de Concorrentes por IA
                 </CardTitle>
               </CardHeader>
@@ -1551,13 +1551,13 @@ export default async function CompetitorsPage({
                       <div className="border rounded-lg p-4 space-y-2">
                         <p className="font-semibold text-sm">Empresa Exemplo A</p>
                         <div className="grid grid-cols-2 gap-2 text-xs">
-                          <div><span className="text-gray-500">Win Rate:</span> 45%</div>
-                          <div><span className="text-gray-500">Part.:</span> 127</div>
-                          <div><span className="text-gray-500">Ticket:</span> R$ 85.000</div>
-                          <div><span className="text-gray-500">Desconto:</span> 12%</div>
+                          <div><span className="text-gray-400">Win Rate:</span> 45%</div>
+                          <div><span className="text-gray-400">Part.:</span> 127</div>
+                          <div><span className="text-gray-400">Ticket:</span> R$ 85.000</div>
+                          <div><span className="text-gray-400">Desconto:</span> 12%</div>
                         </div>
                         <div className="space-y-1">
-                          <p className="text-xs text-gray-500">Top UFs</p>
+                          <p className="text-xs text-gray-400">Top UFs</p>
                           <div className="h-3 bg-[#2d2f33] rounded-full w-full" />
                           <div className="h-3 bg-[#2d2f33] rounded-full w-3/4" />
                           <div className="h-3 bg-[#2d2f33] rounded-full w-1/2" />
@@ -1566,13 +1566,13 @@ export default async function CompetitorsPage({
                       <div className="border rounded-lg p-4 space-y-2">
                         <p className="font-semibold text-sm">Empresa Exemplo B</p>
                         <div className="grid grid-cols-2 gap-2 text-xs">
-                          <div><span className="text-gray-500">Win Rate:</span> 32%</div>
-                          <div><span className="text-gray-500">Part.:</span> 89</div>
-                          <div><span className="text-gray-500">Ticket:</span> R$ 62.000</div>
-                          <div><span className="text-gray-500">Desconto:</span> 18%</div>
+                          <div><span className="text-gray-400">Win Rate:</span> 32%</div>
+                          <div><span className="text-gray-400">Part.:</span> 89</div>
+                          <div><span className="text-gray-400">Ticket:</span> R$ 62.000</div>
+                          <div><span className="text-gray-400">Desconto:</span> 18%</div>
                         </div>
                         <div className="space-y-1">
-                          <p className="text-xs text-gray-500">Top UFs</p>
+                          <p className="text-xs text-gray-400">Top UFs</p>
                           <div className="h-3 bg-[#2d2f33] rounded-full w-full" />
                           <div className="h-3 bg-[#2d2f33] rounded-full w-2/3" />
                           <div className="h-3 bg-[#2d2f33] rounded-full w-1/3" />
@@ -1651,7 +1651,7 @@ export default async function CompetitorsPage({
                             concorrente_direto: { className: 'bg-red-900/20 text-red-400 border-red-800/30', label: 'Direto' },
                             concorrente_indireto: { className: 'bg-yellow-900/20 text-yellow-400 border-yellow-800/30', label: 'Indireto' },
                             potencial_parceiro: { className: 'bg-blue-900/20 text-blue-400 border-blue-800/30', label: 'Parceiro' },
-                            irrelevante: { className: 'bg-[#2d2f33] text-gray-500 border-[#2d2f33]', label: 'Irrelevante' },
+                            irrelevante: { className: 'bg-[#2d2f33] text-gray-400 border-[#2d2f33]', label: 'Irrelevante' },
                           }
                           const cmpRelConf = cmpRel?.type ? cmpRelBadgeConfig[cmpRel.type] : null
 
@@ -1677,7 +1677,7 @@ export default async function CompetitorsPage({
                                   <span className="text-xs text-muted-foreground">Relevancia IA:</span>
                                   <div className="w-16 h-2 bg-[#2d2f33] rounded-full overflow-hidden">
                                     <div
-                                      className={`h-full rounded-full ${cmpRel.score >= 80 ? 'bg-green-500' : cmpRel.score >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                                      className={`h-full rounded-full ${cmpRel.score >= 80 ? 'bg-green-500' : cmpRel.score >= 50 ? 'bg-yellow-500' : 'bg-red-400'}`}
                                       style={{ width: `${cmpRel.score}%` }}
                                     />
                                   </div>
@@ -1862,7 +1862,7 @@ export default async function CompetitorsPage({
                     concorrente_direto: { className: 'bg-red-900/20 text-red-400 border-red-800/30', label: 'Direto' },
                     concorrente_indireto: { className: 'bg-yellow-900/20 text-yellow-400 border-yellow-800/30', label: 'Indireto' },
                     potencial_parceiro: { className: 'bg-blue-900/20 text-blue-400 border-blue-800/30', label: 'Parceiro' },
-                    irrelevante: { className: 'bg-[#2d2f33] text-gray-500 border-[#2d2f33]', label: 'Irrelevante' },
+                    irrelevante: { className: 'bg-[#2d2f33] text-gray-400 border-[#2d2f33]', label: 'Irrelevante' },
                   }
                   const sRelConf = sRel?.type ? sRelBadgeConfig[sRel.type] : null
 

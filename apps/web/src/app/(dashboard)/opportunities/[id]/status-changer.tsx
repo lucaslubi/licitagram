@@ -13,11 +13,11 @@ const supabase = createBrowserClient(
 
 const STATUSES = [
   { value: 'new', label: 'Nova', color: 'bg-[#2d2f33] text-gray-300' },
-  { value: 'interested', label: 'Interesse', color: 'bg-blue-100 text-blue-800' },
-  { value: 'applied', label: 'Participando', color: 'bg-purple-100 text-purple-800' },
-  { value: 'won', label: 'Venceu', color: 'bg-green-100 text-green-800' },
-  { value: 'lost', label: 'Perdeu', color: 'bg-red-100 text-red-800' },
-  { value: 'dismissed', label: 'Descartada', color: 'bg-[#2d2f33] text-gray-500' },
+  { value: 'interested', label: 'Interesse', color: 'bg-blue-900/20 text-blue-400' },
+  { value: 'applied', label: 'Participando', color: 'bg-purple-900/20 text-purple-400' },
+  { value: 'won', label: 'Venceu', color: 'bg-emerald-900/20 text-emerald-400' },
+  { value: 'lost', label: 'Perdeu', color: 'bg-red-900/20 text-red-400' },
+  { value: 'dismissed', label: 'Descartada', color: 'bg-[#2d2f33] text-gray-400' },
 ]
 
 export function StatusChanger({

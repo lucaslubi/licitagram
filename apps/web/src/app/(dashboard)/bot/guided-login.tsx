@@ -262,19 +262,19 @@ export function GuidedLogin({ portal, configId, onSuccess, onClose }: GuidedLogi
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white rounded-xl border shadow-lg w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="bg-[#1a1c1f] rounded-xl border shadow-lg w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Login Guiado</h3>
-              <p className="text-sm text-gray-500 mt-0.5">
+              <h3 className="text-lg font-semibold text-white">Login Guiado</h3>
+              <p className="text-sm text-gray-400 mt-0.5">
                 {STEP_LABELS[step]}
               </p>
             </div>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              className="text-gray-400 hover:text-gray-400 transition-colors"
               title="Fechar"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -286,7 +286,7 @@ export function GuidedLogin({ portal, configId, onSuccess, onClose }: GuidedLogi
           {/* Status indicator */}
           <div className="mb-4">
             {step === 'connecting' && (
-              <div className="flex items-center gap-2 text-blue-600">
+              <div className="flex items-center gap-2 text-blue-400">
                 <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -295,22 +295,22 @@ export function GuidedLogin({ portal, configId, onSuccess, onClose }: GuidedLogi
               </div>
             )}
             {step === 'connected' && (
-              <div className="flex items-center gap-2 rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2">
-                <svg className="h-5 w-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <div className="flex items-center gap-2 rounded-lg bg-emerald-900/20 border border-emerald-900/30 px-3 py-2">
+                <svg className="h-5 w-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
-                <span className="text-sm font-medium text-emerald-700">Conectado com sucesso!</span>
+                <span className="text-sm font-medium text-emerald-400">Conectado com sucesso!</span>
               </div>
             )}
             {step === 'error' && error && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2">
-                <p className="text-sm text-red-700">{error}</p>
+              <div className="rounded-lg border border-red-900/30 bg-red-900/20 px-3 py-2">
+                <p className="text-sm text-red-400">{error}</p>
               </div>
             )}
           </div>
 
           {/* Screenshot */}
-          <div className="relative mb-4 bg-gray-100 rounded-lg border border-gray-200 overflow-hidden min-h-[200px]">
+          <div className="relative mb-4 bg-[#2d2f33] rounded-lg border border-[#2d2f33] overflow-hidden min-h-[200px]">
             {screenshot ? (
               <img
                 src={`data:image/jpeg;base64,${screenshot}`}
@@ -326,7 +326,7 @@ export function GuidedLogin({ portal, configId, onSuccess, onClose }: GuidedLogi
               </div>
             )}
             {loading && (
-              <div className="absolute inset-0 bg-white/30 flex items-center justify-center">
+              <div className="absolute inset-0 bg-white/10 flex items-center justify-center">
                 <svg className="animate-spin h-6 w-6 text-brand" viewBox="0 0 24 24" fill="none">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -344,7 +344,7 @@ export function GuidedLogin({ portal, configId, onSuccess, onClose }: GuidedLogi
           {showInput && (
             <div className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   {step === 'cpf' ? 'CPF' : step === 'password' ? 'Senha' : 'Codigo 2FA'}
                 </label>
                 <input
@@ -355,7 +355,7 @@ export function GuidedLogin({ portal, configId, onSuccess, onClose }: GuidedLogi
                   onKeyDown={e => {
                     if (e.key === 'Enter') handleType()
                   }}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none"
+                  className="w-full border border-[#2d2f33] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none"
                   autoFocus
                 />
               </div>
@@ -378,15 +378,15 @@ export function GuidedLogin({ portal, configId, onSuccess, onClose }: GuidedLogi
                 <button
                   onClick={handleRefresh}
                   disabled={loading}
-                  className="border border-gray-300 text-gray-700 rounded-lg px-4 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                  className="border border-[#2d2f33] text-gray-300 rounded-lg px-4 py-2 text-sm font-medium hover:bg-[#1a1c1f] disabled:opacity-50 transition-colors"
                 >
                   Atualizar
                 </button>
               </div>
 
               {error && !['error', 'connected'].includes(step) && (
-                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2">
-                  <p className="text-sm text-red-700">{error}</p>
+                <div className="rounded-lg border border-red-900/30 bg-red-900/20 px-3 py-2">
+                  <p className="text-sm text-red-400">{error}</p>
                 </div>
               )}
             </div>
@@ -406,7 +406,7 @@ export function GuidedLogin({ portal, configId, onSuccess, onClose }: GuidedLogi
 
           {/* Footer for navigating state */}
           {step === 'navigating' && (
-            <div className="flex items-center gap-2 text-blue-600 mt-3">
+            <div className="flex items-center gap-2 text-blue-400 mt-3">
               <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />

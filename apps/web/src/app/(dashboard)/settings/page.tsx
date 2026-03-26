@@ -422,7 +422,7 @@ export default function SettingsPage() {
               )}
               <div className="flex items-center gap-4 mt-2 text-[10px] text-gray-400">
                 <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-brand inline-block" /> Essencial — peso maior no score</span>
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gray-500 inline-block" /> Desejável — peso normal</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#1a1c1f]0 inline-block" /> Desejável — peso normal</span>
               </div>
             </div>
           </CardContent>

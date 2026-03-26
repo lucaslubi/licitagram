@@ -21,7 +21,7 @@ export function BotWarRoom({ configs, sessions, companyId, tenders, competitors 
   return (
     <div className="relative">
       {/* Navigation Tabs */}
-      <div className="flex items-center gap-1 mb-6 bg-white border border-gray-200 shadow-sm rounded-lg p-1 w-fit">
+      <div className="flex items-center gap-1 mb-6 bg-[#1a1c1f] border border-[#2d2f33] shadow-sm rounded-lg p-1 w-fit">
         {([
           { id: 'dashboard' as const, label: 'Configurações', icon: '⚙' },
           { id: 'pregao' as const, label: 'Pre-Disputa', icon: '🎯' },
@@ -33,7 +33,7 @@ export function BotWarRoom({ configs, sessions, companyId, tenders, competitors 
             className={`px-4 py-2.5 rounded-md text-base font-medium transition-all ${
               view === tab.id
                 ? 'bg-[#F43E01] text-white shadow-sm'
-                : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
+                : 'text-gray-400 hover:text-white hover:bg-[#2d2f33]'
             }`}
           >
             <span className="mr-1.5">{tab.icon}</span>

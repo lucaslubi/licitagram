@@ -79,25 +79,25 @@ export default async function BillingPage({
       <h1 className="text-2xl font-bold mb-6">Plano e Cobrança</h1>
 
       {params.success && (
-        <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 text-sm">
+        <div className="mb-6 p-4 bg-emerald-900/20 border border-emerald-900/30 rounded-lg text-emerald-400 text-sm">
           Assinatura realizada com sucesso! Seu plano já está ativo.
         </div>
       )}
 
       {params.canceled && (
-        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm">
+        <div className="mb-6 p-4 bg-amber-900/20 border border-amber-900/30 rounded-lg text-amber-400 text-sm">
           Checkout cancelado. Escolha um plano quando estiver pronto.
         </div>
       )}
 
       {params.expired && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
+        <div className="mb-6 p-4 bg-red-900/20 border border-red-900/30 rounded-lg text-red-400 text-sm">
           Sua assinatura expirou ou foi cancelada. Escolha um plano para continuar usando a plataforma.
         </div>
       )}
 
       {params.upgrade && (
-        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg text-blue-800 text-sm">
+        <div className="mb-6 p-4 bg-blue-900/20 border border-blue-900/30 rounded-lg text-blue-400 text-sm">
           A funcionalidade que você tentou acessar requer um plano superior.
           Faça upgrade para desbloquear.
         </div>
@@ -122,12 +122,12 @@ export default async function BillingPage({
                   variant="outline"
                   className={
                     status === 'active'
-                      ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                      ? 'bg-emerald-900/20 text-emerald-400 border-emerald-900/30'
                       : status === 'trialing'
-                        ? 'bg-blue-100 text-blue-800 border-blue-200'
+                        ? 'bg-blue-900/20 text-blue-400 border-blue-900/30'
                         : status === 'past_due'
-                          ? 'bg-amber-100 text-amber-800 border-amber-200'
-                          : 'bg-red-100 text-red-800 border-red-200'
+                          ? 'bg-amber-900/20 text-amber-400 border-amber-900/30'
+                          : 'bg-red-900/20 text-red-400 border-red-900/30'
                   }
                 >
                   {status === 'active' ? 'Ativo'
@@ -139,11 +139,11 @@ export default async function BillingPage({
 
               {/* Usage indicators */}
               {matchLimit && (
-                <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-                  <p className="text-sm font-medium text-gray-700">Uso do mês</p>
+                <div className="bg-[#1a1c1f] rounded-lg p-4 space-y-2">
+                  <p className="text-sm font-medium text-gray-300">Uso do mês</p>
                   <div className="flex items-center gap-3">
                     <div className="flex-1">
-                      <div className="flex justify-between text-xs text-gray-500 mb-1">
+                      <div className="flex justify-between text-xs text-gray-400 mb-1">
                         <span>Matches</span>
                         <span>
                           {matchLimit.used}
@@ -151,7 +151,7 @@ export default async function BillingPage({
                         </span>
                       </div>
                       {matchLimit.limit !== null && (
-                        <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div className="w-full bg-[#2d2f33] rounded-full h-2">
                           <div
                             className={`h-2 rounded-full transition-all ${
                               matchLimit.used / matchLimit.limit > 0.9
@@ -197,7 +197,7 @@ export default async function BillingPage({
                   <span className="text-sm font-normal text-gray-400">/mês</span>
                 </p>
                 {plan.description && (
-                  <p className="text-sm text-gray-500 mt-1">{plan.description}</p>
+                  <p className="text-sm text-gray-400 mt-1">{plan.description}</p>
                 )}
               </CardHeader>
               <CardContent>

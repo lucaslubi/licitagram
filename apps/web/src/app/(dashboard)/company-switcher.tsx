@@ -123,7 +123,7 @@ export function CompanySwitcher({ collapsed = false }: CompanySwitcherProps) {
                   }`}
                 >
                   <p className="font-medium truncate">{name}</p>
-                  <p className="text-[11px] text-gray-500 mt-0.5">
+                  <p className="text-[11px] text-gray-400 mt-0.5">
                     {formatCNPJ(company.cnpj)}
                   </p>
                 </button>

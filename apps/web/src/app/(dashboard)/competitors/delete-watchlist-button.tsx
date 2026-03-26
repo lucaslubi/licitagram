@@ -22,7 +22,7 @@ export function DeleteWatchlistButton({ watchlistId }: { watchlistId: string }) 
     <button
       onClick={handleDelete}
       disabled={loading}
-      className="text-red-500 hover:text-red-700 text-xs disabled:opacity-50"
+      className="text-red-500 hover:text-red-400 text-xs disabled:opacity-50"
       title="Remover da watchlist"
     >
       {loading ? '...' : '🗑️'}

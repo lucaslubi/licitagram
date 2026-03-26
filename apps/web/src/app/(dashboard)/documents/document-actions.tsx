@@ -22,7 +22,7 @@ export function DeleteDocumentButton({ docId }: { docId: string }) {
     <button
       onClick={handleDelete}
       disabled={loading}
-      className="text-red-500 hover:text-red-700 text-xs disabled:opacity-50"
+      className="text-red-500 hover:text-red-400 text-xs disabled:opacity-50"
       title="Remover documento"
     >
       {loading ? '...' : '🗑️ Remover'}
@@ -75,7 +75,7 @@ export function EditDocumentForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-wrap gap-2 items-end bg-blue-50 p-3 rounded-md">
+    <form onSubmit={handleSubmit} className="flex flex-wrap gap-2 items-end bg-blue-900/20 p-3 rounded-md">
       <div className="min-w-[160px]">
         <select
           value={tipo}
@@ -123,11 +123,11 @@ export function EditDocumentForm({
       <button
         type="button"
         onClick={onClose}
-        className="h-9 px-3 bg-gray-200 text-gray-700 rounded-md text-xs hover:bg-gray-300"
+        className="h-9 px-3 bg-[#2d2f33] text-gray-300 rounded-md text-xs hover:bg-gray-300"
       >
         Cancelar
       </button>
-      {error && <p className="w-full text-sm text-red-600">{error}</p>}
+      {error && <p className="w-full text-sm text-red-400">{error}</p>}
     </form>
   )
 }
@@ -177,7 +177,7 @@ export function DocumentRow({
       <td className="p-4 text-sm font-medium">
         {documentTypes[doc.tipo] || doc.tipo}
       </td>
-      <td className="p-4 text-sm text-gray-600 hidden sm:table-cell">
+      <td className="p-4 text-sm text-gray-400 hidden sm:table-cell">
         <span className="line-clamp-2">{displayDesc}</span>
       </td>
       <td className="p-4 text-sm font-mono hidden md:table-cell">
@@ -211,7 +211,7 @@ export function DocumentRow({
           )}
           <button
             onClick={() => setEditing(true)}
-            className="text-blue-500 hover:text-blue-700 text-xs"
+            className="text-blue-500 hover:text-blue-400 text-xs"
           >
             Editar
           </button>

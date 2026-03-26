@@ -41,10 +41,10 @@ function nivelAmeacaOrder(nivel: string | null): number {
 function RelevanceBadge({ type }: { type: string | null | undefined }) {
   if (!type) return null
   const config: Record<string, { className: string; label: string }> = {
-    concorrente_direto: { className: 'bg-red-100 text-red-700 border-red-200', label: 'Direto' },
-    concorrente_indireto: { className: 'bg-yellow-100 text-yellow-700 border-yellow-200', label: 'Indireto' },
-    potencial_parceiro: { className: 'bg-blue-100 text-blue-700 border-blue-200', label: 'Parceiro' },
-    irrelevante: { className: 'bg-gray-100 text-gray-500 border-gray-200', label: 'Irrelevante' },
+    concorrente_direto: { className: 'bg-red-900/20 text-red-400 border-red-900/30', label: 'Direto' },
+    concorrente_indireto: { className: 'bg-yellow-900/20 text-yellow-400 border-yellow-900/30', label: 'Indireto' },
+    potencial_parceiro: { className: 'bg-blue-900/20 text-blue-400 border-blue-900/30', label: 'Parceiro' },
+    irrelevante: { className: 'bg-[#2d2f33] text-gray-400 border-[#2d2f33]', label: 'Irrelevante' },
   }
   const c = config[type]
   if (!c) return null
@@ -53,13 +53,13 @@ function RelevanceBadge({ type }: { type: string | null | undefined }) {
 
 export function RelevanceScoreBadge({ score }: { score: number | null | undefined }) {
   if (score == null) return null
-  const color = score >= 80 ? 'bg-green-500' : score >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+  const color = score >= 80 ? 'bg-green-500' : score >= 50 ? 'bg-yellow-500' : 'bg-red-400'
   return (
     <div className="flex items-center gap-1.5">
-      <div className="w-10 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+      <div className="w-10 h-1.5 bg-[#2d2f33] rounded-full overflow-hidden">
         <div className={`h-full rounded-full ${color}`} style={{ width: `${score}%` }} />
       </div>
-      <span className="text-xs font-medium text-gray-600">{score}</span>
+      <span className="text-xs font-medium text-gray-400">{score}</span>
     </div>
   )
 }
@@ -67,9 +67,9 @@ export function RelevanceScoreBadge({ score }: { score: number | null | undefine
 function NivelAmeacaBadge({ nivel }: { nivel: string | null }) {
   if (!nivel) return <Badge variant="outline" className="text-xs">N/D</Badge>
   const config: Record<string, { className: string; label: string }> = {
-    alto: { className: 'bg-red-100 text-red-700 border-red-200', label: 'Alto' },
-    medio: { className: 'bg-yellow-100 text-yellow-700 border-yellow-200', label: 'Medio' },
-    baixo: { className: 'bg-green-100 text-green-700 border-green-200', label: 'Baixo' },
+    alto: { className: 'bg-red-900/20 text-red-400 border-red-900/30', label: 'Alto' },
+    medio: { className: 'bg-yellow-900/20 text-yellow-400 border-yellow-900/30', label: 'Medio' },
+    baixo: { className: 'bg-emerald-900/20 text-emerald-400 border-emerald-900/30', label: 'Baixo' },
   }
   const c = config[nivel] || { className: '', label: nivel }
   return <Badge variant="outline" className={`text-xs ${c.className}`}>{c.label}</Badge>
@@ -78,10 +78,10 @@ function NivelAmeacaBadge({ nivel }: { nivel: string | null }) {
 function PorteBadge({ porte }: { porte: string | null }) {
   if (!porte) return null
   const colors: Record<string, string> = {
-    'ME': 'border-blue-200 text-blue-700 bg-blue-50',
-    'EPP': 'border-indigo-200 text-indigo-700 bg-indigo-50',
-    'MEDIO': 'border-purple-200 text-purple-700 bg-purple-50',
-    'DEMAIS': 'border-gray-300 text-gray-700 bg-gray-50',
+    'ME': 'border-blue-900/30 text-blue-400 bg-blue-900/20',
+    'EPP': 'border-indigo-900/30 text-indigo-400 bg-indigo-900/20',
+    'MEDIO': 'border-purple-900/30 text-purple-400 bg-purple-900/20',
+    'DEMAIS': 'border-[#2d2f33] text-gray-300 bg-[#1a1c1f]',
   }
   const colorClass = colors[porte.toUpperCase()] || ''
   return <Badge variant="outline" className={`text-xs ${colorClass}`}>{porte}</Badge>
@@ -91,7 +91,7 @@ function TrendIndicator({ ultimaParticipacao, participacoes }: { ultimaParticipa
   if (!ultimaParticipacao) return <span className="text-gray-300 text-sm">--</span>
   const daysSince = Math.floor((Date.now() - new Date(ultimaParticipacao).getTime()) / (1000 * 60 * 60 * 24))
   if (daysSince <= 30 && participacoes >= 5) {
-    return <span className="text-green-600 text-sm font-medium" title="Ativo recentemente">&#x25B2;</span>
+    return <span className="text-emerald-400 text-sm font-medium" title="Ativo recentemente">&#x25B2;</span>
   }
   if (daysSince <= 60) {
     return <span className="text-yellow-500 text-sm" title="Atividade moderada">&#x25AC;</span>
@@ -126,7 +126,7 @@ export function MercadoSummaryCards({ competitors }: { competitors: MercadoCompe
       <Card>
         <CardContent className="pt-6">
           <div className="text-center">
-            <p className="text-3xl font-bold text-orange-600">{totalCompetitors}</p>
+            <p className="text-3xl font-bold text-orange-400">{totalCompetitors}</p>
             <p className="text-xs text-muted-foreground mt-1">Total de Concorrentes no Segmento</p>
           </div>
         </CardContent>
@@ -134,7 +134,7 @@ export function MercadoSummaryCards({ competitors }: { competitors: MercadoCompe
       <Card>
         <CardContent className="pt-6">
           <div className="text-center">
-            <p className="text-3xl font-bold text-orange-600">{(avgWinRate * 100).toFixed(1)}%</p>
+            <p className="text-3xl font-bold text-orange-400">{(avgWinRate * 100).toFixed(1)}%</p>
             <p className="text-xs text-muted-foreground mt-1">Win Rate Medio do Segmento</p>
           </div>
         </CardContent>
@@ -142,7 +142,7 @@ export function MercadoSummaryCards({ competitors }: { competitors: MercadoCompe
       <Card>
         <CardContent className="pt-6">
           <div className="text-center">
-            <p className="text-3xl font-bold text-red-600">{altoRiscoCount}</p>
+            <p className="text-3xl font-bold text-red-400">{altoRiscoCount}</p>
             <p className="text-xs text-muted-foreground mt-1">Concorrentes de Alto Risco</p>
           </div>
         </CardContent>
@@ -150,7 +150,7 @@ export function MercadoSummaryCards({ competitors }: { competitors: MercadoCompe
       <Card>
         <CardContent className="pt-6">
           <div className="text-center">
-            <p className="text-3xl font-bold text-green-600">{novosUltimos30}</p>
+            <p className="text-3xl font-bold text-emerald-400">{novosUltimos30}</p>
             <p className="text-xs text-muted-foreground mt-1">Ativos Ultimos 30 Dias</p>
           </div>
         </CardContent>
@@ -262,7 +262,7 @@ export function MercadoTable({ competitors }: { competitors: MercadoCompetitor[]
                 <span className="text-base">{collapsedSegments[seg] ? '\u25B6' : '\u25BC'}</span>
                 <span className="inline-block w-1.5 h-5 bg-orange-500 rounded-full" />
                 {seg}
-                <Badge variant="outline" className="text-xs border-orange-300 text-orange-700 ml-auto">
+                <Badge variant="outline" className="text-xs border-orange-300 text-orange-400 ml-auto">
                   {items.length} concorrente{items.length !== 1 ? 's' : ''}
                 </Badge>
               </CardTitle>
@@ -301,44 +301,44 @@ function CompetitorTable({
           <tr className="border-b transition-colors hover:bg-muted/50">
             <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground w-8">#</th>
             <th
-              className="h-12 px-4 text-left align-middle font-medium text-muted-foreground cursor-pointer select-none hover:text-orange-600"
+              className="h-12 px-4 text-left align-middle font-medium text-muted-foreground cursor-pointer select-none hover:text-orange-400"
               onClick={() => onSort('razao_social')}
             >
               Nome <SortIcon field="razao_social" sortField={sortField} sortDir={sortDir} />
             </th>
             <th
-              className="h-12 px-4 text-center align-middle font-medium text-muted-foreground cursor-pointer select-none hover:text-orange-600"
+              className="h-12 px-4 text-center align-middle font-medium text-muted-foreground cursor-pointer select-none hover:text-orange-400"
               onClick={() => onSort('total_participacoes')}
             >
               Part. <SortIcon field="total_participacoes" sortField={sortField} sortDir={sortDir} />
             </th>
             <th
-              className="h-12 px-4 text-center align-middle font-medium text-muted-foreground cursor-pointer select-none hover:text-orange-600"
+              className="h-12 px-4 text-center align-middle font-medium text-muted-foreground cursor-pointer select-none hover:text-orange-400"
               onClick={() => onSort('total_vitorias')}
             >
               Vit. <SortIcon field="total_vitorias" sortField={sortField} sortDir={sortDir} />
             </th>
             <th
-              className="h-12 px-4 text-center align-middle font-medium text-muted-foreground cursor-pointer select-none hover:text-orange-600"
+              className="h-12 px-4 text-center align-middle font-medium text-muted-foreground cursor-pointer select-none hover:text-orange-400"
               onClick={() => onSort('win_rate')}
             >
               Win Rate <SortIcon field="win_rate" sortField={sortField} sortDir={sortDir} />
             </th>
             <th
-              className="h-12 px-4 text-right align-middle font-medium text-muted-foreground cursor-pointer select-none hover:text-orange-600 hidden md:table-cell"
+              className="h-12 px-4 text-right align-middle font-medium text-muted-foreground cursor-pointer select-none hover:text-orange-400 hidden md:table-cell"
               onClick={() => onSort('valor_total_ganho')}
             >
               Valor Ganho <SortIcon field="valor_total_ganho" sortField={sortField} sortDir={sortDir} />
             </th>
             <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground hidden md:table-cell">Porte</th>
             <th
-              className="h-12 px-4 text-center align-middle font-medium text-muted-foreground cursor-pointer select-none hover:text-orange-600"
+              className="h-12 px-4 text-center align-middle font-medium text-muted-foreground cursor-pointer select-none hover:text-orange-400"
               onClick={() => onSort('relevance_score')}
             >
               Relev. <SortIcon field="relevance_score" sortField={sortField} sortDir={sortDir} />
             </th>
             <th
-              className="h-12 px-4 text-center align-middle font-medium text-muted-foreground cursor-pointer select-none hover:text-orange-600"
+              className="h-12 px-4 text-center align-middle font-medium text-muted-foreground cursor-pointer select-none hover:text-orange-400"
               onClick={() => onSort('nivel_ameaca')}
             >
               Ameaca <SortIcon field="nivel_ameaca" sortField={sortField} sortDir={sortDir} />
@@ -351,7 +351,7 @@ function CompetitorTable({
         <tbody className="[&_tr:last-child]:border-0">
           {items.map((mc, i) => {
             const winRatePct = (mc.win_rate * 100).toFixed(1)
-            const winRateColor = mc.win_rate >= 0.6 ? 'text-green-600' : mc.win_rate >= 0.3 ? 'text-yellow-600' : 'text-red-600'
+            const winRateColor = mc.win_rate >= 0.6 ? 'text-emerald-400' : mc.win_rate >= 0.3 ? 'text-yellow-400' : 'text-red-400'
             const topUfs = Object.keys(mc.ufs_atuacao || {}).slice(0, 4)
 
             return (

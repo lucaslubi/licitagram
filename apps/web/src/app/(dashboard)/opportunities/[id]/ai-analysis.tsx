@@ -248,7 +248,7 @@ export function AiAnalysis({ matchId, initialData, matchSource, hasAccess = true
               </div>
               <div>
                 <p className="text-sm font-medium text-blue-400">Score verificado por IA</p>
-                <p className="text-xs text-blue-600">
+                <p className="text-xs text-blue-400">
                   {data.recomendacao === 'participar'
                     ? 'Recomendado participar'
                     : data.recomendacao === 'nao_recomendado'
@@ -388,24 +388,24 @@ export function AiAnalysis({ matchId, initialData, matchSource, hasAccess = true
         <div className="grid gap-4 md:grid-cols-2">
           {/* Riscos */}
           {riscos.length > 0 && (
-            <Card className="border-amber-200/60">
+            <Card className="border-amber-900/30">
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-base">
-                  <div className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center">
-                    <svg className="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <div className="w-7 h-7 rounded-full bg-amber-900/20 flex items-center justify-center">
+                    <svg className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
                     </svg>
                   </div>
                   <span>Riscos</span>
-                  <span className="ml-auto text-xs font-normal text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">{riscos.length}</span>
+                  <span className="ml-auto text-xs font-normal text-amber-400 bg-amber-900/20 px-2 py-0.5 rounded-full">{riscos.length}</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-1">
                 <ul className="space-y-2">
                   {riscos.map((risco, i) => (
-                    <li key={i} className="flex gap-2.5 text-sm p-2.5 bg-amber-50/60 rounded-lg">
-                      <div className="w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center shrink-0 mt-0.5">
-                        <span className="text-amber-600 text-xs font-bold">{i + 1}</span>
+                    <li key={i} className="flex gap-2.5 text-sm p-2.5 bg-amber-900/10 rounded-lg">
+                      <div className="w-5 h-5 rounded-full bg-amber-900/20 flex items-center justify-center shrink-0 mt-0.5">
+                        <span className="text-amber-400 text-xs font-bold">{i + 1}</span>
                       </div>
                       <span className="text-gray-300 leading-relaxed">{risco}</span>
                     </li>

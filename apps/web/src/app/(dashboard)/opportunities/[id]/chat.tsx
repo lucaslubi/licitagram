@@ -677,13 +677,13 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
       {uploadedDocs.map((doc) => (
         <span
           key={doc.name}
-          className="inline-flex items-center gap-1 text-xs px-2 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full"
+          className="inline-flex items-center gap-1 text-xs px-2 py-1 bg-emerald-900/20 text-emerald-400 border border-emerald-900/30 rounded-full"
         >
           <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
           {doc.name} ({doc.pages}p, {(doc.chars / 1000).toFixed(0)}k)
-          <button onClick={() => removeDoc(doc.name)} className="ml-0.5 hover:text-red-600">x</button>
+          <button onClick={() => removeDoc(doc.name)} className="ml-0.5 hover:text-red-400">x</button>
         </span>
       ))}
     </div>
@@ -762,12 +762,12 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
                 Análise estratégica completa com IA. Leitura integral do edital, identificação de riscos, requisitos e recomendações para vencer a licitação.
               </p>
               {documentCount > 0 && uploadedDocs.length === 0 && documentUrls.length > 0 && (
-                <p className="text-xs text-emerald-600 bg-emerald-50 rounded-md px-3 py-1.5 mt-3 inline-block">
+                <p className="text-xs text-emerald-400 bg-emerald-900/20 rounded-md px-3 py-1.5 mt-3 inline-block">
                   ✓ {documentUrls.length} documento{documentUrls.length > 1 ? 's' : ''} detectado{documentUrls.length > 1 ? 's' : ''} — será{documentUrls.length > 1 ? 'ão' : ''} carregado{documentUrls.length > 1 ? 's' : ''} automaticamente
                 </p>
               )}
               {documentCount > 0 && uploadedDocs.length === 0 && documentUrls.length === 0 && (
-                <p className="text-xs text-amber-600 bg-amber-50 rounded-md px-3 py-1.5 mt-3 inline-block">
+                <p className="text-xs text-amber-400 bg-amber-900/20 rounded-md px-3 py-1.5 mt-3 inline-block">
                   Para melhor análise, baixe o PDF do edital acima e anexe aqui
                 </p>
               )}
@@ -806,7 +806,7 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
           </span>
           <div className="flex items-center gap-2">
             {uploadedDocs.length > 0 && (
-              <span className="text-xs font-normal text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+              <span className="text-xs font-normal text-emerald-400 bg-emerald-900/20 px-2 py-0.5 rounded-full">
                 {uploadedDocs.length} PDF{uploadedDocs.length > 1 ? 's' : ''}
               </span>
             )}
@@ -903,7 +903,7 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                         </svg>
-                        <span className="text-xs text-gray-600 transition-all duration-300">
+                        <span className="text-xs text-gray-400 transition-all duration-300">
                           {PROGRESS_MESSAGES[progressStep]}
                         </span>
                       </div>

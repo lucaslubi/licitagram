@@ -58,7 +58,7 @@ export function AddWatchlistForm({ companyId }: { companyId: string }) {
   return (
     <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
       <div>
-        <label className="text-sm font-medium text-gray-700">CNPJ</label>
+        <label className="text-sm font-medium text-gray-300">CNPJ</label>
         <input
           type="text"
           value={cnpj}
@@ -69,7 +69,7 @@ export function AddWatchlistForm({ companyId }: { companyId: string }) {
         />
       </div>
       <div>
-        <label className="text-sm font-medium text-gray-700">Nome (opcional)</label>
+        <label className="text-sm font-medium text-gray-300">Nome (opcional)</label>
         <input
           type="text"
           value={nome}
@@ -79,7 +79,7 @@ export function AddWatchlistForm({ companyId }: { companyId: string }) {
         />
       </div>
       <div>
-        <label className="text-sm font-medium text-gray-700">Notas (opcional)</label>
+        <label className="text-sm font-medium text-gray-300">Notas (opcional)</label>
         <input
           type="text"
           value={notes}
@@ -95,7 +95,7 @@ export function AddWatchlistForm({ companyId }: { companyId: string }) {
       >
         {loading ? 'Adicionando...' : 'Adicionar'}
       </button>
-      {error && <p className="w-full text-sm text-red-600">{error}</p>}
+      {error && <p className="w-full text-sm text-red-400">{error}</p>}
     </form>
   )
 }

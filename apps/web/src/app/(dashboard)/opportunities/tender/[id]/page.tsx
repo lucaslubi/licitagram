@@ -30,7 +30,7 @@ export default async function TenderDetailPage({
     return (
       <div className="text-center py-12">
         <p className="text-gray-400">Licitação não encontrada</p>
-        <Link href="/opportunities" className="text-blue-600 underline mt-2 inline-block">
+        <Link href="/opportunities" className="text-blue-400 underline mt-2 inline-block">
           Voltar
         </Link>
       </div>
@@ -86,7 +86,7 @@ export default async function TenderDetailPage({
             </div>
             <div>
               <p className="text-sm text-gray-400">Valor Estimado</p>
-              <p className="font-medium text-green-700">
+              <p className="font-medium text-emerald-400">
                 {tender.valor_estimado ? formatCurrency(tender.valor_estimado) : 'Não informado'}
               </p>
             </div>
@@ -113,7 +113,7 @@ export default async function TenderDetailPage({
               {tender.data_encerramento ? (
                 <p className="font-medium">{formatDate(tender.data_encerramento)}</p>
               ) : (
-                <p className="font-medium text-amber-600 text-sm">⚠️ Verificar no edital</p>
+                <p className="font-medium text-amber-400 text-sm">⚠️ Verificar no edital</p>
               )}
             </div>
             <div>
@@ -129,7 +129,7 @@ export default async function TenderDetailPage({
                       href={tender.link_sistema_origem}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 underline text-sm"
+                      className="text-blue-400 underline text-sm"
                     >
                       Abrir no sistema de origem
                     </a>
@@ -139,7 +139,7 @@ export default async function TenderDetailPage({
                       href={tender.link_pncp}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 underline text-sm"
+                      className="text-blue-400 underline text-sm"
                     >
                       Ver no PNCP
                     </a>
@@ -208,7 +208,7 @@ export default async function TenderDetailPage({
                       href={doc.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 text-sm underline"
+                      className="text-blue-400 text-sm underline"
                     >
                       Download
                     </a>

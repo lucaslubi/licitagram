@@ -53,7 +53,7 @@ export function StatusDropdown({
           setOpen(!open)
         }}
         disabled={updating}
-        className="p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-500 transition-colors"
+        className="p-1 rounded hover:bg-[#2d2f33] text-gray-400 hover:text-gray-400 transition-colors"
         title="Mudar status"
       >
         {updating ? (
@@ -77,7 +77,7 @@ export function StatusDropdown({
               setOpen(false)
             }}
           />
-          <div className="absolute right-0 top-full mt-1 z-20 bg-white border rounded-md shadow-lg py-1 min-w-[140px]">
+          <div className="absolute right-0 top-full mt-1 z-20 bg-[#1a1c1f] border rounded-md shadow-lg py-1 min-w-[140px]">
             {STATUSES.filter((s) => s.value !== currentStatus).map((s) => (
               <button
                 key={s.value}
@@ -86,7 +86,7 @@ export function StatusDropdown({
                   e.stopPropagation()
                   updateStatus(s.value)
                 }}
-                className="block w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 transition-colors"
+                className="block w-full text-left px-3 py-1.5 text-xs hover:bg-[#2d2f33] transition-colors"
               >
                 {s.label}
               </button>

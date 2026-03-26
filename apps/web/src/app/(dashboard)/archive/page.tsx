@@ -87,7 +87,7 @@ export default async function ArchivePage({
         <CardContent className="pt-6">
           <form className="space-y-4">
             <div>
-              <label className="text-sm font-medium text-gray-900">Buscar</label>
+              <label className="text-sm font-medium text-white">Buscar</label>
               <input
                 name="q"
                 type="text"
@@ -101,14 +101,14 @@ export default async function ArchivePage({
                   name="busca_edital"
                   value="1"
                   defaultChecked={buscaEdital}
-                  className="rounded border-gray-200"
+                  className="rounded border-[#2d2f33]"
                 />
                 Buscar no texto do edital
               </label>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               <div>
-                <label className="text-sm font-medium text-gray-900">UF</label>
+                <label className="text-sm font-medium text-white">UF</label>
                 <select
                   name="uf"
                   defaultValue={ufFilter}
@@ -123,7 +123,7 @@ export default async function ArchivePage({
                 </select>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-900">Modalidade</label>
+                <label className="text-sm font-medium text-white">Modalidade</label>
                 <select
                   name="modalidade"
                   defaultValue={modalidadeFilter}
@@ -136,7 +136,7 @@ export default async function ArchivePage({
                 </select>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-900">Fonte</label>
+                <label className="text-sm font-medium text-white">Fonte</label>
                 <select
                   name="fonte"
                   defaultValue={fonteFilter}
@@ -149,7 +149,7 @@ export default async function ArchivePage({
                 </select>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-900">De</label>
+                <label className="text-sm font-medium text-white">De</label>
                 <input
                   name="data_de"
                   type="date"
@@ -158,7 +158,7 @@ export default async function ArchivePage({
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-900">Até</label>
+                <label className="text-sm font-medium text-white">Até</label>
                 <input
                   name="data_ate"
                   type="date"
@@ -167,7 +167,7 @@ export default async function ArchivePage({
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-900">Valor</label>
+                <label className="text-sm font-medium text-white">Valor</label>
                 <select
                   name="ordem_valor"
                   defaultValue={ordemValorFilter}
@@ -189,7 +189,7 @@ export default async function ArchivePage({
               {(searchQuery || modalidadeFilter || dataDeFilter || dataAteFilter || fonteFilter || ordemValorFilter || ordemDataFilter) && (
                 <Link
                   href="/archive"
-                  className="h-10 px-3 flex items-center text-sm text-gray-400 hover:text-gray-900"
+                  className="h-10 px-3 flex items-center text-sm text-gray-400 hover:text-white"
                 >
                   Limpar filtros
                 </Link>
@@ -228,7 +228,7 @@ export default async function ArchivePage({
             <TableBody>
               {tenders && tenders.length > 0 ? (
                 tenders.map((tender) => (
-                  <TableRow key={tender.id} className="cursor-pointer hover:bg-gray-100">
+                  <TableRow key={tender.id} className="cursor-pointer hover:bg-[#2d2f33]">
                     <TableCell>
                       <Link
                         href={`/opportunities/tender/${tender.id}`}
@@ -237,7 +237,7 @@ export default async function ArchivePage({
                         {truncateText(tender.objeto || 'N/A', 100)}
                       </Link>
                     </TableCell>
-                    <TableCell className="text-sm text-gray-500">
+                    <TableCell className="text-sm text-gray-400">
                       {truncateText(tender.orgao_nome || '', 35)}
                     </TableCell>
                     <TableCell className="text-sm font-medium">{tender.uf || '-'}</TableCell>
@@ -252,7 +252,7 @@ export default async function ArchivePage({
                         : '-'}
                     </TableCell>
                     <TableCell className="text-sm hidden md:table-cell">
-                      <span className="text-xs text-gray-600">
+                      <span className="text-xs text-gray-400">
                         {tender.data_encerramento ? formatDate(tender.data_encerramento) : '-'}
                       </span>
                     </TableCell>
@@ -278,18 +278,18 @@ export default async function ArchivePage({
               {page > 1 && (
                 <Link
                   href={`/archive?page=${page - 1}&${baseParams.toString()}`}
-                  className="px-3 py-1 border rounded text-sm hover:bg-gray-100"
+                  className="px-3 py-1 border rounded text-sm hover:bg-[#2d2f33]"
                 >
                   Anterior
                 </Link>
               )}
-              <span className="px-3 py-1 text-sm text-gray-500">
+              <span className="px-3 py-1 text-sm text-gray-400">
                 Página {page} de {totalPages}
               </span>
               {page < totalPages && (
                 <Link
                   href={`/archive?page=${page + 1}&${baseParams.toString()}`}
-                  className="px-3 py-1 border rounded text-sm hover:bg-gray-100"
+                  className="px-3 py-1 border rounded text-sm hover:bg-[#2d2f33]"
                 >
                   Próxima
                 </Link>
@@ -306,12 +306,12 @@ export default async function ArchivePage({
 
 function SourceBadge({ source }: { source: string }) {
   const config: Record<string, { label: string; color: string }> = {
-    pncp: { label: 'PNCP', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-    comprasgov: { label: 'Compras.gov', color: 'bg-blue-50 text-blue-700 border-blue-200' },
-    bec_sp: { label: 'BEC SP', color: 'bg-amber-50 text-amber-700 border-amber-200' },
-    portal_mg: { label: 'MG', color: 'bg-orange-50 text-orange-700 border-orange-200' },
+    pncp: { label: 'PNCP', color: 'bg-emerald-900/20 text-emerald-400 border-emerald-900/30' },
+    comprasgov: { label: 'Compras.gov', color: 'bg-blue-900/20 text-blue-400 border-blue-900/30' },
+    bec_sp: { label: 'BEC SP', color: 'bg-amber-900/20 text-amber-400 border-amber-900/30' },
+    portal_mg: { label: 'MG', color: 'bg-orange-900/20 text-orange-400 border-orange-900/30' },
   }
-  const { label, color } = config[source] || { label: source, color: 'bg-gray-100 text-gray-900 border-gray-200' }
+  const { label, color } = config[source] || { label: source, color: 'bg-[#2d2f33] text-white border-[#2d2f33]' }
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${color}`}>
       {label}

@@ -29,12 +29,12 @@ interface ScoreHeaderProps {
 function ScoreBadgeLarge({ score, verified, keywordScore }: { score: number; verified: boolean; keywordScore: number | null }) {
   const color =
     score >= 80
-      ? 'bg-orange-100 text-orange-800 border-orange-200'
+      ? 'bg-orange-900/20 text-orange-400 border-orange-900/30'
       : score >= 70
-        ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+        ? 'bg-emerald-900/20 text-emerald-400 border-emerald-900/30'
         : score >= 50
-          ? 'bg-amber-100 text-amber-800 border-amber-200'
-          : 'bg-red-100 text-red-800 border-red-200'
+          ? 'bg-amber-900/20 text-amber-400 border-amber-900/30'
+          : 'bg-red-900/20 text-red-400 border-red-900/30'
 
   // Show keyword score when AI score differs significantly (more than 10 points)
   const showKeywordDiff = verified && keywordScore !== null && Math.abs(keywordScore - score) > 10
