@@ -740,11 +740,11 @@ export default async function LandingPage() {
             {/* Phone frame with Telegram demo video */}
             <ScrollReveal delay={300}>
               <div className="mt-16 flex flex-col items-center">
-                <div className="relative mx-auto" style={{ width: 280 }}>
-                  {/* Phone frame */}
-                  <div className="rounded-[2.5rem] border-[6px] border-[#2d2f33] bg-black overflow-hidden shadow-2xl shadow-black/50">
-                    {/* Notch */}
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-6 bg-black rounded-b-2xl z-10" />
+                <div className="relative mx-auto" style={{ width: 260 }}>
+                  {/* Phone frame — vertical (9:16 aspect) */}
+                  <div className="rounded-[2.5rem] border-[5px] border-[#333] bg-black overflow-hidden shadow-2xl shadow-black/60 ring-1 ring-white/5">
+                    {/* Dynamic Island */}
+                    <div className="absolute top-2 left-1/2 -translate-x-1/2 w-20 h-5 bg-black rounded-full z-10" />
                     {/* Video */}
                     <video
                       autoPlay
@@ -756,6 +756,8 @@ export default async function LandingPage() {
                     >
                       <source src="/telegram-demo.webm" type="video/webm" />
                     </video>
+                    {/* Home indicator */}
+                    <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-28 h-1 bg-white/20 rounded-full" />
                   </div>
                 </div>
                 <p className="text-xs text-[#69695D] mt-4 text-center">Alertas em tempo real direto no Telegram</p>
