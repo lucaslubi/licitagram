@@ -204,7 +204,7 @@ export default async function LandingPage() {
         </div>
       </StickyHeader>
 
-      {/* ── Hero — Split layout: copy left, video + system status right ── */}
+      {/* ── Hero — Centered layout ── */}
       <section className="relative bg-[#1A1C1F] overflow-hidden">
         {/* Video background */}
         <video
@@ -228,8 +228,7 @@ export default async function LandingPage() {
         />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(244,62,1,0.08),transparent_60%)]" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-28 lg:py-36">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-            {/* Left — Copy */}
+          <div className="max-w-3xl mx-auto text-center">
             <div>
               <ScrollReveal>
                 <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-6">
@@ -245,12 +244,12 @@ export default async function LandingPage() {
                 </h1>
               </ScrollReveal>
               <ScrollReveal delay={200}>
-                <p className="text-base sm:text-lg text-[#8B8B8B] mb-8 max-w-xl leading-relaxed">
+                <p className="text-base sm:text-lg text-[#8B8B8B] mb-8 max-w-xl mx-auto leading-relaxed">
                   O maior sistema privado de inteligência de compras governamentais da América Latina. Cruzamos em tempo real cada licitação publicada no Brasil com 64 milhões de entidades corporativas, detectamos padrões de fraude e entregamos vantagem competitiva que não existe em lugar nenhum do mercado.
                 </p>
               </ScrollReveal>
               <ScrollReveal delay={300}>
-                <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
                   <a
                     href={ctaHref}
                     target={isImplementation ? '_blank' : undefined}
@@ -273,21 +272,6 @@ export default async function LandingPage() {
               </ScrollReveal>
             </div>
 
-            {/* Right — Video */}
-            <ScrollReveal delay={200}>
-              <div className="relative rounded-2xl overflow-hidden border border-white/[0.08] bg-[#202020] shadow-2xl shadow-black/40">
-                <video
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  preload="auto"
-                  className="w-full aspect-video object-cover"
-                >
-                  <source src="/hero-bg.mp4" type="video/mp4" />
-                </video>
-              </div>
-            </ScrollReveal>
           </div>
         </div>
       </section>
