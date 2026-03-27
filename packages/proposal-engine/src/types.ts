@@ -48,9 +48,11 @@ export interface ProposalData {
 export type DeclarationType =
   | 'exequibilidade'
   | 'tributos_inclusos'
+  | 'custos_trabalhistas'
   | 'conhecimento_edital'
   | 'me_epp'
   | 'sem_vinculo'
+  | 'prazo_entrega'
   | 'validade_proposta';
 
 export type TemplateType = 'bens' | 'servicos' | 'tic_saas';
