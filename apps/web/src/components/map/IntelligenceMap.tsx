@@ -868,7 +868,7 @@ export function IntelligenceMap({
         </div>
 
         {/* Legend — hidden on mobile when sheet is open, bottom-left otherwise */}
-        <div className={`absolute z-[200] transition-opacity duration-200 ${
+        <div className={`absolute z-[5] transition-opacity duration-200 ${
           isMobile && sheetPosition !== 'collapsed'
             ? 'opacity-0 pointer-events-none'
             : ''
@@ -919,7 +919,7 @@ export function IntelligenceMap({
       {/* Mobile Bottom Sheet */}
       {isMobile && (
         <div
-          className="fixed bottom-0 left-0 right-0 z-[100] bg-[#111214] rounded-t-2xl shadow-[0_-4px_20px_rgba(0,0,0,0.4)] flex flex-col"
+          className="fixed bottom-0 left-0 right-0 z-30 bg-[#111214] rounded-t-2xl shadow-[0_-4px_20px_rgba(0,0,0,0.4)] flex flex-col"
           style={{
             height: sheetHeight,
             transition: 'height 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -949,7 +949,7 @@ export function IntelligenceMap({
           onClick={() => {
             setSheetPosition((prev) => prev === 'full' ? 'collapsed' : 'full')
           }}
-          className="fixed z-[110] bottom-24 right-4 w-12 h-12 rounded-full bg-brand text-white shadow-lg flex items-center justify-center active:scale-95 transition-transform"
+          className="fixed z-30 bottom-24 right-4 w-12 h-12 rounded-full bg-brand text-white shadow-lg flex items-center justify-center active:scale-95 transition-transform"
           style={{
             bottom: sheetPosition === 'collapsed' ? '96px' : sheetPosition === 'half' ? 'calc(50vh + 12px)' : 'calc(100vh - 28px - 48px)',
             transition: 'bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s',
