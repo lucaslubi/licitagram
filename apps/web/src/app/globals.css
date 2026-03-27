@@ -109,13 +109,13 @@
   50% { box-shadow: 0 0 22px 10px rgba(255, 165, 0, 0.85); }
 }
 
-/* Map popups — Dark theme */
+/* Map popups — Dark theme (z-index must stay below sidebar z-50) */
 .mapboxgl-popup {
-  z-index: 150 !important;
+  z-index: 5 !important;
   max-height: 60vh !important;
 }
 .mapboxgl-popup-content {
-  z-index: 150 !important;
+  z-index: 5 !important;
   background: #1a1c1f !important;
   backdrop-filter: blur(16px) saturate(150%) !important;
   -webkit-backdrop-filter: blur(16px) saturate(150%) !important;
@@ -149,10 +149,15 @@
   border-top-color: #1a1c1f !important;
   border-bottom-color: #1a1c1f !important;
 }
-/* Map controls ABOVE popups */
+/* Map controls ABOVE popups but BELOW sidebar */
 .mapboxgl-ctrl-top-right,
 .mapboxgl-ctrl-top-left,
 .mapboxgl-ctrl-bottom-right,
 .mapboxgl-ctrl-bottom-left {
-  z-index: 200 !important;
+  z-index: 10 !important;
+}
+/* Ensure map canvas and markers stay below sidebar overlay (z-50) */
+.mapboxgl-canvas-container,
+.mapboxgl-marker {
+  z-index: 1 !important;
 }
