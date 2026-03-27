@@ -291,25 +291,40 @@ export default async function CompetitorsPage({
   }
 
   // Fetch top competitors in user's CNAE (market panorama)
-  // Priority: CNAE principal first, then secondary
+  // Priority: 4-digit CNAE group first, fallback to 2-digit division
   let marketCompetitors: Array<Record<string, unknown>> = []
   if (companyCnaeDivisions.length > 0 && tab === 'panorama') {
-    const { data } = await supabase
-      .from('competitor_stats')
-      .select('*')
-      .order('total_participacoes', { ascending: false })
-      .limit(100)
+    let allResults: Array<Record<string, unknown>> = []
 
-    // Filter and sort: primary CNAE competitors first, then secondary
-    // Match on 4-digit cnae_grupo preferentially, fallback to 2-digit cnae_divisao
-    const filtered = (data || []).filter((s) => {
-      const cnaeGrupo = (s.cnae_grupo as string) || ''
-      const cnaeDivisao = (s.cnae_divisao as string) || ''
-      return companyCnaeDivisions.includes(cnaeGrupo) || companyCnaeDivisions2.includes(cnaeDivisao)
-    })
+    // Step 1: Query by precise 4-digit CNAE groups
+    if (companyCnaeDivisions.length > 0) {
+      const { data } = await supabase
+        .from('competitor_stats')
+        .select('*')
+        .in('cnae_grupo', companyCnaeDivisions)
+        .order('total_participacoes', { ascending: false })
+        .limit(50)
+      if (data) allResults.push(...data)
+    }
+
+    // Step 2: If not enough, fallback to 2-digit divisions
+    if (allResults.length < 10 && companyCnaeDivisions2.length > 0) {
+      const existingCnpjs = new Set(allResults.map(r => r.cnpj as string))
+      const { data } = await supabase
+        .from('competitor_stats')
+        .select('*')
+        .in('cnae_divisao', companyCnaeDivisions2)
+        .order('total_participacoes', { ascending: false })
+        .limit(50)
+      if (data) {
+        for (const r of data) {
+          if (!existingCnpjs.has(r.cnpj as string)) allResults.push(r)
+        }
+      }
+    }
 
     // Sort: primary CNAE match > secondary CNAE match > by participations
-    filtered.sort((a, b) => {
+    allResults.sort((a, b) => {
       const aGrupo = (a.cnae_grupo as string) || ''
       const bGrupo = (b.cnae_grupo as string) || ''
       const aIsPrimary = companyCnaePrincipal.includes(aGrupo) ? 1 : 0
@@ -318,7 +333,7 @@ export default async function CompetitorsPage({
       return (b.total_participacoes as number) - (a.total_participacoes as number)
     })
 
-    marketCompetitors = filtered.slice(0, 15)
+    marketCompetitors = allResults.slice(0, 15)
   }
 
   // Derive panorama analytics from market competitors
@@ -384,18 +399,35 @@ export default async function CompetitorsPage({
   let mercadoCompetitors: MercadoCompetitor[] = []
 
   if (tab === 'mercado' && isEnterprise && companyCnaeDivisions.length > 0) {
-    // Fetch all competitors in user's CNAE divisions
-    const { data: sectorData } = await supabase
-      .from('competitor_stats')
-      .select('*')
-      .order('total_participacoes', { ascending: false })
-      .limit(500)
+    // Fetch competitors filtered by CNAE at the database level
+    let sectorFiltered: Array<Record<string, unknown>> = []
 
-    const sectorFiltered = (sectorData || []).filter((s) => {
-      const cnaeGrupo = (s.cnae_grupo as string) || ''
-      const cnaeDiv = (s.cnae_divisao as string) || ''
-      return companyCnaeDivisions.includes(cnaeGrupo) || companyCnaeDivisions2.includes(cnaeDiv)
-    })
+    // Step 1: Query by precise 4-digit CNAE groups
+    if (companyCnaeDivisions.length > 0) {
+      const { data } = await supabase
+        .from('competitor_stats')
+        .select('*')
+        .in('cnae_grupo', companyCnaeDivisions)
+        .order('total_participacoes', { ascending: false })
+        .limit(200)
+      if (data) sectorFiltered.push(...data)
+    }
+
+    // Step 2: If not enough, fallback to 2-digit divisions
+    if (sectorFiltered.length < 20 && companyCnaeDivisions2.length > 0) {
+      const existingCnpjs = new Set(sectorFiltered.map(r => r.cnpj as string))
+      const { data } = await supabase
+        .from('competitor_stats')
+        .select('*')
+        .in('cnae_divisao', companyCnaeDivisions2)
+        .order('total_participacoes', { ascending: false })
+        .limit(200)
+      if (data) {
+        for (const r of data) {
+          if (!existingCnpjs.has(r.cnpj as string)) sectorFiltered.push(r)
+        }
+      }
+    }
 
     // Build MercadoCompetitor array for the client component, enriched with relevance
     mercadoCompetitors = sectorFiltered
