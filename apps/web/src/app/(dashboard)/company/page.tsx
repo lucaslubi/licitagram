@@ -41,6 +41,17 @@ export default function CompanyPage() {
     capacidades: [] as string[],
     certificacoes: [] as string[],
     palavras_chave: [] as string[],
+    // Campos para propostas comerciais
+    endereco: '',
+    cep: '',
+    telefone: '',
+    email: '',
+    banco: '',
+    agencia: '',
+    conta: '',
+    representante_nome: '',
+    representante_cpf: '',
+    representante_cargo: '',
   })
 
   const [newCnae, setNewCnae] = useState('')
@@ -79,6 +90,16 @@ export default function CompanyPage() {
         capacidades: normalizeArray(result.data.capacidades),
         certificacoes: normalizeArray(result.data.certificacoes),
         palavras_chave: normalizeArray(result.data.palavras_chave),
+        endereco: result.data.endereco || '',
+        cep: result.data.cep || '',
+        telefone: result.data.telefone || '',
+        email: result.data.email || '',
+        banco: result.data.banco || '',
+        agencia: result.data.agencia || '',
+        conta: result.data.conta || '',
+        representante_nome: result.data.representante_nome || '',
+        representante_cpf: result.data.representante_cpf || '',
+        representante_cargo: result.data.representante_cargo || '',
       })
     }
     setLoading(false)
@@ -142,6 +163,16 @@ export default function CompanyPage() {
       capacidades: company.capacidades,
       certificacoes: company.certificacoes,
       palavras_chave: company.palavras_chave,
+      endereco: company.endereco,
+      cep: company.cep,
+      telefone: company.telefone,
+      email: company.email,
+      banco: company.banco,
+      agencia: company.agencia,
+      conta: company.conta,
+      representante_nome: company.representante_nome,
+      representante_cpf: company.representante_cpf,
+      representante_cargo: company.representante_cargo,
     }
 
     const result = await saveCompany(payload, company.id || undefined)
@@ -467,6 +498,113 @@ export default function CompanyPage() {
                   ))}
                 </div>
               )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Dados para Propostas Comerciais */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Dados para Propostas Comerciais</CardTitle>
+            <p className="text-sm text-gray-400">Preencha uma vez — serão usados automaticamente em todas as propostas geradas.</p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Endereço completo</Label>
+                <Input
+                  value={company.endereco}
+                  onChange={(e) => setCompany({ ...company, endereco: e.target.value })}
+                  placeholder="Rua, número, bairro, cidade - UF"
+                />
+              </div>
+              <div>
+                <Label>CEP</Label>
+                <Input
+                  value={company.cep}
+                  onChange={(e) => setCompany({ ...company, cep: e.target.value })}
+                  placeholder="00000-000"
+                  maxLength={9}
+                />
+              </div>
+              <div>
+                <Label>Telefone</Label>
+                <Input
+                  value={company.telefone}
+                  onChange={(e) => setCompany({ ...company, telefone: e.target.value })}
+                  placeholder="(11) 99999-9999"
+                />
+              </div>
+              <div>
+                <Label>E-mail da empresa</Label>
+                <Input
+                  value={company.email}
+                  onChange={(e) => setCompany({ ...company, email: e.target.value })}
+                  placeholder="contato@empresa.com.br"
+                  type="email"
+                />
+              </div>
+            </div>
+
+            <div className="border-t border-[#2d2f33] pt-4 mt-4">
+              <p className="text-sm font-medium text-white mb-3">Dados Bancários</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label>Banco</Label>
+                  <Input
+                    value={company.banco}
+                    onChange={(e) => setCompany({ ...company, banco: e.target.value })}
+                    placeholder="Ex: Banco do Brasil"
+                  />
+                </div>
+                <div>
+                  <Label>Agência</Label>
+                  <Input
+                    value={company.agencia}
+                    onChange={(e) => setCompany({ ...company, agencia: e.target.value })}
+                    placeholder="0000-0"
+                  />
+                </div>
+                <div>
+                  <Label>Conta Corrente</Label>
+                  <Input
+                    value={company.conta}
+                    onChange={(e) => setCompany({ ...company, conta: e.target.value })}
+                    placeholder="00000-0"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-[#2d2f33] pt-4 mt-4">
+              <p className="text-sm font-medium text-white mb-3">Representante Legal</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label>Nome completo</Label>
+                  <Input
+                    value={company.representante_nome}
+                    onChange={(e) => setCompany({ ...company, representante_nome: e.target.value })}
+                    placeholder="Nome do representante"
+                  />
+                </div>
+                <div>
+                  <Label>CPF</Label>
+                  <Input
+                    value={company.representante_cpf}
+                    onChange={(e) => setCompany({ ...company, representante_cpf: e.target.value })}
+                    placeholder="000.000.000-00"
+                    maxLength={14}
+                  />
+                </div>
+                <div>
+                  <Label>Cargo</Label>
+                  <Input
+                    value={company.representante_cargo}
+                    onChange={(e) => setCompany({ ...company, representante_cargo: e.target.value })}
+                    placeholder="Ex: Diretor"
+                  />
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>

@@ -187,6 +187,17 @@ interface CompanyPayload {
   capacidades: string[]
   certificacoes: string[]
   palavras_chave: string[]
+  // Campos para propostas comerciais
+  endereco?: string
+  cep?: string
+  telefone?: string
+  email?: string
+  banco?: string
+  agencia?: string
+  conta?: string
+  representante_nome?: string
+  representante_cpf?: string
+  representante_cargo?: string
 }
 
 export async function saveCompany(payload: CompanyPayload, existingId?: string) {
@@ -232,6 +243,17 @@ export async function saveCompany(payload: CompanyPayload, existingId?: string) 
     municipio: (payload.municipio || '').trim().slice(0, 200),
     porte: payload.porte || '',
     cnae_principal: (payload.cnae_principal || '').replace(/\D/g, '').slice(0, 10),
+    // Campos para propostas
+    endereco: (payload.endereco || '').trim().slice(0, 500),
+    cep: (payload.cep || '').replace(/\D/g, '').slice(0, 8),
+    telefone: (payload.telefone || '').trim().slice(0, 20),
+    email: (payload.email || '').trim().slice(0, 200),
+    banco: (payload.banco || '').trim().slice(0, 100),
+    agencia: (payload.agencia || '').trim().slice(0, 20),
+    conta: (payload.conta || '').trim().slice(0, 30),
+    representante_nome: (payload.representante_nome || '').trim().slice(0, 200),
+    representante_cpf: (payload.representante_cpf || '').replace(/\D/g, '').slice(0, 11),
+    representante_cargo: (payload.representante_cargo || '').trim().slice(0, 100),
   }
 
   let companyId: string
