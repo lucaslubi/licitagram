@@ -290,7 +290,7 @@ export function AiConsultant() {
 
       {/* Chat panel */}
       {open && (
-        <div className="fixed bottom-0 right-0 md:bottom-6 md:right-6 z-[9999] w-full h-full md:w-[400px] md:h-auto md:max-h-[550px] bg-white md:rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden">
+        <div className="fixed bottom-0 right-0 md:bottom-6 md:right-6 z-[9999] w-full h-full md:w-[400px] md:h-auto md:max-h-[550px] bg-[#1a1c1f] md:rounded-2xl shadow-2xl border border-[#2d2f33] flex flex-col overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-[#F97316] to-orange-500 text-white shrink-0">
             <div className="flex items-center gap-2">
@@ -313,18 +313,18 @@ export function AiConsultant() {
           <div
             ref={messagesContainerRef}
             onScroll={handleScroll}
-            className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50 min-h-0"
+            className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#1a1c1f] min-h-0"
           >
             {messages.length === 0 && (
               <div className="text-center py-8 space-y-3">
-                <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto">
+                <div className="w-12 h-12 bg-orange-900/20 rounded-full flex items-center justify-center mx-auto">
                   <MessageCircle className="w-6 h-6 text-[#F97316]" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-gray-900">
+                  <p className="text-sm font-semibold text-white">
                     Olá! Sou seu Consultor IA
                   </p>
-                  <p className="text-xs text-gray-500 mt-1 max-w-[280px] mx-auto">
+                  <p className="text-xs text-gray-400 mt-1 max-w-[280px] mx-auto">
                     Tire dúvidas sobre licitações, a plataforma, estratégias de participação e muito mais.
                   </p>
                 </div>
@@ -348,13 +348,13 @@ export function AiConsultant() {
                     className={`max-w-[85%] rounded-2xl text-sm leading-relaxed ${
                       isUser
                         ? 'bg-[#F97316] text-white px-4 py-2.5 rounded-br-md'
-                        : 'bg-white border border-gray-200 shadow-sm px-4 py-3 text-gray-900 rounded-bl-md'
+                        : 'bg-[#23262a] border border-[#2d2f33] shadow-sm px-4 py-3 text-gray-200 rounded-bl-md'
                     }`}
                   >
                     {isUser ? (
                       <span className="whitespace-pre-wrap">{msg.content}</span>
                     ) : cleanContent ? (
-                      <div className="prose prose-sm prose-gray max-w-none prose-headings:text-gray-900 prose-headings:font-semibold prose-headings:mt-3 prose-headings:mb-1.5 prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-strong:text-gray-900">
+                      <div className="prose prose-sm prose-invert max-w-none prose-headings:text-white prose-headings:font-semibold prose-headings:mt-3 prose-headings:mb-1.5 prose-p:text-gray-300 prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:text-gray-300 prose-li:my-0.5 prose-strong:text-white">
                         <ReactMarkdown>{cleanContent}</ReactMarkdown>
                       </div>
                     ) : (
@@ -425,7 +425,7 @@ export function AiConsultant() {
 
           {/* Suggested questions */}
           {!loading && messages.length === 0 && suggestedQuestions.length > 0 && (
-            <div className="px-4 py-2 border-t border-gray-100 bg-white shrink-0">
+            <div className="px-4 py-2 border-t border-[#2d2f33] bg-[#1a1c1f] shrink-0">
               <p className="text-[10px] text-gray-400 uppercase tracking-wide font-medium mb-1.5">
                 Sugestões
               </p>
@@ -434,7 +434,7 @@ export function AiConsultant() {
                   <button
                     key={i}
                     onClick={() => sendMessage(q)}
-                    className="text-xs px-3 py-1.5 bg-orange-50 border border-orange-200 rounded-full text-[#F97316] hover:bg-orange-100 transition-colors"
+                    className="text-xs px-3 py-1.5 bg-orange-900/20 border border-orange-900/30 rounded-full text-orange-400 hover:bg-orange-900/30 transition-colors"
                   >
                     {q}
                   </button>
@@ -449,7 +449,7 @@ export function AiConsultant() {
               e.preventDefault()
               sendMessage(input)
             }}
-            className="flex items-center gap-2 px-4 py-3 border-t border-gray-200 bg-white shrink-0"
+            className="flex items-center gap-2 px-4 py-3 border-t border-[#2d2f33] bg-[#1a1c1f] shrink-0"
           >
             <input
               ref={inputRef}
@@ -457,7 +457,7 @@ export function AiConsultant() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Faça uma pergunta..."
-              className="flex-1 h-10 rounded-xl border border-gray-300 px-4 text-sm bg-gray-50 focus:ring-2 focus:ring-[#F97316]/20 focus:border-[#F97316]/40 focus:bg-white transition-all outline-none"
+              className="flex-1 h-10 rounded-xl border border-[#2d2f33] px-4 text-sm text-white bg-[#23262a] placeholder:text-gray-500 focus:ring-2 focus:ring-[#F97316]/20 focus:border-[#F97316]/40 focus:bg-[#2d2f33] transition-all outline-none"
               disabled={loading}
             />
             <button
