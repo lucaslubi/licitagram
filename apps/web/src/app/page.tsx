@@ -392,7 +392,7 @@ export default async function LandingPage() {
                     preload="auto"
                     className="w-full h-auto block"
                   >
-                    <source src="/videos/demo-mapa.mp4?v=2" type="video/mp4" />
+                    <source src="/mapa-demo.webm" type="video/webm" />
                   </video>
                 </div>
               </div>
