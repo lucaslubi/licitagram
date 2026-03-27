@@ -248,6 +248,7 @@ interface MatchListParams {
   scoreMin?: number
   ordemValor?: string
   ordemData?: string
+  q?: string
 }
 
 interface MatchListResult {
@@ -274,7 +275,13 @@ export async function getMatchList(params: MatchListParams): Promise<MatchListRe
     sm: params.scoreMin,
     ov: params.ordemValor,
     od: params.ordemData,
+    q: params.q,
   })
+
+  // Don't cache text searches (too many variants)
+  if (params.q) {
+    return fetchMatchListFromDB(params)
+  }
 
   return cached(
     CacheKeys.matchList(params.companyId, filterHash),
@@ -320,6 +327,7 @@ async function fetchMatchListFromDB(params: MatchListParams): Promise<MatchListR
   if (dataFrom) query = query.gte('tenders.data_abertura', dataFrom)
   if (dataTo) query = query.lte('tenders.data_abertura', dataTo)
   if (fonte) query = query.eq('tenders.source', fonte)
+  if (params.q) query = query.ilike('tenders.objeto', `%${params.q}%`)
 
   // Fetch all rows (up to 2000) — we paginate in JS after sorting
   query = query.order('score', { ascending: false }).limit(2000)

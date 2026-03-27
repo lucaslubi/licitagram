@@ -20,6 +20,8 @@ import {
   getTenderCount,
 } from '@/lib/cache'
 import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
+import { PipelineTag } from '@/components/pipeline-tag'
+import { createClient } from '@/lib/supabase/server'
 import type { PlanFeatures } from '@licitagram/shared'
 
 // Force dynamic rendering — opportunities must always show fresh data
@@ -33,7 +35,7 @@ export default async function OpportunitiesPage({
   searchParams,
 }: {
   searchParams: Promise<{
-    page?: string; uf?: string; view?: string; q?: string
+    page?: string; uf?: string; view?: string; q?: string; q_match?: string
     modalidade?: string; score_min?: string; data_de?: string; data_ate?: string
     fonte?: string; busca_edital?: string; ordem_valor?: string; ordem_data?: string
   }>
@@ -65,6 +67,7 @@ export default async function OpportunitiesPage({
   const buscaEdital = params.busca_edital === '1'
   const ordemValorFilter = params.ordem_valor || ''
   const ordemDataFilter = params.ordem_data || ''
+  const qMatchFilter = params.q_match || ''
 
   // Build query params for links
   const baseParams = new URLSearchParams()
@@ -78,6 +81,7 @@ export default async function OpportunitiesPage({
   if (buscaEdital) baseParams.set('busca_edital', '1')
   if (ordemValorFilter) baseParams.set('ordem_valor', ordemValorFilter)
   if (ordemDataFilter) baseParams.set('ordem_data', ordemDataFilter)
+  if (qMatchFilter) baseParams.set('q_match', qMatchFilter)
 
   if (view === 'matches' && companyId) {
     // PARALLEL: fetch matches + both tab totals simultaneously
@@ -95,6 +99,7 @@ export default async function OpportunitiesPage({
         scoreMin: scoreMinFilter || undefined,
         ordemValor: ordemValorFilter || undefined,
         ordemData: ordemDataFilter || undefined,
+        q: qMatchFilter || undefined,
       }),
       getTenderCount(),
       getMatchCount(companyId, userMinScore),
@@ -119,6 +124,7 @@ export default async function OpportunitiesPage({
       baseParams,
       canExport,
       hasAllPortals,
+      qMatchFilter,
     })
   }
 
@@ -142,6 +148,19 @@ export default async function OpportunitiesPage({
   ])
 
   const { tenders, count, totalPages } = tenderResult
+
+  // Fetch existing pipeline matches for tenders (to show PipelineTag)
+  let matchMap = new Map<string, { id: string; status: string }>()
+  if (companyId && tenders && tenders.length > 0) {
+    const supabase = await createClient()
+    const tenderIds = tenders.map((t: any) => t.id)
+    const { data: existingMatches } = await supabase
+      .from('matches')
+      .select('id, tender_id, status')
+      .eq('company_id', companyId)
+      .in('tender_id', tenderIds)
+    matchMap = new Map(existingMatches?.map((m: any) => [m.tender_id, { id: m.id, status: m.status }]) || [])
+  }
 
   return (
     <div>
@@ -332,6 +351,7 @@ export default async function OpportunitiesPage({
                 <TableHead className="w-28 hidden lg:table-cell">Publicação</TableHead>
                 <TableHead className="w-24 hidden lg:table-cell">Fonte</TableHead>
                 <TableHead className="w-20">Status</TableHead>
+                {companyId && <TableHead className="w-20">Pipeline</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -374,11 +394,21 @@ export default async function OpportunitiesPage({
                     <TableCell>
                       <StatusBadge status={tender.status} />
                     </TableCell>
+                    {companyId && (
+                      <TableCell>
+                        <PipelineTag
+                          tenderId={tender.id}
+                          companyId={companyId}
+                          matchId={matchMap.get(tender.id)?.id}
+                          currentStatus={matchMap.get(tender.id)?.status}
+                        />
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center text-gray-400 py-8">
+                  <TableCell colSpan={companyId ? 10 : 9} className="text-center text-gray-400 py-8">
                     Nenhuma licitação encontrada
                   </TableCell>
                 </TableRow>
@@ -438,11 +468,13 @@ function renderMatchesView(props: {
   baseParams: URLSearchParams
   canExport: boolean
   hasAllPortals: boolean
+  qMatchFilter: string
 }) {
   const {
     matches, matchCount, filteredMatchCount, totalPages, tenderCount, page,
     ufFilter, modalidadeFilter, scoreMinFilter, dataDeFilter, dataAteFilter, fonteFilter,
     ordemValorFilter, ordemDataFilter, userMinScore, baseParams, canExport, hasAllPortals,
+    qMatchFilter,
   } = props
 
   const effectiveMinScore = scoreMinFilter > 0 ? scoreMinFilter : userMinScore
@@ -476,6 +508,18 @@ function renderMatchesView(props: {
         <CardContent className="pt-6">
           <form className="space-y-4">
             <input type="hidden" name="view" value="matches" />
+            <div className="relative">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+              </svg>
+              <input
+                name="q_match"
+                type="text"
+                defaultValue={qMatchFilter}
+                placeholder="Buscar por objeto, órgão..."
+                className="flex h-10 w-full rounded-md border border-[#2d2f33] bg-[#2d2f33] pl-10 pr-3 py-2 text-sm text-white placeholder:text-gray-500"
+              />
+            </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
               <div>
                 <label className="text-sm font-medium text-gray-400">Score Min</label>
@@ -582,7 +626,7 @@ function renderMatchesView(props: {
               >
                 Filtrar
               </button>
-              {(modalidadeFilter || scoreMinFilter || dataDeFilter || dataAteFilter || fonteFilter || ordemValorFilter || ordemDataFilter) && (
+              {(qMatchFilter || modalidadeFilter || scoreMinFilter || dataDeFilter || dataAteFilter || fonteFilter || ordemValorFilter || ordemDataFilter) && (
                 <Link
                   href="/opportunities?view=matches"
                   className="h-10 px-3 flex items-center text-sm text-gray-400 hover:text-white"
