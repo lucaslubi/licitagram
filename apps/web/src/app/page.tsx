@@ -737,27 +737,27 @@ export default async function LandingPage() {
               </ScrollReveal>
             </div>
 
-            {/* Phone frame with Telegram demo video */}
+            {/* Phone frame with Telegram demo video — vertical */}
             <ScrollReveal delay={300}>
               <div className="mt-16 flex flex-col items-center">
-                <div className="relative mx-auto" style={{ width: 260 }}>
-                  {/* Phone frame — vertical (9:16 aspect) */}
-                  <div className="rounded-[2.5rem] border-[5px] border-[#333] bg-black overflow-hidden shadow-2xl shadow-black/60 ring-1 ring-white/5">
+                <div className="relative mx-auto w-[220px] sm:w-[260px]">
+                  {/* Phone frame — portrait */}
+                  <div className="relative rounded-[2.5rem] border-[5px] border-[#333] bg-black overflow-hidden shadow-2xl shadow-black/60 ring-1 ring-white/5" style={{ aspectRatio: '9/19.5' }}>
                     {/* Dynamic Island */}
-                    <div className="absolute top-2 left-1/2 -translate-x-1/2 w-20 h-5 bg-black rounded-full z-10" />
-                    {/* Video */}
+                    <div className="absolute top-2 left-1/2 -translate-x-1/2 w-16 h-4 bg-black rounded-full z-10" />
+                    {/* Video fills the phone screen */}
                     <video
                       autoPlay
                       loop
                       muted
                       playsInline
                       preload="auto"
-                      className="w-full h-auto block"
+                      className="absolute inset-0 w-full h-full object-cover"
                     >
                       <source src="/telegram-demo.webm" type="video/webm" />
                     </video>
                     {/* Home indicator */}
-                    <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-28 h-1 bg-white/20 rounded-full" />
+                    <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-24 h-1 bg-white/20 rounded-full z-10" />
                   </div>
                 </div>
                 <p className="text-xs text-[#69695D] mt-4 text-center">Alertas em tempo real direto no Telegram</p>
