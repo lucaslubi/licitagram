@@ -28,9 +28,21 @@ export async function GET() {
     .eq('company_id', profile.company_id)
     .gte('score', 50)
 
+  const matchCount = count || 0
+  let status = company?.matching_status || 'pending'
+
+  // Auto-advance: if matches exist but status is stuck in scanning/pending, mark as ready
+  if (matchCount > 0 && (status === 'scanning' || status === 'pending')) {
+    status = 'ready'
+    await supabase
+      .from('companies')
+      .update({ matching_status: 'ready', first_match_at: company?.first_match_at || new Date().toISOString() })
+      .eq('id', profile.company_id)
+  }
+
   return NextResponse.json({
-    status: company?.matching_status || 'pending',
-    matchCount: count || 0,
+    status,
+    matchCount,
     firstMatchAt: company?.first_match_at || null,
   })
 }
