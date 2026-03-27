@@ -217,14 +217,18 @@ async function handleHotDaily() {
       .eq('id', companyId)
       .single()
 
+    // Use 4-digit CNAE groups for precise competitor matching (RPC falls back to 2-digit if no 4-digit match)
     const cnaeDivisions: string[] = []
     if (company?.cnae_principal) {
-      cnaeDivisions.push(company.cnae_principal.substring(0, 2))
+      const grupo = company.cnae_principal.length >= 4
+        ? company.cnae_principal.substring(0, 4)
+        : company.cnae_principal.substring(0, 2)
+      cnaeDivisions.push(grupo)
     }
     if (company?.cnaes_secundarios) {
       for (const c of company.cnaes_secundarios) {
-        const div = c.substring(0, 2)
-        if (!cnaeDivisions.includes(div)) cnaeDivisions.push(div)
+        const grupo = c.length >= 4 ? c.substring(0, 4) : c.substring(0, 2)
+        if (!cnaeDivisions.includes(grupo)) cnaeDivisions.push(grupo)
       }
     }
 

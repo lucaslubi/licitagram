@@ -242,7 +242,7 @@ export default async function AdminProspectsPage({
                     ) : '—'}
                   </td>
                   <td className="px-3 py-2.5 text-gray-400 hidden lg:table-cell">{c.uf || '—'}</td>
-                  <td className="px-3 py-2.5 text-gray-400 hidden xl:table-cell">{c.cnae_divisao || '—'}</td>
+                  <td className="px-3 py-2.5 text-gray-400 hidden xl:table-cell">{c.cnae_grupo || c.cnae_divisao || '—'}</td>
                   <td className="px-3 py-2.5 text-center font-semibold">{c.total_participacoes || 0}</td>
                   <td className="px-3 py-2.5 text-center text-emerald-400 font-semibold">{c.total_vitorias || 0}</td>
                   <td className="px-3 py-2.5 text-center">

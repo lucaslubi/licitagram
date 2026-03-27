@@ -33,6 +33,7 @@ interface CompetitorRow {
   cnpj: string
   razao_social: string | null
   cnae_divisao: number | null
+  cnae_grupo: string | null
   cnae_nome: string | null
   porte: string | null
   total_participacoes: number | null
@@ -51,7 +52,7 @@ function buildPrompt(competitors: CompetitorRow[]): string {
   const entries = competitors.map((c) => ({
     cnpj: c.cnpj,
     razao_social: c.razao_social || 'Desconhecido',
-    cnae_divisao: c.cnae_divisao || null,
+    cnae_grupo: c.cnae_grupo || c.cnae_divisao || null,
     cnae_nome: c.cnae_nome || null,
     porte: c.porte || null,
     total_participacoes: c.total_participacoes || 0,
@@ -75,7 +76,7 @@ async function processAiCompetitorClassifier(job: Job<AiCompetitorClassifierJobD
     // Fetch competitors without AI classification
     const { data: competitors, error: fetchError } = await supabase
       .from('competitor_stats')
-      .select('cnpj, razao_social, cnae_divisao, porte, total_participacoes, total_vitorias, win_rate, valor_total_ganho')
+      .select('cnpj, razao_social, cnae_divisao, cnae_grupo, porte, total_participacoes, total_vitorias, win_rate, valor_total_ganho')
       .is('segmento_ia', null)
       .order('total_participacoes', { ascending: false })
       .range(offset, offset + BATCH_SIZE - 1)

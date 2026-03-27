@@ -281,7 +281,7 @@ async function analyzeCompanyCompetitors(company: {
   const cnpjList = topCnpjs.map(([cnpj]) => cnpj)
   const { data: competitorStats } = await supabase
     .from('competitor_stats')
-    .select('cnpj, razao_social, cnae_divisao, porte, uf')
+    .select('cnpj, razao_social, cnae_divisao, cnae_grupo, porte, uf')
     .in('cnpj', cnpjList)
 
   // Also get CNAE details from competitors table (has cnae_codigo and cnae_nome)
@@ -310,7 +310,7 @@ async function analyzeCompanyCompetitors(company: {
     return {
       cnpj,
       razao_social: stats?.razao_social || null,
-      cnae_codigo: details?.cnae_codigo || (stats?.cnae_divisao ? String(stats.cnae_divisao) : null),
+      cnae_codigo: details?.cnae_codigo || (stats?.cnae_grupo ? String(stats.cnae_grupo) : (stats?.cnae_divisao ? String(stats.cnae_divisao) : null)),
       cnae_nome: details?.cnae_nome || null,
       porte: stats?.porte || null,
       uf: stats?.uf || null,

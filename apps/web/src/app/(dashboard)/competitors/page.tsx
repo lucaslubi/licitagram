@@ -262,20 +262,30 @@ export default async function CompetitorsPage({
     .eq('id', profile?.company_id || '')
     .single()
 
+  // Use 4-digit CNAE groups for precise competitor matching, with 2-digit fallback
   const companyCnaePrincipal: string[] = []
   const companyCnaeSecundarios: string[] = []
   const companyCnaeDivisions: string[] = []
+  const companyCnaeDivisions2: string[] = [] // 2-digit fallback for broad sector matching
   if (company?.cnae_principal) {
-    const div = company.cnae_principal.substring(0, 2)
-    companyCnaePrincipal.push(div)
-    companyCnaeDivisions.push(div)
+    const grupo = company.cnae_principal.length >= 4
+      ? company.cnae_principal.substring(0, 4)
+      : company.cnae_principal.substring(0, 2)
+    const div2 = company.cnae_principal.substring(0, 2)
+    companyCnaePrincipal.push(grupo)
+    companyCnaeDivisions.push(grupo)
+    companyCnaeDivisions2.push(div2)
   }
   if (company?.cnaes_secundarios) {
     for (const c of company.cnaes_secundarios as string[]) {
-      const div = c.substring(0, 2)
-      if (!companyCnaeDivisions.includes(div)) {
-        companyCnaeSecundarios.push(div)
-        companyCnaeDivisions.push(div)
+      const grupo = c.length >= 4 ? c.substring(0, 4) : c.substring(0, 2)
+      const div2 = c.substring(0, 2)
+      if (!companyCnaeDivisions.includes(grupo)) {
+        companyCnaeSecundarios.push(grupo)
+        companyCnaeDivisions.push(grupo)
+      }
+      if (!companyCnaeDivisions2.includes(div2)) {
+        companyCnaeDivisions2.push(div2)
       }
     }
   }
@@ -291,17 +301,19 @@ export default async function CompetitorsPage({
       .limit(100)
 
     // Filter and sort: primary CNAE competitors first, then secondary
+    // Match on 4-digit cnae_grupo preferentially, fallback to 2-digit cnae_divisao
     const filtered = (data || []).filter((s) => {
+      const cnaeGrupo = (s.cnae_grupo as string) || ''
       const cnaeDivisao = (s.cnae_divisao as string) || ''
-      return companyCnaeDivisions.includes(cnaeDivisao)
+      return companyCnaeDivisions.includes(cnaeGrupo) || companyCnaeDivisions2.includes(cnaeDivisao)
     })
 
     // Sort: primary CNAE match > secondary CNAE match > by participations
     filtered.sort((a, b) => {
-      const aCnae = (a.cnae_divisao as string) || ''
-      const bCnae = (b.cnae_divisao as string) || ''
-      const aIsPrimary = companyCnaePrincipal.includes(aCnae) ? 1 : 0
-      const bIsPrimary = companyCnaePrincipal.includes(bCnae) ? 1 : 0
+      const aGrupo = (a.cnae_grupo as string) || ''
+      const bGrupo = (b.cnae_grupo as string) || ''
+      const aIsPrimary = companyCnaePrincipal.includes(aGrupo) ? 1 : 0
+      const bIsPrimary = companyCnaePrincipal.includes(bGrupo) ? 1 : 0
       if (aIsPrimary !== bIsPrimary) return bIsPrimary - aIsPrimary
       return (b.total_participacoes as number) - (a.total_participacoes as number)
     })
@@ -340,10 +352,10 @@ export default async function CompetitorsPage({
     const ufCnaeCounts: Record<string, number> = {}
     for (const mc of marketCompetitors) {
       const ufsAtua = (mc.ufs_atuacao as Record<string, boolean>) || {}
-      const cnaeDiv = (mc.cnae_divisao as string) || ''
-      if (cnaeDiv && companyCnaeDivisions.includes(cnaeDiv)) {
+      const cnaeGrupo = (mc.cnae_grupo as string) || (mc.cnae_divisao as string) || ''
+      if (cnaeGrupo && (companyCnaeDivisions.includes(cnaeGrupo) || companyCnaeDivisions2.includes(cnaeGrupo))) {
         for (const uf of Object.keys(ufsAtua)) {
-          const key = `${uf}|${cnaeDiv}`
+          const key = `${uf}|${cnaeGrupo}`
           ufCnaeCounts[key] = (ufCnaeCounts[key] || 0) + 1
         }
       }
@@ -380,8 +392,9 @@ export default async function CompetitorsPage({
       .limit(500)
 
     const sectorFiltered = (sectorData || []).filter((s) => {
+      const cnaeGrupo = (s.cnae_grupo as string) || ''
       const cnaeDiv = (s.cnae_divisao as string) || ''
-      return companyCnaeDivisions.includes(cnaeDiv)
+      return companyCnaeDivisions.includes(cnaeGrupo) || companyCnaeDivisions2.includes(cnaeDiv)
     })
 
     // Build MercadoCompetitor array for the client component, enriched with relevance
@@ -398,7 +411,7 @@ export default async function CompetitorsPage({
           cnpj: s.cnpj as string,
           razao_social: (s.razao_social as string) || null,
           porte: (s.porte as string) || null,
-          cnae_divisao: (s.cnae_divisao as string) || null,
+          cnae_divisao: (s.cnae_grupo as string) || (s.cnae_divisao as string) || null,
           uf: (s.uf as string) || null,
           total_participacoes: Number(s.total_participacoes || 0),
           total_vitorias: Number(s.total_vitorias || 0),
@@ -423,12 +436,12 @@ export default async function CompetitorsPage({
         return b.total_participacoes - a.total_participacoes
       })
 
-    // A. Sector Overview - aggregate by CNAE division
+    // A. Sector Overview - aggregate by CNAE group (4-digit) with fallback to division (2-digit)
     const cnaeDivAgg: Record<string, {
       count: number; totalWinRate: number; totalDiscount: number; totalValue: number
     }> = {}
     for (const s of sectorFiltered) {
-      const div = (s.cnae_divisao as string) || ''
+      const div = (s.cnae_grupo as string) || (s.cnae_divisao as string) || ''
       if (!div) continue
       if (!cnaeDivAgg[div]) cnaeDivAgg[div] = { count: 0, totalWinRate: 0, totalDiscount: 0, totalValue: 0 }
       cnaeDivAgg[div].count++
