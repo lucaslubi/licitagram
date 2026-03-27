@@ -28,9 +28,15 @@ const COLLAPSED_KEY = 'sidebar-collapsed'
 
 /** Map nav hrefs to element IDs used by the onboarding tour */
 const NAV_TOUR_IDS: Record<string, string> = {
-  '/opportunities': 'nav-opportunities',
-  '/competitors': 'nav-competitors',
   '/map': 'nav-map',
+  '/opportunities': 'nav-opportunities',
+  '/pipeline': 'nav-pipeline',
+  '/dashboard': 'nav-dashboard',
+  '/competitors': 'nav-competitors',
+  '/bot': 'nav-bot',
+  '/documents': 'nav-certidoes',
+  '/drive': 'nav-drive',
+  '/company': 'nav-empresa',
   '/settings': 'nav-settings',
 }
 

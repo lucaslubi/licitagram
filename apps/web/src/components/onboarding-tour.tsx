@@ -36,21 +36,41 @@ export function OnboardingTour({ onComplete, autoStart = true }: OnboardingTourP
         },
         steps: [
           {
-            element: '#dashboard-overview',
+            element: '#nav-map',
             popover: {
-              title: 'Seu Painel',
+              title: '🗺️ Mapa de Inteligência',
               description:
-                'Aqui você vê um resumo de todas as suas licitações, matches e alertas.',
-              side: 'bottom',
-              align: 'center',
+                'Visualize todas as oportunidades no mapa do Brasil. Clique nos pins para ver detalhes e scores.',
+              side: 'right',
+              align: 'start',
             },
           },
           {
             element: '#nav-opportunities',
             popover: {
-              title: 'Oportunidades',
+              title: '🎯 Oportunidades',
               description:
-                'Encontre licitações compatíveis com sua empresa, filtradas e ranqueadas por IA.',
+                'Aqui a IA encontra licitações compatíveis com sua empresa, filtradas por score e relevância.',
+              side: 'right',
+              align: 'start',
+            },
+          },
+          {
+            element: '#nav-pipeline',
+            popover: {
+              title: '📊 Pipeline',
+              description:
+                'Gerencie suas licitações em um kanban: Nova → Interesse → Participando → Venceu.',
+              side: 'right',
+              align: 'start',
+            },
+          },
+          {
+            element: '#nav-dashboard',
+            popover: {
+              title: '📈 Dashboard',
+              description:
+                'Métricas e KPIs da sua operação: matches, score médio, taxa de conversão e performance.',
               side: 'right',
               align: 'start',
             },
@@ -58,19 +78,59 @@ export function OnboardingTour({ onComplete, autoStart = true }: OnboardingTourP
           {
             element: '#nav-competitors',
             popover: {
-              title: 'Concorrentes',
+              title: '🏆 Concorrentes',
               description:
-                'Analise seus concorrentes, veja rankings, segmentos e estratégias para superá-los.',
+                'Inteligência competitiva: veja quem são seus concorrentes, win rates e estratégias.',
               side: 'right',
               align: 'start',
             },
           },
           {
-            element: '#nav-map',
+            element: '#nav-bot',
             popover: {
-              title: 'Mapa',
+              title: '🤖 Robô',
               description:
-                'Visualize licitações por região no mapa interativo do Brasil.',
+                'Automação de processos: emissão de certidões, preenchimento automático e mais.',
+              side: 'right',
+              align: 'start',
+            },
+          },
+          {
+            element: '#nav-certidoes',
+            popover: {
+              title: '📋 Certidões',
+              description:
+                'Gerencie certidões da empresa: emissão automática, validade e alertas de vencimento.',
+              side: 'right',
+              align: 'start',
+            },
+          },
+          {
+            element: '#nav-drive',
+            popover: {
+              title: '📁 Drive',
+              description:
+                'Repositório de documentos: editais, propostas, certidões e análises organizadas.',
+              side: 'right',
+              align: 'start',
+            },
+          },
+          {
+            element: '#nav-empresa',
+            popover: {
+              title: '🏢 Empresa',
+              description:
+                'Configure o perfil da empresa: CNAEs, capacidades e descrição para a IA encontrar as melhores oportunidades.',
+              side: 'right',
+              align: 'start',
+            },
+          },
+          {
+            element: '#nav-settings',
+            popover: {
+              title: '⚙️ Configurações',
+              description:
+                'Ajuste notificações, score mínimo, UFs de interesse e preferências.',
               side: 'right',
               align: 'start',
             },
@@ -78,21 +138,11 @@ export function OnboardingTour({ onComplete, autoStart = true }: OnboardingTourP
           {
             element: '#ai-consultant-button',
             popover: {
-              title: 'Consultor IA',
+              title: '✨ Consultor IA',
               description:
-                'Seu assistente inteligente. Pergunte qualquer coisa, peça relatórios, tire dúvidas.',
+                'Seu assistente inteligente disponível em qualquer tela. Pergunte sobre licitações, estratégias ou peça relatórios.',
               side: 'top',
               align: 'center',
-            },
-          },
-          {
-            element: '#nav-settings',
-            popover: {
-              title: 'Configurações',
-              description:
-                'Ajuste palavras-chave, notificações, plano e preferências.',
-              side: 'right',
-              align: 'start',
             },
           },
         ],
@@ -107,7 +157,7 @@ export function OnboardingTour({ onComplete, autoStart = true }: OnboardingTourP
   return (
     <style jsx global>{`
       .licitagram-tour-popover {
-        --driver-theme-color: #F97316 !important;
+        --driver-theme-color: #F43E01 !important;
       }
       .licitagram-tour-popover .driver-popover {
         background: #fff;
@@ -136,13 +186,13 @@ export function OnboardingTour({ onComplete, autoStart = true }: OnboardingTourP
       }
       .licitagram-tour-popover .driver-popover-next-btn,
       .licitagram-tour-popover .driver-popover-close-btn {
-        background-color: #F97316 !important;
+        background-color: #F43E01 !important;
         color: #fff !important;
         border: none !important;
       }
       .licitagram-tour-popover .driver-popover-next-btn:hover,
       .licitagram-tour-popover .driver-popover-close-btn:hover {
-        background-color: #EA580C !important;
+        background-color: #d63501 !important;
       }
       .licitagram-tour-popover .driver-popover-prev-btn {
         background-color: transparent !important;
