@@ -276,7 +276,7 @@ export function AiConsultant() {
         <button
           id="ai-consultant-button"
           onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-[9999] w-14 h-14 rounded-full bg-[#F97316] text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center justify-center group"
+          className="fixed bottom-6 right-6 z-[9999] w-14 h-14 rounded-full bg-[#F43E01] text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center justify-center group"
           aria-label="Abrir Consultor IA"
         >
           <Sparkles className="w-6 h-6 group-hover:rotate-12 transition-transform" />
@@ -292,7 +292,7 @@ export function AiConsultant() {
       {open && (
         <div className="fixed bottom-0 right-0 md:bottom-6 md:right-6 z-[9999] w-full h-full md:w-[400px] md:h-auto md:max-h-[550px] bg-[#1a1c1f] md:rounded-2xl shadow-2xl border border-[#2d2f33] flex flex-col overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-[#F97316] to-orange-500 text-white shrink-0">
+          <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-[#F43E01] to-[#F43E01] text-white shrink-0">
             <div className="flex items-center gap-2">
               <Sparkles className="w-5 h-5" />
               <h2 className="font-semibold text-sm">Consultor IA</h2>
@@ -318,7 +318,7 @@ export function AiConsultant() {
             {messages.length === 0 && (
               <div className="text-center py-8 space-y-3">
                 <div className="w-12 h-12 bg-orange-900/20 rounded-full flex items-center justify-center mx-auto">
-                  <MessageCircle className="w-6 h-6 text-[#F97316]" />
+                  <MessageCircle className="w-6 h-6 text-[#F43E01]" />
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-white">
@@ -347,7 +347,7 @@ export function AiConsultant() {
                   <div
                     className={`max-w-[85%] rounded-2xl text-sm leading-relaxed ${
                       isUser
-                        ? 'bg-[#F97316] text-white px-4 py-2.5 rounded-br-md'
+                        ? 'bg-[#F43E01] text-white px-4 py-2.5 rounded-br-md'
                         : 'bg-[#23262a] border border-[#2d2f33] shadow-sm px-4 py-3 text-gray-200 rounded-bl-md'
                     }`}
                   >
@@ -369,7 +369,7 @@ export function AiConsultant() {
                     {pdfPayload && (
                       <button
                         onClick={() => handlePdfDownload(pdfPayload)}
-                        className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-[#F97316] bg-orange-50 border border-orange-200 rounded-lg px-3 py-1.5 hover:bg-orange-100 transition-colors"
+                        className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-[#F43E01] bg-orange-50 border border-orange-200 rounded-lg px-3 py-1.5 hover:bg-orange-100 transition-colors"
                       >
                         <FileDown className="w-3.5 h-3.5" />
                         Baixar PDF
@@ -383,7 +383,7 @@ export function AiConsultant() {
                           <button
                             onClick={() => handleExportMessagePdf(cleanContent, i)}
                             disabled={pdfExporting === i}
-                            className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-400 hover:text-[#F97316] rounded px-1.5 py-0.5 transition-colors disabled:opacity-50"
+                            className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-400 hover:text-[#F43E01] rounded px-1.5 py-0.5 transition-colors disabled:opacity-50"
                             title="Exportar como PDF"
                           >
                             {pdfExporting === i ? (
@@ -399,7 +399,7 @@ export function AiConsultant() {
                         )}
                         <button
                           onClick={() => handleCopyMessage(cleanContent, i)}
-                          className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-400 hover:text-[#F97316] rounded px-1.5 py-0.5 transition-colors"
+                          className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-400 hover:text-[#F43E01] rounded px-1.5 py-0.5 transition-colors"
                           title="Copiar texto"
                         >
                           {copiedIndex === i ? (
@@ -457,13 +457,13 @@ export function AiConsultant() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Faça uma pergunta..."
-              className="flex-1 h-10 rounded-xl border border-[#2d2f33] px-4 text-sm text-white bg-[#23262a] placeholder:text-gray-500 focus:ring-2 focus:ring-[#F97316]/20 focus:border-[#F97316]/40 focus:bg-[#2d2f33] transition-all outline-none"
+              className="flex-1 h-10 rounded-xl border border-[#2d2f33] px-4 text-sm text-white bg-[#23262a] placeholder:text-gray-500 focus:ring-2 focus:ring-[#F43E01]/20 focus:border-[#F43E01]/40 focus:bg-[#2d2f33] transition-all outline-none"
               disabled={loading}
             />
             <button
               type="submit"
               disabled={loading || !input.trim()}
-              className="w-10 h-10 flex items-center justify-center rounded-xl bg-[#F97316] text-white hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
+              className="w-10 h-10 flex items-center justify-center rounded-xl bg-[#F43E01] text-white hover:bg-[#d63501] disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
               aria-label="Enviar"
             >
               <Send className="w-4 h-4" />
