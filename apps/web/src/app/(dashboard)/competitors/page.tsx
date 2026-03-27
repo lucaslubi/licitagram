@@ -594,9 +594,30 @@ export default async function CompetitorsPage({
 
       if (relevantCompetitors && relevantCompetitors.length > 0) {
         rankingHasAiData = true
+
+        // Enrich: fetch names from fornecedores for competitors missing names
+        const cnpjsMissingNames = relevantCompetitors
+          .filter((c: any) => !c.competitor_nome)
+          .map((c: any) => c.competitor_cnpj)
+          .filter(Boolean)
+          .slice(0, 30)
+
+        let nameMap: Record<string, string> = {}
+        if (cnpjsMissingNames.length > 0) {
+          const { data: fornecedores } = await supabase
+            .from('fornecedores')
+            .select('cnpj, razao_social')
+            .in('cnpj', cnpjsMissingNames)
+          if (fornecedores) {
+            for (const f of fornecedores) {
+              if (f.razao_social) nameMap[f.cnpj] = f.razao_social
+            }
+          }
+        }
+
         topCompetitors = relevantCompetitors.map((c: any) => ({
           cnpj: c.competitor_cnpj,
-          nome: c.competitor_nome,
+          nome: c.competitor_nome || nameMap[c.competitor_cnpj] || null,
           relevance_score: c.relevance_score,
           relationship_type: c.relationship_type,
           reason: c.reason,
