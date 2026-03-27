@@ -1017,7 +1017,7 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Pergunte sobre requisitos, riscos, estratégias..."
-            className="flex-1 h-10 rounded-lg border px-4 text-sm bg-background focus:ring-2 focus:ring-brand/20 focus:border-brand/40 transition-all"
+            className="flex-1 h-10 rounded-lg border border-[#2d2f33] px-4 text-sm text-white bg-[#1a1c1f] placeholder:text-gray-500 focus:ring-2 focus:ring-brand/20 focus:border-brand/40 transition-all"
             disabled={loading}
           />
           <button
