@@ -125,6 +125,14 @@ export async function lookupCNPJ(cnpj: string) {
     })
     if (brasilRes.ok) {
       const d = await brasilRes.json()
+      // Build full address from BrasilAPI fields
+      const enderecoPartes = [
+        d.logradouro,
+        d.numero,
+        d.complemento,
+        d.bairro,
+        d.municipio ? `${d.municipio} - ${d.uf}` : '',
+      ].filter(Boolean)
       return {
         data: {
           nome: d.razao_social,
@@ -139,6 +147,11 @@ export async function lookupCNPJ(cnpj: string) {
             code: String(c.codigo),
             text: c.descricao,
           })),
+          // Dados extras para propostas
+          endereco: enderecoPartes.join(', '),
+          cep: d.cep ? String(d.cep).replace(/\D/g, '') : '',
+          telefone: d.ddd_telefone_1 || '',
+          email: d.email || '',
         },
       }
     }
@@ -156,6 +169,13 @@ export async function lookupCNPJ(cnpj: string) {
       return { error: data.message || 'CNPJ não encontrado' }
     }
 
+    const enderecoPartes = [
+      data.logradouro,
+      data.numero,
+      data.complemento,
+      data.bairro,
+      data.municipio ? `${data.municipio} - ${data.uf}` : '',
+    ].filter(Boolean)
     return {
       data: {
         nome: data.nome,
@@ -165,6 +185,10 @@ export async function lookupCNPJ(cnpj: string) {
         porte: data.porte,
         atividade_principal: data.atividade_principal,
         atividades_secundarias: data.atividades_secundarias,
+        endereco: enderecoPartes.join(', '),
+        cep: (data.cep || '').replace(/\D/g, ''),
+        telefone: data.telefone || '',
+        email: data.email || '',
       },
     }
   } catch {

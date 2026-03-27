@@ -136,6 +136,11 @@ export default function CompanyPage() {
           data.atividades_secundarias
             ?.map((a: { code: string }) => a.code.replace(/[.-]/g, ''))
             .filter(Boolean) || prev.cnaes_secundarios,
+        // Auto-preencher dados para propostas
+        endereco: data.endereco || prev.endereco,
+        cep: data.cep || prev.cep,
+        telefone: data.telefone || prev.telefone,
+        email: data.email || prev.email,
       }))
       showMessage('Dados do CNPJ carregados!', 'success')
     }
