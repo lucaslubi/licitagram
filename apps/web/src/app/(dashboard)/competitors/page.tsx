@@ -631,6 +631,47 @@ export default async function CompetitorsPage({
           nivel_ameaca: c.nivel_ameaca,
         }))
       }
+      // Fetch recent tenders for top 10 competitors
+      if (topCompetitors.length > 0) {
+        const top10Cnpjs = topCompetitors.slice(0, 10).map((c) => c.cnpj).filter(Boolean)
+        if (top10Cnpjs.length > 0) {
+          try {
+            const { data: recentTenders } = await supabase
+              .from('competitors')
+              .select('cnpj, tender_id, situacao, vencedor, valor_proposta, tenders!inner(objeto, orgao_nome, data_encerramento)')
+              .in('cnpj', top10Cnpjs)
+              .order('created_at', { ascending: false })
+              .limit(30) // ~3 per competitor
+
+            if (recentTenders) {
+              // Group by cnpj, take max 3 per competitor, deduplicate by tender_id
+              const byCompetitor: Record<string, Array<{ objeto: string; orgao: string; vencedor: boolean; valor: number | null; data: string | null }>> = {}
+              const seenTenders = new Set<string>()
+              for (const r of recentTenders) {
+                const key = `${r.cnpj}-${r.tender_id}`
+                if (seenTenders.has(key)) continue
+                seenTenders.add(key)
+                if (!byCompetitor[r.cnpj]) byCompetitor[r.cnpj] = []
+                if (byCompetitor[r.cnpj].length >= 3) continue
+                const t = r.tenders as unknown as Record<string, unknown> | null
+                byCompetitor[r.cnpj].push({
+                  objeto: ((t?.objeto as string) || '').substring(0, 80),
+                  orgao: ((t?.orgao_nome as string) || '').substring(0, 50),
+                  vencedor: r.vencedor || false,
+                  valor: r.valor_proposta as number | null,
+                  data: (t?.data_encerramento as string) || null,
+                })
+              }
+              // Attach to topCompetitors
+              for (const c of topCompetitors) {
+                ;(c as any).recentTenders = byCompetitor[c.cnpj] || []
+              }
+            }
+          } catch {
+            // Non-critical — ranking still works without recent tenders
+          }
+        }
+      }
     } catch (rpcErr) {
       // RPC failed or timed out — continue with fallback
       console.warn('Ranking RPCs failed/timed out, using fallback', rpcErr)
@@ -1048,6 +1089,28 @@ export default async function CompetitorsPage({
                                   Ver analise da IA
                                 </summary>
                                 <p className="text-xs text-gray-400 mt-1.5 pl-3 border-l-2 border-blue-900/40 leading-relaxed">{c.reason}</p>
+                              </details>
+                            )}
+
+                            {/* Recent tenders (expandable) */}
+                            {(c as any).recentTenders?.length > 0 && (
+                              <details className="mt-2">
+                                <summary className="text-xs text-emerald-400 cursor-pointer hover:text-emerald-300 font-medium">
+                                  Últimas {(c as any).recentTenders.length} licitações participadas
+                                </summary>
+                                <div className="mt-1.5 space-y-1.5">
+                                  {((c as any).recentTenders as Array<{ objeto: string; orgao: string; vencedor: boolean; valor: number | null; data: string | null }>).map((t, ti) => (
+                                    <div key={ti} className="text-xs pl-3 border-l-2 border-emerald-900/40 py-1">
+                                      <p className="text-gray-300 leading-relaxed">{t.objeto}{t.objeto.length >= 80 ? '...' : ''}</p>
+                                      <div className="flex items-center gap-2 mt-0.5 text-gray-500">
+                                        <span>{t.orgao}</span>
+                                        {t.vencedor && <span className="text-emerald-400 font-medium">✓ Venceu</span>}
+                                        {t.valor && <span>R$ {t.valor.toLocaleString('pt-BR')}</span>}
+                                        {t.data && <span>{new Date(t.data).toLocaleDateString('pt-BR')}</span>}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
                               </details>
                             )}
                           </div>
