@@ -244,7 +244,7 @@ export default async function LandingPage() {
                 </h1>
               </ScrollReveal>
               <ScrollReveal delay={200}>
-                <p className="text-base sm:text-lg text-[#8B8B8B] mb-8 max-w-xl mx-auto leading-relaxed">
+                <p className="text-base sm:text-lg text-white mb-8 max-w-xl mx-auto leading-relaxed">
                   O maior sistema privado de inteligência de compras governamentais da América Latina. Cruzamos em tempo real cada licitação publicada no Brasil com 64 milhões de entidades corporativas, detectamos padrões de fraude e entregamos vantagem competitiva que não existe em lugar nenhum do mercado.
                 </p>
               </ScrollReveal>
