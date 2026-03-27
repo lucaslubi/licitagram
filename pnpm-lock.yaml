@@ -38,6 +38,9 @@ importers:
       '@google/generative-ai':
         specifier: ^0.24.1
         version: 0.24.1
+      '@licitagram/proposal-engine':
+        specifier: workspace:^
+        version: link:../../packages/proposal-engine
       '@licitagram/shared':
         specifier: workspace:*
         version: link:../../packages/shared

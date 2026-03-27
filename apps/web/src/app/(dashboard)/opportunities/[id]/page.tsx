@@ -408,8 +408,14 @@ export default async function OpportunityDetailPage({
             <CardHeader>
               <CardTitle>Status</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
               <StatusChanger matchId={match.id} currentStatus={match.status} />
+              <Link
+                href={`/proposals/generate/${match.id}`}
+                className="block w-full text-center px-4 py-2 rounded-lg bg-[#F43E01] hover:bg-[#d63600] text-white text-sm font-medium transition-colors"
+              >
+                Gerar Proposta
+              </Link>
             </CardContent>
           </Card>
 

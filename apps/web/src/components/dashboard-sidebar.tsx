@@ -36,6 +36,7 @@ const NAV_TOUR_IDS: Record<string, string> = {
   '/bot': 'nav-bot',
   '/documents': 'nav-certidoes',
   '/drive': 'nav-drive',
+  '/proposals': 'nav-propostas',
   '/company': 'nav-empresa',
   '/settings': 'nav-settings',
 }
