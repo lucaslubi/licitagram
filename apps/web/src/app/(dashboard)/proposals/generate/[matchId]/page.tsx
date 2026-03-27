@@ -119,7 +119,7 @@ export default async function GenerateProposalPage({
     valorGlobal: (existingProposal?.valor_global as number) || (tender?.valor_estimado as number) || 0,
     validadeDias: (existingProposal?.validade_dias as number) || 60,
     prazoEntrega: (existingProposal?.prazo_entrega as string) || '30 (trinta) dias corridos',
-    declarations: (existingProposal?.declarations as string[]) || ['exequibilidade', 'tributos_inclusos', 'conhecimento_edital', 'validade_proposta'],
+    declarations: (existingProposal?.declarations as string[]) || ['exequibilidade', 'tributos_inclusos', 'custos_trabalhistas', 'conhecimento_edital', 'prazo_entrega', 'validade_proposta'],
     cidade: (existingProposal?.cidade as string) || (company?.municipio as string) || '',
     observacoes: (existingProposal?.observacoes as string) || '',
     status: (existingProposal?.status as string) || 'draft',

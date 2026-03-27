@@ -20,9 +20,11 @@ const empresa = {
 const declarations = [
   'exequibilidade',
   'tributos_inclusos',
+  'custos_trabalhistas',
   'conhecimento_edital',
   'me_epp',
   'sem_vinculo',
+  'prazo_entrega',
   'validade_proposta',
 ] as const;
 
