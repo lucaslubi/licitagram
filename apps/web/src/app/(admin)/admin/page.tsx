@@ -83,11 +83,11 @@ export default async function AdminDashboardPage() {
       </div>
 
       {/* Revenue by Plan */}
-      <div className="bg-[#1a1c1f] rounded-lg border p-4 sm:p-6 mb-8">
+      <div className="bg-[#1a1c1f] rounded-lg border border-[#2d2f33] p-4 sm:p-6 mb-8">
         <h2 className="text-lg font-semibold mb-4">Receita por Plano</h2>
         <div className="space-y-3">
           {Object.entries(metrics.revenueByPlan).map(([slug, data]) => (
-            <div key={slug} className="flex items-center justify-between py-2 border-b last:border-0">
+            <div key={slug} className="flex items-center justify-between py-2 border-b border-[#2d2f33] last:border-0">
               <div>
                 <p className="font-medium">{data.name}</p>
                 <p className="text-sm text-gray-400">{data.count} assinaturas</p>
@@ -102,11 +102,11 @@ export default async function AdminDashboardPage() {
       </div>
 
       {/* Recent Clients */}
-      <div className="bg-[#1a1c1f] rounded-lg border p-4 sm:p-6">
+      <div className="bg-[#1a1c1f] rounded-lg border border-[#2d2f33] p-4 sm:p-6">
         <h2 className="text-lg font-semibold mb-4">Clientes Recentes</h2>
         <div className="space-y-2">
           {clientsResult.clients.slice(0, 5).map((client: any) => (
-            <div key={client.company_id} className="flex items-center justify-between py-2 border-b last:border-0">
+            <div key={client.company_id} className="flex items-center justify-between py-2 border-b border-[#2d2f33] last:border-0">
               <div>
                 <p className="font-medium text-sm">{client.razao_social || client.cnpj}</p>
                 <p className="text-xs text-gray-400">{client.plan_name || 'Sem plano'} · {client.uf || '—'}</p>

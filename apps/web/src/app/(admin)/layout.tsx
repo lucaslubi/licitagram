@@ -29,7 +29,7 @@ export default async function AdminLayout({
   ).map(({ href, label }) => ({ href, label }))
 
   return (
-    <div className="flex h-screen bg-gray-50 font-roboto">
+    <div className="flex h-screen bg-[#111315] text-white font-roboto">
       <AdminSidebar visibleItems={visibleItems} userEmail={user.email || ''} />
       <main className="flex-1 overflow-auto">
         <div className="pt-14 md:pt-0">
