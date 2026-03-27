@@ -144,13 +144,6 @@ const COMPARISON_ROWS: [string, string | boolean, string | boolean, string | boo
   ['Monitoramento multi-portal', true, true, false],
 ]
 
-const SYSTEM_STATUS = [
-  { id: '01', label: 'Connecting', active: true },
-  { id: '02', label: 'Matching', active: true },
-  { id: '03', label: 'AI Triage', active: true },
-  { id: '04', label: 'Alertas', active: true },
-  { id: '05', label: 'Compliance', active: true },
-]
 
 export default async function LandingPage() {
   const settings = await getSiteSettings()
@@ -280,9 +273,8 @@ export default async function LandingPage() {
               </ScrollReveal>
             </div>
 
-            {/* Right — Video + System Status */}
-            <ScrollReveal delay={200} className="space-y-5">
-              {/* Video container */}
+            {/* Right — Video */}
+            <ScrollReveal delay={200}>
               <div className="relative rounded-2xl overflow-hidden border border-white/[0.08] bg-[#202020] shadow-2xl shadow-black/40">
                 <video
                   autoPlay
@@ -294,28 +286,6 @@ export default async function LandingPage() {
                 >
                   <source src="/hero-bg.mp4" type="video/mp4" />
                 </video>
-              </div>
-
-              {/* System Status Panel */}
-              <div className="rounded-2xl border border-white/[0.08] bg-white/[0.04] p-5 backdrop-blur-sm">
-                <p className="font-mono text-[10px] uppercase text-[#8B8B8B] tracking-[0.15em] mb-4">System Status</p>
-                <div className="space-y-2.5">
-                  {SYSTEM_STATUS.map((s) => (
-                    <div key={s.id} className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <span className="font-mono text-xs text-[#555]">{s.id}.</span>
-                        <span className="text-sm text-[#E5E5E0]">{s.label}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
-                        </span>
-                        <span className="font-mono text-[10px] text-green-500 uppercase tracking-wider">Online</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
               </div>
             </ScrollReveal>
           </div>
