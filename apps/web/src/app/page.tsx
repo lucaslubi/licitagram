@@ -737,7 +737,32 @@ export default async function LandingPage() {
               </ScrollReveal>
             </div>
 
+            {/* Phone frame with Telegram demo video */}
             <ScrollReveal delay={300}>
+              <div className="mt-16 flex flex-col items-center">
+                <div className="relative mx-auto" style={{ width: 280 }}>
+                  {/* Phone frame */}
+                  <div className="rounded-[2.5rem] border-[6px] border-[#2d2f33] bg-black overflow-hidden shadow-2xl shadow-black/50">
+                    {/* Notch */}
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-6 bg-black rounded-b-2xl z-10" />
+                    {/* Video */}
+                    <video
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      preload="auto"
+                      className="w-full h-auto block"
+                    >
+                      <source src="/telegram-demo.webm" type="video/webm" />
+                    </video>
+                  </div>
+                </div>
+                <p className="text-xs text-[#69695D] mt-4 text-center">Alertas em tempo real direto no Telegram</p>
+              </div>
+            </ScrollReveal>
+
+            <ScrollReveal delay={400}>
               <div className="mt-12 text-center">
                 <div className="inline-flex items-center gap-3 px-6 py-3 rounded-full border border-[#F43E01]/20 bg-[#F43E01]/5">
                   <span className="relative flex h-2.5 w-2.5">
