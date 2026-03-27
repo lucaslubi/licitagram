@@ -15,6 +15,7 @@ import {
 import type { ProposalData } from '../types';
 import { formatCurrencyBRL, formatCNPJ, formatCPF, formatDateExtensoBR } from '../price-calculator';
 import { numberToWordsPtBr } from '../number-to-words-ptbr';
+import { DECLARATION_TEXTS } from './declarations';
 import { numberToWordsSimple } from './number-words-simple';
 
 const THIN_BORDER = {
@@ -52,18 +53,6 @@ const COL_WIDTHS_7_REAL = [500, 2271, 1200, 600, 900, 1600, 1600]; // = 8671... 
 
 const COL_WIDTHS_WITH_DETAILS = [500, 2671, 1200, 600, 900, 1600, 1600];
 
-const DECLARATION_TEXTS: Record<string, string> = {
-  exequibilidade:
-    'Declaramos que esta proposta é exequível e que possuímos plena capacidade de executar o contrato nos valores acima mencionados, ainda que os mesmos possam, eventualmente, apresentar-se abaixo dos limites mínimos estabelecidos pela Administração.',
-  tributos_inclusos:
-    'Nos preços ofertados estão incluídos todos os custos operacionais, encargos previdenciários, trabalhistas, tributários, comerciais e quaisquer outros que incidam direta ou indiretamente na prestação dos serviços/fornecimento dos bens, não cabendo à Contratante nenhum custo adicional.',
-  conhecimento_edital:
-    'Declaramos conhecer e aceitar integralmente as condições estabelecidas no Edital e seus Anexos, bem como que a proposta apresentada está em conformidade com as exigências do instrumento convocatório.',
-  me_epp:
-    'Declaramos, para fins do disposto no Edital, sob as sanções administrativas cabíveis e sob as penas da lei, que esta empresa, na presente data, é considerada Microempresa/Empresa de Pequeno Porte, nos termos da Lei Complementar nº 123, de 14 de dezembro de 2006.',
-  sem_vinculo:
-    'Declaramos que não possuímos, em nosso quadro de pessoal, empregados com menos de 18 anos em trabalho noturno, perigoso ou insalubre e de 16 anos em qualquer trabalho, salvo na condição de aprendiz, a partir dos 14 anos, nos termos do inciso XXXIII do art. 7º da Constituição Federal.',
-};
 
 function makeHeaderCell(text: string, width: number): TableCell {
   return new TableCell({
