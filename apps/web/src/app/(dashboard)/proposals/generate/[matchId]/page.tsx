@@ -69,17 +69,19 @@ export default async function GenerateProposalPage({
     matchId: match?.id || undefined,
     tenderId: match?.tender_id || (existingProposal?.tender_id as string) || undefined,
     templateType: (existingProposal?.template_type as string) || undefined,
-    // Licitacao snapshot
+    // Licitacao snapshot — extract numero from pncp_id (format: "CNPJ-ANO-SEQ")
     licitacao: {
       numero: (existingProposal?.licitacao_numero as string)
-        || (tender?.numero_controle as string)
-        || (tender?.numero as string)
-        || '',
+        || (() => {
+          const pncpId = tender?.pncp_id as string || ''
+          const parts = pncpId.split('-')
+          return parts.length >= 3 ? `${parts[parts.length - 1]}/${parts[parts.length - 2]}` : pncpId
+        })(),
       modalidade: (existingProposal?.licitacao_modalidade as string)
         || (tender?.modalidade_nome as string)
         || '',
       uasg: (existingProposal?.licitacao_uasg as string)
-        || (tender?.uasg as string)
+        || (tender?.orgao_cnpj as string)
         || '',
       orgao: (existingProposal?.licitacao_orgao as string)
         || (tender?.orgao_nome as string)
@@ -103,12 +105,20 @@ export default async function GenerateProposalPage({
       representante_cpf: (existingProposal?.representante_cpf as string) || (company?.representante_cpf as string) || '',
       representante_cargo: (existingProposal?.representante_cargo as string) || (company?.representante_cargo as string) || '',
     },
-    // Proposal fields
-    items: (existingProposal?.items as Array<Record<string, unknown>>) || [],
+    // Proposal fields — pre-fill items from tender data
+    items: (existingProposal?.items as Array<Record<string, unknown>>)
+      || (tender?.objeto ? [{
+        item_number: 1,
+        description: (tender.objeto as string).slice(0, 500),
+        quantity: 1,
+        unit: 'unidade',
+        unit_price: (tender.valor_estimado as number) || 0,
+        total_price: (tender.valor_estimado as number) || 0,
+      }] : []),
     valorMensal: (existingProposal?.valor_mensal as number) || undefined,
-    valorGlobal: (existingProposal?.valor_global as number) || 0,
+    valorGlobal: (existingProposal?.valor_global as number) || (tender?.valor_estimado as number) || 0,
     validadeDias: (existingProposal?.validade_dias as number) || 60,
-    prazoEntrega: (existingProposal?.prazo_entrega as string) || '',
+    prazoEntrega: (existingProposal?.prazo_entrega as string) || '30 (trinta) dias corridos',
     declarations: (existingProposal?.declarations as string[]) || ['exequibilidade', 'tributos_inclusos', 'conhecimento_edital', 'validade_proposta'],
     cidade: (existingProposal?.cidade as string) || (company?.municipio as string) || '',
     observacoes: (existingProposal?.observacoes as string) || '',
