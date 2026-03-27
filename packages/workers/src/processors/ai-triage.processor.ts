@@ -398,15 +398,15 @@ const aiTriageWorker = new Worker<AiTriageJobData>(
     // Mark company as ready after triage
     await supabase.from('companies').update({ matching_status: 'ready' }).eq('id', companyId).eq('matching_status', 'triaging')
 
-    // Trigger immediate notification check for this company (don't wait for 5-min sweep)
+    // Trigger notification check after triage (debounced — fixed jobId prevents queue flooding)
     try {
       const { pendingNotificationsQueue } = await import('../queues/pending-notifications.queue')
       await pendingNotificationsQueue.add(
         `post-triage-notify-${companyId}`,
         {},
-        { jobId: `post-triage-notify-${companyId}-${Date.now()}` },
+        { jobId: `post-triage-notify-${companyId}`, delay: 30_000 },
       )
-      logger.info({ companyId }, 'Triggered immediate notification check after triage')
+      logger.info({ companyId }, 'Triggered notification check after triage (30s delay, deduped)')
     } catch {
       // Non-critical — 5-min sweep will catch it
     }
