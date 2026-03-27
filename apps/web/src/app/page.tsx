@@ -291,7 +291,7 @@ export default async function LandingPage() {
             <ScrollReveal delay={100}>
               <div>
                 <p className="font-mono text-3xl sm:text-4xl font-bold text-[#1A1C1F] tracking-tight">
-                  <CountUp end={132} suffix="K+" duration={2000} />
+                  <CountUp end={1} suffix="M+" duration={2000} />
                 </p>
                 <p className="text-sm text-[#69695D] mt-2">Editais monitorados</p>
               </div>
