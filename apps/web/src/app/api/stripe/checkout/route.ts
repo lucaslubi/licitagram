@@ -13,9 +13,11 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   let planId: string
+  let billing: 'monthly' | 'annual' = 'monthly'
   try {
     const body = await request.json()
     planId = body.planId
+    if (body.billing === 'annual') billing = 'annual'
   } catch {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
@@ -23,7 +25,7 @@ export async function POST(request: NextRequest) {
   // Look up plan from DB to get stripe_price_id
   const { data: plan, error: planError } = await supabase
     .from('plans')
-    .select('id, slug, name, stripe_price_id, is_active')
+    .select('id, slug, name, stripe_price_id, stripe_price_id_annual, is_active')
     .eq('id', planId)
     .single()
 
@@ -31,7 +33,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid or inactive plan' }, { status: 400 })
   }
 
-  if (!plan.stripe_price_id) {
+  const priceId = billing === 'annual' && plan.stripe_price_id_annual
+    ? plan.stripe_price_id_annual
+    : plan.stripe_price_id
+
+  if (!priceId) {
     return NextResponse.json({ error: 'Plan not configured for Stripe payments yet' }, { status: 400 })
   }
 
@@ -65,13 +71,22 @@ export async function POST(request: NextRequest) {
       customer: customerId,
       mode: 'subscription',
       payment_method_types: ['card'],
-      line_items: [{ price: plan.stripe_price_id, quantity: 1 }],
+      line_items: [{ price: priceId, quantity: 1 }],
+      subscription_data: {
+        trial_period_days: 7,
+        metadata: {
+          supabase_user_id: user.id,
+          plan_id: plan.id,
+          plan_slug: plan.slug,
+        },
+      },
       success_url: `${appUrl}/billing?success=true`,
       cancel_url: `${appUrl}/billing?canceled=true`,
       metadata: {
         supabase_user_id: user.id,
         plan_id: plan.id,
         plan_slug: plan.slug,
+        billing,
       },
     })
 
