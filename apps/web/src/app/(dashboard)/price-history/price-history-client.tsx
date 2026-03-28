@@ -395,7 +395,14 @@ export function PriceHistoryClient() {
           {/* Records table */}
           <Card className="bg-[#23262a] border-[#2d2f33]">
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-white text-base">Registros</CardTitle>
+              <div className="flex items-center gap-3">
+                <CardTitle className="text-white text-base">Registros</CardTitle>
+                {result.records.some((r) => !r.is_valid) && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-900/20 text-amber-400 border border-amber-900/30">
+                    {result.records.filter((r) => !r.is_valid).length} outliers excluídos das estatísticas
+                  </span>
+                )}
+              </div>
               <Button
                 variant="outline"
                 size="sm"
@@ -430,31 +437,47 @@ export function PriceHistoryClient() {
                     ) : (
                       result.records.map((record) => {
                         const median = result.statistics.median
-                        const valueColor = record.unit_price < median
-                          ? 'text-emerald-400'
-                          : record.unit_price > median
-                            ? 'text-red-400'
-                            : 'text-white'
+                        const isExcluded = !record.is_valid
+                        const valueColor = isExcluded
+                          ? 'text-gray-600 line-through'
+                          : record.unit_price < median
+                            ? 'text-emerald-400'
+                            : record.unit_price > median
+                              ? 'text-red-400'
+                              : 'text-white'
                         const discount = median > 0
                           ? ((median - record.unit_price) / median) * 100
                           : 0
+                        const rowClass = isExcluded
+                          ? 'border-b border-[#2d2f33]/50 opacity-50'
+                          : 'border-b border-[#2d2f33]/50 hover:bg-[#2d2f33]'
+                        const qtyBadge = record.item_quantity > 1
+                          ? ` ×${record.item_quantity}`
+                          : ''
                         return (
-                          <tr key={record.id} className="border-b border-[#2d2f33]/50 hover:bg-[#2d2f33]">
+                          <tr key={record.id} className={rowClass}>
                             <td className="py-2 text-gray-300 whitespace-nowrap">
                               {formatDateShort(record.date_homologation)}
                             </td>
-                            <td className="py-2 text-white max-w-[150px] truncate" title={record.orgao_nome}>
-                              {record.orgao_nome}
+                            <td className={`py-2 max-w-[150px] truncate ${isExcluded ? 'text-gray-600' : 'text-white'}`} title={record.orgao_nome}>
+                              {record.orgao_nome}{qtyBadge && <span className="text-amber-400 text-xs ml-1">{qtyBadge}</span>}
                             </td>
                             <td className="py-2 text-gray-300">{record.orgao_uf}</td>
-                            <td className="py-2 text-gray-300 max-w-[200px] truncate" title={record.item_description}>
+                            <td className={`py-2 max-w-[200px] truncate ${isExcluded ? 'text-gray-600' : 'text-gray-300'}`} title={record.item_description}>
                               {record.item_description}
                             </td>
                             <td className={`py-2 text-right font-medium whitespace-nowrap ${valueColor}`}>
                               {formatBRL(record.unit_price)}
+                              {isExcluded && (
+                                <span className="block text-[10px] text-amber-500 font-normal no-underline" style={{ textDecoration: 'none' }}>
+                                  {record.unit_price > median ? 'Excessivamente elevado' : 'Inexequível'}
+                                </span>
+                              )}
                             </td>
                             <td className="py-2 text-right whitespace-nowrap">
-                              {discount > 0 ? (
+                              {isExcluded ? (
+                                <span className="text-gray-600 text-xs">—</span>
+                              ) : discount > 0 ? (
                                 <span className="text-emerald-400 text-xs">-{discount.toFixed(1)}%</span>
                               ) : discount < 0 ? (
                                 <span className="text-red-400 text-xs">+{Math.abs(discount).toFixed(1)}%</span>
@@ -462,7 +485,7 @@ export function PriceHistoryClient() {
                                 <span className="text-gray-500 text-xs">-</span>
                               )}
                             </td>
-                            <td className="py-2 text-gray-300 max-w-[150px] truncate" title={record.supplier_name}>
+                            <td className={`py-2 max-w-[150px] truncate ${isExcluded ? 'text-gray-600' : 'text-gray-300'}`} title={record.supplier_name}>
                               {record.supplier_name}
                             </td>
                           </tr>

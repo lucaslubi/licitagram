@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import {
   computeStatistics,
   analyzeTrend,
+  filterOutliers,
+  deduplicateRecords,
   type PriceRecord,
   type PriceSearchResult,
   type PriceSearchQuery,
@@ -204,14 +206,24 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Compute statistics and trend using the package functions
-    const statistics = computeStatistics(records)
-    const trend = analyzeTrend(records)
+    // 1. Deduplicate identical records (same org + value + date)
+    const dedupedRecords = deduplicateRecords(records)
+
+    // 2. Filter outliers (marks is_valid=false, does NOT remove)
+    const processedRecords = filterOutliers(dedupedRecords)
+
+    // 3. Compute statistics only on VALID records (outliers excluded from stats)
+    const validRecords = processedRecords.filter((r) => r.is_valid)
+    const statistics = computeStatistics(validRecords)
+    const trend = analyzeTrend(validRecords)
     const totalCount = count || 0
 
+    // 4. Count excluded for metadata
+    const excludedCount = processedRecords.filter((r) => !r.is_valid).length
+
     // Cache stats (2h) and data (1h) in background
-    cache.set(statsCacheKey, { statistics, trend, total_count: totalCount }, 7200).catch(() => {})
-    cache.set(dataCacheKey, { records }, 3600).catch(() => {})
+    cache.set(statsCacheKey, { statistics, trend, total_count: totalCount, valid_count: validRecords.length, excluded_count: excludedCount }, 7200).catch(() => {})
+    cache.set(dataCacheKey, { records: processedRecords }, 3600).catch(() => {})
 
     const searchQuery: PriceSearchQuery = {
       query: q,
@@ -223,11 +235,13 @@ export async function GET(req: NextRequest) {
       page_size: pageSize,
     }
 
-    const result: PriceSearchResult & { cache_hit: boolean; query_time_ms: number } = {
-      records,
+    const result = {
+      records: processedRecords,
       statistics,
       trend,
       total_count: totalCount,
+      valid_count: validRecords.length,
+      excluded_count: excludedCount,
       page,
       page_size: pageSize,
       query: searchQuery,

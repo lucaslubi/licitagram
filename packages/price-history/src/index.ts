@@ -1,4 +1,4 @@
-export { computeStatistics, assessConfidence, calculatePercentile, aggregateByDimension } from './price-aggregator'
+export { computeStatistics, assessConfidence, calculatePercentile, aggregateByDimension, filterOutliers, deduplicateRecords, DEFAULT_OUTLIER_CONFIG } from './price-aggregator'
 export { analyzeTrend, groupByMonth, analyzeTrendDirection } from './trend-analyzer'
 export { buildSearchClause, buildFilterClauses, buildFullQuery, generateCacheKey } from './search-engine'
 export { cachedQuery } from './cache-strategy'
