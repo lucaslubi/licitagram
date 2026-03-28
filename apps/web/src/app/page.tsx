@@ -90,7 +90,7 @@ const PLANS = [
       'Pré-Disputa',
       'Sugestão de lance por IA',
       'Detecção de Anomalias (5 tipos)',
-      'Grafo Societário (60M+ CNPJs)',
+      'Grafo Societário (67M+ CNPJs)',
       'Relatório de Inteligência Setorial',
       'Multi-CNPJ',
       'API de integração',
@@ -126,35 +126,43 @@ const TESTIMONIALS = [
 const FAQ = [
   {
     q: 'Por que o Licitagram custa mais que outras plataformas?',
-    a: 'Porque o Licitagram não é uma ferramenta de busca — é uma infraestrutura de inteligência. Oferecemos AI Matching com score de probabilidade, Mapa de Inteligência geográfico, Grafo Societário com 60M+ CNPJs, Robô de Lances com IA estratégica, detecção de anomalias e muito mais. Nenhum concorrente entrega esse nível de profundidade.',
+    a: 'Porque o Licitagram não é uma plataforma de busca de editais. É uma infraestrutura completa de inteligência artificial, dados corporativos e automação jurídica. Oferecemos AI Matching com score de probabilidade, gerador de propostas comerciais, pesquisa de preços IN 65/2021, inteligência competitiva com 5 módulos, robô de lances com IA estratégica, detecção de anomalias com 67 milhões de CNPJs, grafo societário e compliance checker. Nenhum concorrente entrega 10% disso.',
   },
   {
     q: 'O que acontece nos 7 dias grátis?',
-    a: 'Você tem acesso completo ao plano escolhido por 7 dias, sem precisar de cartão de crédito. Se não fizer sentido para a sua operação, basta não continuar. Sem burocracia, sem multa.',
+    a: 'Você tem acesso completo ao plano escolhido por 7 dias, sem precisar de cartão de crédito. Se não fizer sentido para a sua operação, basta não continuar. Sem burocracia, sem multa, sem pegadinha.',
   },
   {
-    q: 'Preciso de treinamento?',
-    a: 'Não. O Licitagram foi projetado para ser intuitivo. Basta informar seu CNPJ e a plataforma configura tudo automaticamente. No plano Enterprise, oferecemos onboarding dedicado se necessário.',
+    q: 'O Licitagram substitui o Painel de Preços do governo?',
+    a: 'Sim. O Painel de Preços oficial (pafranel.planejamento.gov.br) foi descontinuado e os dados eram limitados ao ComprasNet federal. O Licitagram agrega dados de preços de todos os portais — federais, estaduais e municipais — com tendência temporal e filtros por região, órgão e item. É a base de preços mais completa do Brasil hoje.',
   },
   {
-    q: 'E se eu já uso outra plataforma?',
-    a: 'Muitos clientes migram de outras ferramentas para o Licitagram. Você pode testar em paralelo durante os 7 dias grátis e comparar os resultados. A diferença na qualidade dos matches e na profundidade da inteligência fica evidente logo nos primeiros dias.',
+    q: 'Preciso de treinamento para usar?',
+    a: 'Não. O Licitagram foi projetado para ser intuitivo. Basta informar seu CNPJ e a plataforma configura tudo automaticamente — CNAEs, área de atuação, certidões pendentes. No plano Enterprise, oferecemos onboarding dedicado se necessário.',
+  },
+  {
+    q: 'E se eu já uso outra plataforma de licitações?',
+    a: 'Muitos clientes migram de outras ferramentas para o Licitagram. Você pode testar em paralelo durante os 7 dias grátis e comparar os resultados. A diferença na qualidade dos matches, na profundidade da inteligência competitiva e na automação de propostas fica evidente logo nos primeiros dias.',
+  },
+  {
+    q: 'Os dados do Licitagram são confiáveis?',
+    a: 'Sim. Todos os dados são extraídos de fontes oficiais públicas (PNCP, ComprasNet, portais estaduais e municipais, Receita Federal, CEIS, CNEP, TCU). Não inventamos dados. Cada informação tem rastreabilidade completa até a fonte original. Se um dado muda na fonte, ele muda no Licitagram.',
   },
   {
     q: 'Como funciona o pagamento?',
-    a: 'Aceitamos cartão de crédito com cobrança mensal recorrente via Stripe. Você pode cancelar a qualquer momento, sem multa, e mantém acesso até o fim do período pago. Para o plano Enterprise, também oferecemos faturamento por boleto.',
+    a: 'Aceitamos cartão de crédito com cobrança mensal recorrente via Stripe. Você pode cancelar a qualquer momento, sem multa, e mantém acesso até o fim do período pago. Para o plano Enterprise, também oferecemos faturamento por boleto e contrato anual com desconto.',
   },
 ]
 
 const COMPARISON_BEFORE_AFTER: { before: string; after: string }[] = [
-  { before: 'Buscar licitações manualmente em vários portais', after: '+200.000 licitações monitoradas automaticamente por IA' },
-  { before: 'Ler editais inteiros para saber se vale a pena', after: 'AI Matching com score 0-100 de probabilidade' },
-  { before: 'Pesquisar preços em planilhas e sistemas públicos', after: 'Preços de Mercado em tempo real com tendências' },
-  { before: 'Montar propostas do zero a cada licitação', after: 'Gerador de Propostas Comerciais automático (Lei 14.133)' },
-  { before: 'Não saber quem são os concorrentes', after: 'Inteligência Competitiva com ranking e histórico' },
-  { before: 'Perder prazos de certidões e documentos', after: 'Gestão de Certidões com alertas automáticos de vencimento' },
+  { before: 'Buscar licitações manualmente em dezenas de portais', after: '+200.000 licitações monitoradas automaticamente por IA' },
+  { before: 'Ler editais inteiros para saber se vale a pena', after: 'AI Matching com score 0-100 — a IA lê por você' },
+  { before: 'Montar propostas do zero a cada licitação', after: 'Gerador de Propostas Comerciais em 2 minutos (Lei 14.133)' },
+  { before: 'Pesquisar preços em planilhas e sistemas descontinuados', after: 'Preços de Mercado em tempo real com tendência temporal' },
+  { before: 'Não saber quem são os concorrentes', after: 'Inteligência Competitiva com 5 módulos e ranking por IA' },
   { before: 'Dar lances no escuro durante pregões', after: 'Robô de Lances com IA estratégica e Pré-Disputa' },
-  { before: 'Não detectar fraudes ou cartéis', after: 'Detecção de Anomalias + Grafo Societário com 60M+ CNPJs' },
+  { before: 'Não detectar fraudes, cartéis ou empresas de fachada', after: 'Detecção de Anomalias + Grafo Societário com 67M+ CNPJs' },
+  { before: 'Verificar documentos manualmente antes de cada licitação', after: 'Compliance Checker automático — cruza edital com seus docs' },
 ]
 
 
@@ -166,7 +174,7 @@ export default async function LandingPage() {
     : ''
   const ctaHref = isImplementation ? whatsappUrl : '/register'
   const ctaText = isImplementation ? 'Falar com Consultor' : 'Criar Conta'
-  const ctaHeroText = isImplementation ? 'Agendar Implementação' : 'Começar Grátis'
+  const ctaHeroText = isImplementation ? 'Agendar Implementação' : 'Começar agora — 7 dias grátis'
 
   return (
     <div className="min-h-screen bg-[#F5F5F0]">
@@ -245,20 +253,20 @@ export default async function LandingPage() {
             <div>
               <ScrollReveal>
                 <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-6">
-                  SISTEMA ATIVO &middot; TEMPO REAL
+                  A NOVA INTELIG&Ecirc;NCIA DAS COMPRAS P&Uacute;BLICAS NO BRASIL
                 </p>
               </ScrollReveal>
               <ScrollReveal delay={100}>
                 <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white tracking-tight leading-[1.08] mb-6">
-                  Cada real que o governo gasta,{' '}
+                  Menos de 1% das empresas brasileiras vendem para o governo.{' '}
                   <span className="bg-gradient-to-r from-white via-[#F43E01] to-[#FF6B3D] bg-clip-text text-transparent">
-                    você sabe antes de todos.
+                    O Licitagram existe para mudar isso.
                   </span>
                 </h1>
               </ScrollReveal>
               <ScrollReveal delay={200}>
                 <p className="text-base sm:text-lg text-white mb-8 max-w-xl mx-auto leading-relaxed">
-                  O maior sistema privado de inteligência de compras governamentais da América Latina. Cruzamos em tempo real cada licitação publicada no Brasil com 64 milhões de entidades corporativas, detectamos padrões de fraude e entregamos vantagem competitiva que não existe em lugar nenhum do mercado.
+                  Mais de 200.000 licitações monitoradas por mês. 67 milhões de CNPJs cruzados em tempo real. Inteligência artificial que encontra, analisa e prepara tudo para você licitar — em minutos, não em dias.
                 </p>
               </ScrollReveal>
               <ScrollReveal delay={300}>
@@ -281,7 +289,7 @@ export default async function LandingPage() {
                     Ver a plataforma ao vivo
                   </a>
                 </div>
-                <p className="mt-5 text-xs text-[#555]">Sem cartão de crédito. Acesso imediato.</p>
+                <p className="mt-5 text-xs text-[#555]">Sem cartão de crédito para testar. Cancele quando quiser.</p>
               </ScrollReveal>
             </div>
 
@@ -289,147 +297,130 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* ── Stats bar ── */}
+      {/* ── Stats bar — 5 metrics ── */}
       <section className="border-y border-[#1A1C1F]/[0.08] bg-[#F5F5F0]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-14">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 text-center">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-6 sm:gap-8 text-center">
             <ScrollReveal delay={0}>
+              <div>
+                <p className="font-mono text-3xl sm:text-4xl font-bold text-[#1A1C1F] tracking-tight">
+                  +<CountUp end={200} suffix="K" duration={2000} />
+                </p>
+                <p className="text-sm text-[#69695D] mt-2">licitações/mês monitoradas</p>
+              </div>
+            </ScrollReveal>
+            <ScrollReveal delay={80}>
               <div>
                 <p className="font-mono text-3xl sm:text-4xl font-bold text-[#1A1C1F] tracking-tight">
                   R$7bi+
                 </p>
-                <p className="text-sm text-[#69695D] mt-2">Em oportunidades mapeadas</p>
+                <p className="text-sm text-[#69695D] mt-2">em oportunidades mapeadas</p>
               </div>
             </ScrollReveal>
-            <ScrollReveal delay={100}>
-              <div>
-                <p className="font-mono text-3xl sm:text-4xl font-bold text-[#1A1C1F] tracking-tight">
-                  <CountUp end={200} suffix="K+" duration={2000} />
-                </p>
-                <p className="text-sm text-[#69695D] mt-2">Licitações monitoradas/mês</p>
-              </div>
-            </ScrollReveal>
-            <ScrollReveal delay={200}>
+            <ScrollReveal delay={160}>
               <div>
                 <p className="font-mono text-3xl sm:text-4xl font-bold text-[#F43E01] tracking-tight">
-                  <CountUp end={60} suffix="M+" duration={2000} />
+                  <CountUp end={67} suffix="M+" duration={2000} />
                 </p>
-                <p className="text-sm text-[#69695D] mt-2">CNPJs cruzados</p>
+                <p className="text-sm text-[#69695D] mt-2">CNPJs cruzados em tempo real</p>
               </div>
             </ScrollReveal>
-            <ScrollReveal delay={300}>
+            <ScrollReveal delay={240}>
               <div>
                 <p className="font-mono text-3xl sm:text-4xl font-bold text-[#1A1C1F] tracking-tight">
-                  <CountUp end={26} suffix="" duration={2000} /> UFs
+                  <CountUp end={26} suffix="" duration={2000} />
                 </p>
-                <p className="text-sm text-[#69695D] mt-2">Cobertura nacional</p>
+                <p className="text-sm text-[#69695D] mt-2">estados cobertos em tempo real</p>
+              </div>
+            </ScrollReveal>
+            <ScrollReveal delay={320}>
+              <div>
+                <p className="font-mono text-3xl sm:text-4xl font-bold text-[#1A1C1F] tracking-tight">
+                  &lt;2 min
+                </p>
+                <p className="text-sm text-[#69695D] mt-2">para gerar uma proposta</p>
               </div>
             </ScrollReveal>
           </div>
         </div>
       </section>
 
-      {/* ── 01 — Manifesto / "Por que existimos" ── */}
+      {/* ── 01 — O Problema ── */}
       <ClipRevealSection className="bg-[#1A1C1F]">
         <section className="py-20 sm:py-28">
           <div className="max-w-4xl mx-auto px-4 text-center">
             <ScrollReveal>
               <StickyLabel>
-                <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">01 — Por que existimos</p>
+                <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">01 — O problema</p>
               </StickyLabel>
             </ScrollReveal>
             <ScrollReveal delay={100}>
               <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight text-balance mb-6">
-                Cartéis operam há décadas.{' '}
-                <span className="text-[#8B8B8B]">Construímos o Licitagram para acabar com isso.</span>
+                R$ 2 trilhões em compras públicas.{' '}
+                <span className="text-[#8B8B8B]">Menos de 1% das empresas participam.</span>
               </h2>
             </ScrollReveal>
             <ScrollReveal delay={200}>
-              <p className="text-lg text-[#8B8B8B] max-w-2xl mx-auto leading-relaxed">
-                O governo brasileiro é o maior comprador do país. Empresas de fachada disputam editais milionários. Oportunidades são perdidas por quem nao sabe que existem. Não é uma ferramenta de busca — é uma infraestrutura de inteligência do tipo que até hoje só existia dentro de governos.
+              <p className="text-lg text-[#8B8B8B] max-w-2xl mx-auto leading-relaxed mb-6">
+                Todo ano, o governo brasileiro gasta mais de R$ 2 trilhões comprando produtos e serviços. É o maior comprador do país. Mas a imensa maioria das empresas brasileiras — mais de 99% — nunca vendeu um real para o governo.
+              </p>
+            </ScrollReveal>
+            <ScrollReveal delay={300}>
+              <p className="text-lg text-[#8B8B8B] max-w-2xl mx-auto leading-relaxed mb-8">
+                Não é porque não querem. É porque o processo é complexo demais, fragmentado demais, opaco demais. São dezenas de portais diferentes, milhares de editais por semana, documentos que mudam conforme a lei, e concorrentes que você nem sabe quem são.
+              </p>
+            </ScrollReveal>
+            <ScrollReveal delay={400}>
+              <p className="text-lg text-[#F43E01] font-semibold max-w-2xl mx-auto">
+                O Licitagram nasceu para abrir esse mercado.
               </p>
             </ScrollReveal>
           </div>
         </section>
       </ClipRevealSection>
 
-      {/* ── 02 — Mapa de Inteligência ── */}
+      {/* ── 02 — O que é o Licitagram ── */}
       <ClipRevealSection className="bg-[#F5F5F0]">
         <section id="mapa" className="py-20 sm:py-28">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="max-w-3xl mx-auto text-center mb-16">
               <ScrollReveal>
                 <StickyLabel>
-                  <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">02 — Feature exclusivo &middot; O único do mundo</p>
+                  <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">02 — O que é o Licitagram</p>
                 </StickyLabel>
               </ScrollReveal>
               <ScrollReveal delay={100}>
                 <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[#1A1C1F] tracking-tight text-balance mb-6">
-                  Veja onde o dinheiro do governo está.{' '}
-                  <span className="text-[#69695D]">E exatamente onde você vai ganhar.</span>
+                  A inteligência por trás de R$ 2 trilhões{' '}
+                  <span className="text-[#69695D]">em compras públicas.</span>
                 </h2>
               </ScrollReveal>
               <ScrollReveal delay={200}>
-                <p className="text-lg text-[#69695D] leading-relaxed">
-                  O Mapa de Inteligência é o único instrumento de visualização de compras públicas do seu tipo no mundo. Em uma tela, você vê o Brasil inteiro: cada estado iluminado pelo volume de oportunidades compatíveis com o seu perfil.
+                <p className="text-lg text-[#69695D] leading-relaxed max-w-2xl mx-auto">
+                  O Licitagram não é mais uma plataforma de busca de editais. É a primeira infraestrutura de dados e inteligência artificial construída para tornar o mercado de licitações acessível para qualquer empresa brasileira.
                 </p>
               </ScrollReveal>
             </div>
 
-            {/* Oportunidades Super Quentes */}
-            <ScrollReveal delay={100}>
-              <div className="max-w-4xl mx-auto mb-16">
-                <div className="p-8 rounded-2xl border border-[#E5E5E0]/50 bg-white shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-1">
-                  <div className="flex items-center gap-3 mb-4">
-                    <span className="inline-flex font-mono text-xs px-3 py-1.5 rounded-full bg-[#F43E01]/10 text-[#F43E01] font-semibold">
-                      85%+ de probabilidade
-                    </span>
-                  </div>
-                  <h3 className="text-xl font-semibold text-[#1A1C1F] mb-3">Oportunidades Super Quentes</h3>
-                  <p className="text-sm text-[#69695D] leading-relaxed">
-                    Acima de 85% de probabilidade de vitória — calculada com base no seu CNPJ, setor, histórico e capacidades técnicas. O sistema destaca automaticamente as disputas onde sua empresa tem vantagem real.
-                  </p>
-                </div>
-              </div>
-            </ScrollReveal>
-
-            {/* Video demo do mapa */}
-            <ScrollReveal delay={150}>
-              <div className="max-w-5xl mx-auto mb-16">
-                <div className="rounded-2xl overflow-hidden border border-[#E5E5E0]/50 shadow-lg">
-                  <video
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    preload="auto"
-                    className="w-full h-auto block"
-                  >
-                    <source src="/mapa-demo.webm" type="video/webm" />
-                  </video>
-                </div>
-              </div>
-            </ScrollReveal>
-
-            {/* Features grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 max-w-5xl mx-auto">
+            {/* Para quem — 3 cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
               {[
                 {
-                  title: 'Calor por relevância',
-                  desc: 'Cada região brilha de acordo com a densidade de oportunidades compatíveis com o seu perfil.',
+                  title: 'Para quem vende para o governo',
+                  desc: 'Sua empresa recebe oportunidades filtradas por IA, com score de compatibilidade. Gera propostas em 2 minutos. Sabe quem são seus concorrentes, quanto eles cobram, e onde estão mais fracos.',
                 },
                 {
-                  title: 'Ranking de estados',
-                  desc: 'Saiba quais estados concentram mais editais para o seu setor — e onde seus concorrentes são mais fracos.',
+                  title: 'Para quem compra para o governo',
+                  desc: 'O Painel de Preços do governo foi descontinuado. O Licitagram tem dados de preços mais completos, de todos os portais — federais, estaduais e municipais — com tendência temporal e filtros por região.',
                 },
                 {
-                  title: 'Inteligência geográfica',
-                  desc: 'Identifique rotas de expansão: estados com alta demanda e baixa concorrência no seu nicho.',
+                  title: 'Para quem fiscaliza o governo',
+                  desc: 'Cruzamos 67 milhões de CNPJs com dados de sócios, sanções, endereços e histórico de licitações. Detectamos cartéis, empresas de fachada e vínculos societários ocultos automaticamente.',
                 },
               ].map((item, i) => (
                 <ScrollReveal key={item.title} delay={i * 100}>
-                  <div className="group p-6 rounded-2xl border border-[#E5E5E0]/50 bg-white shadow-sm hover:shadow-md hover:-translate-y-1 hover:border-[#F43E01]/20 transition-all duration-300 h-full">
-                    <h3 className="font-semibold text-[#1A1C1F] mb-2">{item.title}</h3>
+                  <div className="group p-8 rounded-2xl border border-[#E5E5E0]/50 bg-white shadow-sm hover:shadow-md hover:-translate-y-1 hover:border-[#F43E01]/20 transition-all duration-300 h-full">
+                    <h3 className="text-lg font-semibold text-[#1A1C1F] mb-3">{item.title}</h3>
                     <p className="text-sm text-[#69695D] leading-relaxed">{item.desc}</p>
                   </div>
                 </ScrollReveal>
@@ -439,20 +430,20 @@ export default async function LandingPage() {
         </section>
       </ClipRevealSection>
 
-      {/* ── 03 — Tres Camadas de Inteligência ── */}
+      {/* ── 03 — 9 Features ── */}
       <ClipRevealSection className="bg-[#1A1C1F]">
         <section id="inteligencia" className="py-20 sm:py-28">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="max-w-3xl mx-auto text-center mb-16">
               <ScrollReveal>
                 <StickyLabel>
-                  <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">03 — Por que não há comparação possível</p>
+                  <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">03 — O que você ganha</p>
                 </StickyLabel>
               </ScrollReveal>
               <ScrollReveal delay={100}>
                 <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight text-balance">
-                  Três camadas de inteligência{' '}
-                  <span className="text-[#8B8B8B]">que não existem em lugar nenhum.</span>
+                  9 módulos que não existem{' '}
+                  <span className="text-[#8B8B8B]">em nenhum concorrente.</span>
                 </h2>
               </ScrollReveal>
             </div>
@@ -460,25 +451,55 @@ export default async function LandingPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
               {[
                 {
-                  layer: 'Camada 1',
-                  title: 'O maior banco de dados de compras públicas do Brasil',
-                  desc: 'Agregamos em tempo real dados de todos os portais federais, estaduais e municipais. R$ 1,5 trilhão mapeado e crescendo a cada segundo.',
+                  num: '01',
+                  title: 'Inteligência Artificial que entende a sua empresa',
+                  desc: 'A IA lê cada edital publicado no Brasil e calcula um score de 0 a 100 de compatibilidade com o perfil da sua empresa — CNAEs, porte, região, histórico.',
                 },
                 {
-                  layer: 'Camada 2',
-                  title: 'Motor de correlação com 64M entidades',
-                  desc: 'Cruzamos cada licitação com 64 milhões de entidades corporativas. Detectamos cartéis, empresas de fachada, vínculos societários ocultos e padrões de conluio.',
+                  num: '02',
+                  title: 'Gerador de Propostas Comerciais',
+                  desc: 'Em 2 minutos, a IA gera uma proposta completa, formatada conforme a Lei 14.133, com os dados da sua empresa preenchidos. Pronta para enviar.',
                 },
                 {
-                  layer: 'Camada 3',
-                  title: 'Sistema autônomo que pensa, age e evolui',
-                  desc: 'Agentes de IA que monitoram, analisam, geram dossiês, executam lances e aprendem com cada resultado. Inteligência que trabalha para você 24/7.',
+                  num: '03',
+                  title: 'Preços de Mercado em Tempo Real',
+                  desc: 'O substituto real do Painel de Preços do governo (descontinuado). Dados de todos os portais — federais, estaduais e municipais — com tendência temporal.',
+                },
+                {
+                  num: '04',
+                  title: 'Pesquisa de Preços IN 65/2021',
+                  desc: 'Relatório automático de pesquisa de preços conforme a Instrução Normativa 65/2021. Pronto para anexar ao processo. Em minutos, não em dias.',
+                },
+                {
+                  num: '05',
+                  title: 'Inteligência Competitiva com 5 Módulos',
+                  desc: 'Saiba quem são seus concorrentes, quanto cobram, onde ganham, onde perdem, e quais editais estão disputando agora. Ranking por IA com win rate.',
+                },
+                {
+                  num: '06',
+                  title: 'Robô de Lances com Estratégia',
+                  desc: 'Não é um robô que só executa. É um agente que pensa. Analisa o padrão de lances dos concorrentes, calcula o lance ótimo e executa com precisão.',
+                },
+                {
+                  num: '07',
+                  title: 'Detecção de Anomalias',
+                  desc: '67 milhões de CNPJs cruzados em tempo real. 5 tipos de alerta: cartel, empresa de fachada, sócios em comum, endereço compartilhado, padrão de lance.',
+                },
+                {
+                  num: '08',
+                  title: 'Grafo Societário',
+                  desc: 'Visualize as conexões entre empresas, sócios, endereços e contratos. Descubra quem está por trás de cada CNPJ — e como eles se conectam entre si.',
+                },
+                {
+                  num: '09',
+                  title: 'Compliance Checker',
+                  desc: 'A IA cruza as exigências do edital com os documentos da sua empresa e diz exatamente o que está faltando — antes de você investir tempo na proposta.',
                 },
               ].map((item, i) => (
-                <ScrollReveal key={item.layer} delay={i * 120}>
+                <ScrollReveal key={item.num} delay={i * 80}>
                   <div className="group h-full">
                     <div className="p-8 rounded-2xl border border-white/[0.08] bg-white/[0.04] hover:border-[#F43E01]/30 hover:bg-white/[0.06] transition-all duration-300 hover:-translate-y-1 h-full">
-                      <span className="font-mono text-xs text-[#F43E01] uppercase tracking-wider">{item.layer}</span>
+                      <span className="font-mono text-xs text-[#F43E01] uppercase tracking-wider">{item.num}</span>
                       <h3 className="text-lg font-semibold text-white mt-3 mb-3">{item.title}</h3>
                       <p className="text-sm text-[#8B8B8B] leading-relaxed">{item.desc}</p>
                     </div>
@@ -983,7 +1004,7 @@ export default async function LandingPage() {
               </ScrollReveal>
               <ScrollReveal delay={100}>
                 <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight text-balance">
-                  Como era vs. Como é com o Licitagram
+                  Como era. Como é agora.
                 </h2>
               </ScrollReveal>
             </div>
@@ -1090,17 +1111,17 @@ export default async function LandingPage() {
                   </ScrollReveal>
                   <ScrollReveal delay={100}>
                     <h2 className="text-3xl sm:text-4xl font-bold text-[#1A1C1F] tracking-tight text-balance mb-4">
-                      A inteligência por trás de R$2 trilhões em compras públicas
+                      Escolha o plano certo para o tamanho da sua ambição.
                     </h2>
                   </ScrollReveal>
                   <ScrollReveal delay={200}>
                     <p className="text-base text-[#69695D] max-w-3xl mx-auto leading-relaxed">
-                      +200.000 licitações monitoradas por mês por inteligência artificial. Propostas automáticas. Preços de mercado em tempo real. Detecção de anomalias. Tudo em um só lugar.
+                      Todos os planos incluem 7 dias grátis. Sem compromisso. O produto fala por si.
                     </p>
                   </ScrollReveal>
                   <ScrollReveal delay={250}>
                     <div className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#F43E01]/5 border border-[#F43E01]/20">
-                      <span className="text-sm text-[#F43E01] font-medium">Teste 7 dias grátis — cancele quando quiser</span>
+                      <span className="text-sm text-[#F43E01] font-medium">Sem cartão de crédito para testar. Cancele quando quiser.</span>
                     </div>
                   </ScrollReveal>
                 </div>
@@ -1193,57 +1214,45 @@ export default async function LandingPage() {
         </section>
       </ClipRevealSection>
 
-      {/* ── Para Governos ── */}
+      {/* ── Para Servidores Públicos ── */}
       <ClipRevealSection className="bg-[#F5F5F0]">
         <section id="governos" className="py-20 sm:py-28">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="max-w-3xl mx-auto text-center mb-16">
               <ScrollReveal>
                 <StickyLabel>
-                  <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">Para governos, TCEs e órgãos de controle</p>
+                  <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">Para órgãos públicos</p>
                 </StickyLabel>
               </ScrollReveal>
               <ScrollReveal delay={100}>
                 <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[#1A1C1F] tracking-tight text-balance mb-6">
-                  A mesma inteligencia que você usa para ganhar{' '}
-                  <span className="text-[#69695D]">é a que usamos para garantir que o jogo seja justo.</span>
+                  Servidores públicos: pesquisa de preços em 5 minutos,{' '}
+                  <span className="text-[#69695D]">não em 2 dias.</span>
                 </h2>
               </ScrollReveal>
               <ScrollReveal delay={200}>
                 <p className="text-lg text-[#69695D] leading-relaxed max-w-2xl mx-auto">
-                  Nosso motor de correlacao com 64 milhões de entidades e a ferramenta mais poderosa de compliance e detecção de fraudes em licitações da América Latina.
+                  O Painel de Preços do governo foi descontinuado. O Licitagram é o substituto completo: dados de preços de todos os portais, relatório de pesquisa de preços conforme IN 65/2021 gerado automaticamente, pronto para anexar ao processo.
                 </p>
               </ScrollReveal>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 max-w-5xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 max-w-5xl mx-auto">
               {[
                 {
-                  title: 'Tribunais de Contas (TCEs)',
-                  desc: 'Detecção de cartéis, empresas de fachada e conluio em licitações estaduais e municipais.',
+                  title: 'Pesquisa de Preços IN 65/2021',
+                  desc: 'Relatório gerado automaticamente com dados de múltiplas fontes oficiais, pronto para anexar ao processo administrativo.',
                 },
                 {
-                  title: 'Órgãos de Controle',
-                  desc: 'Análise de vínculos societários ocultos e padrões de fraude em contratações públicas.',
+                  title: 'Base de Preços mais completa do Brasil',
+                  desc: 'Agregamos preços de todos os portais — federais, estaduais e municipais — com filtros por região, órgão e período.',
                 },
                 {
-                  title: 'Bancos e Instituições Financeiras',
-                  desc: 'Compliance de fornecedores governamentais e análise de risco em operações de crédito vinculadas a contratos públicos.',
-                },
-                {
-                  title: 'Ministérios Públicos',
-                  desc: 'Investigação de superfaturamento e direcionamento em processos licitatórios.',
-                },
-                {
-                  title: 'Controladorias',
-                  desc: 'Auditoria preventiva com cruzamento automático de dados corporativos e históricos de licitações.',
-                },
-                {
-                  title: 'Empresas Publicas',
-                  desc: 'Verificação de idoneidade de fornecedores e monitoramento de risco contratual.',
+                  title: 'Tendência temporal de preços',
+                  desc: 'Veja como o preço de cada item evolui ao longo do tempo. Identifique superfaturamento e negocie com dados.',
                 },
               ].map((item, i) => (
-                <ScrollReveal key={item.title} delay={i * 80}>
+                <ScrollReveal key={item.title} delay={i * 100}>
                   <div className="group p-6 rounded-2xl border border-[#E5E5E0]/50 bg-white shadow-sm hover:shadow-md hover:-translate-y-1 hover:border-[#F43E01]/20 transition-all duration-300 h-full">
                     <h3 className="font-semibold text-[#1A1C1F] mb-2">{item.title}</h3>
                     <p className="text-sm text-[#69695D] leading-relaxed">{item.desc}</p>
@@ -1255,28 +1264,126 @@ export default async function LandingPage() {
         </section>
       </ClipRevealSection>
 
-      {/* ── Expansao ── */}
+      {/* ── Tribunais de Contas ── */}
+      <ClipRevealSection className="bg-[#1A1C1F]">
+        <section className="py-20 sm:py-28">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="max-w-3xl mx-auto text-center mb-16">
+              <ScrollReveal>
+                <StickyLabel>
+                  <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">Para tribunais de contas e órgãos de controle</p>
+                </StickyLabel>
+              </ScrollReveal>
+              <ScrollReveal delay={100}>
+                <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight text-balance mb-6">
+                  Tribunais de Contas: 67 milhões de CNPJs{' '}
+                  <span className="text-[#8B8B8B]">cruzados contra cada licitação.</span>
+                </h2>
+              </ScrollReveal>
+              <ScrollReveal delay={200}>
+                <p className="text-lg text-[#8B8B8B] leading-relaxed max-w-2xl mx-auto">
+                  Nosso motor de correlação cruza cada licitação com 67 milhões de entidades corporativas. Detectamos cartéis, empresas de fachada, vínculos societários ocultos e padrões de conluio automaticamente.
+                </p>
+              </ScrollReveal>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 max-w-5xl mx-auto">
+              {[
+                {
+                  title: 'Detecção de Cartéis',
+                  desc: 'Identificação automática de padrões de conluio: lances combinados, rodízio de vencedores, preços artificialmente altos.',
+                },
+                {
+                  title: 'Empresas de Fachada',
+                  desc: 'Cruzamento de sócios, endereços e dados cadastrais para identificar empresas criadas para fraudar licitações.',
+                },
+                {
+                  title: 'Grafo Societário',
+                  desc: 'Visualização das conexões entre empresas, sócios e contratos. Quem está por trás de cada CNPJ.',
+                },
+                {
+                  title: 'Alertas de Anomalia',
+                  desc: '5 tipos de alerta em tempo real: cartel, fachada, sócios em comum, endereço compartilhado, padrão de lance.',
+                },
+                {
+                  title: 'Auditoria Preventiva',
+                  desc: 'Cruzamento automático de dados corporativos e históricos de licitações antes da homologação.',
+                },
+                {
+                  title: 'Relatórios para Investigação',
+                  desc: 'Dossiês completos exportáveis com todas as evidências, prontos para instrução de processos.',
+                },
+              ].map((item, i) => (
+                <ScrollReveal key={item.title} delay={i * 80}>
+                  <div className="group p-6 rounded-2xl border border-white/[0.08] bg-white/[0.04] hover:border-[#F43E01]/30 hover:bg-white/[0.06] transition-all duration-300 hover:-translate-y-1 h-full">
+                    <h3 className="font-semibold text-white mb-2">{item.title}</h3>
+                    <p className="text-sm text-[#8B8B8B] leading-relaxed">{item.desc}</p>
+                  </div>
+                </ScrollReveal>
+              ))}
+            </div>
+          </div>
+        </section>
+      </ClipRevealSection>
+
+      {/* ── Jurídico — Licittare ── */}
+      <ClipRevealSection className="bg-[#F5F5F0]">
+        <section className="py-20 sm:py-28">
+          <div className="max-w-4xl mx-auto px-4 text-center">
+            <ScrollReveal>
+              <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">Conteúdo jurídico</p>
+            </ScrollReveal>
+            <ScrollReveal delay={100}>
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[#1A1C1F] tracking-tight text-balance mb-6">
+                Jurídico por quem entende.{' '}
+                <span className="text-[#69695D]">Tecnologia por quem constrói.</span>
+              </h2>
+            </ScrollReveal>
+            <ScrollReveal delay={200}>
+              <p className="text-lg text-[#69695D] max-w-2xl mx-auto leading-relaxed mb-8">
+                O conteúdo jurídico do Licitagram é produzido em parceria com a Licittare, referência nacional em direito das licitações. Cada funcionalidade que envolve a Lei 14.133, pesquisa de preços ou compliance foi validada por especialistas.
+              </p>
+            </ScrollReveal>
+            <ScrollReveal delay={300}>
+              <div className="inline-flex items-center gap-3 px-6 py-3 rounded-full border border-[#E5E5E0]/50 bg-white shadow-sm">
+                <span className="text-sm text-[#4A4A45] font-medium">Parceria técnico-jurídica com a Licittare</span>
+              </div>
+            </ScrollReveal>
+          </div>
+        </section>
+      </ClipRevealSection>
+
+      {/* ── ROI Section ── */}
       <ClipRevealSection className="bg-[#1A1C1F]">
         <section className="py-20 sm:py-28">
           <div className="max-w-4xl mx-auto px-4 text-center">
             <ScrollReveal>
-              <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">Visão de longo prazo</p>
+              <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">Retorno sobre investimento</p>
             </ScrollReveal>
             <ScrollReveal delay={100}>
               <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight text-balance mb-6">
-                Brasil primeiro.{' '}
-                <span className="text-[#8B8B8B]">América Latina a seguir.</span>
+                Uma licitação ganha{' '}
+                <span className="text-[#8B8B8B]">paga o Licitagram por um ano.</span>
               </h2>
             </ScrollReveal>
             <ScrollReveal delay={200}>
-              <p className="text-lg text-[#8B8B8B] max-w-2xl mx-auto leading-relaxed mb-12">
-                Estamos construindo a infraestrutura de inteligência de compras governamentais para todo o continente. O Brasil e o comeco.
+              <p className="text-lg text-[#8B8B8B] max-w-2xl mx-auto leading-relaxed mb-8">
+                O plano Profissional custa R$ 697/mês. Uma única licitação ganha — mesmo de pequeno porte — paga o investimento do ano inteiro. O ROI não é uma projeção. É aritmética.
               </p>
             </ScrollReveal>
             <ScrollReveal delay={300}>
-              <div className="flex flex-wrap justify-center gap-4 sm:gap-6 text-4xl sm:text-5xl">
-                {['\u{1F1E7}\u{1F1F7}', '\u{1F1F2}\u{1F1FD}', '\u{1F1E8}\u{1F1F4}', '\u{1F1E8}\u{1F1F1}', '\u{1F1E6}\u{1F1F7}', '\u{1F1F5}\u{1F1EA}', '\u{1F1FA}\u{1F1FE}', '\u{1F1E7}\u{1F1F4}', '\u{1F1E6}\u{1F1F4}', '\u{1F1E8}\u{1F1FB}'].map((flag, i) => (
-                  <span key={i} className="inline-block hover:scale-110 transition-transform duration-200">{flag}</span>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+                {[
+                  { value: '+200.000', label: 'licitações monitoradas por mês' },
+                  { value: '67 milhões', label: 'de CNPJs cruzados em tempo real' },
+                  { value: 'R$ 7+ bilhões', label: 'em oportunidades mapeadas' },
+                ].map((item, i) => (
+                  <ScrollReveal key={item.value} delay={i * 100}>
+                    <div className="p-8 rounded-2xl border border-white/[0.08] bg-white/[0.04] hover:border-[#F43E01]/30 hover:bg-white/[0.06] transition-all duration-300 hover:-translate-y-1">
+                      <p className="font-mono text-3xl sm:text-4xl font-bold text-[#F43E01] tracking-tight mb-2">{item.value}</p>
+                      <p className="text-sm text-[#8B8B8B]">{item.label}</p>
+                    </div>
+                  </ScrollReveal>
                 ))}
               </div>
             </ScrollReveal>
@@ -1290,12 +1397,12 @@ export default async function LandingPage() {
         <div className="relative max-w-3xl mx-auto px-4 text-center">
           <ScrollReveal>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight text-balance mb-6">
-              Seus concorrentes ainda procuram licitações em portais. Você já pode ver onde o dinheiro está.
+              O mercado de R$ 2 trilhões está aberto. A pergunta é se você vai entrar.
             </h2>
           </ScrollReveal>
           <ScrollReveal delay={100}>
             <p className="text-lg text-white/70 mb-10">
-              Junte-se a empresas que já encontram as melhores oportunidades com IA.
+              7 dias grátis. Sem cartão de crédito. Sem compromisso. O produto fala por si.
             </p>
           </ScrollReveal>
           <ScrollReveal delay={200}>
@@ -1322,8 +1429,11 @@ export default async function LandingPage() {
               <div className="flex items-center mb-4">
                 <Image src="/logo.png" alt="Licitagram" width={140} height={32} className="h-8 w-auto brightness-0 invert" />
               </div>
-              <p className="text-sm text-[#8B8B8B] leading-relaxed">
-                O maior sistema privado de inteligência de compras governamentais da América Latina.
+              <p className="text-sm text-[#8B8B8B] leading-relaxed mb-3">
+                Inteligência de dados para licitações públicas no Brasil. +200.000 licitações/mês monitoradas por IA. 67M+ CNPJs cruzados em tempo real.
+              </p>
+              <p className="text-xs text-[#555] leading-relaxed">
+                Todos os dados são extraídos de fontes oficiais públicas. Conteúdo jurídico em parceria com a Licittare.
               </p>
             </div>
             <div>

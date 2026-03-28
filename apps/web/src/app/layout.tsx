@@ -23,8 +23,8 @@ const roboto = Roboto({
 })
 
 export const metadata: Metadata = {
-  title: 'Licitagram',
-  description: 'Inteligência artificial para licitações públicas',
+  title: 'Licitagram — Inteligência de Dados para Licitações Públicas no Brasil',
+  description: '+200.000 licitações/mês monitoradas por IA. 67 milhões de CNPJs cruzados em tempo real. Propostas automáticas, preços de mercado, detecção de fraudes e inteligência competitiva. Tudo em um só lugar.',
 }
 
 export default function RootLayout({
