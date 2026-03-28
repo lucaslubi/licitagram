@@ -791,7 +791,7 @@ export default async function AdminIntelligencePage({
                   </div>
                   {alert.tender_id && (
                     <Link
-                      href={`/opportunities/${alert.match_id || alert.tender_id}`}
+                      href={`/opportunities/tender/${alert.tender_id}`}
                       className="text-xs text-brand hover:underline whitespace-nowrap shrink-0 font-medium"
                     >
                       Ver licitacao {'\u2192'}
