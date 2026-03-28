@@ -387,7 +387,7 @@ async function main() {
       .from('competitors')
       .select('tender_id, cnpj, nome, vencedor')
       .order('tender_id')
-      .range(offset, offset + 4999)
+      .range(offset, offset + 999)
 
     if (error) { console.error('Error:', error.message); break }
     if (!data || data.length === 0) break
@@ -400,9 +400,11 @@ async function main() {
       })
     }
 
-    offset += 5000
-    process.stdout.write(`\r  ${offset} rows loaded (${tenderCompMap.size} tenders)`)
-    if (data.length < 5000) break
+    offset += 1000
+    if (offset % 10000 === 0 || data.length < 1000) {
+      process.stdout.write(`\r  ${offset} rows loaded (${tenderCompMap.size} tenders)`)
+    }
+    if (data.length < 1000) break
   }
   console.log(`\nTotal tenders: ${tenderCompMap.size}`)
 
