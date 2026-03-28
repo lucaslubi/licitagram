@@ -151,11 +151,11 @@ export function PriceHistoryClient() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Preços de Mercado</h1>
-          <p className="text-sm text-gray-400 mt-1">Pesquise precos praticados em licitacoes anteriores</p>
+          <p className="text-sm text-gray-400 mt-1">Pesquise preços praticados em licitações anteriores</p>
         </div>
         {result && (
           <p className="text-[10px] text-gray-500 bg-[#1a1c1f] px-3 py-1.5 rounded-full border border-[#2d2f33] whitespace-nowrap shrink-0">
-            Ultima atualizacao: agora | {result.total_count.toLocaleString('pt-BR')} licitacoes indexadas
+            Última atualização: agora | {result.total_count.toLocaleString('pt-BR')} licitações indexadas
           </p>
         )}
       </div>
@@ -194,7 +194,7 @@ export function PriceHistoryClient() {
                 <Input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Buscar produto ou servico..."
+                  placeholder="Buscar produto ou serviço..."
                   className="pl-10 bg-[#1a1c1f] border-[#2d2f33] text-white placeholder:text-gray-500"
                   onKeyDown={(e) => { if (e.key === 'Enter') doSearch(1) }}
                 />
@@ -300,7 +300,7 @@ export function PriceHistoryClient() {
                 <p className="text-2xl font-bold text-white mt-1">
                   {result.total_count.toLocaleString('pt-BR')}
                 </p>
-                <p className="text-xs text-gray-400 mt-1">licitacoes encontradas</p>
+                <p className="text-xs text-gray-400 mt-1">licitações encontradas</p>
               </CardContent>
             </Card>
 
@@ -618,9 +618,9 @@ export function PriceHistoryClient() {
           <svg className="w-16 h-16 text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
-          <h3 className="text-lg font-medium text-gray-300 mb-2">Pesquise precos de mercado</h3>
+          <h3 className="text-lg font-medium text-gray-300 mb-2">Pesquise preços de mercado</h3>
           <p className="text-sm text-gray-500 max-w-md">
-            Digite o nome do produto ou servico para consultar precos praticados em licitacoes anteriores.
+            Digite o nome do produto ou serviço para consultar preços praticados em licitações anteriores.
             Os dados vem de mais de 185 mil editais indexados.
           </p>
         </div>
