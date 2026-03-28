@@ -312,7 +312,7 @@ export default async function LandingPage() {
             <ScrollReveal delay={80}>
               <div>
                 <p className="font-mono text-3xl sm:text-4xl font-bold text-[#1A1C1F] tracking-tight">
-                  R$7bi+
+                  R$1tri+
                 </p>
                 <p className="text-sm text-[#69695D] mt-2">em oportunidades mapeadas</p>
               </div>
@@ -1395,7 +1395,7 @@ export default async function LandingPage() {
                 {[
                   { value: '+200.000', label: 'licitações monitoradas por mês' },
                   { value: '67 milhões', label: 'de CNPJs cruzados em tempo real' },
-                  { value: 'R$ 7+ bilhões', label: 'em oportunidades mapeadas' },
+                  { value: 'R$ 1+ trilhão', label: 'em oportunidades mapeadas' },
                 ].map((item, i) => (
                   <ScrollReveal key={item.value} delay={i * 100}>
                     <div className="p-8 rounded-2xl border border-white/[0.08] bg-white/[0.04] hover:border-[#F43E01]/30 hover:bg-white/[0.06] transition-all duration-300 hover:-translate-y-1">
