@@ -108,7 +108,21 @@ function getDescription(alert: any): string {
 }
 
 function getCnpjs(alert: any): string[] {
-  return alert.cnpjs_envolvidos || alert.companies?.map((c: any) => c.cnpj) || []
+  if (alert.cnpjs_envolvidos) return alert.cnpjs_envolvidos
+  const cnpjs: string[] = []
+  if (alert.cnpj_1) cnpjs.push(alert.cnpj_1)
+  if (alert.cnpj_2) cnpjs.push(alert.cnpj_2)
+  if (cnpjs.length > 0) return cnpjs
+  return alert.companies?.map((c: any) => c.cnpj) || []
+}
+
+function getCompanies(alert: any): Array<{ name: string; cnpj: string }> {
+  const companies: Array<{ name: string; cnpj: string }> = []
+  if (alert.empresa_1 && alert.cnpj_1) companies.push({ name: alert.empresa_1, cnpj: alert.cnpj_1 })
+  if (alert.empresa_2 && alert.cnpj_2) companies.push({ name: alert.empresa_2, cnpj: alert.cnpj_2 })
+  if (companies.length > 0) return companies
+  if (alert.companies) return alert.companies.map((c: any) => ({ name: c.name || c.razao_social, cnpj: c.cnpj }))
+  return []
 }
 
 function formatCNPJ(cnpj: string): string {
@@ -180,19 +194,30 @@ function LegalBadge({ refs }: { refs: string[] }) {
   )
 }
 
-function renderSocioEmComumAnalysis(evidence: Record<string, any>, sharedCount: number) {
-  const socioNome = evidence.socio_nome || 'N/I'
-  const empresas = evidence.empresas || []
-  const total = evidence.total_empresas || empresas.length
+function renderSocioEmComumAnalysis(alert: any, sharedCount: number) {
+  const meta = alert.metadata || alert.evidence || {}
+  const socios = meta.socios || []
+  const detail = alert.detail || alert.description || ''
+  const empresa1 = alert.empresa_1 || ''
+  const empresa2 = alert.empresa_2 || ''
+  const cnpj1 = alert.cnpj_1 || ''
+  const cnpj2 = alert.cnpj_2 || ''
 
   return (
     <>
       <AnalysisSection title="O que foi detectado">
         <p>
-          O socio <strong className="text-white">&quot;{socioNome}&quot;</strong> aparece como socio ou administrador em{' '}
-          <strong className="text-orange-400">{total} empresas</strong> que participaram como concorrentes na mesma licitacao.
-          Isso significa que as propostas supostamente independentes podem ter sido elaboradas pela mesma pessoa ou grupo.
+          As empresas <strong className="text-white">&quot;{empresa1}&quot;</strong>
+          {cnpj1 && <span className="text-gray-400"> ({formatCNPJ(cnpj1)})</span>}
+          {' '}e{' '}
+          <strong className="text-white">&quot;{empresa2}&quot;</strong>
+          {cnpj2 && <span className="text-gray-400"> ({formatCNPJ(cnpj2)})</span>}
+          {' '}compartilham <strong className="text-orange-400">{socios.length || 'multiplos'} socio(s) em comum</strong> e
+          participaram como concorrentes na mesma licitacao.
         </p>
+        {detail && (
+          <p className="mt-2 text-gray-400 text-xs italic">{detail}</p>
+        )}
       </AnalysisSection>
 
       <AnalysisSection title="Por que isso representa possivel fraude">
@@ -210,11 +235,15 @@ function renderSocioEmComumAnalysis(evidence: Record<string, any>, sharedCount: 
       </AnalysisSection>
 
       <AnalysisSection title="Indicadores de risco">
-        <RiskIndicator label="Socio identificado" value={socioNome} highlight />
-        <RiskIndicator label="Empresas com este socio na licitacao" value={`${total} empresas`} highlight />
-        {empresas.map((cnpj: string) => (
-          <RiskIndicator key={cnpj} label="CNPJ envolvido" value={formatCNPJ(cnpj)} />
-        ))}
+        {socios.length > 0 ? (
+          socios.map((socio: string) => (
+            <RiskIndicator key={socio} label="Socio em comum" value={socio} highlight />
+          ))
+        ) : (
+          <RiskIndicator label="Socios em comum" value="Identificados (ver detalhe)" highlight />
+        )}
+        <RiskIndicator label="Empresa 1" value={`${empresa1}${cnpj1 ? ' (' + formatCNPJ(cnpj1) + ')' : ''}`} />
+        <RiskIndicator label="Empresa 2" value={`${empresa2}${cnpj2 ? ' (' + formatCNPJ(cnpj2) + ')' : ''}`} />
         {sharedCount > 1 && (
           <RiskIndicator
             label="Coincidencia em outras licitacoes"
@@ -495,7 +524,7 @@ function renderAnalysis(alert: any, sharedCount: number) {
 
   switch (alertType) {
     case 'socio_em_comum':
-      return renderSocioEmComumAnalysis(evidence, sharedCount)
+      return renderSocioEmComumAnalysis(alert, sharedCount)
     case 'empresa_recente':
       return renderEmpresaRecenteAnalysis(evidence)
     case 'capital_incompativel':
@@ -789,34 +818,19 @@ export default async function AdminIntelligencePage({
 
                 {/* Companies Involved */}
                 {(() => {
-                  const cnpjs = getCnpjs(alert)
-                  const evidence = getEvidence(alert)
-                  const companies = alert.companies || []
-
-                  if (cnpjs.length === 0 && companies.length === 0) return null
+                  const companies = getCompanies(alert)
+                  if (companies.length === 0) return null
 
                   return (
                     <div className="px-5 py-3 border-b border-white/5">
                       <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">Empresas envolvidas</div>
                       <div className="flex flex-wrap gap-2">
-                        {cnpjs.length > 0 ? (
-                          cnpjs.map((cnpj: string, idx: number) => {
-                            const name = companies[idx]?.name || companies[idx]?.razao_social || evidence.razao_social
-                            return (
-                              <div key={cnpj} className="bg-[#1a1c1f] border border-[#2d2f33] rounded-lg px-3 py-2">
-                                {name && <div className="text-sm text-gray-200 font-medium">{name}</div>}
-                                <div className="text-xs text-gray-400 font-mono">{formatCNPJ(cnpj)}</div>
-                              </div>
-                            )
-                          })
-                        ) : (
-                          companies.map((company: any, idx: number) => (
-                            <div key={idx} className="bg-[#1a1c1f] border border-[#2d2f33] rounded-lg px-3 py-2">
-                              <div className="text-sm text-gray-200 font-medium">{company.name || company.razao_social}</div>
-                              {company.cnpj && <div className="text-xs text-gray-400 font-mono">{formatCNPJ(company.cnpj)}</div>}
-                            </div>
-                          ))
-                        )}
+                        {companies.map((company, idx) => (
+                          <div key={idx} className="bg-[#1a1c1f] border border-[#2d2f33] rounded-lg px-3 py-2">
+                            <div className="text-sm text-gray-200 font-medium">{company.name}</div>
+                            {company.cnpj && <div className="text-xs text-gray-400 font-mono">{formatCNPJ(company.cnpj)}</div>}
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )
