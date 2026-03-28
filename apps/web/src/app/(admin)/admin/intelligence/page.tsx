@@ -559,10 +559,10 @@ export default async function AdminIntelligencePage({
   const mediumCount = mediumResult.count || 0
   const analyzedCount = analyzedResult.count || 0
 
-  // ── Filtered Query (join with tenders for context) ──
+  // ── Filtered Query ──
   let query = supabase
     .from('fraud_alerts')
-    .select('*, tenders(id, objeto, orgao_nome, uf, valor_estimado, valor_total, data_abertura, data_publicacao)', { count: 'exact' })
+    .select('*', { count: 'exact' })
     .order('created_at', { ascending: false })
 
   if (severityFilter) {
@@ -578,6 +578,23 @@ export default async function AdminIntelligencePage({
   const { data: alerts, count: filteredCount } = await query.range(offset, offset + PAGE_SIZE - 1)
 
   const totalPages = Math.ceil((filteredCount || 0) / PAGE_SIZE)
+
+  // ── Batch-fetch tender context for alerts ──
+  const tenderIds = [...new Set((alerts || []).map((a: any) => a.tender_id).filter(Boolean))]
+  const tenderMap = new Map<string, any>()
+
+  if (tenderIds.length > 0) {
+    const { data: tenders } = await supabase
+      .from('tenders')
+      .select('id, objeto, orgao_nome, uf, valor_estimado, valor_total, data_abertura, data_publicacao')
+      .in('id', tenderIds.slice(0, 100))
+
+    if (tenders) {
+      for (const t of tenders) {
+        tenderMap.set(t.id, t)
+      }
+    }
+  }
 
   // ── Cross-reference: shared tender participation ──
   // Collect unique CNPJ pairs from multi-company alerts
@@ -718,7 +735,7 @@ export default async function AdminIntelligencePage({
             const severity = (alert.severity || config.defaultSeverity).toUpperCase()
             const styles = SEVERITY_STYLES[severity] || SEVERITY_STYLES[alert.severity] || SEVERITY_STYLES.MEDIUM
             const sharedCount = sharedTenderMap.get(alert.id) || 0
-            const tender = alert.tenders
+            const tender = tenderMap.get(alert.tender_id)
 
             return (
               <div
