@@ -63,12 +63,26 @@ export default async function GenerateProposalPage({
     if (p) existingProposal = p
   }
 
+  // Auto-detect template type from tender object
+  function suggestTemplate(): string {
+    const objeto = ((tender?.objeto as string) || '').toLowerCase()
+    const ticKeywords = ['software', 'saas', 'licença', 'licenca', 'subscrição', 'subscricao',
+      'nuvem', 'cloud', 'sistema', 'plataforma digital', 'assinatura', 'informatiza', 'tic ',
+      'solução tecnológica', 'solucao tecnologica']
+    if (ticKeywords.some(k => objeto.includes(k))) return 'tic_saas'
+    const servicosKeywords = ['limpeza', 'vigilância', 'vigilancia', 'manutenção predial',
+      'manutencao predial', 'terceirização', 'terceirizacao', 'prestação de serviço continuado',
+      'postos de trabalho', 'serviço continuado', 'locação de mão de obra', 'locacao de mao de obra']
+    if (servicosKeywords.some(k => objeto.includes(k))) return 'servicos'
+    return 'bens'
+  }
+
   // Build initial data for wizard
   const initialData = {
     proposalId: existingProposal?.id as string | undefined,
     matchId: match?.id || undefined,
     tenderId: match?.tender_id || (existingProposal?.tender_id as string) || undefined,
-    templateType: (existingProposal?.template_type as string) || undefined,
+    templateType: (existingProposal?.template_type as string) || suggestTemplate(),
     // Licitacao snapshot — extract numero from pncp_id (format: "CNPJ-ANO-SEQ")
     licitacao: {
       numero: (existingProposal?.licitacao_numero as string)
