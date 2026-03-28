@@ -614,7 +614,7 @@ export function IntelligenceMap({
                           'bg-red-900/20 text-red-400'
                         }`}>
                           {m.competitionScore >= 75 ? 'Baixa competicao' :
-                           m.competitionScore >= 50 ? 'Competicao moderada' :
+                           m.competitionScore >= 50 ? 'Competição moderada' :
                            'Mercado disputado'}
                         </span>
                       )}

@@ -18,7 +18,7 @@ const MODALIDADE_OPTIONS = [
   'Pregao Eletronico',
   'Pregao Presencial',
   'Concorrencia',
-  'Tomada de Precos',
+  'Tomada de Preços',
   'Convite',
   'Dispensa',
   'Inexigibilidade',
@@ -150,7 +150,7 @@ export function PriceHistoryClient() {
       {/* Header + Data freshness */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Precos de Mercado</h1>
+          <h1 className="text-2xl font-bold text-white">Preços de Mercado</h1>
           <p className="text-sm text-gray-400 mt-1">Pesquise precos praticados em licitacoes anteriores</p>
         </div>
         {result && (
@@ -341,7 +341,7 @@ export function PriceHistoryClient() {
           {result.trend.points.length > 0 && (
             <Card className="bg-[#23262a] border-[#2d2f33]">
               <CardHeader>
-                <CardTitle className="text-white text-base">Tendencia de Precos</CardTitle>
+                <CardTitle className="text-white text-base">Tendência de Preços</CardTitle>
               </CardHeader>
               <CardContent>
                 <PriceTrendChart
@@ -365,7 +365,7 @@ export function PriceHistoryClient() {
           {/* Statistics card */}
           <Card className="bg-[#23262a] border-[#2d2f33]">
             <CardHeader>
-              <CardTitle className="text-white text-base">Estatisticas</CardTitle>
+              <CardTitle className="text-white text-base">Estatísticas</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -419,7 +419,7 @@ export function PriceHistoryClient() {
                   <thead>
                     <tr className="border-b border-[#2d2f33]">
                       <th className="text-left py-2 text-gray-400 font-medium">Data</th>
-                      <th className="text-left py-2 text-gray-400 font-medium">Orgao</th>
+                      <th className="text-left py-2 text-gray-400 font-medium">Órgão</th>
                       <th className="text-left py-2 text-gray-400 font-medium">UF</th>
                       <th className="text-left py-2 text-gray-400 font-medium max-w-[200px]">Objeto</th>
                       <th className="text-right py-2 text-gray-400 font-medium">Valor</th>

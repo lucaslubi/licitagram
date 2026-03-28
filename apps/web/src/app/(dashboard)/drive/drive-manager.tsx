@@ -42,7 +42,7 @@ const CATEGORIES: { key: Category; label: string }[] = [
   { key: 'certidao', label: 'Certidões' },
   { key: 'proposta', label: 'Propostas' },
   { key: 'contrato', label: 'Contratos' },
-  { key: 'analise', label: 'Analises' },
+  { key: 'analise', label: 'Análises' },
   { key: 'consultor', label: 'Consultor IA' },
   { key: 'geral', label: 'Geral' },
 ]

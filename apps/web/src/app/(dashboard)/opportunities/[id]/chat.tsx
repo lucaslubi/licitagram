@@ -580,7 +580,7 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
       // Parse markdown into sections (same logic as PDF export)
       const lines = content.split('\n')
       const sections: Array<{ heading: string; content: string; type: 'text' | 'bullet'; items?: string[] }> = []
-      let currentHeading = 'Analise'
+      let currentHeading = 'Análise'
       let currentLines: string[] = []
 
       for (const line of lines) {
@@ -609,7 +609,7 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
         }
       }
       if (sections.length === 0) {
-        sections.push({ heading: 'Analise', content, type: 'text' })
+        sections.push({ heading: 'Análise', content, type: 'text' })
       }
 
       // Generate PDF blob via the same API
@@ -617,7 +617,7 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: 'Analise do Edital',
+          title: 'Análise do Edital',
           subtitle: 'Consultor IA Licitagram',
           sections,
           metadata: {
@@ -633,9 +633,9 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
         file: blob,
         fileName,
         category: 'consultor',
-        description: 'Analise do Edital - Consultor IA',
+        description: 'Análise do Edital - Consultor IA',
         tenderId,
-        tags: ['consultor', 'analise', 'edital'],
+        tags: ['consultor', 'análise', 'edital'],
       })
 
       if (result.success) {

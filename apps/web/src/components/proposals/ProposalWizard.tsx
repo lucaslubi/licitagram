@@ -73,7 +73,7 @@ const TEMPLATE_OPTIONS = [
   {
     value: 'servicos',
     title: 'Servicos Continuados',
-    description: 'Proposta para prestacao de servicos continuados',
+    description: 'Proposta para prestação de serviços continuados',
     icon: '🔧',
   },
   {
@@ -652,7 +652,7 @@ export function ProposalWizard({ initialData }: ProposalWizardProps) {
           {/* Additional fields */}
           <Card className="border-[#2d2f33] bg-[#1a1c1f]">
             <CardHeader>
-              <CardTitle>Informacoes Adicionais</CardTitle>
+              <CardTitle>Informações Adicionais</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

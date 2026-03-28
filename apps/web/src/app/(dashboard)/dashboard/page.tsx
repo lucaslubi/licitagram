@@ -282,7 +282,7 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <KPICard label="Score Medio" value={`${avgScore}/100`} icon="📊" accentColor="#8B5CF6" />
         <KPICard label="Taxa de Interesse" value={`${conversionRate}%`} icon="💡" accentColor="#0EA5E9" />
-        <KPICard label="Valor em Analise" value={totalValueInAnalysis > 0 ? formatCurrency(totalValueInAnalysis) : 'R$ 0'} icon="💰" accentColor="#10B981" small />
+        <KPICard label="Valor em Análise" value={totalValueInAnalysis > 0 ? formatCurrency(totalValueInAnalysis) : 'R$ 0'} icon="💰" accentColor="#10B981" small />
         <KPICard label="Total de Matches" value={totalMatches.toLocaleString('pt-BR')} icon="🏆" accentColor="#F43E01" />
       </div>
 
@@ -310,7 +310,7 @@ export default async function DashboardPage() {
       {/* Section Header */}
       <div className="flex items-center gap-3 mb-6">
         <div className="h-px flex-1 bg-[#2d2f33]" />
-        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Analise de Performance</h2>
+        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Análise de Performance</h2>
         <div className="h-px flex-1 bg-[#2d2f33]" />
       </div>
 

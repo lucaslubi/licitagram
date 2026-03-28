@@ -42,8 +42,8 @@ const STOPWORDS = new Set([
   'sua', 'seu', 'seus', 'suas', 'isso', 'esta', 'esse', 'essa',
   // Termos genéricos de licitação
   'constitui', 'objeto', 'presente', 'licitacao', 'pregao',
-  'registro', 'precos', 'preco', 'aquisicao', 'contratacao',
-  'eventual', 'fornecimento', 'prestacao', 'servicos', 'servico',
+  'registro', 'preços', 'preço', 'aquisição', 'contratação',
+  'eventual', 'fornecimento', 'prestação', 'serviços', 'serviço',
   'materiais', 'material', 'empresa', 'empresas', 'futura',
   'futuras', 'visando', 'objetivando', 'melhores', 'propostas',
   'proposta', 'selecao', 'vantajosa', 'consignado', 'prazo',

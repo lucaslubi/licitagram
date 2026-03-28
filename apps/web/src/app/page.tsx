@@ -1220,7 +1220,7 @@ export default async function LandingPage() {
                 },
                 {
                   title: 'Órgãos de Controle',
-                  desc: 'Analise de vinculos societarios ocultos e padrões de fraude em contratacoes publicas.',
+                  desc: 'Análise de vínculos societários ocultos e padrões de fraude em contratações públicas.',
                 },
                 {
                   title: 'Bancos e Instituições Financeiras',
