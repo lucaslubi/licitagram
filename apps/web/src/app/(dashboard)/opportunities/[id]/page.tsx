@@ -416,6 +416,12 @@ export default async function OpportunityDetailPage({
               >
                 Gerar Proposta
               </Link>
+              <Link
+                href={`/price-history?q=${encodeURIComponent((tender?.objeto as string) || '')}`}
+                className="block w-full text-center px-4 py-2 rounded-lg bg-[#1a1c1f] hover:bg-[#2d2f33] border border-[#2d2f33] text-gray-300 hover:text-white text-sm font-medium transition-colors"
+              >
+                Precos de Mercado
+              </Link>
             </CardContent>
           </Card>
 

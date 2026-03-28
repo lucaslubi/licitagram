@@ -1,0 +1,570 @@
+'use client'
+
+import { useState, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import type { PriceSearchResult, PriceStatistics, PriceTrend } from '@licitagram/price-history'
+
+const UF_OPTIONS = [
+  '','AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS','MT',
+  'PA','PB','PE','PI','PR','RJ','RN','RO','RR','RS','SC','SE','SP','TO',
+]
+
+const MODALIDADE_OPTIONS = [
+  '',
+  'Pregao Eletronico',
+  'Pregao Presencial',
+  'Concorrencia',
+  'Tomada de Precos',
+  'Convite',
+  'Dispensa',
+  'Inexigibilidade',
+]
+
+const formatBRL = (value: number) =>
+  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
+
+const formatCompact = (value: number) =>
+  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' }).format(value)
+
+function ConfidenceBadge({ confidence }: { confidence: PriceStatistics['confidence'] }) {
+  const colors = {
+    alta: 'bg-emerald-900/20 text-emerald-400 border-emerald-800/30',
+    media: 'bg-amber-900/20 text-amber-400 border-amber-800/30',
+    baixa: 'bg-red-900/20 text-red-400 border-red-800/30',
+  }
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${colors[confidence]}`}>
+      {confidence.charAt(0).toUpperCase() + confidence.slice(1)}
+    </span>
+  )
+}
+
+function TrendArrow({ direction }: { direction: PriceTrend['direction'] }) {
+  if (direction === 'subindo') return <span className="text-red-400">&#9650;</span>
+  if (direction === 'descendo') return <span className="text-emerald-400">&#9660;</span>
+  return <span className="text-gray-400">&#9654;</span>
+}
+
+export function PriceHistoryClient() {
+  const searchParams = useSearchParams()
+  const initialQuery = searchParams.get('q') || ''
+
+  const [query, setQuery] = useState(initialQuery)
+  const [uf, setUf] = useState('')
+  const [modalidade, setModalidade] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [result, setResult] = useState<PriceSearchResult | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [exporting, setExporting] = useState(false)
+
+  const doSearch = useCallback(async (page = 1) => {
+    if (!query.trim() || query.trim().length < 3) {
+      setError('Digite pelo menos 3 caracteres para buscar.')
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      const params = new URLSearchParams({ q: query.trim(), page: String(page), page_size: '20' })
+      if (uf) params.set('uf', uf)
+      if (modalidade) params.set('modalidade', modalidade)
+      if (dateFrom) params.set('date_from', dateFrom)
+      if (dateTo) params.set('date_to', dateTo)
+
+      const res = await fetch(`/api/price-history/search?${params.toString()}`)
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Erro na busca')
+      }
+
+      const data: PriceSearchResult = await res.json()
+      setResult(data)
+      setCurrentPage(page)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Erro desconhecido')
+      setResult(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [query, uf, modalidade, dateFrom, dateTo])
+
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const res = await fetch('/api/price-history/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: query.trim(),
+          format: 'csv',
+          uf: uf || undefined,
+          modalidade: modalidade || undefined,
+          date_from: dateFrom || undefined,
+          date_to: dateTo || undefined,
+        }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Erro ao exportar')
+      }
+
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `precos-mercado-${query.trim().replace(/\s+/g, '-').substring(0, 30)}.csv`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Erro ao exportar')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const totalPages = result ? Math.ceil(result.total_count / result.page_size) : 0
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-white">Precos de Mercado</h1>
+        <p className="text-sm text-gray-400 mt-1">Pesquise precos praticados em licitacoes anteriores</p>
+      </div>
+
+      {/* Search bar */}
+      <Card className="bg-[#23262a] border-[#2d2f33]">
+        <CardContent className="pt-6">
+          <div className="space-y-4">
+            {/* Search input */}
+            <div className="flex gap-3">
+              <div className="relative flex-1">
+                <svg
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <Input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Buscar produto ou servico..."
+                  className="pl-10 bg-[#1a1c1f] border-[#2d2f33] text-white placeholder:text-gray-500"
+                  onKeyDown={(e) => { if (e.key === 'Enter') doSearch(1) }}
+                />
+              </div>
+              <Button
+                onClick={() => doSearch(1)}
+                disabled={loading}
+                className="bg-[#F43E01] hover:bg-[#d63600] text-white px-6"
+              >
+                {loading ? 'Buscando...' : 'Buscar'}
+              </Button>
+            </div>
+
+            {/* Filters row */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div>
+                <label className="text-xs text-gray-400 mb-1 block">UF</label>
+                <select
+                  value={uf}
+                  onChange={(e) => setUf(e.target.value)}
+                  className="w-full h-9 rounded-md border border-[#2d2f33] bg-[#1a1c1f] px-3 text-sm text-white"
+                >
+                  <option value="">Todas</option>
+                  {UF_OPTIONS.filter(Boolean).map((u) => (
+                    <option key={u} value={u}>{u}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 mb-1 block">Modalidade</label>
+                <select
+                  value={modalidade}
+                  onChange={(e) => setModalidade(e.target.value)}
+                  className="w-full h-9 rounded-md border border-[#2d2f33] bg-[#1a1c1f] px-3 text-sm text-white"
+                >
+                  <option value="">Todas</option>
+                  {MODALIDADE_OPTIONS.filter(Boolean).map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 mb-1 block">De</label>
+                <Input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="bg-[#1a1c1f] border-[#2d2f33] text-white"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 mb-1 block">Ate</label>
+                <Input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="bg-[#1a1c1f] border-[#2d2f33] text-white"
+                />
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Error */}
+      {error && (
+        <div className="bg-red-900/20 border border-red-800/30 rounded-lg p-4 text-red-400 text-sm">
+          {error}
+        </div>
+      )}
+
+      {/* Loading */}
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#F43E01]" />
+        </div>
+      )}
+
+      {/* Results */}
+      {result && !loading && (
+        <div className="space-y-6">
+          {/* Stats cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card className="bg-[#23262a] border-[#2d2f33]">
+              <CardContent className="pt-6">
+                <p className="text-xs text-gray-400 uppercase tracking-wide">Preco Mediano</p>
+                <p className="text-2xl font-bold text-white mt-1">
+                  {formatBRL(result.statistics.median)}
+                </p>
+                <div className="flex items-center gap-1.5 mt-1">
+                  <TrendArrow direction={result.trend.direction} />
+                  <span className="text-xs text-gray-400">
+                    {result.trend.direction === 'subindo' ? 'Em alta' :
+                     result.trend.direction === 'descendo' ? 'Em queda' : 'Estavel'}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-[#23262a] border-[#2d2f33]">
+              <CardContent className="pt-6">
+                <p className="text-xs text-gray-400 uppercase tracking-wide">Registros</p>
+                <p className="text-2xl font-bold text-white mt-1">
+                  {result.total_count.toLocaleString('pt-BR')}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">licitacoes encontradas</p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-[#23262a] border-[#2d2f33]">
+              <CardContent className="pt-6">
+                <p className="text-xs text-gray-400 uppercase tracking-wide">Confianca</p>
+                <div className="mt-2">
+                  <ConfidenceBadge confidence={result.statistics.confidence} />
+                </div>
+                <p className="text-xs text-gray-400 mt-2">
+                  CV: {result.statistics.cv_percent.toFixed(1)}%
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-[#23262a] border-[#2d2f33]">
+              <CardContent className="pt-6">
+                <p className="text-xs text-gray-400 uppercase tracking-wide">Variacao</p>
+                <p className={`text-2xl font-bold mt-1 ${
+                  result.trend.variation_12m_percent != null
+                    ? result.trend.variation_12m_percent > 0
+                      ? 'text-red-400'
+                      : result.trend.variation_12m_percent < 0
+                        ? 'text-emerald-400'
+                        : 'text-white'
+                    : 'text-gray-400'
+                }`}>
+                  {result.trend.variation_12m_percent != null
+                    ? `${result.trend.variation_12m_percent > 0 ? '+' : ''}${result.trend.variation_12m_percent.toFixed(1)}%`
+                    : 'N/D'}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">periodo analisado</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Trend data table (placeholder for chart) */}
+          {result.trend.points.length > 0 && (
+            <Card className="bg-[#23262a] border-[#2d2f33]">
+              <CardHeader>
+                <CardTitle className="text-white text-base">Tendencia de Precos</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-xs text-gray-400 mb-3">Dados mensais — grafico com Recharts em implementacao futura</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-[#2d2f33]">
+                        <th className="text-left py-2 text-gray-400 font-medium">Mes</th>
+                        <th className="text-right py-2 text-gray-400 font-medium">Qtd</th>
+                        <th className="text-right py-2 text-gray-400 font-medium">Mediana</th>
+                        <th className="text-right py-2 text-gray-400 font-medium">Min</th>
+                        <th className="text-right py-2 text-gray-400 font-medium">Max</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {result.trend.points.map((pt) => (
+                        <tr key={pt.month} className="border-b border-[#2d2f33]/50 hover:bg-[#2d2f33]">
+                          <td className="py-2 text-white">{pt.month}</td>
+                          <td className="py-2 text-right text-gray-300">{pt.count}</td>
+                          <td className="py-2 text-right text-white font-medium">{formatBRL(pt.median)}</td>
+                          <td className="py-2 text-right text-gray-300">{formatCompact(pt.min)}</td>
+                          <td className="py-2 text-right text-gray-300">{formatCompact(pt.max)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Statistics card */}
+          <Card className="bg-[#23262a] border-[#2d2f33]">
+            <CardHeader>
+              <CardTitle className="text-white text-base">Estatisticas</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {([
+                  ['Media', result.statistics.mean],
+                  ['Mediana', result.statistics.median],
+                  ['Menor', result.statistics.min],
+                  ['Maior', result.statistics.max],
+                  ['CV%', null],
+                  ['Desvio Padrao', result.statistics.std_deviation],
+                  ['P25', result.statistics.percentile_25],
+                  ['P75', result.statistics.percentile_75],
+                ] as [string, number | null][]).map(([label, value]) => (
+                  <div key={label} className="bg-[#1a1c1f] rounded-lg p-3">
+                    <p className="text-xs text-gray-400">{label}</p>
+                    <p className="text-sm font-medium text-white mt-1">
+                      {label === 'CV%'
+                        ? `${result.statistics.cv_percent.toFixed(1)}%`
+                        : value != null ? formatBRL(value) : '-'}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Records table */}
+          <Card className="bg-[#23262a] border-[#2d2f33]">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-white text-base">Registros</CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExport}
+                disabled={exporting}
+                className="border-[#2d2f33] text-gray-300 hover:bg-[#2d2f33] hover:text-white"
+              >
+                {exporting ? 'Exportando...' : 'Exportar CSV'}
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-[#2d2f33]">
+                      <th className="text-left py-2 text-gray-400 font-medium">Data</th>
+                      <th className="text-left py-2 text-gray-400 font-medium">Orgao</th>
+                      <th className="text-left py-2 text-gray-400 font-medium">UF</th>
+                      <th className="text-left py-2 text-gray-400 font-medium max-w-[200px]">Objeto</th>
+                      <th className="text-right py-2 text-gray-400 font-medium">Valor</th>
+                      <th className="text-left py-2 text-gray-400 font-medium">Fornecedor</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result.records.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-8 text-center text-gray-400">
+                          Nenhum registro encontrado para esta busca.
+                        </td>
+                      </tr>
+                    ) : (
+                      result.records.map((record) => (
+                        <tr key={record.id} className="border-b border-[#2d2f33]/50 hover:bg-[#2d2f33]">
+                          <td className="py-2 text-gray-300 whitespace-nowrap">
+                            {formatDateShort(record.date_homologation)}
+                          </td>
+                          <td className="py-2 text-white max-w-[150px] truncate" title={record.orgao_nome}>
+                            {record.orgao_nome}
+                          </td>
+                          <td className="py-2 text-gray-300">{record.orgao_uf}</td>
+                          <td className="py-2 text-gray-300 max-w-[200px] truncate" title={record.item_description}>
+                            {record.item_description}
+                          </td>
+                          <td className="py-2 text-right text-emerald-400 font-medium whitespace-nowrap">
+                            {formatBRL(record.unit_price)}
+                          </td>
+                          <td className="py-2 text-gray-300 max-w-[150px] truncate" title={record.supplier_name}>
+                            {record.supplier_name}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4 pt-4 border-t border-[#2d2f33]">
+                  <p className="text-xs text-gray-400">
+                    Pagina {currentPage} de {totalPages} ({result.total_count.toLocaleString('pt-BR')} resultados)
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={currentPage <= 1 || loading}
+                      onClick={() => doSearch(currentPage - 1)}
+                      className="border-[#2d2f33] text-gray-300 hover:bg-[#2d2f33] hover:text-white disabled:opacity-50"
+                    >
+                      Anterior
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={currentPage >= totalPages || loading}
+                      onClick={() => doSearch(currentPage + 1)}
+                      className="border-[#2d2f33] text-gray-300 hover:bg-[#2d2f33] hover:text-white disabled:opacity-50"
+                    >
+                      Proxima
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Breakdowns */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* By UF */}
+            <Card className="bg-[#23262a] border-[#2d2f33]">
+              <CardHeader>
+                <CardTitle className="text-white text-sm">Por UF</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {result.statistics.by_uf.length === 0 ? (
+                  <p className="text-xs text-gray-400">Sem dados</p>
+                ) : (
+                  <div className="space-y-2">
+                    {result.statistics.by_uf
+                      .sort((a, b) => b.count - a.count)
+                      .slice(0, 5)
+                      .map((item) => (
+                        <div key={item.key} className="flex items-center justify-between text-sm">
+                          <span className="text-gray-300">{item.key || 'N/I'}</span>
+                          <div className="text-right">
+                            <span className="text-white font-medium">{formatCompact(item.median)}</span>
+                            <span className="text-gray-400 text-xs ml-2">({item.count})</span>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* By Modalidade */}
+            <Card className="bg-[#23262a] border-[#2d2f33]">
+              <CardHeader>
+                <CardTitle className="text-white text-sm">Por Modalidade</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {result.statistics.by_modalidade.length === 0 ? (
+                  <p className="text-xs text-gray-400">Sem dados</p>
+                ) : (
+                  <div className="space-y-2">
+                    {result.statistics.by_modalidade
+                      .sort((a, b) => b.count - a.count)
+                      .slice(0, 5)
+                      .map((item) => (
+                        <div key={item.key} className="flex items-center justify-between text-sm">
+                          <span className="text-gray-300 truncate max-w-[120px]" title={item.key}>{item.key || 'N/I'}</span>
+                          <div className="text-right shrink-0">
+                            <span className="text-white font-medium">{formatCompact(item.median)}</span>
+                            <span className="text-gray-400 text-xs ml-2">({item.count})</span>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* By Porte */}
+            <Card className="bg-[#23262a] border-[#2d2f33]">
+              <CardHeader>
+                <CardTitle className="text-white text-sm">Por Porte do Fornecedor</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {result.statistics.by_porte.length === 0 ? (
+                  <p className="text-xs text-gray-400">Sem dados</p>
+                ) : (
+                  <div className="space-y-2">
+                    {result.statistics.by_porte
+                      .sort((a, b) => b.count - a.count)
+                      .map((item) => (
+                        <div key={item.key} className="flex items-center justify-between text-sm">
+                          <span className="text-gray-300">{item.key || 'N/I'}</span>
+                          <div className="text-right">
+                            <span className="text-white font-medium">{formatCompact(item.median)}</span>
+                            <span className="text-gray-400 text-xs ml-2">({item.count})</span>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* Empty state — no search yet */}
+      {!result && !loading && !error && (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <svg className="w-16 h-16 text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <h3 className="text-lg font-medium text-gray-300 mb-2">Pesquise precos de mercado</h3>
+          <p className="text-sm text-gray-500 max-w-md">
+            Digite o nome do produto ou servico para consultar precos praticados em licitacoes anteriores.
+            Os dados vem de mais de 185 mil editais indexados.
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function formatDateShort(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date
+  if (isNaN(d.getTime())) return '-'
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })
+}

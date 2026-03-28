@@ -33,6 +33,7 @@ const NAV_TOUR_IDS: Record<string, string> = {
   '/pipeline': 'nav-pipeline',
   '/dashboard': 'nav-dashboard',
   '/competitors': 'nav-competitors',
+  '/price-history': 'nav-precos',
   '/bot': 'nav-bot',
   '/documents': 'nav-certidoes',
   '/drive': 'nav-drive',
