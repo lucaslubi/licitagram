@@ -26,13 +26,16 @@ const BATCH_SIZE = 20
 const RUN_INTERVAL_MS = 2 * 60 * 60 * 1000 // 2 hours
 
 // ─── Types ──────────────────────────────────────────────────────────────────
-interface FraudAlert {
+interface FraudAlertRow {
   tender_id: string
   alert_type: string
-  severity: 'low' | 'medium' | 'high' | 'critical'
-  description: string
-  evidence: Record<string, unknown>
-  cnpjs_envolvidos: string[]
+  severity: string
+  cnpj_1: string
+  cnpj_2: string | null
+  empresa_1: string
+  empresa_2: string | null
+  detail: string
+  metadata: Record<string, unknown>
 }
 
 interface Competitor {
@@ -47,12 +50,38 @@ function formatCnpj14(cnpj: string): string {
   return cnpj.replace(/\D/g, '').padStart(14, '0')
 }
 
-async function saveAlert(alert: FraudAlert) {
+/** Normalize pair key so A-B and B-A are the same */
+function pairKey(cnpj1: string, cnpj2: string): string {
+  return [cnpj1, cnpj2].sort().join('|')
+}
+
+async function saveAlert(alert: FraudAlertRow) {
+  // CRITICAL: never save self-comparison
+  if (alert.cnpj_1 && alert.cnpj_2 && formatCnpj14(alert.cnpj_1) === formatCnpj14(alert.cnpj_2)) {
+    logger.warn({ cnpj: alert.cnpj_1, alert_type: alert.alert_type }, 'Skipping self-comparison alert')
+    return
+  }
+
   const { error } = await supabase
     .from('fraud_alerts')
-    .upsert(alert, { onConflict: 'tender_id,alert_type,cnpjs_envolvidos' })
+    .insert({
+      tender_id: alert.tender_id,
+      alert_type: alert.alert_type.toUpperCase(),
+      severity: alert.severity.toUpperCase(),
+      cnpj_1: alert.cnpj_1,
+      cnpj_2: alert.cnpj_2,
+      empresa_1: alert.empresa_1,
+      empresa_2: alert.empresa_2,
+      detail: alert.detail,
+      metadata: alert.metadata,
+    })
 
   if (error) {
+    // Ignore duplicate constraint violations
+    if (error.code === '23505') {
+      logger.debug({ alert_type: alert.alert_type, tender_id: alert.tender_id }, 'Duplicate alert skipped')
+      return
+    }
     logger.error({ error, alert_type: alert.alert_type, tender_id: alert.tender_id }, 'Failed to save fraud alert')
   }
 }
@@ -62,6 +91,9 @@ async function detectSocioEmComum(tenderId: string, competitors: Competitor[]) {
   if (competitors.length < 2) return
 
   const cnpjs = competitors.map(c => formatCnpj14(c.cnpj))
+  // Remove duplicates (same CNPJ appearing multiple times as competitor)
+  const uniqueCnpjs = [...new Set(cnpjs)]
+  if (uniqueCnpjs.length < 2) return
 
   try {
     const result = await pgPool.query(
@@ -69,7 +101,7 @@ async function detectSocioEmComum(tenderId: string, competitors: Competitor[]) {
        FROM socios
        WHERE cnpj = ANY($1)
        ORDER BY cnpj, nome_socio`,
-      [cnpjs],
+      [uniqueCnpjs],
     )
 
     // Group socios by identifier (cpf/name)
@@ -83,23 +115,57 @@ async function detectSocioEmComum(tenderId: string, competitors: Competitor[]) {
       socioMap.get(key)!.cnpjs.add(row.cnpj)
     }
 
-    // Find socios present in 2+ competitors of this tender
+    // Find socios present in 2+ DIFFERENT competitors of this tender
+    // Group shared socios by pair of companies to consolidate
+    const pairAlerts = new Map<string, { cnpj1: string; cnpj2: string; socios: string[] }>()
+
     for (const [_key, { cnpjs: socioCnpjs, nome }] of socioMap) {
-      if (socioCnpjs.size >= 2) {
-        const cnpjsEnvolvidos = Array.from(socioCnpjs)
-        await saveAlert({
-          tender_id: tenderId,
-          alert_type: 'socio_em_comum',
-          severity: 'high',
-          description: `Padrao detectado: socio "${nome}" aparece em ${socioCnpjs.size} empresas concorrentes nesta licitacao.`,
-          evidence: {
-            socio_nome: nome,
-            empresas: cnpjsEnvolvidos,
-            total_empresas: socioCnpjs.size,
-          },
-          cnpjs_envolvidos: cnpjsEnvolvidos,
-        })
+      if (socioCnpjs.size < 2) continue
+
+      const cnpjArr = Array.from(socioCnpjs)
+      // Generate all unique pairs (avoid self-comparison)
+      for (let i = 0; i < cnpjArr.length; i++) {
+        for (let j = i + 1; j < cnpjArr.length; j++) {
+          // CRITICAL: skip if same CNPJ
+          if (cnpjArr[i] === cnpjArr[j]) continue
+
+          const pk = pairKey(cnpjArr[i], cnpjArr[j])
+          if (!pairAlerts.has(pk)) {
+            pairAlerts.set(pk, { cnpj1: cnpjArr[i], cnpj2: cnpjArr[j], socios: [] })
+          }
+          // Add socio name if not already there
+          const entry = pairAlerts.get(pk)!
+          if (!entry.socios.includes(nome)) {
+            entry.socios.push(nome)
+          }
+        }
       }
+    }
+
+    // Save one alert per unique pair
+    for (const [_pk, { cnpj1, cnpj2, socios }] of pairAlerts) {
+      const comp1 = competitors.find(c => formatCnpj14(c.cnpj) === cnpj1)
+      const comp2 = competitors.find(c => formatCnpj14(c.cnpj) === cnpj2)
+
+      const nome1 = comp1?.razao_social || cnpj1
+      const nome2 = comp2?.razao_social || cnpj2
+
+      const maskedSocio = socios[0] // First shared partner for detail text
+      const totalSocios = socios.length
+
+      await saveAlert({
+        tender_id: tenderId,
+        alert_type: 'SOCIO_EM_COMUM',
+        severity: 'HIGH',
+        cnpj_1: cnpj1,
+        cnpj_2: cnpj2,
+        empresa_1: nome1,
+        empresa_2: nome2,
+        detail: `${nome1} e ${nome2} compartilham socio ${maskedSocio}. ${totalSocios} socio(s) em comum.`,
+        metadata: {
+          socios,
+        },
+      })
     }
   } catch (err) {
     logger.error({ err, tenderId }, 'Error in detectSocioEmComum')
@@ -133,19 +199,22 @@ async function detectEmpresaRecente(tenderId: string, competitors: Competitor[],
 
       const aberturaDate = new Date(abertura)
       if (aberturaDate > sixMonthsBefore) {
+        const diasAntes = Math.floor((tenderDateObj.getTime() - aberturaDate.getTime()) / (1000 * 60 * 60 * 24))
+
         await saveAlert({
           tender_id: tenderId,
-          alert_type: 'empresa_recente',
-          severity: 'medium',
-          description: `Padrao detectado: empresa vencedora "${winner.razao_social || winner.cnpj}" foi aberta em ${abertura}, menos de 6 meses antes da licitacao.`,
-          evidence: {
-            cnpj: winner.cnpj,
-            razao_social: winner.razao_social,
-            data_abertura: abertura,
+          alert_type: 'EMPRESA_RECENTE',
+          severity: 'MEDIUM',
+          cnpj_1: cnpj14,
+          cnpj_2: null,
+          empresa_1: winner.razao_social || cnpj14,
+          empresa_2: null,
+          detail: `Empresa vencedora "${winner.razao_social || cnpj14}" foi aberta em ${abertura}, apenas ${diasAntes} dias antes da licitacao.`,
+          metadata: {
+            data_abertura_empresa: abertura,
             data_licitacao: tenderDate,
-            dias_antes: Math.floor((tenderDateObj.getTime() - aberturaDate.getTime()) / (1000 * 60 * 60 * 24)),
+            dias_antes: diasAntes,
           },
-          cnpjs_envolvidos: [winner.cnpj],
         })
       }
     } catch (err) {
@@ -180,17 +249,18 @@ async function detectCapitalIncompativel(tenderId: string, competitors: Competit
       if (capitalSocial < threshold) {
         await saveAlert({
           tender_id: tenderId,
-          alert_type: 'capital_incompativel',
-          severity: 'medium',
-          description: `Padrao detectado: empresa vencedora "${winner.razao_social || winner.cnpj}" tem capital social de R$ ${capitalSocial.toLocaleString('pt-BR')} para contrato de R$ ${valorContrato.toLocaleString('pt-BR')}.`,
-          evidence: {
-            cnpj: winner.cnpj,
-            razao_social: winner.razao_social,
+          alert_type: 'CAPITAL_INCOMPATIVEL',
+          severity: 'MEDIUM',
+          cnpj_1: cnpj14,
+          cnpj_2: null,
+          empresa_1: winner.razao_social || cnpj14,
+          empresa_2: null,
+          detail: `Empresa vencedora "${winner.razao_social || cnpj14}" tem capital social de R$ ${capitalSocial.toLocaleString('pt-BR')} para contrato de R$ ${valorContrato.toLocaleString('pt-BR')} (${((capitalSocial / valorContrato) * 100).toFixed(2)}%).`,
+          metadata: {
             capital_social: capitalSocial,
             valor_contrato: valorContrato,
             percentual: ((capitalSocial / valorContrato) * 100).toFixed(4),
           },
-          cnpjs_envolvidos: [winner.cnpj],
         })
       }
     } catch (err) {
@@ -224,20 +294,21 @@ async function detectSancionada(tenderId: string, competitors: Competitor[]) {
       const comp = competitors.find(c => formatCnpj14(c.cnpj) === cnpj)
       await saveAlert({
         tender_id: tenderId,
-        alert_type: 'sancionada',
-        severity: 'critical',
-        description: `Padrao detectado: empresa "${comp?.razao_social || cnpj}" possui ${sancoes.length} sancao(oes) registrada(s).`,
-        evidence: {
-          cnpj,
-          razao_social: comp?.razao_social,
-          sancoes: sancoes.map(s => ({
+        alert_type: 'EMPRESA_SANCIONADA',
+        severity: 'CRITICAL',
+        cnpj_1: cnpj,
+        cnpj_2: null,
+        empresa_1: comp?.razao_social || cnpj,
+        empresa_2: null,
+        detail: `Empresa "${comp?.razao_social || cnpj}" possui ${sancoes.length} sancao(oes) registrada(s) no CEIS/CNEP e participa desta licitacao.`,
+        metadata: {
+          sancoes: sancoes.map((s: any) => ({
             tipo: s.tipo_sancao,
             orgao: s.orgao_sancionador,
             inicio: s.data_inicio,
             fim: s.data_fim,
           })),
         },
-        cnpjs_envolvidos: [cnpj],
       })
     }
   } catch (err) {
@@ -250,21 +321,23 @@ async function detectMesmoEndereco(tenderId: string, competitors: Competitor[]) 
   if (competitors.length < 2) return
 
   const cnpjs = competitors.map(c => formatCnpj14(c.cnpj))
+  const uniqueCnpjs = [...new Set(cnpjs)]
+  if (uniqueCnpjs.length < 2) return
 
   try {
     const result = await pgPool.query(
       `SELECT cnpj, logradouro, municipio, uf, numero
        FROM empresas
        WHERE cnpj = ANY($1) AND logradouro IS NOT NULL AND municipio IS NOT NULL`,
-      [cnpjs],
+      [uniqueCnpjs],
     )
 
     if (result.rows.length < 2) return
 
-    // Group by address key (logradouro + municipio)
+    // Group by address key (logradouro + municipio + numero)
     const addressMap = new Map<string, { cnpjs: string[]; endereco: string }>()
     for (const row of result.rows) {
-      const key = `${(row.logradouro || '').trim().toUpperCase()}|${(row.municipio || '').trim().toUpperCase()}`
+      const key = `${(row.logradouro || '').trim().toUpperCase()}|${(row.numero || '').trim().toUpperCase()}|${(row.municipio || '').trim().toUpperCase()}`
       if (!addressMap.has(key)) {
         addressMap.set(key, {
           cnpjs: [],
@@ -275,19 +348,32 @@ async function detectMesmoEndereco(tenderId: string, competitors: Competitor[]) 
     }
 
     for (const [_key, { cnpjs: addrCnpjs, endereco }] of addressMap) {
-      if (addrCnpjs.length >= 2) {
-        await saveAlert({
-          tender_id: tenderId,
-          alert_type: 'mesmo_endereco',
-          severity: 'high',
-          description: `Padrao detectado: ${addrCnpjs.length} empresas concorrentes compartilham o endereco "${endereco}".`,
-          evidence: {
-            endereco,
-            empresas: addrCnpjs,
-            total_empresas: addrCnpjs.length,
-          },
-          cnpjs_envolvidos: addrCnpjs,
-        })
+      if (addrCnpjs.length < 2) continue
+
+      // Generate alerts for each unique pair at the same address
+      for (let i = 0; i < addrCnpjs.length; i++) {
+        for (let j = i + 1; j < addrCnpjs.length; j++) {
+          // CRITICAL: skip if same CNPJ
+          if (addrCnpjs[i] === addrCnpjs[j]) continue
+
+          const comp1 = competitors.find(c => formatCnpj14(c.cnpj) === addrCnpjs[i])
+          const comp2 = competitors.find(c => formatCnpj14(c.cnpj) === addrCnpjs[j])
+
+          await saveAlert({
+            tender_id: tenderId,
+            alert_type: 'MESMO_ENDERECO',
+            severity: 'HIGH',
+            cnpj_1: addrCnpjs[i],
+            cnpj_2: addrCnpjs[j],
+            empresa_1: comp1?.razao_social || addrCnpjs[i],
+            empresa_2: comp2?.razao_social || addrCnpjs[j],
+            detail: `${comp1?.razao_social || addrCnpjs[i]} e ${comp2?.razao_social || addrCnpjs[j]} concorrem na mesma licitacao e estao registradas no mesmo endereco: ${endereco}.`,
+            metadata: {
+              endereco,
+              total_empresas_no_endereco: addrCnpjs.length,
+            },
+          })
+        }
       }
     }
   } catch (err) {
