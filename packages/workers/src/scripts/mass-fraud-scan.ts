@@ -385,7 +385,7 @@ async function main() {
   while (true) {
     const { data, error } = await supabase
       .from('competitors')
-      .select('tender_id, cnpj, razao_social, is_winner')
+      .select('tender_id, cnpj, nome, vencedor')
       .order('tender_id')
       .range(offset, offset + 4999)
 
@@ -396,7 +396,7 @@ async function main() {
       if (!row.tender_id || !row.cnpj) continue
       if (!tenderCompMap.has(row.tender_id)) tenderCompMap.set(row.tender_id, [])
       tenderCompMap.get(row.tender_id)!.push({
-        cnpj: row.cnpj, razao_social: row.razao_social || '', is_winner: row.is_winner,
+        cnpj: row.cnpj, razao_social: row.nome || '', is_winner: row.vencedor,
       })
     }
 
