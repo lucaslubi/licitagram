@@ -87,6 +87,10 @@ function fmt14(cnpj: string): string {
   return cnpj.replace(/\D/g, '').padStart(14, '0')
 }
 
+function base8(cnpj: string): string {
+  return cnpj.replace(/\D/g, '').substring(0, 8)
+}
+
 function pairKey(c1: string, c2: string): string {
   return [c1, c2].sort().join('|')
 }
@@ -139,6 +143,10 @@ async function detectSocioEmComum(
   const cnpjs = [...new Set(competitors.map(c => fmt14(c.cnpj)))]
   if (cnpjs.length < 2) return
 
+  // Build base8 -> cnpj14 mapping
+  const base8ToCnpj = new Map<string, string>()
+  for (const c of cnpjs) base8ToCnpj.set(base8(c), c)
+
   let socioData: Record<string, Array<{ nome_socio: string; cnpj_cpf_socio: string }>>
   try {
     const resp = await httpPost(`${DATA_API}/api/batch/socios`, { cnpjs })
@@ -146,13 +154,15 @@ async function detectSocioEmComum(
   } catch { return }
 
   // Group socios by identifier to find shared ones
+  // API returns cnpj_basico (8 digits) as keys
   const socioMap = new Map<string, { cnpjs: Set<string>; nome: string }>()
-  for (const [cnpj, socios] of Object.entries(socioData)) {
+  for (const [baseKey, socios] of Object.entries(socioData)) {
+    const cnpj14 = base8ToCnpj.get(baseKey) || baseKey
     for (const s of socios) {
       const key = s.cnpj_cpf_socio || s.nome_socio
       if (!key) continue
       if (!socioMap.has(key)) socioMap.set(key, { cnpjs: new Set(), nome: s.nome_socio })
-      socioMap.get(key)!.cnpjs.add(cnpj)
+      socioMap.get(key)!.cnpjs.add(cnpj14)
     }
   }
 
@@ -192,20 +202,25 @@ async function detectMesmoEndereco(
   const cnpjs = [...new Set(competitors.map(c => fmt14(c.cnpj)))]
   if (cnpjs.length < 2) return
 
+  const b8map = new Map<string, string>()
+  for (const c of cnpjs) b8map.set(base8(c), c)
+
   let empresaData: Record<string, any>
   try {
     const resp = await httpPost(`${DATA_API}/api/batch/empresas`, { cnpjs })
     empresaData = resp?.results || {}
   } catch { return }
 
+  // Note: empresas API may not return logradouro - check fields available
   const addrMap = new Map<string, { cnpjs: string[]; endereco: string }>()
-  for (const [cnpj, emp] of Object.entries(empresaData) as Array<[string, any]>) {
+  for (const [baseKey, emp] of Object.entries(empresaData) as Array<[string, any]>) {
+    const cnpj14 = b8map.get(baseKey) || baseKey
     if (!emp.logradouro || !emp.municipio) continue
     const key = `${(emp.logradouro || '').trim().toUpperCase()}|${(emp.numero || '').trim()}|${(emp.municipio || '').trim().toUpperCase()}`
     if (!addrMap.has(key)) {
       addrMap.set(key, { cnpjs: [], endereco: `${emp.logradouro}${emp.numero ? ', ' + emp.numero : ''} - ${emp.municipio}/${emp.uf}` })
     }
-    addrMap.get(key)!.cnpjs.push(cnpj)
+    addrMap.get(key)!.cnpjs.push(cnpj14)
   }
 
   for (const [, { cnpjs: ac, endereco }] of addrMap) {
@@ -240,6 +255,9 @@ async function detectEmpresaRecente(
   const sixBefore = new Date(tD); sixBefore.setMonth(sixBefore.getMonth() - 6)
 
   const cnpjs = winners.map(w => fmt14(w.cnpj))
+  const b8map = new Map<string, string>()
+  for (const c of cnpjs) b8map.set(base8(c), c)
+
   let empresaData: Record<string, any>
   try {
     const resp = await httpPost(`${DATA_API}/api/batch/empresas`, { cnpjs })
@@ -248,7 +266,7 @@ async function detectEmpresaRecente(
 
   for (const w of winners) {
     const cnpj = fmt14(w.cnpj)
-    const emp = empresaData[cnpj]
+    const emp = empresaData[base8(cnpj)]
     if (!emp?.data_inicio_atividade) continue
     const abDate = new Date(emp.data_inicio_atividade)
     if (abDate > sixBefore) {
@@ -284,7 +302,7 @@ async function detectCapitalIncompativel(
   const threshold = valorContrato * 0.01
   for (const w of winners) {
     const cnpj = fmt14(w.cnpj)
-    const emp = empresaData[cnpj]
+    const emp = empresaData[base8(cnpj)]
     if (!emp?.capital_social) continue
     const cap = Number(String(emp.capital_social).replace(',', '.'))
     if (!cap || cap <= 0 || cap >= threshold) continue
@@ -310,12 +328,14 @@ async function detectSancionada(
     sancoesData = resp?.results || {}
   } catch { return }
 
-  for (const [cnpj, sancoes] of Object.entries(sancoesData)) {
+  for (const [sanCnpj, sancoes] of Object.entries(sancoesData)) {
     if (!sancoes || sancoes.length === 0) continue
-    const comp = competitors.find(c => fmt14(c.cnpj) === cnpj)
+    // Match back to competitor (sancoes key might be full CNPJ)
+    const comp = competitors.find(c => fmt14(c.cnpj) === sanCnpj || fmt14(c.cnpj).startsWith(sanCnpj))
+    const cnpj = comp ? fmt14(comp.cnpj) : sanCnpj
     await saveAlert({
       tender_id: tenderId, alert_type: 'EMPRESA_SANCIONADA', severity: 'CRITICAL',
-      cnpj_1: cnpj, cnpj_2: null,
+      cnpj_1: cnpj || sanCnpj, cnpj_2: null,
       empresa_1: comp?.razao_social || cnpj, empresa_2: null,
       detail: `Empresa "${comp?.razao_social || cnpj}" possui ${sancoes.length} sancao(oes) registrada(s) no CEIS/CNEP.`,
       metadata: { sancoes: sancoes.map((s: any) => ({ tipo: s.tipo_sancao, orgao: s.orgao_sancionador, inicio: s.data_inicio, fim: s.data_fim })) },
