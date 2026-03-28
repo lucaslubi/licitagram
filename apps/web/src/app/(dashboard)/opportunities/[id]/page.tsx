@@ -13,6 +13,8 @@ import { AnalyzeWithAIButton } from './document-link'
 import { getAuthAndProfile, getMatchDetail } from '@/lib/cache'
 import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
 import { createClient } from '@/lib/supabase/server'
+import { RiskAnalysisCard } from '@/components/fraud/RiskAnalysisCard'
+import { FraudAlertBadges } from '@/components/fraud/FraudAlertBadges'
 
 export default async function OpportunityDetailPage({
   params,
@@ -277,9 +279,12 @@ export default async function OpportunityDetailPage({
                 <div className="space-y-1">
                   <div className="text-xs text-gray-400 font-medium">Principais concorrentes:</div>
                   {nicheCompetitors.slice(0, 5).map((c, i) => (
-                    <div key={i} className="flex items-center justify-between text-xs py-1 border-b last:border-0">
-                      <span className="font-medium">{(c.razao_social as string) || 'N/I'}</span>
-                      <span className="text-gray-400">
+                    <div key={i} className="flex items-center justify-between text-xs py-1.5 border-b border-[#2d2f33] last:border-0">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-medium">{(c.razao_social as string) || 'N/I'}</span>
+                        <FraudAlertBadges tenderId={tender?.id as string || id} cnpj={(c.cnpj as string) || ''} />
+                      </div>
+                      <span className="text-gray-400 shrink-0 ml-2">
                         Win rate {Math.round(Number(c.win_rate || 0) * 100)}% · {(c.porte as string) || 'N/I'}
                       </span>
                     </div>
@@ -295,6 +300,9 @@ export default async function OpportunityDetailPage({
               )}
             </CardContent>
           </Card>
+
+          {/* Risk Analysis (fraud detection) */}
+          <RiskAnalysisCard tenderId={tender?.id as string || id} hasAccess={isEnterprise} />
 
           {/* Requirements */}
           {requisitos && (requisitos as Record<string, any>).requisitos && (
