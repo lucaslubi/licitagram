@@ -951,8 +951,8 @@ export default async function LandingPage() {
               {[
                 { name: 'PNCP', badge: 'Federal' },
                 { name: 'Compras.gov', badge: 'Federal' },
-                { name: 'BEC SP', badge: 'Estadual' },
-                { name: 'Portal MG', badge: 'Estadual' },
+                { name: '+ 160 Portais', badge: 'Estaduais e Municipais' },
+                { name: 'Diários Oficiais', badge: 'Todas as Esferas' },
               ].map((portal, i) => (
                 <ScrollReveal key={portal.name} delay={i * 100}>
                   <div className="p-4 sm:p-6 rounded-2xl border border-white/[0.08] bg-white/[0.04] hover:border-[#F43E01]/30 hover:bg-white/[0.06] transition-all duration-300 hover:-translate-y-1">
