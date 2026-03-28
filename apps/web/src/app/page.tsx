@@ -30,49 +30,70 @@ function getWhatsAppUrl(phone: string, message: string) {
 
 const PLANS = [
   {
-    name: 'Monitoramento',
-    price: 'R$ 197',
+    name: 'Essencial',
+    price: 'R$ 297',
     period: '/mês',
+    badge: null,
     features: [
-      'Monitoramento contínuo de todos os portais',
-      'Motor de compatibilidade com score por edital',
-      'Alertas em tempo real via Telegram',
-      'Pipeline e gestão de oportunidades',
-      'Verificação básica de certidões',
+      '+200.000 licitações monitoradas/mês',
+      'AI Matching com score 0-100 (até 50 matches/mês)',
+      'Mapa de Inteligência geográfico',
+      'Filtros avançados',
+      'Busca no texto do edital',
+      'Pipeline Kanban completo',
+      'Dashboard com métricas e tendências',
+      'Gestão de Certidões + alertas de vencimento',
+      'Verificação automática de sanções',
+      'Alertas WhatsApp e Telegram (10/dia)',
+      'Preços de Mercado (5 buscas/dia)',
       '1 usuário',
+      'Suporte por email',
     ],
     cta: 'Começar Grátis',
     highlighted: false,
   },
   {
-    name: 'Inteligência',
-    price: 'R$ 497',
+    name: 'Profissional',
+    price: 'R$ 697',
     period: '/mês',
+    badge: 'Mais popular',
     features: [
-      'Tudo do Monitoramento, sem limites',
-      'Mapa de Inteligência com oportunidades super quentes',
-      'Dossiê pré-pregão com histórico de concorrentes',
-      'Consultor de IA em cada licitação',
-      'Exportação em PDF de todas as análises',
-      'Drive Licitagram ilimitado',
-      'Certidões automáticas em todos os portais',
-      'Alertas WhatsApp + Telegram',
+      'Tudo do Essencial +',
+      'AI Matching ilimitado',
+      'Alertas ilimitados',
+      'Gerador de Propostas Comerciais (Lei 14.133)',
+      'Pesquisa de Preços IN 65/2021',
+      'Preços de Mercado ilimitados + tendência',
+      '"Pergunte ao Edital" — chat IA',
+      'Análise de edital por IA',
+      'Compliance Checker',
+      'Inteligência Competitiva (5 módulos)',
+      'Ranking de Concorrentes por IA',
+      'Janelas de Oportunidade',
+      'Drive institucional',
+      'Auto-fill CNPJ',
+      'Export Excel e CSV',
       'Até 5 usuários',
+      'Suporte prioritário',
     ],
-    cta: 'Teste Grátis 14 dias',
+    cta: 'Teste 7 dias grátis',
     highlighted: true,
   },
   {
-    name: 'Dominância',
-    price: 'R$ 997',
+    name: 'Enterprise',
+    price: 'R$ 1.497',
     period: '/mês',
+    badge: 'Completo',
     features: [
-      'Tudo do Inteligência',
-      'Sala de Operações com agente autônomo de disputa',
-      'Detecção de vínculos societários e risco de cartel',
-      'Relatório técnico para impugnação',
-      'Multi-CNPJ ilimitado',
-      'API de integração B2B',
+      'Tudo do Profissional +',
+      'Robô de Lances com IA estratégica',
+      'Pré-Disputa',
+      'Sugestão de lance por IA',
+      'Detecção de Anomalias (5 tipos)',
+      'Grafo Societário (60M+ CNPJs)',
+      'Relatório de Inteligência Setorial',
+      'Multi-CNPJ',
+      'API de integração',
       'Usuários ilimitados',
       'Suporte dedicado',
     ],
@@ -104,44 +125,36 @@ const TESTIMONIALS = [
 
 const FAQ = [
   {
-    q: 'Quanto tempo leva para começar a receber oportunidades?',
-    a: 'Após cadastrar sua empresa e informar seu CNPJ, a IA começa a analisar licitações imediatamente. Você recebe os primeiros matches em minutos.',
+    q: 'Por que o Licitagram custa mais que outras plataformas?',
+    a: 'Porque o Licitagram não é uma ferramenta de busca — é uma infraestrutura de inteligência. Oferecemos AI Matching com score de probabilidade, Mapa de Inteligência geográfico, Grafo Societário com 60M+ CNPJs, Robô de Lances com IA estratégica, detecção de anomalias e muito mais. Nenhum concorrente entrega esse nível de profundidade.',
   },
   {
-    q: 'Quais portais de licitações são monitorados?',
-    a: 'Monitoramos o PNCP (federal), Compras.gov.br (federal), BEC SP (estadual) e Portal de Compras MG (estadual), com novos portais sendo adicionados constantemente.',
+    q: 'O que acontece nos 7 dias grátis?',
+    a: 'Você tem acesso completo ao plano escolhido por 7 dias, sem precisar de cartão de crédito. Se não fizer sentido para a sua operação, basta não continuar. Sem burocracia, sem multa.',
   },
   {
-    q: 'Como funciona o score de compatibilidade?',
-    a: 'Nossa IA analisa os CNAEs da empresa, area de atuação, certificações e capacidades técnicas, e cruza com os requisitos e objeto de cada licitação, gerando um score de 0 a 100.',
+    q: 'Preciso de treinamento?',
+    a: 'Não. O Licitagram foi projetado para ser intuitivo. Basta informar seu CNPJ e a plataforma configura tudo automaticamente. No plano Enterprise, oferecemos onboarding dedicado se necessário.',
   },
   {
-    q: 'Posso cancelar a assinatura a qualquer momento?',
-    a: 'Sim, todos os planos podem ser cancelados a qualquer momento sem multa. Você mantém acesso até o fim do período pago.',
+    q: 'E se eu já uso outra plataforma?',
+    a: 'Muitos clientes migram de outras ferramentas para o Licitagram. Você pode testar em paralelo durante os 7 dias grátis e comparar os resultados. A diferença na qualidade dos matches e na profundidade da inteligência fica evidente logo nos primeiros dias.',
   },
   {
-    q: 'Os alertas do Telegram são em tempo real?',
-    a: 'Sim. Assim que uma nova licitação compativel e identificada pela IA, um alerta e enviado ao seu Telegram com score, resumo e link direto.',
-  },
-  {
-    q: 'Preciso de conhecimento técnico para usar?',
-    a: 'Não. O Licitagram foi feito para ser simples. Basta informar seu CNPJ e a plataforma faz o resto automaticamente.',
+    q: 'Como funciona o pagamento?',
+    a: 'Aceitamos cartão de crédito com cobrança mensal recorrente via Stripe. Você pode cancelar a qualquer momento, sem multa, e mantém acesso até o fim do período pago. Para o plano Enterprise, também oferecemos faturamento por boleto.',
   },
 ]
 
-const COMPARISON_ROWS: [string, string | boolean, string | boolean, string | boolean][] = [
-  ['Mapeamento de R$ 1,5 tri', 'Exclusivo', false, false],
-  ['Mapa de calor georreferenciado', 'Exclusivo', false, false],
-  ['Score de probabilidade por empresa', 'Exclusivo', false, false],
-  ['Motor de correlação 64M entidades', 'Exclusivo', false, false],
-  ['Detecção de cartel', 'Exclusivo', false, false],
-  ['Alertas WhatsApp em tempo real', 'Exclusivo', 'Parcial', false],
-  ['Alertas Telegram em tempo real', 'Exclusivo', false, false],
-  ['Agente autônomo de disputa', true, 'Parcial', false],
-  ['Consultor IA com PDF', 'Exclusivo', false, false],
-  ['Certidões automáticas', 'Exclusivo', false, false],
-  ['Drive institucional', true, false, false],
-  ['Monitoramento multi-portal', true, true, false],
+const COMPARISON_BEFORE_AFTER: { before: string; after: string }[] = [
+  { before: 'Buscar licitações manualmente em vários portais', after: '+200.000 licitações monitoradas automaticamente por IA' },
+  { before: 'Ler editais inteiros para saber se vale a pena', after: 'AI Matching com score 0-100 de probabilidade' },
+  { before: 'Pesquisar preços em planilhas e sistemas públicos', after: 'Preços de Mercado em tempo real com tendências' },
+  { before: 'Montar propostas do zero a cada licitação', after: 'Gerador de Propostas Comerciais automático (Lei 14.133)' },
+  { before: 'Não saber quem são os concorrentes', after: 'Inteligência Competitiva com ranking e histórico' },
+  { before: 'Perder prazos de certidões e documentos', after: 'Gestão de Certidões com alertas automáticos de vencimento' },
+  { before: 'Dar lances no escuro durante pregões', after: 'Robô de Lances com IA estratégica e Pré-Disputa' },
+  { before: 'Não detectar fraudes ou cartéis', after: 'Detecção de Anomalias + Grafo Societário com 60M+ CNPJs' },
 ]
 
 
@@ -283,7 +296,7 @@ export default async function LandingPage() {
             <ScrollReveal delay={0}>
               <div>
                 <p className="font-mono text-3xl sm:text-4xl font-bold text-[#1A1C1F] tracking-tight">
-                  R$1,5tri
+                  R$7bi+
                 </p>
                 <p className="text-sm text-[#69695D] mt-2">Em oportunidades mapeadas</p>
               </div>
@@ -291,25 +304,25 @@ export default async function LandingPage() {
             <ScrollReveal delay={100}>
               <div>
                 <p className="font-mono text-3xl sm:text-4xl font-bold text-[#1A1C1F] tracking-tight">
-                  <CountUp end={1} suffix="M+" duration={2000} />
+                  <CountUp end={200} suffix="K+" duration={2000} />
                 </p>
-                <p className="text-sm text-[#69695D] mt-2">Editais monitorados</p>
+                <p className="text-sm text-[#69695D] mt-2">Licitações monitoradas/mês</p>
               </div>
             </ScrollReveal>
             <ScrollReveal delay={200}>
               <div>
                 <p className="font-mono text-3xl sm:text-4xl font-bold text-[#F43E01] tracking-tight">
-                  <CountUp end={64} suffix="M" duration={2000} />
+                  <CountUp end={60} suffix="M+" duration={2000} />
                 </p>
-                <p className="text-sm text-[#69695D] mt-2">Entidades cruzadas</p>
+                <p className="text-sm text-[#69695D] mt-2">CNPJs cruzados</p>
               </div>
             </ScrollReveal>
             <ScrollReveal delay={300}>
               <div>
                 <p className="font-mono text-3xl sm:text-4xl font-bold text-[#1A1C1F] tracking-tight">
-                  R$<CountUp end={1} suffix="" duration={2000} />tri
+                  <CountUp end={26} suffix="" duration={2000} /> UFs
                 </p>
-                <p className="text-sm text-[#69695D] mt-2">Novas contratações/ano</p>
+                <p className="text-sm text-[#69695D] mt-2">Cobertura nacional</p>
               </div>
             </ScrollReveal>
           </div>
@@ -960,17 +973,17 @@ export default async function LandingPage() {
         </section>
       </ClipRevealSection>}
 
-      {/* ── Comparison Table ── */}
+      {/* ── Por que o Licitagram — Comparison Table ── */}
       <ClipRevealSection className="bg-[#1A1C1F]">
         <section className="py-20 sm:py-28">
-          <div className="max-w-4xl mx-auto px-4">
+          <div className="max-w-5xl mx-auto px-4">
             <div className="text-center mb-16">
               <ScrollReveal>
-                <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">Comparativo</p>
+                <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">Por que o Licitagram</p>
               </ScrollReveal>
               <ScrollReveal delay={100}>
                 <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight text-balance">
-                  Licitagram vs. Outros vs. Manual
+                  Como era vs. Como é com o Licitagram
                 </h2>
               </ScrollReveal>
             </div>
@@ -979,46 +992,26 @@ export default async function LandingPage() {
                 <table className="w-full border-collapse">
                   <thead>
                     <tr className="border-b border-white/[0.08] bg-white/[0.04]">
-                      <th className="text-sm font-mono font-semibold text-[#E5E5E0] text-left py-4 px-6">Funcionalidade</th>
-                      <th className="text-sm font-mono font-semibold text-[#F43E01] text-center py-4 px-4">Licitagram</th>
-                      <th className="text-sm font-mono font-semibold text-[#8B8B8B] text-center py-4 px-4">Outros</th>
-                      <th className="text-sm font-mono font-semibold text-[#8B8B8B] text-center py-4 px-4">Manual</th>
+                      <th className="text-sm font-mono font-semibold text-red-400/80 text-left py-4 px-6">Como era</th>
+                      <th className="text-sm font-mono font-semibold text-[#F43E01] text-left py-4 px-6">Com o Licitagram</th>
                     </tr>
                   </thead>
                   <tbody className="text-sm">
-                    {COMPARISON_ROWS.map(([feature, licitagram, outros, manual]) => (
-                      <tr key={feature as string} className="border-b border-white/[0.04]">
-                        <td className="py-3.5 px-6 text-[#E5E5E0]">{feature as string}</td>
-                        <td className="py-3.5 px-4 text-center">
-                          {licitagram === 'Exclusivo' ? (
-                            <span className="inline-flex font-mono text-[10px] px-2.5 py-1 rounded-full bg-[#F43E01]/10 text-[#F43E01] font-semibold uppercase tracking-wider">Exclusivo</span>
-                          ) : licitagram === true ? (
-                            <svg className="w-5 h-5 text-green-500 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                          ) : (
-                            <span className="text-red-500/50 font-mono text-xs">&times;</span>
-                          )}
+                    {COMPARISON_BEFORE_AFTER.map((row) => (
+                      <tr key={row.before} className="border-b border-white/[0.04]">
+                        <td className="py-3.5 px-6 text-[#8B8B8B]">
+                          <span className="flex items-start gap-2">
+                            <span className="text-red-500/50 shrink-0 mt-0.5">&times;</span>
+                            {row.before}
+                          </span>
                         </td>
-                        <td className="py-3.5 px-4 text-center">
-                          {outros === 'Parcial' ? (
-                            <span className="text-[#8B8B8B] font-mono text-[10px] uppercase tracking-wider">Parcial</span>
-                          ) : outros === true ? (
-                            <svg className="w-5 h-5 text-green-500/60 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <td className="py-3.5 px-6 text-[#E5E5E0]">
+                          <span className="flex items-start gap-2">
+                            <svg className="w-4 h-4 text-[#F43E01] shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                             </svg>
-                          ) : (
-                            <span className="text-red-500/50 font-mono text-xs">&times;</span>
-                          )}
-                        </td>
-                        <td className="py-3.5 px-4 text-center">
-                          {manual === true ? (
-                            <svg className="w-5 h-5 text-green-500/60 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                          ) : (
-                            <span className="text-red-500/50 font-mono text-xs">&times;</span>
-                          )}
+                            {row.after}
+                          </span>
                         </td>
                       </tr>
                     ))}
@@ -1093,15 +1086,22 @@ export default async function LandingPage() {
               <>
                 <div className="text-center mb-16">
                   <ScrollReveal>
-                    <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">Escolha sua posição</p>
+                    <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">Planos e preços</p>
                   </ScrollReveal>
                   <ScrollReveal delay={100}>
                     <h2 className="text-3xl sm:text-4xl font-bold text-[#1A1C1F] tracking-tight text-balance mb-4">
-                      Inteligência que escala com o seu nível de ambição.
+                      A inteligência por trás de R$2 trilhões em compras públicas
                     </h2>
                   </ScrollReveal>
                   <ScrollReveal delay={200}>
-                    <p className="text-lg text-[#69695D]">14 dias gratuitos em qualquer plano. Sem compromisso.</p>
+                    <p className="text-base text-[#69695D] max-w-3xl mx-auto leading-relaxed">
+                      +200.000 licitações monitoradas por mês por inteligência artificial. Propostas automáticas. Preços de mercado em tempo real. Detecção de anomalias. Tudo em um só lugar.
+                    </p>
+                  </ScrollReveal>
+                  <ScrollReveal delay={250}>
+                    <div className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#F43E01]/5 border border-[#F43E01]/20">
+                      <span className="text-sm text-[#F43E01] font-medium">Teste 7 dias grátis — cancele quando quiser</span>
+                    </div>
                   </ScrollReveal>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1114,9 +1114,13 @@ export default async function LandingPage() {
                             : 'border-[#E5E5E0]/50 shadow-sm hover:shadow-md hover:border-[#F43E01]/20'
                         }`}
                       >
-                        {plan.highlighted && (
-                          <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-[#F43E01] text-white font-mono text-[10px] font-semibold px-4 py-1 rounded-full uppercase tracking-wider">
-                            Mais Popular
+                        {plan.badge && (
+                          <span className={`absolute -top-3.5 left-1/2 -translate-x-1/2 font-mono text-[10px] font-semibold px-4 py-1 rounded-full uppercase tracking-wider whitespace-nowrap ${
+                            plan.highlighted
+                              ? 'bg-[#F43E01] text-white'
+                              : 'bg-[#1A1C1F] text-white border border-white/10'
+                          }`}>
+                            {plan.badge}
                           </span>
                         )}
                         <h3 className="text-lg font-bold text-[#1A1C1F]">{plan.name}</h3>
@@ -1301,7 +1305,7 @@ export default async function LandingPage() {
               rel={isImplementation ? 'noopener noreferrer' : undefined}
               className="inline-flex items-center justify-center px-8 py-4 bg-white text-[#F43E01] rounded-full text-sm font-semibold hover:bg-white/90 transition-all duration-200 shadow-lg"
             >
-              {isImplementation ? 'Falar com Consultor' : 'Começar Agora — Grátis por 14 dias'}
+              {isImplementation ? 'Falar com Consultor' : 'Começar Agora — 7 dias grátis'}
               <svg className="ml-2 w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>

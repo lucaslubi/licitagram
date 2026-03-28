@@ -115,7 +115,7 @@ export function AiAnalysis({ matchId, initialData, matchSource, hasAccess = true
                 Análise detalhada de compatibilidade da sua empresa com este edital.
               </p>
               <p className="text-xs text-gray-400 mt-2">
-                Disponível nos planos Professional e Enterprise
+                Disponível nos planos Profissional e Enterprise
               </p>
             </div>
             <a

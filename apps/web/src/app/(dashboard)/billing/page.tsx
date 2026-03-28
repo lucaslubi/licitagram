@@ -14,8 +14,81 @@ function formatBRL(cents: number): string {
   }).format(cents / 100)
 }
 
+/** Static feature lists per plan tier for display */
+const PLAN_FEATURES: Record<string, string[]> = {
+  essencial: [
+    '+200.000 licitações monitoradas/mês',
+    'AI Matching com score 0-100 (até 50 matches/mês)',
+    'Mapa de Inteligência geográfico',
+    'Filtros avançados',
+    'Busca no texto do edital',
+    'Pipeline Kanban completo',
+    'Dashboard com métricas e tendências',
+    'Gestão de Certidões + alertas de vencimento',
+    'Verificação automática de sanções',
+    'Alertas WhatsApp e Telegram (10/dia)',
+    'Preços de Mercado (5 buscas/dia)',
+    '1 usuário',
+    'Suporte por email',
+  ],
+  profissional: [
+    'Tudo do Essencial +',
+    'AI Matching ilimitado',
+    'Alertas ilimitados',
+    'Gerador de Propostas Comerciais (Lei 14.133)',
+    'Pesquisa de Preços IN 65/2021',
+    'Preços de Mercado ilimitados + tendência',
+    '"Pergunte ao Edital" — chat IA',
+    'Análise de edital por IA',
+    'Compliance Checker',
+    'Inteligência Competitiva (5 módulos)',
+    'Ranking de Concorrentes por IA',
+    'Janelas de Oportunidade',
+    'Drive institucional',
+    'Auto-fill CNPJ',
+    'Export Excel e CSV',
+    'Até 5 usuários',
+    'Suporte prioritário',
+  ],
+  enterprise: [
+    'Tudo do Profissional +',
+    'Robô de Lances com IA estratégica',
+    'Pré-Disputa',
+    'Sugestão de lance por IA',
+    'Detecção de Anomalias (5 tipos)',
+    'Grafo Societário (60M+ CNPJs)',
+    'Relatório de Inteligência Setorial',
+    'Multi-CNPJ',
+    'API de integração',
+    'Usuários ilimitados',
+    'Suporte dedicado',
+  ],
+}
+
+/** Map plan slug to display name */
+const PLAN_DISPLAY_NAMES: Record<string, string> = {
+  starter: 'Essencial',
+  essencial: 'Essencial',
+  professional: 'Profissional',
+  profissional: 'Profissional',
+  enterprise: 'Enterprise',
+}
+
+/** Map plan slug to badge text */
+const PLAN_BADGES: Record<string, string> = {
+  professional: 'Mais popular',
+  profissional: 'Mais popular',
+  enterprise: 'Completo',
+}
+
 /** Map plan features to user-facing feature list */
 function planFeatureList(plan: Plan): string[] {
+  const slug = plan.slug?.toLowerCase() || ''
+
+  // Try static feature list first
+  if (PLAN_FEATURES[slug]) return PLAN_FEATURES[slug]
+
+  // Fallback: dynamic feature list from plan data
   const features: string[] = []
   const f = plan.features as PlanFeatures
 
@@ -41,13 +114,13 @@ function planFeatureList(plan: Plan): string[] {
     }
   }
 
-  if (f.chat_ia) features.push('Chat IA')
-  if (f.compliance_checker) features.push('Compliance checker')
-  if (f.competitive_intel) features.push('Inteligência competitiva')
-  if (f.export_excel) features.push('Export Excel')
+  if (f.chat_ia) features.push('"Pergunte ao Edital" — chat IA')
+  if (f.compliance_checker) features.push('Compliance Checker')
+  if (f.competitive_intel) features.push('Inteligência Competitiva')
+  if (f.export_excel) features.push('Export Excel e CSV')
   if (f.multi_cnpj) features.push('Multi-CNPJ')
   if (f.api_integration) features.push('API de integração')
-  if (f.proposal_generator) features.push('Gerador de propostas IA')
+  if (f.proposal_generator) features.push('Gerador de Propostas Comerciais')
   if (f.priority_support) features.push('Suporte prioritário')
 
   if (plan.max_alerts_per_day === null) {
@@ -57,6 +130,16 @@ function planFeatureList(plan: Plan): string[] {
   }
 
   return features
+}
+
+/** Get display name for a plan */
+function getPlanDisplayName(plan: Plan): string {
+  return PLAN_DISPLAY_NAMES[plan.slug?.toLowerCase() || ''] || plan.name
+}
+
+/** Get badge for a plan */
+function getPlanBadge(plan: Plan): string | null {
+  return PLAN_BADGES[plan.slug?.toLowerCase() || ''] || null
 }
 
 export default async function BillingPage({
@@ -184,12 +267,19 @@ export default async function BillingPage({
         {plans.map((plan) => {
           const isCurrent = currentPlanSlug === plan.slug
           const features = planFeatureList(plan)
+          const displayName = getPlanDisplayName(plan)
+          const badge = getPlanBadge(plan)
 
           return (
-            <Card key={plan.id} className={isCurrent ? 'border-brand border-2' : ''}>
+            <Card key={plan.id} className={`relative ${isCurrent ? 'border-brand border-2' : badge ? 'border-brand/50 border' : ''}`}>
+              {badge && !isCurrent && (
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-brand text-white text-[10px] font-semibold px-3 py-1 rounded-full uppercase tracking-wider whitespace-nowrap">
+                  {badge}
+                </span>
+              )}
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
-                  {plan.name}
+                  {displayName}
                   {isCurrent && <Badge className="bg-brand/10 text-brand border-brand/20" variant="outline">Atual</Badge>}
                 </CardTitle>
                 <p className="text-2xl font-bold">
@@ -209,7 +299,7 @@ export default async function BillingPage({
                     </li>
                   ))}
                 </ul>
-                {!isCurrent && <UpgradeButton planId={plan.id} label={`Assinar ${plan.name}`} />}
+                {!isCurrent && <UpgradeButton planId={plan.id} label={`Assinar ${displayName}`} />}
               </CardContent>
             </Card>
           )

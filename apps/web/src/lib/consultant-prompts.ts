@@ -68,7 +68,7 @@ Análise profunda de editais específicos com IA:
 - Resumo executivo automático
 - Perguntas sobre requisitos, prazos, documentação
 - Identificação de riscos e pontos de atenção
-- Disponível nos planos Professional e Enterprise
+- Disponível nos planos Profissional e Enterprise
 
 ### Pipeline
 Gerencie suas licitações em um kanban visual:
@@ -87,9 +87,9 @@ Gerencie certidões e documentos de habilitação:
 
 ### Planos
 - **Trial**: acesso gratuito por 7 dias com funcionalidades básicas
-- **Starter**: monitoramento básico, alertas por Telegram, até 50 matches/dia
-- **Professional**: tudo do Starter + Chat com Edital, inteligência competitiva, alertas WhatsApp
-- **Enterprise**: tudo do Professional + API, múltiplos usuários, suporte prioritário
+- **Essencial**: +200.000 licitações monitoradas/mês, AI Matching (até 50 matches/mês), Mapa de Inteligência, alertas WhatsApp e Telegram (10/dia), 1 usuário
+- **Profissional**: tudo do Essencial + AI Matching ilimitado, alertas ilimitados, Chat com Edital, Inteligência Competitiva, Gerador de Propostas, até 5 usuários
+- **Enterprise**: tudo do Profissional + Robô de Lances, Grafo Societário, API, usuários ilimitados, suporte dedicado
 
 ## Relatórios PDF
 Quando o usuário solicitar um relatório, análise em PDF, ou documento para baixar, você DEVE:
@@ -221,7 +221,7 @@ export function buildConsultantPrompt(
 
     if (level < 2) {
       parts.push(
-        `O usuário NÃO tem acesso ao Chat com Edital e Inteligência Competitiva. Se perguntar sobre essas funcionalidades, explique o que fazem e sugira upgrade para o plano Professional.`,
+        `O usuário NÃO tem acesso ao Chat com Edital e Inteligência Competitiva. Se perguntar sobre essas funcionalidades, explique o que fazem e sugira upgrade para o plano Profissional.`,
       )
     }
     if (level < 1) {

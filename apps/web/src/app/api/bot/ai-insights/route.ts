@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (!hasFeature(userCtx, 'chat_ia') && !hasFeature(userCtx, 'bidding_bot')) {
-    return NextResponse.json({ error: 'Recurso disponível nos planos Professional e Enterprise' }, { status: 403 })
+    return NextResponse.json({ error: 'Recurso disponível nos planos Profissional e Enterprise' }, { status: 403 })
   }
 
   if (!process.env.GEMINI_API_KEY) {

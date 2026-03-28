@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
   if (!userCtx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   if (!hasFeature(userCtx, 'chat_ia')) {
-    return NextResponse.json({ error: 'Recurso disponivel nos planos Professional e Enterprise' }, { status: 403 })
+    return NextResponse.json({ error: 'Recurso disponível nos planos Profissional e Enterprise' }, { status: 403 })
   }
 
   // Rate limit: 30 batch calls per minute (sequential, 50 matches each)
