@@ -402,6 +402,25 @@ export default async function LandingPage() {
               </ScrollReveal>
             </div>
 
+            {/* Mapa de Inteligência — Video Demo */}
+            <ScrollReveal delay={300}>
+              <div className="mb-16 max-w-4xl mx-auto">
+                <div className="rounded-2xl overflow-hidden border border-[#E5E5E0]/30 shadow-2xl">
+                  <video
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    preload="auto"
+                    className="w-full h-auto"
+                  >
+                    <source src="/mapa-demo.webm" type="video/webm" />
+                  </video>
+                </div>
+                <p className="text-center text-sm text-[#69695D] mt-4">Mapa de Inteligência — Oportunidades geolocalizadas com score de compatibilidade em tempo real</p>
+              </div>
+            </ScrollReveal>
+
             {/* Para quem — 3 cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
               {[
