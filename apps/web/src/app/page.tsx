@@ -462,7 +462,7 @@ export default async function LandingPage() {
               <ScrollReveal delay={100}>
                 <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight text-balance">
                   9 módulos que não existem{' '}
-                  <span className="text-[#8B8B8B]">em nenhum concorrente.</span>
+                  <span className="text-[#8B8B8B]">em nenhum outro lugar.</span>
                 </h2>
               </ScrollReveal>
             </div>
