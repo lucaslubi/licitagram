@@ -36,6 +36,16 @@ const TYPE_CONFIG: Record<string, {
     icon: '\u{1F3E0}',
     defaultSeverity: 'HIGH',
   },
+  entidade_relacionada: {
+    label: 'Entidade Relacionada',
+    icon: '\u{1F50D}',
+    defaultSeverity: 'HIGH',
+  },
+  empresa_sancionada: {
+    label: 'Empresa Sancionada',
+    icon: '\u{26D4}',
+    defaultSeverity: 'CRITICAL',
+  },
 }
 
 // Uppercase aliases for backward compat
@@ -518,6 +528,76 @@ function renderEnderecoCompartilhadoAnalysis(evidence: Record<string, any>, shar
   )
 }
 
+function renderEntidadeRelacionadaAnalysis(alert: any) {
+  const meta = alert.metadata || alert.evidence || {}
+  const empresa1 = alert.empresa_1 || ''
+  const empresa2 = alert.empresa_2 || ''
+  const cnpj1 = alert.cnpj_1 || ''
+  const cnpj2 = alert.cnpj_2 || ''
+  const matchScore = meta.match_score || 0
+  const matchedFields = meta.matched_fields || []
+  const sharedSocios = meta.shared_socios || []
+  const fuzzyScore = meta.fuzzy_score || 0
+  const commonTenders = meta.common_tenders || 0
+
+  return (
+    <>
+      <AnalysisSection title="O que foi detectado">
+        <p>
+          As empresas <strong className="text-white">&quot;{empresa1}&quot;</strong>
+          {cnpj1 && <span className="text-gray-400"> ({formatCNPJ(cnpj1)})</span>}
+          {' '}e{' '}
+          <strong className="text-white">&quot;{empresa2}&quot;</strong>
+          {cnpj2 && <span className="text-gray-400"> ({formatCNPJ(cnpj2)})</span>}
+          {' '}apresentam <strong className="text-orange-400">{matchScore.toFixed(0)}% de similaridade</strong> e
+          participam juntas em <strong className="text-red-400">{commonTenders} licitacao(oes)</strong>.
+        </p>
+        {alert.detail && (
+          <p className="mt-2 text-gray-400 text-xs italic">{alert.detail}</p>
+        )}
+      </AnalysisSection>
+
+      <AnalysisSection title="Por que isso e suspeito">
+        <p>
+          Empresas com alta similaridade em razao social e/ou quadro societario que competem entre si
+          podem ser entidades controladas pelo mesmo grupo economico, configurando <strong className="text-red-400">
+          simulacao de competicao</strong> para manipular resultados de licitacoes.
+        </p>
+      </AnalysisSection>
+
+      <AnalysisSection title="Indicadores de risco">
+        {fuzzyScore > 0 && (
+          <RiskIndicator label="Similaridade de nome" value={`${(fuzzyScore * 100).toFixed(0)}%`} highlight />
+        )}
+        {sharedSocios.length > 0 && (
+          <>
+            <RiskIndicator label="Socios compartilhados" value={`${sharedSocios.length} socio(s)`} highlight />
+            {sharedSocios.slice(0, 5).map((s: any) => (
+              <RiskIndicator key={s.cpf || s.nome} label="Socio em comum" value={s.nome || s.cpf} />
+            ))}
+          </>
+        )}
+        <RiskIndicator label="Campos com match" value={matchedFields.join(', ') || 'N/A'} />
+        <RiskIndicator label="Licitacoes em comum" value={`${commonTenders}`} highlight={commonTenders > 1} />
+        <RiskIndicator label="Empresa 1" value={`${empresa1}${cnpj1 ? ' (' + formatCNPJ(cnpj1) + ')' : ''}`} />
+        <RiskIndicator label="Empresa 2" value={`${empresa2}${cnpj2 ? ' (' + formatCNPJ(cnpj2) + ')' : ''}`} />
+      </AnalysisSection>
+
+      <AnalysisSection title="Fundamentacao legal">
+        <p className="text-xs text-gray-400 mb-1">
+          A participacao de entidades relacionadas como concorrentes independentes configura:
+        </p>
+        <LegalBadge refs={[
+          'Art. 337-F CP (Fraude em licitacao)',
+          'Art. 178 Lei 14.133/21',
+          'Art. 90 Lei 8.666/93',
+          'Sumula 254 TCU',
+        ]} />
+      </AnalysisSection>
+    </>
+  )
+}
+
 function renderAnalysis(alert: any, sharedCount: number) {
   const alertType = getAlertType(alert).toLowerCase()
   const evidence = getEvidence(alert)
@@ -525,11 +605,14 @@ function renderAnalysis(alert: any, sharedCount: number) {
   switch (alertType) {
     case 'socio_em_comum':
       return renderSocioEmComumAnalysis(alert, sharedCount)
+    case 'entidade_relacionada':
+      return renderEntidadeRelacionadaAnalysis(alert)
     case 'empresa_recente':
       return renderEmpresaRecenteAnalysis(evidence)
     case 'capital_incompativel':
       return renderCapitalIncompativelAnalysis(evidence)
     case 'sancionada':
+    case 'empresa_sancionada':
       return renderSancionadaAnalysis(evidence)
     case 'mesmo_endereco':
     case 'endereco_compartilhado':
@@ -736,6 +819,7 @@ export default async function AdminIntelligencePage({
             <option value="capital_incompativel">Capital Incompativel</option>
             <option value="sancionada">Empresa Sancionada</option>
             <option value="mesmo_endereco">Endereco Compartilhado</option>
+            <option value="entidade_relacionada">Entidade Relacionada</option>
           </select>
 
           <input
