@@ -67,15 +67,9 @@ export default async function AdminProspectsPage({
 
   const { data: competitors, count, error } = await query
 
-  // Get distinct UFs and portes for filters
-  const { data: ufs } = await supabase
-    .from('competitor_stats')
-    .select('uf')
-    .not('uf', 'is', null)
-    .order('uf')
-    .limit(100)
-
-  const distinctUfs = [...new Set((ufs || []).map((r) => r.uf).filter(Boolean))].sort()
+  // Get distinct UFs and portes for filters — use full BR list for UFs
+  const ALL_UFS = ['AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS','MT','PA','PB','PE','PI','PR','RJ','RN','RO','RR','RS','SC','SE','SP','TO']
+  const distinctUfs = ALL_UFS
 
   const { data: portes } = await supabase
     .from('competitor_stats')
