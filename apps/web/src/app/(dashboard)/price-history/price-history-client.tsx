@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -64,14 +64,61 @@ export function PriceHistoryClient() {
   const [currentPage, setCurrentPage] = useState(1)
   const [exporting, setExporting] = useState(false)
   const [trending, setTrending] = useState<{ query: string; count: number }[]>([])
+  const [recentSearches, setRecentSearches] = useState<string[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
-  // Fetch trending searches on mount
+  // Fetch trending searches on mount + load recent from localStorage
   useEffect(() => {
     fetch('/api/price-history/trending')
       .then((res) => res.ok ? res.json() : { trending: [] })
       .then((d) => setTrending(d.trending || []))
       .catch(() => {})
+
+    try {
+      const stored = localStorage.getItem('ph:recent_searches')
+      if (stored) setRecentSearches(JSON.parse(stored))
+    } catch {}
   }, [])
+
+  // Close dropdown on click outside or Escape
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
+          inputRef.current && !inputRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false)
+      }
+    }
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === 'Escape') setShowSuggestions(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [])
+
+  // Save recent search to localStorage
+  function saveRecentSearch(q: string) {
+    const trimmed = q.trim().toLowerCase()
+    if (!trimmed || trimmed.length < 3) return
+    const updated = [trimmed, ...recentSearches.filter(s => s !== trimmed)].slice(0, 5)
+    setRecentSearches(updated)
+    try { localStorage.setItem('ph:recent_searches', JSON.stringify(updated)) } catch {}
+  }
+
+  // Filter suggestions based on current input
+  const suggestions = query.length >= 2
+    ? {
+        recent: recentSearches.filter(s => s.includes(query.toLowerCase())).slice(0, 3),
+        popular: trending.filter(t => t.query.includes(query.toLowerCase())).map(t => t.query).slice(0, 5),
+      }
+    : { recent: recentSearches.slice(0, 3), popular: trending.map(t => t.query).slice(0, 5) }
+
+  const hasSuggestions = suggestions.recent.length > 0 || suggestions.popular.length > 0
 
   const doSearch = useCallback(async (page = 1) => {
     if (!query.trim() || query.trim().length < 3) {
@@ -81,6 +128,8 @@ export function PriceHistoryClient() {
 
     setLoading(true)
     setError(null)
+    setShowSuggestions(false)
+    saveRecentSearch(query)
 
     try {
       const params = new URLSearchParams({ q: query.trim(), page: String(page), page_size: '20' })
@@ -184,7 +233,7 @@ export function PriceHistoryClient() {
             <div className="flex gap-3">
               <div className="relative flex-1">
                 <svg
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 z-10"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -192,12 +241,54 @@ export function PriceHistoryClient() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
                 <Input
+                  ref={inputRef}
                   value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  onChange={(e) => { setQuery(e.target.value); setShowSuggestions(true) }}
+                  onFocus={() => setShowSuggestions(true)}
                   placeholder="Buscar produto ou serviço..."
                   className="pl-10 bg-[#1a1c1f] border-[#2d2f33] text-white placeholder:text-gray-500"
-                  onKeyDown={(e) => { if (e.key === 'Enter') doSearch(1) }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { setShowSuggestions(false); doSearch(1) } }}
+                  autoComplete="off"
                 />
+                {/* Autocomplete dropdown */}
+                {showSuggestions && hasSuggestions && (
+                  <div ref={dropdownRef} className="absolute top-full left-0 right-0 mt-1 bg-[#1a1c1f] border border-[#2d2f33] rounded-lg shadow-xl z-50 overflow-hidden">
+                    {suggestions.recent.length > 0 && (
+                      <div className="px-3 pt-2 pb-1">
+                        <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Recentes</p>
+                        {suggestions.recent.map((s) => (
+                          <button
+                            key={`recent-${s}`}
+                            className="w-full text-left px-2 py-1.5 text-sm text-gray-300 hover:bg-[#2d2f33] rounded transition-colors flex items-center gap-2"
+                            onClick={() => { setQuery(s); setShowSuggestions(false); setTimeout(() => doSearch(1), 50) }}
+                          >
+                            <svg className="w-3 h-3 text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {suggestions.popular.length > 0 && (
+                      <div className="px-3 pt-2 pb-2 border-t border-[#2d2f33]">
+                        <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Populares</p>
+                        {suggestions.popular.map((s) => (
+                          <button
+                            key={`pop-${s}`}
+                            className="w-full text-left px-2 py-1.5 text-sm text-gray-300 hover:bg-[#2d2f33] rounded transition-colors flex items-center gap-2"
+                            onClick={() => { setQuery(s); setShowSuggestions(false); setTimeout(() => doSearch(1), 50) }}
+                          >
+                            <svg className="w-3 h-3 text-brand shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                            </svg>
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               <Button
                 onClick={() => doSearch(1)}
