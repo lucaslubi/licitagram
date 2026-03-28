@@ -15,6 +15,7 @@ const ADMIN_NAV = [
   { href: '/admin/whatsapp', label: 'WhatsApp', section: 'dashboard' },
   { href: '/admin/system', label: 'System Health', section: 'dashboard' },
   { href: '/admin/monitoring', label: 'Monitoramento', section: 'dashboard' },
+  { href: '/admin/intelligence', label: 'Inteligencia', section: 'dashboard' },
 ]
 
 export default async function AdminLayout({
