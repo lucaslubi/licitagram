@@ -227,6 +227,71 @@ async function handleGrafo(cnpj: string, depth: number): Promise<{ status: numbe
   }
 }
 
+// ─── Batch Handlers (POST) ──────────────────────────────────────────────────
+
+async function handleBatchSocios(cnpjs: string[]): Promise<{ status: number; body: unknown }> {
+  const cnpjs14 = cnpjs.map(c => formatCnpj14(c)).slice(0, 100) // max 100 CNPJs per batch
+
+  const result = await pgPool.query(
+    `SELECT cnpj, nome_socio, cnpj_cpf_socio, codigo_qualificacao_socio
+     FROM socios WHERE cnpj = ANY($1) ORDER BY cnpj, nome_socio`,
+    [cnpjs14],
+  )
+
+  // Group by CNPJ
+  const grouped: Record<string, Array<{ nome_socio: string; cnpj_cpf_socio: string }>> = {}
+  for (const row of result.rows) {
+    if (!grouped[row.cnpj]) grouped[row.cnpj] = []
+    grouped[row.cnpj].push({ nome_socio: row.nome_socio, cnpj_cpf_socio: row.cnpj_cpf_socio })
+  }
+
+  return { status: 200, body: { results: grouped, total: result.rows.length } }
+}
+
+async function handleBatchEmpresas(cnpjs: string[]): Promise<{ status: number; body: unknown }> {
+  const cnpjs14 = cnpjs.map(c => formatCnpj14(c)).slice(0, 100)
+
+  const result = await pgPool.query(
+    `SELECT cnpj, razao_social, capital_social, data_inicio_atividade, logradouro, numero, municipio, uf
+     FROM empresas WHERE cnpj = ANY($1)`,
+    [cnpjs14],
+  )
+
+  const grouped: Record<string, any> = {}
+  for (const row of result.rows) {
+    grouped[row.cnpj] = row
+  }
+
+  return { status: 200, body: { results: grouped, total: result.rows.length } }
+}
+
+async function handleBatchSancoes(cnpjs: string[]): Promise<{ status: number; body: unknown }> {
+  const cnpjs14 = cnpjs.map(c => formatCnpj14(c)).slice(0, 100)
+
+  const result = await pgPool.query(
+    `SELECT cnpj, tipo_sancao, orgao_sancionador, data_inicio, data_fim
+     FROM sancoes WHERE cnpj = ANY($1)`,
+    [cnpjs14],
+  )
+
+  const grouped: Record<string, any[]> = {}
+  for (const row of result.rows) {
+    if (!grouped[row.cnpj]) grouped[row.cnpj] = []
+    grouped[row.cnpj].push(row)
+  }
+
+  return { status: 200, body: { results: grouped, total: result.rows.length } }
+}
+
+async function readBody(req: http.IncomingMessage): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = []
+    req.on('data', (chunk: Buffer) => chunks.push(chunk))
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')))
+    req.on('error', reject)
+  })
+}
+
 // ─── Server ─────────────────────────────────────────────────────────────────
 const server = http.createServer(async (req, res) => {
   // CORS preflight
@@ -235,7 +300,7 @@ const server = http.createServer(async (req, res) => {
     return
   }
 
-  if (req.method !== 'GET') {
+  if (req.method !== 'GET' && req.method !== 'POST') {
     jsonResponse(res, 405, { error: 'Method not allowed' })
     return
   }
@@ -274,6 +339,39 @@ const server = http.createServer(async (req, res) => {
       const result = await handleGrafo(grafoMatch[1], depth)
       jsonResponse(res, result.status, result.body)
       return
+    }
+
+    // ─── POST batch endpoints ────────────────────────────────────────
+    if (req.method === 'POST') {
+      const body = await readBody(req)
+      let parsed: { cnpjs?: string[] }
+      try {
+        parsed = JSON.parse(body)
+      } catch {
+        jsonResponse(res, 400, { error: 'Invalid JSON' })
+        return
+      }
+
+      if (!parsed.cnpjs || !Array.isArray(parsed.cnpjs) || parsed.cnpjs.length === 0) {
+        jsonResponse(res, 400, { error: 'cnpjs array required' })
+        return
+      }
+
+      if (pathname === '/api/batch/socios') {
+        const result = await handleBatchSocios(parsed.cnpjs)
+        jsonResponse(res, result.status, result.body)
+        return
+      }
+      if (pathname === '/api/batch/empresas') {
+        const result = await handleBatchEmpresas(parsed.cnpjs)
+        jsonResponse(res, result.status, result.body)
+        return
+      }
+      if (pathname === '/api/batch/sancoes') {
+        const result = await handleBatchSancoes(parsed.cnpjs)
+        jsonResponse(res, result.status, result.body)
+        return
+      }
     }
 
     // Health check
