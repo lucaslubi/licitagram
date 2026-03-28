@@ -1345,12 +1345,12 @@ export default async function LandingPage() {
         </section>
       </ClipRevealSection>
 
-      {/* ── Jurídico — Licittare ── */}
+      {/* ── Conformidade Legal ── */}
       <ClipRevealSection className="bg-[#F5F5F0]">
         <section className="py-20 sm:py-28">
           <div className="max-w-4xl mx-auto px-4 text-center">
             <ScrollReveal>
-              <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">Conteúdo jurídico</p>
+              <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">Conformidade legal</p>
             </ScrollReveal>
             <ScrollReveal delay={100}>
               <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[#1A1C1F] tracking-tight text-balance mb-6">
@@ -1360,12 +1360,12 @@ export default async function LandingPage() {
             </ScrollReveal>
             <ScrollReveal delay={200}>
               <p className="text-lg text-[#69695D] max-w-2xl mx-auto leading-relaxed mb-8">
-                O conteúdo jurídico do Licitagram é produzido em parceria com a Licittare, referência nacional em direito das licitações. Cada funcionalidade que envolve a Lei 14.133, pesquisa de preços ou compliance foi validada por especialistas.
+                Cada funcionalidade do Licitagram que envolve a Lei 14.133/2021, pesquisa de preços ou compliance foi projetada e validada por especialistas em direito administrativo e licitações públicas. Conformidade não é opcional — é requisito.
               </p>
             </ScrollReveal>
             <ScrollReveal delay={300}>
               <div className="inline-flex items-center gap-3 px-6 py-3 rounded-full border border-[#E5E5E0]/50 bg-white shadow-sm">
-                <span className="text-sm text-[#4A4A45] font-medium">Parceria técnico-jurídica com a Licittare</span>
+                <span className="text-sm text-[#4A4A45] font-medium">100% conforme com a Lei 14.133/2021</span>
               </div>
             </ScrollReveal>
           </div>
@@ -1452,7 +1452,7 @@ export default async function LandingPage() {
                 Inteligência de dados para licitações públicas no Brasil. +200.000 licitações/mês monitoradas por IA. 67M+ CNPJs cruzados em tempo real.
               </p>
               <p className="text-xs text-[#555] leading-relaxed">
-                Todos os dados são extraídos de fontes oficiais públicas. Conteúdo jurídico em parceria com a Licittare.
+                Todos os dados são extraídos de fontes oficiais públicas: PNCP, Compras.gov.br, Receita Federal e Portal da Transparência.
               </p>
             </div>
             <div>
