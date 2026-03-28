@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type { PriceSearchResult, PriceStatistics, PriceTrend } from '@licitagram/price-history'
+import { PriceTrendChart } from './components/PriceTrendChart'
 
 const UF_OPTIONS = [
   '','AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS','MT',
@@ -62,6 +63,15 @@ export function PriceHistoryClient() {
   const [error, setError] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [exporting, setExporting] = useState(false)
+  const [trending, setTrending] = useState<{ query: string; count: number }[]>([])
+
+  // Fetch trending searches on mount
+  useEffect(() => {
+    fetch('/api/price-history/trending')
+      .then((res) => res.ok ? res.json() : { trending: [] })
+      .then((d) => setTrending(d.trending || []))
+      .catch(() => {})
+  }, [])
 
   const doSearch = useCallback(async (page = 1) => {
     if (!query.trim() || query.trim().length < 3) {
@@ -137,11 +147,34 @@ export function PriceHistoryClient() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-white">Precos de Mercado</h1>
-        <p className="text-sm text-gray-400 mt-1">Pesquise precos praticados em licitacoes anteriores</p>
+      {/* Header + Data freshness */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Precos de Mercado</h1>
+          <p className="text-sm text-gray-400 mt-1">Pesquise precos praticados em licitacoes anteriores</p>
+        </div>
+        {result && (
+          <p className="text-[10px] text-gray-500 bg-[#1a1c1f] px-3 py-1.5 rounded-full border border-[#2d2f33] whitespace-nowrap shrink-0">
+            Ultima atualizacao: agora | {result.total_count.toLocaleString('pt-BR')} licitacoes indexadas
+          </p>
+        )}
       </div>
+
+      {/* Trending chips */}
+      {trending.length > 0 && !result && (
+        <div className="flex flex-wrap gap-2">
+          <span className="text-xs text-gray-500 self-center mr-1">Buscas populares:</span>
+          {trending.map((t) => (
+            <button
+              key={t.query}
+              onClick={() => { setQuery(t.query); }}
+              className="px-3 py-1 rounded-full text-xs bg-[#23262a] border border-[#2d2f33] text-gray-300 hover:border-[#F43E01]/40 hover:text-white transition-colors"
+            >
+              {t.query}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Search bar */}
       <Card className="bg-[#23262a] border-[#2d2f33]">
@@ -304,38 +337,27 @@ export function PriceHistoryClient() {
             </Card>
           </div>
 
-          {/* Trend data table (placeholder for chart) */}
+          {/* Trend chart */}
           {result.trend.points.length > 0 && (
             <Card className="bg-[#23262a] border-[#2d2f33]">
               <CardHeader>
                 <CardTitle className="text-white text-base">Tendencia de Precos</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-xs text-gray-400 mb-3">Dados mensais — grafico com Recharts em implementacao futura</p>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-[#2d2f33]">
-                        <th className="text-left py-2 text-gray-400 font-medium">Mes</th>
-                        <th className="text-right py-2 text-gray-400 font-medium">Qtd</th>
-                        <th className="text-right py-2 text-gray-400 font-medium">Mediana</th>
-                        <th className="text-right py-2 text-gray-400 font-medium">Min</th>
-                        <th className="text-right py-2 text-gray-400 font-medium">Max</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {result.trend.points.map((pt) => (
-                        <tr key={pt.month} className="border-b border-[#2d2f33]/50 hover:bg-[#2d2f33]">
-                          <td className="py-2 text-white">{pt.month}</td>
-                          <td className="py-2 text-right text-gray-300">{pt.count}</td>
-                          <td className="py-2 text-right text-white font-medium">{formatBRL(pt.median)}</td>
-                          <td className="py-2 text-right text-gray-300">{formatCompact(pt.min)}</td>
-                          <td className="py-2 text-right text-gray-300">{formatCompact(pt.max)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <PriceTrendChart
+                  points={result.trend.points.map((pt) => ({
+                    month: pt.month,
+                    count: pt.count,
+                    mean: pt.median, // use median as mean proxy when mean not available
+                    median: pt.median,
+                    min: pt.min,
+                    max: pt.max,
+                  }))}
+                  direction={result.trend.direction}
+                  variation_percent={result.trend.variation_12m_percent ?? 0}
+                  projected_price={result.trend.projected_price_next_month ?? undefined}
+                  formatCurrency={formatBRL}
+                />
               </CardContent>
             </Card>
           )}
@@ -394,37 +416,58 @@ export function PriceHistoryClient() {
                       <th className="text-left py-2 text-gray-400 font-medium">UF</th>
                       <th className="text-left py-2 text-gray-400 font-medium max-w-[200px]">Objeto</th>
                       <th className="text-right py-2 text-gray-400 font-medium">Valor</th>
+                      <th className="text-right py-2 text-gray-400 font-medium">Desconto</th>
                       <th className="text-left py-2 text-gray-400 font-medium">Fornecedor</th>
                     </tr>
                   </thead>
                   <tbody>
                     {result.records.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="py-8 text-center text-gray-400">
+                        <td colSpan={7} className="py-8 text-center text-gray-400">
                           Nenhum registro encontrado para esta busca.
                         </td>
                       </tr>
                     ) : (
-                      result.records.map((record) => (
-                        <tr key={record.id} className="border-b border-[#2d2f33]/50 hover:bg-[#2d2f33]">
-                          <td className="py-2 text-gray-300 whitespace-nowrap">
-                            {formatDateShort(record.date_homologation)}
-                          </td>
-                          <td className="py-2 text-white max-w-[150px] truncate" title={record.orgao_nome}>
-                            {record.orgao_nome}
-                          </td>
-                          <td className="py-2 text-gray-300">{record.orgao_uf}</td>
-                          <td className="py-2 text-gray-300 max-w-[200px] truncate" title={record.item_description}>
-                            {record.item_description}
-                          </td>
-                          <td className="py-2 text-right text-emerald-400 font-medium whitespace-nowrap">
-                            {formatBRL(record.unit_price)}
-                          </td>
-                          <td className="py-2 text-gray-300 max-w-[150px] truncate" title={record.supplier_name}>
-                            {record.supplier_name}
-                          </td>
-                        </tr>
-                      ))
+                      result.records.map((record) => {
+                        const median = result.statistics.median
+                        const valueColor = record.unit_price < median
+                          ? 'text-emerald-400'
+                          : record.unit_price > median
+                            ? 'text-red-400'
+                            : 'text-white'
+                        const discount = median > 0
+                          ? ((median - record.unit_price) / median) * 100
+                          : 0
+                        return (
+                          <tr key={record.id} className="border-b border-[#2d2f33]/50 hover:bg-[#2d2f33]">
+                            <td className="py-2 text-gray-300 whitespace-nowrap">
+                              {formatDateShort(record.date_homologation)}
+                            </td>
+                            <td className="py-2 text-white max-w-[150px] truncate" title={record.orgao_nome}>
+                              {record.orgao_nome}
+                            </td>
+                            <td className="py-2 text-gray-300">{record.orgao_uf}</td>
+                            <td className="py-2 text-gray-300 max-w-[200px] truncate" title={record.item_description}>
+                              {record.item_description}
+                            </td>
+                            <td className={`py-2 text-right font-medium whitespace-nowrap ${valueColor}`}>
+                              {formatBRL(record.unit_price)}
+                            </td>
+                            <td className="py-2 text-right whitespace-nowrap">
+                              {discount > 0 ? (
+                                <span className="text-emerald-400 text-xs">-{discount.toFixed(1)}%</span>
+                              ) : discount < 0 ? (
+                                <span className="text-red-400 text-xs">+{Math.abs(discount).toFixed(1)}%</span>
+                              ) : (
+                                <span className="text-gray-500 text-xs">-</span>
+                              )}
+                            </td>
+                            <td className="py-2 text-gray-300 max-w-[150px] truncate" title={record.supplier_name}>
+                              {record.supplier_name}
+                            </td>
+                          </tr>
+                        )
+                      })
                     )}
                   </tbody>
                 </table>

@@ -7,6 +7,9 @@ import {
   type PriceSearchResult,
   type PriceSearchQuery,
 } from '@licitagram/price-history'
+import { getPriceHistoryCacheAdapter, checkRedisRateLimit } from '@/lib/price-history-cache'
+import { getRedisClient } from '@/lib/redis-client'
+import crypto from 'crypto'
 
 const UF_LIST = [
   'AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS','MT',
@@ -14,9 +17,20 @@ const UF_LIST = [
 ]
 
 export async function GET(req: NextRequest) {
+  const startTime = Date.now()
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // Rate limiting: 30 req/min per user
+  const rateLimit = await checkRedisRateLimit(`search:${user.id}`, 30, 60)
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: 'Muitas requisicoes. Tente novamente em breve.', retry_after: rateLimit.retryAfter },
+      { status: 429 },
+    )
+  }
 
   const url = new URL(req.url)
   const q = url.searchParams.get('q')?.trim()
@@ -40,6 +54,45 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const cache = getPriceHistoryCacheAdapter()
+
+    // Cache keys: stats ignores page/page_size (shared), data includes them
+    const filterHash = crypto.createHash('md5').update(
+      JSON.stringify({ q: q.toLowerCase(), uf, modalidade, dateFrom, dateTo })
+    ).digest('hex').slice(0, 12)
+
+    const statsCacheKey = `stats:${filterHash}`
+    const dataCacheKey = `data:${filterHash}:p${page}:s${pageSize}`
+
+    // Try cache first for both stats and data
+    const cachedStats = await cache.get<{ statistics: PriceSearchResult['statistics']; trend: PriceSearchResult['trend']; total_count: number }>(statsCacheKey)
+    const cachedData = await cache.get<{ records: PriceRecord[] }>(dataCacheKey)
+
+    if (cachedStats && cachedData) {
+      // Full cache hit
+      const searchQuery: PriceSearchQuery = {
+        query: q, uf, modalidade,
+        date_from: dateFrom ? new Date(dateFrom) : undefined,
+        date_to: dateTo ? new Date(dateTo) : undefined,
+        page, page_size: pageSize,
+      }
+
+      // Track trending
+      trackTrending(q).catch(() => {})
+
+      return NextResponse.json({
+        records: cachedData.records,
+        statistics: cachedStats.statistics,
+        trend: cachedStats.trend,
+        total_count: cachedStats.total_count,
+        page,
+        page_size: pageSize,
+        query: searchQuery,
+        cache_hit: true,
+        query_time_ms: Date.now() - startTime,
+      })
+    }
+
     const offset = (page - 1) * pageSize
 
     // Build the Supabase query using textSearch on objeto
@@ -154,6 +207,11 @@ export async function GET(req: NextRequest) {
     // Compute statistics and trend using the package functions
     const statistics = computeStatistics(records)
     const trend = analyzeTrend(records)
+    const totalCount = count || 0
+
+    // Cache stats (2h) and data (1h) in background
+    cache.set(statsCacheKey, { statistics, trend, total_count: totalCount }, 7200).catch(() => {})
+    cache.set(dataCacheKey, { records }, 3600).catch(() => {})
 
     const searchQuery: PriceSearchQuery = {
       query: q,
@@ -165,21 +223,40 @@ export async function GET(req: NextRequest) {
       page_size: pageSize,
     }
 
-    const result: PriceSearchResult = {
+    const result: PriceSearchResult & { cache_hit: boolean; query_time_ms: number } = {
       records,
       statistics,
       trend,
-      total_count: count || 0,
+      total_count: totalCount,
       page,
       page_size: pageSize,
       query: searchQuery,
+      cache_hit: false,
+      query_time_ms: Date.now() - startTime,
     }
+
+    // Track trending in background
+    trackTrending(q).catch(() => {})
 
     return NextResponse.json(result)
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Internal error'
     console.error('Price history search error:', e)
     return NextResponse.json({ error: message }, { status: 500 })
+  }
+}
+
+/** Track search queries in Redis ZSET for trending */
+async function trackTrending(query: string): Promise<void> {
+  try {
+    const redis = getRedisClient()
+    if (!redis) return
+    const normalized = query.toLowerCase().trim()
+    await redis.zincrby('ph:trending', 1, normalized)
+    // Set TTL on the ZSET (24h) — re-set each time to keep it alive
+    await redis.expire('ph:trending', 86400)
+  } catch {
+    // silent
   }
 }
 

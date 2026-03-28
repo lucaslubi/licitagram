@@ -1,67 +1,73 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import {
-  computeStatistics,
-  analyzeTrend,
-  formatAsCSV,
-  type PriceRecord,
-  type PriceSearchResult,
-  type PriceSearchQuery,
-} from '@licitagram/price-history'
-import { checkRedisRateLimit } from '@/lib/price-history-cache'
+import { computeStatistics, analyzeTrend, type PriceRecord } from '@licitagram/price-history'
+import { getPriceHistoryCacheAdapter } from '@/lib/price-history-cache'
 
-const MAX_EXPORT = 5000
-
-export async function POST(req: NextRequest) {
+export async function GET() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // Rate limit: 10 req/hour per user
-  const rateLimit = await checkRedisRateLimit(`export:${user.id}`, 10, 3600)
-  if (!rateLimit.allowed) {
-    return NextResponse.json(
-      { error: 'Limite de exportacoes atingido. Tente novamente em breve.', retry_after: rateLimit.retryAfter },
-      { status: 429 },
-    )
-  }
-
   try {
-    const body = await req.json()
-    const q = body.query?.trim()
-    const format = body.format || 'csv'
+    // Get user's company
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('company_id')
+      .eq('id', user.id)
+      .single()
 
-    if (!q || q.length < 3) {
-      return NextResponse.json(
-        { error: 'Query must be at least 3 characters' },
-        { status: 400 },
-      )
+    if (!profile?.company_id) {
+      return NextResponse.json({ error: 'No company' }, { status: 404 })
     }
 
-    // Build query — same as search but no pagination, limit MAX_EXPORT
-    let query = supabase
+    const { data: company } = await supabase
+      .from('companies')
+      .select('palavras_chave, cnae_principal')
+      .eq('id', profile.company_id)
+      .single()
+
+    if (!company) {
+      return NextResponse.json({ error: 'Company not found' }, { status: 404 })
+    }
+
+    const keywords = (company.palavras_chave as string[] | null) || []
+    const keyword = keywords[0]
+
+    if (!keyword) {
+      return NextResponse.json({ error: 'No keywords configured' }, { status: 404 })
+    }
+
+    // Check cache (24h)
+    const cache = getPriceHistoryCacheAdapter()
+    const cacheKey = `segment:${profile.company_id}`
+    const cached = await cache.get<{
+      median: number
+      count: number
+      variation_percent: number | undefined
+      direction: string
+      keyword: string
+    }>(cacheKey)
+
+    if (cached) {
+      return NextResponse.json(cached)
+    }
+
+    // Search price history for the first keyword
+    const { data, error } = await supabase
       .from('tenders')
       .select(
         'id, objeto, valor_estimado, valor_homologado, uf, municipio, modalidade_nome, orgao_nome, data_publicacao, data_encerramento, competitors!inner(cnpj, nome, valor_proposta, situacao, porte, uf_fornecedor)',
       )
-      .textSearch('objeto', q, { type: 'websearch', config: 'portuguese' })
+      .textSearch('objeto', keyword, { type: 'websearch', config: 'portuguese' })
       .not('valor_homologado', 'is', null)
       .order('data_encerramento', { ascending: false })
-      .limit(MAX_EXPORT)
-
-    if (body.uf) query = query.eq('uf', body.uf.toUpperCase())
-    if (body.modalidade) query = query.eq('modalidade_nome', body.modalidade)
-    if (body.date_from) query = query.gte('data_encerramento', body.date_from)
-    if (body.date_to) query = query.lte('data_encerramento', body.date_to)
-
-    const { data, error } = await query
+      .limit(200)
 
     if (error) {
-      console.error('Price history export error:', error)
+      console.error('Segment summary error:', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Transform to PriceRecord[]
     const records: PriceRecord[] = []
     if (data) {
       for (const tender of data) {
@@ -94,7 +100,7 @@ export async function POST(req: NextRequest) {
               supplier_name: comp.nome || 'N/I',
               supplier_cnpj: comp.cnpj || '',
               supplier_uf: comp.uf_fornecedor || '',
-              supplier_porte: mapPorte(comp.porte),
+              supplier_porte: 'N/A',
               date_homologation: new Date(tender.data_encerramento || tender.data_publicacao || Date.now()),
               date_opening: new Date(tender.data_publicacao || Date.now()),
               is_valid: true,
@@ -129,53 +135,28 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    if (records.length === 0) {
+      return NextResponse.json({ error: 'No data for segment' }, { status: 404 })
+    }
+
     const statistics = computeStatistics(records)
     const trend = analyzeTrend(records)
 
-    const searchQuery: PriceSearchQuery = {
-      query: q,
-      uf: body.uf,
-      modalidade: body.modalidade,
-      date_from: body.date_from ? new Date(body.date_from) : undefined,
-      date_to: body.date_to ? new Date(body.date_to) : undefined,
+    const summary = {
+      median: statistics.median,
+      count: statistics.count,
+      variation_percent: trend.variation_12m_percent,
+      direction: trend.direction,
+      keyword,
     }
 
-    const result: PriceSearchResult = {
-      records,
-      statistics,
-      trend,
-      total_count: records.length,
-      page: 1,
-      page_size: records.length,
-      query: searchQuery,
-    }
+    // Cache for 24h
+    cache.set(cacheKey, summary, 86400).catch(() => {})
 
-    if (format === 'csv') {
-      const csv = formatAsCSV(result)
-      return new NextResponse(csv, {
-        status: 200,
-        headers: {
-          'Content-Type': 'text/csv; charset=utf-8',
-          'Content-Disposition': `attachment; filename="precos-mercado-${q.replace(/\s+/g, '-').substring(0, 30)}.csv"`,
-        },
-      })
-    }
-
-    // Default: return JSON
-    return NextResponse.json(result)
+    return NextResponse.json(summary)
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Internal error'
-    console.error('Price history export error:', e)
+    console.error('Segment summary error:', e)
     return NextResponse.json({ error: message }, { status: 500 })
   }
-}
-
-function mapPorte(porte: string | null | undefined): PriceRecord['supplier_porte'] {
-  if (!porte) return 'N/A'
-  const upper = porte.toUpperCase()
-  if (upper.includes('ME') && !upper.includes('MEDIO')) return 'ME'
-  if (upper.includes('EPP')) return 'EPP'
-  if (upper.includes('MEDIO') || upper.includes('MÉDIA')) return 'MEDIO'
-  if (upper.includes('GRANDE')) return 'GRANDE'
-  return 'N/A'
 }
