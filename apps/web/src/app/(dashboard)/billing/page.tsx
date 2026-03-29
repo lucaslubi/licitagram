@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { UpgradeButton } from './upgrade-button'
+import { AutoCheckout } from './auto-checkout'
+import { Suspense } from 'react'
 import { getUserWithPlan } from '@/lib/auth-helpers'
 import { getActivePlans, checkMatchLimit } from '@/lib/plans'
 import type { Plan, PlanFeatures } from '@licitagram/shared'
@@ -145,7 +147,7 @@ function getPlanBadge(plan: Plan): string | null {
 export default async function BillingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ success?: string; canceled?: string; expired?: string; upgrade?: string }>
+  searchParams: Promise<{ success?: string; canceled?: string; expired?: string; upgrade?: string; plan?: string; billing?: string }>
 }) {
   const params = await searchParams
   const user = await getUserWithPlan()
@@ -160,6 +162,10 @@ export default async function BillingPage({
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">Plano e Cobrança</h1>
+
+      <Suspense>
+        <AutoCheckout plans={plans.map(p => ({ id: p.id, slug: p.slug, name: p.name }))} />
+      </Suspense>
 
       {params.success && (
         <div className="mb-6 p-4 bg-emerald-900/20 border border-emerald-900/30 rounded-lg text-emerald-400 text-sm">

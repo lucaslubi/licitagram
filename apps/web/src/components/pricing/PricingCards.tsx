@@ -167,7 +167,7 @@ export function PricingCards() {
                 ))}
               </ul>
               <Link
-                href={`/register?plan=${plan.slug}${isAnnual ? '&billing=annual' : ''}`}
+                href={`/billing?plan=${plan.slug}${isAnnual ? '&billing=annual' : ''}`}
                 className={`block text-center py-3.5 rounded-full font-medium text-sm transition-all duration-200 ${
                   plan.highlighted
                     ? 'bg-[#F43E01] text-white hover:bg-[#D63500] shadow-md shadow-[#F43E01]/20'
