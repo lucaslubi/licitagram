@@ -389,19 +389,23 @@ function renderCapitalIncompativelAnalysis(evidence: Record<string, any>) {
   )
 }
 
-function renderSancionadaAnalysis(evidence: Record<string, any>) {
-  const razaoSocial = evidence.razao_social || evidence.cnpj || 'N/I'
-  const sancoes = evidence.sancoes || []
+function renderSancionadaAnalysis(alert: any) {
+  const meta = alert.metadata || alert.evidence || {}
+  const empresa = alert.empresa_1 || meta.razao_social || meta.cnpj || 'N/I'
+  const cnpj = alert.cnpj_1 || meta.cnpj || ''
+  const sancoes = meta.sancoes || []
+  const detail = alert.detail || ''
 
   return (
     <>
       <AnalysisSection title="O que foi detectado">
         <p>
-          A empresa <strong className="text-white">&quot;{razaoSocial}&quot;</strong>
-          {evidence.cnpj && <span className="text-gray-400"> ({formatCNPJ(evidence.cnpj)})</span>}{' '}
-          possui <strong className="text-red-400">{sancoes.length} sancao(oes)</strong> registrada(s) em bases oficiais
-          de penalidades da administracao publica.
+          A empresa <strong className="text-white">&quot;{empresa}&quot;</strong>
+          {cnpj && <span className="text-gray-400"> ({formatCNPJ(cnpj)})</span>}{' '}
+          possui <strong className="text-red-400">{sancoes.length > 0 ? sancoes.length : ''} sancao(oes)</strong> registrada(s)
+          em bases oficiais de penalidades da administracao publica (CEIS/CNEP).
         </p>
+        {detail && <p className="mt-2 text-gray-400 text-xs italic">{detail}</p>}
       </AnalysisSection>
 
       <AnalysisSection title="Por que isso e critico">
@@ -446,9 +450,9 @@ function renderSancionadaAnalysis(evidence: Record<string, any>) {
       )}
 
       <AnalysisSection title="Indicadores de risco">
-        <RiskIndicator label="Empresa" value={razaoSocial} />
-        {evidence.cnpj && <RiskIndicator label="CNPJ" value={formatCNPJ(evidence.cnpj)} />}
-        <RiskIndicator label="Total de sancoes" value={`${sancoes.length}`} highlight />
+        <RiskIndicator label="Empresa" value={empresa} />
+        {cnpj && <RiskIndicator label="CNPJ" value={formatCNPJ(cnpj)} />}
+        <RiskIndicator label="Total de sancoes" value={sancoes.length > 0 ? `${sancoes.length}` : 'Registrada no CEIS/CNEP'} highlight />
         {sancoes.some((s: any) => !s.fim) && (
           <RiskIndicator label="Sancao vigente" value="Sim - empresa impedida de licitar" highlight />
         )}
@@ -613,7 +617,7 @@ function renderAnalysis(alert: any, sharedCount: number) {
       return renderCapitalIncompativelAnalysis(evidence)
     case 'sancionada':
     case 'empresa_sancionada':
-      return renderSancionadaAnalysis(evidence)
+      return renderSancionadaAnalysis(alert)
     case 'mesmo_endereco':
     case 'endereco_compartilhado':
       return renderEnderecoCompartilhadoAnalysis(evidence, sharedCount)
