@@ -56,7 +56,7 @@ const PLAN_FEATURES: Record<string, string[]> = {
     'Pré-Disputa',
     'Sugestão de lance por IA',
     'Detecção de Anomalias (5 tipos)',
-    'Grafo Societário (60M+ CNPJs)',
+    'Grafo Societário (67M+ CNPJs)',
     'Relatório de Inteligência Setorial',
     'Multi-CNPJ',
     'API de integração',

@@ -9,6 +9,7 @@ import {
   StickyHeader,
 } from '@/components/landing/ScrollEffects'
 import { createClient } from '@supabase/supabase-js'
+import { PricingCards } from '@/components/pricing/PricingCards'
 
 async function getSiteSettings() {
   try {
@@ -28,79 +29,7 @@ function getWhatsAppUrl(phone: string, message: string) {
   return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`
 }
 
-const PLANS = [
-  {
-    name: 'Essencial',
-    price: 'R$ 297',
-    period: '/mês',
-    badge: null,
-    features: [
-      '+200.000 licitações monitoradas/mês',
-      'AI Matching com score 0-100 (até 50 matches/mês)',
-      'Mapa de Inteligência geográfico',
-      'Filtros avançados',
-      'Busca no texto do edital',
-      'Pipeline Kanban completo',
-      'Dashboard com métricas e tendências',
-      'Gestão de Certidões + alertas de vencimento',
-      'Verificação automática de sanções',
-      'Alertas WhatsApp e Telegram (10/dia)',
-      'Preços de Mercado (5 buscas/dia)',
-      '1 usuário',
-      'Suporte por email',
-    ],
-    cta: 'Começar Grátis',
-    highlighted: false,
-  },
-  {
-    name: 'Profissional',
-    price: 'R$ 697',
-    period: '/mês',
-    badge: 'Mais popular',
-    features: [
-      'Tudo do Essencial +',
-      'AI Matching ilimitado',
-      'Alertas ilimitados',
-      'Gerador de Propostas Comerciais (Lei 14.133)',
-      'Pesquisa de Preços IN 65/2021',
-      'Preços de Mercado ilimitados + tendência',
-      '"Pergunte ao Edital" — chat IA',
-      'Análise de edital por IA',
-      'Compliance Checker',
-      'Inteligência Competitiva (5 módulos)',
-      'Ranking de Concorrentes por IA',
-      'Janelas de Oportunidade',
-      'Drive institucional',
-      'Auto-fill CNPJ',
-      'Export Excel e CSV',
-      'Até 5 usuários',
-      'Suporte prioritário',
-    ],
-    cta: 'Teste 7 dias grátis',
-    highlighted: true,
-  },
-  {
-    name: 'Enterprise',
-    price: 'R$ 1.497',
-    period: '/mês',
-    badge: 'Completo',
-    features: [
-      'Tudo do Profissional +',
-      'Robô de Lances com IA estratégica',
-      'Pré-Disputa',
-      'Sugestão de lance por IA',
-      'Detecção de Anomalias (5 tipos)',
-      'Grafo Societário (67M+ CNPJs)',
-      'Relatório de Inteligência Setorial',
-      'Multi-CNPJ',
-      'API de integração',
-      'Usuários ilimitados',
-      'Suporte dedicado',
-    ],
-    cta: 'Falar com a Equipe',
-    highlighted: false,
-  },
-]
+// Plans data moved to PricingCards client component for billing toggle
 
 const TESTIMONIALS = [
   {
@@ -1144,54 +1073,7 @@ export default async function LandingPage() {
                     </div>
                   </ScrollReveal>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {PLANS.map((plan, i) => (
-                    <ScrollReveal key={plan.name} delay={i * 120}>
-                      <div
-                        className={`relative p-8 rounded-2xl border-2 bg-white transition-all duration-300 hover:-translate-y-1 h-full ${
-                          plan.highlighted
-                            ? 'border-[#F43E01] shadow-[0_0_40px_-8px_rgba(244,62,1,0.2)] md:scale-[1.02]'
-                            : 'border-[#E5E5E0]/50 shadow-sm hover:shadow-md hover:border-[#F43E01]/20'
-                        }`}
-                      >
-                        {plan.badge && (
-                          <span className={`absolute -top-3.5 left-1/2 -translate-x-1/2 font-mono text-[10px] font-semibold px-4 py-1 rounded-full uppercase tracking-wider whitespace-nowrap ${
-                            plan.highlighted
-                              ? 'bg-[#F43E01] text-white'
-                              : 'bg-[#1A1C1F] text-white border border-white/10'
-                          }`}>
-                            {plan.badge}
-                          </span>
-                        )}
-                        <h3 className="text-lg font-bold text-[#1A1C1F]">{plan.name}</h3>
-                        <div className="mt-4 mb-6">
-                          <span className="font-mono text-4xl font-bold text-[#1A1C1F] tracking-tight">{plan.price}</span>
-                          <span className="text-[#69695D] ml-1">{plan.period}</span>
-                        </div>
-                        <ul className="space-y-3 mb-8">
-                          {plan.features.map((f) => (
-                            <li key={f} className="flex items-start gap-2.5 text-sm">
-                              <svg className="w-5 h-5 text-[#F43E01] shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                              </svg>
-                              <span className="text-[#4A4A45]">{f}</span>
-                            </li>
-                          ))}
-                        </ul>
-                        <Link
-                          href="/register"
-                          className={`block text-center py-3.5 rounded-full font-medium text-sm transition-all duration-200 ${
-                            plan.highlighted
-                              ? 'bg-[#F43E01] text-white hover:bg-[#D63500] shadow-md shadow-[#F43E01]/20'
-                              : 'bg-[#1A1C1F]/5 text-[#1A1C1F] border border-[#1A1C1F]/10 hover:bg-[#1A1C1F]/10'
-                          }`}
-                        >
-                          {plan.cta}
-                        </Link>
-                      </div>
-                    </ScrollReveal>
-                  ))}
-                </div>
+                <PricingCards />
               </>
             )}
           </div>
