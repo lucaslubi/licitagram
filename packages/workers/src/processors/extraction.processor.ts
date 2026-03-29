@@ -31,6 +31,8 @@ const extractionWorker = new Worker<ExtractionJobData>(
     for (const doc of docs || []) {
       try {
         let text: string | null = await extractTextFromPDF(doc.url)
+        // Sanitize: remove null bytes (\u0000) that Postgres rejects
+        if (text) text = text.replace(/\0/g, '')
         await supabase
           .from('tender_documents')
           .update({ texto_extraido: text, status: 'done' })

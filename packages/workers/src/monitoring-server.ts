@@ -468,7 +468,8 @@ const server = http.createServer(async (req, res) => {
         if (docId) {
           const { createClient } = require('@supabase/supabase-js')
           const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-          await supabase.from('tender_documents').update({ texto_extraido: text, status: 'done' }).eq('id', docId)
+          const sanitized = text.replace(/\0/g, '')
+          await supabase.from('tender_documents').update({ texto_extraido: sanitized, status: 'done' }).eq('id', docId)
         }
 
         sendJson(res, 200, { text, chars: text.length })

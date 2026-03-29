@@ -167,7 +167,7 @@ async function triageBatch(
   const today = new Date().toISOString().split('T')[0]
   const { data: matches } = await supabase
     .from('matches')
-    .select('id, company_id, tender_id, score, match_source, tenders!inner(id, objeto, valor_estimado, orgao, data_encerramento, cnae_classificados)')
+    .select('id, company_id, tender_id, score, match_source, tenders!inner(id, objeto, valor_estimado, orgao_nome, data_encerramento, cnae_classificados)')
     .in('id', matchIds)
     .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
 
@@ -188,7 +188,7 @@ async function triageBatch(
         tenderId: t.id as string,
         objeto: ((t.objeto as string) || '').slice(0, 200),
         valorEstimado: t.valor_estimado as number | null,
-        orgao: ((t.orgao as string) || '').slice(0, 80),
+        orgao: ((t.orgao_nome as string) || '').slice(0, 80),
         originalScore: m.score as number,
         matchSource: m.match_source as string,
         tenderCnaes: (t.cnae_classificados as string[]) || [],

@@ -57,7 +57,7 @@ const outcomeCheckWorker = new Worker(
       // and the user engaged (notified/viewed/interested/applied) but hasn't reported outcome
       const { data: matches, error: matchErr } = await supabase
         .from('matches')
-        .select('id, tender_id, tenders(objeto, orgao, data_encerramento)')
+        .select('id, tender_id, tenders(objeto, orgao_nome, data_encerramento)')
         .eq('company_id', user.company_id)
         .in('status', ['notified', 'viewed', 'interested', 'applied'])
         .order('created_at', { ascending: false })
@@ -118,7 +118,7 @@ const outcomeCheckWorker = new Worker(
                 matchId: match.id,
                 telegramChatId: user.telegram_chat_id,
                 tenderObjeto: tender.objeto || '',
-                tenderOrgao: tender.orgao || '',
+                tenderOrgao: tender.orgao_nome || '',
                 daysSinceClose,
               },
               {
@@ -138,7 +138,7 @@ const outcomeCheckWorker = new Worker(
                 matchId: match.id,
                 whatsappNumber: user.whatsapp_number,
                 tenderObjeto: tender.objeto || '',
-                tenderOrgao: tender.orgao || '',
+                tenderOrgao: tender.orgao_nome || '',
                 daysSinceClose,
               },
               {
