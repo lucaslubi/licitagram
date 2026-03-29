@@ -1,4 +1,4 @@
-// @ts-nocheck
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -549,7 +549,7 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
     ? Math.round(((strategy.valor_referencia - strategy.lance_inicial) / strategy.valor_referencia) * 100)
     : 0
 
-  const s: Record<string, React.CSSProperties> = {
+  const s: Record<string, any> = {
     root: {
       background: '#08090e',
       minHeight: '100vh',
