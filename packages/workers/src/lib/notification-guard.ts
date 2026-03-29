@@ -17,7 +17,7 @@ const NON_COMPETITIVE_MODALIDADES = new Set([9, 12, 14])
 const MIN_NOTIFICATION_SCORE = 50
 
 // ─── Only AI-verified sources get notified ─────────────────────────────────
-const VERIFIED_SOURCES = new Set(['ai', 'ai_triage', 'semantic'])
+const VERIFIED_SOURCES = new Set(['ai', 'ai_triage', 'semantic', 'keyword'])
 
 export interface GuardResult {
   allowed: boolean
