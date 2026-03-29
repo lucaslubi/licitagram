@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 
-export async function signIn(formData: FormData) {
+export async function signIn(formData: FormData, redirectTo?: string) {
   const supabase = await createClient()
 
   const { error } = await supabase.auth.signInWithPassword({
@@ -17,10 +17,10 @@ export async function signIn(formData: FormData) {
   }
 
   revalidatePath('/', 'layout')
-  redirect('/map')
+  redirect(redirectTo || '/map')
 }
 
-export async function signUp(formData: FormData) {
+export async function signUp(formData: FormData, redirectTo?: string) {
   const supabase = await createClient()
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://licitagram.com'
@@ -49,7 +49,7 @@ export async function signUp(formData: FormData) {
 
   // If email confirmation is disabled in Supabase, user is already logged in
   revalidatePath('/', 'layout')
-  redirect('/map')
+  redirect(redirectTo || '/map')
 }
 
 export async function signInWithGoogle() {

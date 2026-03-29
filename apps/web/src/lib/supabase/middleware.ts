@@ -68,10 +68,14 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse
   }
 
-  // ─── Not authenticated → redirect to login ────────────────────────────
+  // ─── Not authenticated → redirect to login (preserve original URL) ───
   if (!user) {
     const url = request.nextUrl.clone()
+    const originalPath = pathname + request.nextUrl.search
     url.pathname = '/login'
+    if (originalPath !== '/') {
+      url.searchParams.set('redirectTo', originalPath)
+    }
     return NextResponse.redirect(url)
   }
 

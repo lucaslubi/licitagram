@@ -14,11 +14,12 @@ function LoginForm() {
   const [loading, setLoading] = useState(false)
   const searchParams = useSearchParams()
   const message = searchParams.get('message')
+  const redirectTo = searchParams.get('redirectTo')
 
   async function handleSubmit(formData: FormData) {
     setLoading(true)
     setError(null)
-    const result = await signIn(formData)
+    const result = await signIn(formData, redirectTo || undefined)
     if (result?.error) {
       setError(result.error)
       setLoading(false)
@@ -94,7 +95,7 @@ function LoginForm() {
         </form>
         <p className="mt-6 text-center text-sm text-muted-foreground">
           Ainda não tem conta?{' '}
-          <Link href="/register" className="text-brand font-medium hover:underline">
+          <Link href={`/register${redirectTo ? `?redirectTo=${encodeURIComponent(redirectTo)}` : ''}`} className="text-brand font-medium hover:underline">
             Cadastre-se
           </Link>
         </p>
