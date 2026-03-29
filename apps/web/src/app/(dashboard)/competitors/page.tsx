@@ -33,6 +33,7 @@ export default async function CompetitorsPage({
       .from('competitor_relevance')
       .select('competitor_cnpj, relevance_score, relationship_type, reason')
       .eq('company_id', profile.company_id)
+      .limit(500)
 
     if (relevanceData) {
       for (const r of relevanceData) {
@@ -51,6 +52,7 @@ export default async function CompetitorsPage({
     .select('*')
     .eq('company_id', profile?.company_id || '')
     .order('created_at', { ascending: false })
+    .limit(200)
 
   // Get competitor stats for watchlist items
   const watchlistCnpjs = (watchlist || []).map((w) => w.competitor_cnpj)
@@ -121,6 +123,7 @@ export default async function CompetitorsPage({
     .select('tenders!inner(uf)')
     .eq('company_id', profile?.company_id || '')
     .in('status', ['new', 'notified', 'viewed', 'interested'])
+    .limit(500)
 
   const activeUfs = [...new Set((activeMatches || []).map((m) => {
     const t = m.tenders as unknown as Record<string, unknown>

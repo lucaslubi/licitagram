@@ -1,5 +1,3 @@
-export const dynamic = 'force-dynamic'
-
 import { redirect } from 'next/navigation'
 import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
 import { createClient } from '@/lib/supabase/server'

@@ -53,6 +53,7 @@ export default async function ProposalsPage({
     .select('*')
     .eq('company_id', profile.company_id)
     .order('created_at', { ascending: false })
+    .limit(100)
 
   if (filterStatus && filterStatus !== 'all') {
     query = query.eq('status', filterStatus)
