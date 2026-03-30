@@ -26,7 +26,7 @@
  *   4. Requires minimum 3 phrase matches to proceed
  */
 
-import { supabase } from '../lib/supabase'
+import { db as supabase } from '../lib/db'
 import { logger } from '../lib/logger'
 import { notificationQueue } from '../queues/notification.queue'
 import { invalidateMatchCaches, incrementStat } from '../lib/redis-cache'

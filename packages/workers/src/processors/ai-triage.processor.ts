@@ -1,7 +1,7 @@
 import { Worker } from 'bullmq'
 import { connection } from '../queues/connection'
 import { type AiTriageJobData } from '../queues/ai-triage.queue'
-import { supabase } from '../lib/supabase'
+import { db as supabase } from '../lib/db'
 import { logger } from '../lib/logger'
 import { invalidateMatchCaches } from '../lib/redis-cache'
 import { CNAE_GROUPS, getCompanyDivisions } from '@licitagram/shared'

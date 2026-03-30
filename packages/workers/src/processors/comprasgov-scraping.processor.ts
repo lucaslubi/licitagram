@@ -4,7 +4,7 @@ import { comprasgovScrapingQueue, type ComprasGovScrapingJobData } from '../queu
 import { extractionQueue } from '../queues/extraction.queue'
 import { fetchLicitacoes, normalizeToTender } from '../scrapers/comprasgov-client'
 import { fetchDocumentos } from '../scrapers/pncp-client'
-import { supabase } from '../lib/supabase'
+import { db as supabase } from '../lib/db'
 import { logger } from '../lib/logger'
 
 async function processComprasGovJob(job: Job<ComprasGovScrapingJobData>) {

@@ -3,7 +3,7 @@ import { connection } from '../queues/connection'
 import { extractionQueue } from '../queues/extraction.queue'
 import { arpScrapingQueue, type ARPScrapingJobData } from '../queues/comprasgov-arp.queue'
 import { fetchARP, normalizeARPToTender } from '../scrapers/comprasgov-client'
-import { supabase } from '../lib/supabase'
+import { db as supabase } from '../lib/db'
 import { logger } from '../lib/logger'
 
 /**

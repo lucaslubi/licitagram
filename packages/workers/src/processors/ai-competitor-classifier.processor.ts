@@ -2,7 +2,7 @@ import { Worker, type Job } from 'bullmq'
 import { connection } from '../queues/connection'
 import type { AiCompetitorClassifierJobData } from '../queues/ai-competitor-classifier.queue'
 import { callLLM, parseJsonResponse } from '../ai/llm-client'
-import { supabase } from '../lib/supabase'
+import { db as supabase } from '../lib/db'
 import { logger } from '../lib/logger'
 
 const MAX_PER_RUN = 50

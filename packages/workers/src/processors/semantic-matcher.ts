@@ -17,7 +17,7 @@
  * Final: Creates/updates matches in DB with match_source='semantic'
  */
 
-import { supabase } from '../lib/supabase'
+import { db as supabase } from '../lib/db'
 import { logger } from '../lib/logger'
 import { CNAE_DIVISIONS, getCompanyDivisions } from '@licitagram/shared'
 import { invalidateMatchCaches } from '../lib/redis-cache'

@@ -4,7 +4,7 @@ import type { FornecedorEnrichmentJobData } from '../queues/fornecedor-enrichmen
 import { fetchFornecedor } from '../scrapers/comprasgov-client'
 import { competitionAnalysisQueue } from '../queues/competition-analysis.queue'
 import { contactEnrichmentQueue } from '../queues/contact-enrichment.queue'
-import { supabase } from '../lib/supabase'
+import { db as supabase } from '../lib/db'
 import { logger } from '../lib/logger'
 
 const BATCH_SIZE = 50

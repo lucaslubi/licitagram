@@ -1,7 +1,7 @@
 import { Worker, type Job } from 'bullmq'
 import { connection } from '../queues/connection'
 import type { DocumentExpiryJobData } from '../queues/document-expiry.queue'
-import { supabase } from '../lib/supabase'
+import { db as supabase } from '../lib/db'
 import { logger } from '../lib/logger'
 import { bot } from '../telegram/bot'
 

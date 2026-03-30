@@ -4,7 +4,7 @@ import { connection } from '../queues/connection'
 import { type NotificationJobData } from '../queues/notification.queue'
 import { bot } from '../telegram/bot'
 import { formatMatchAlert, formatHotAlert, formatUrgencyAlert48h, formatUrgencyAlert24h, formatNewMatchesDigest } from '../telegram/formatters'
-import { supabase } from '../lib/supabase'
+import { db as supabase } from '../lib/db'
 import { logger } from '../lib/logger'
 import { validateNotification } from '../lib/notification-guard'
 

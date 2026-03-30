@@ -10,7 +10,7 @@ import { Worker, UnrecoverableError } from 'bullmq'
 import { connection } from '../queues/connection'
 import type { WhatsAppNotificationJobData } from '../queues/notification-whatsapp.queue'
 import { sendMatchAlert, sendOutcomePrompt, isConnected } from '../whatsapp/client'
-import { supabase } from '../lib/supabase'
+import { db as supabase } from '../lib/db'
 import { logger } from '../lib/logger'
 import { validateNotification } from '../lib/notification-guard'
 

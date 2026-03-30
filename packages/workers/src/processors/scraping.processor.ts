@@ -3,7 +3,7 @@ import { connection } from '../queues/connection'
 import { extractionQueue } from '../queues/extraction.queue'
 import { scrapingQueue, type ScrapingJobData } from '../queues/scraping.queue'
 import { fetchContratacoes, fetchDocumentos, buildPncpId } from '../scrapers/pncp-client'
-import { supabase } from '../lib/supabase'
+import { db as supabase } from '../lib/db'
 import { logger } from '../lib/logger'
 import type { PNCPContratacao } from '@licitagram/shared'
 

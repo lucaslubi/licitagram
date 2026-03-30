@@ -1,6 +1,6 @@
 import { tenderRequirementsSchema, type TenderRequirementsInput } from '@licitagram/shared'
 import { callLLM, parseJsonResponse } from './llm-client'
-import { supabase } from '../lib/supabase'
+import { db as supabase } from '../lib/db'
 import { logger } from '../lib/logger'
 
 const SYSTEM_PROMPT = `Voce e um especialista em licitacoes publicas brasileiras (Lei 14.133/2021 e Lei 8.666/1993). Sua tarefa e analisar editais e extrair requisitos em formato JSON estruturado. Sempre responda com JSON valido, sem texto adicional.`

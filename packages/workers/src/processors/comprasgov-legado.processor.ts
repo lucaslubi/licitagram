@@ -3,7 +3,7 @@ import { connection } from '../queues/connection'
 import { extractionQueue } from '../queues/extraction.queue'
 import { legadoScrapingQueue, type LegadoScrapingJobData } from '../queues/comprasgov-legado.queue'
 import { fetchPregoesLegado, normalizePregaoLegadoToTender } from '../scrapers/comprasgov-client'
-import { supabase } from '../lib/supabase'
+import { db as supabase } from '../lib/db'
 import { logger } from '../lib/logger'
 
 /**

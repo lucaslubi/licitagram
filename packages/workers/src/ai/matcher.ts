@@ -1,6 +1,6 @@
 import { matchResultSchema, type MatchResultInput, CNAE_GROUPS } from '@licitagram/shared'
 import { callLLM, parseJsonResponse } from './llm-client'
-import { supabase } from '../lib/supabase'
+import { db as supabase } from '../lib/db'
 import { logger } from '../lib/logger'
 
 const SYSTEM_PROMPT = `Voce e um consultor especialista em licitacoes publicas brasileiras. Sua UNICA funcao e avaliar se o OBJETO da licitacao e COMPATIVEL com os CNAEs e atividades da empresa.

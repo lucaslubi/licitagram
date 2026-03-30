@@ -1,7 +1,7 @@
 import { Worker, type Job } from 'bullmq'
 import { connection } from '../queues/connection'
 import type { CompetitionAnalysisJobData } from '../queues/competition-analysis.queue'
-import { supabase } from '../lib/supabase'
+import { db as supabase } from '../lib/db'
 import { logger } from '../lib/logger'
 import IORedis from 'ioredis'
 

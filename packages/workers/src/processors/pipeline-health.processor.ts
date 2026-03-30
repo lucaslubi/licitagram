@@ -15,7 +15,7 @@
  */
 import { Worker, Queue, type Job } from 'bullmq'
 import { connection } from '../queues/connection'
-import { supabase } from '../lib/supabase'
+import { db as supabase } from '../lib/db'
 import { logger } from '../lib/logger'
 import { mapCacheQueue } from '../queues/map-cache.queue'
 import { exec } from 'child_process'

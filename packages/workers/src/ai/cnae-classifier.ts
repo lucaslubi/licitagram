@@ -13,7 +13,7 @@
 
 import { callLLM, parseJsonResponse } from './llm-client'
 import { classifyLocal } from './cnae-keyword-classifier'
-import { supabase } from '../lib/supabase'
+import { db as supabase } from '../lib/db'
 import { logger } from '../lib/logger'
 import { CNAE_DIVISIONS } from '@licitagram/shared'
 

@@ -1,5 +1,5 @@
 import { callLLM } from './llm-client'
-import { supabase } from '../lib/supabase'
+import { db as supabase } from '../lib/db'
 import { logger } from '../lib/logger'
 
 const SYSTEM_PROMPT = `Voce e um especialista em licitacoes publicas brasileiras. Gere resumos executivos claros e concisos em portugues.`

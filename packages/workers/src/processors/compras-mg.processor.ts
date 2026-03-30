@@ -3,7 +3,7 @@ import { connection } from '../queues/connection'
 import { extractionQueue } from '../queues/extraction.queue'
 import { type MGScrapingJobData } from '../queues/compras-mg.queue'
 import { fetchMGPregoes, fetchMGConcorrencias, normalizeMGToTender } from '../scrapers/compras-mg-client'
-import { supabase } from '../lib/supabase'
+import { db as supabase } from '../lib/db'
 import { logger } from '../lib/logger'
 
 /**

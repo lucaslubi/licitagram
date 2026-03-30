@@ -2,7 +2,7 @@ import { Worker } from 'bullmq'
 import { connection } from '../queues/connection'
 import { notificationQueue, NOTIFICATION_PRIORITY } from '../queues/notification.queue'
 import type { UrgencyMatchItem } from '../queues/notification.queue'
-import { supabase } from '../lib/supabase'
+import { db as supabase } from '../lib/db'
 import { logger } from '../lib/logger'
 
 const AI_SOURCES = ['ai', 'ai_triage', 'semantic']

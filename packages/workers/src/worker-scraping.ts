@@ -11,7 +11,7 @@
  */
 import 'dotenv/config'
 import { logger } from './lib/logger'
-import { supabase } from './lib/supabase'
+import { db as supabase } from './lib/db'
 import { formatDatePNCP } from './scrapers/pncp-client'
 import { ALL_SCRAPING_MODALITIES } from '@licitagram/shared'
 

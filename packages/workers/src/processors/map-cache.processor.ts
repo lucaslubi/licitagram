@@ -13,7 +13,7 @@
  */
 import { Worker } from 'bullmq'
 import { connection } from '../queues/connection'
-import { supabase } from '../lib/supabase'
+import { db as supabase } from '../lib/db'
 import { logger } from '../lib/logger'
 
 const BATCH_SIZE = 500

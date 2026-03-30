@@ -5,7 +5,7 @@ import { extractionQueue } from './queues/extraction.queue'
 import { runKeywordMatchingSweep, runKeywordMatchingForCompany } from './processors/keyword-matcher'
 import { batchClassifyTenders } from './ai/cnae-classifier'
 import { formatDatePNCP, fetchDocumentos } from './scrapers/pncp-client'
-import { supabase } from './lib/supabase'
+import { db as supabase } from './lib/db'
 import { ALL_SCRAPING_MODALITIES } from '@licitagram/shared'
 import type { Worker } from 'bullmq'
 

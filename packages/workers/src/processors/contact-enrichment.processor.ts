@@ -1,7 +1,7 @@
 import { Worker, type Job } from 'bullmq'
 import { connection } from '../queues/connection'
 import type { ContactEnrichmentJobData } from '../queues/contact-enrichment.queue'
-import { supabase } from '../lib/supabase'
+import { db as supabase } from '../lib/db'
 import { logger } from '../lib/logger'
 
 const BATCH_SIZE = 100

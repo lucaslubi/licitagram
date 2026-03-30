@@ -10,7 +10,7 @@
  * simple CNAE codes alone cannot offer.
  */
 
-import { supabase } from '../lib/supabase'
+import { db as supabase } from '../lib/db'
 import { logger } from '../lib/logger'
 import { generateEmbedding, formatVector } from '../ai/embedding-client'
 import { CNAE_DIVISIONS } from '@licitagram/shared'

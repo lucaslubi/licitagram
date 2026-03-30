@@ -24,7 +24,7 @@
  */
 import { Worker, Queue } from 'bullmq'
 import { connection } from '../queues/connection'
-import { supabase } from '../lib/supabase'
+import { db as supabase } from '../lib/db'
 import { logger } from '../lib/logger'
 import { callLLM, parseJsonResponse } from '../ai/llm-client'
 import { exec } from 'child_process'

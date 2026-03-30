@@ -22,7 +22,7 @@ import {
   type CompanyProfile,
   type CompetitorProfile,
 } from '../ai/competitor-relevance'
-import { supabase } from '../lib/supabase'
+import { db as supabase } from '../lib/db'
 import { logger } from '../lib/logger'
 
 const MAX_COMPANIES_PER_RUN = 5

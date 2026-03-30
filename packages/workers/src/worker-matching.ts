@@ -11,7 +11,7 @@
  */
 import 'dotenv/config'
 import { logger } from './lib/logger'
-import { supabase } from './lib/supabase'
+import { db as supabase } from './lib/db'
 import { runKeywordMatchingSweep, runKeywordMatchingForCompany } from './processors/keyword-matcher'
 import { batchClassifyTenders } from './ai/cnae-classifier'
 

@@ -8,7 +8,7 @@ import {
   fetchBecOfertas,
   normalizeBecToTender,
 } from '../scrapers/bec-sp-client'
-import { supabase } from '../lib/supabase'
+import { db as supabase } from '../lib/db'
 import { logger } from '../lib/logger'
 
 async function processBecSpJob(job: Job<BecSpScrapingJobData>) {

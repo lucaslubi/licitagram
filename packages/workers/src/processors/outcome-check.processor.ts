@@ -2,7 +2,7 @@ import { Worker } from 'bullmq'
 import { connection } from '../queues/connection'
 import { notificationQueue } from '../queues/notification.queue'
 import { whatsappQueue } from '../queues/notification-whatsapp.queue'
-import { supabase } from '../lib/supabase'
+import { db as supabase } from '../lib/db'
 import { logger } from '../lib/logger'
 
 /** Maximum outcome prompts per user per cycle */

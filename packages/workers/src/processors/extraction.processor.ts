@@ -6,7 +6,7 @@ import { semanticMatchingQueue } from '../queues/semantic-matching.queue'
 import { extractTextFromPDF } from '../scrapers/pdf-extractor'
 import { runKeywordMatching } from './keyword-matcher'
 import { classifyTenderCNAEs } from '../ai/cnae-classifier'
-import { supabase } from '../lib/supabase'
+import { db as supabase } from '../lib/db'
 import { logger } from '../lib/logger'
 import { invalidateTenderCaches, invalidateTenderDetail, incrementStat } from '../lib/redis-cache'
 

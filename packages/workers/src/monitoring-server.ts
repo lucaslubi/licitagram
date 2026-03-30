@@ -3,7 +3,7 @@ import * as http from 'http'
 import * as os from 'os'
 import { execFileSync } from 'child_process'
 import IORedis from 'ioredis'
-import { supabase } from './lib/supabase'
+import { db as supabase } from './lib/db'
 
 // ── Config ───────────────────────────────────────────────────────────────────
 const PORT = parseInt(process.env.MONITORING_PORT || '3998', 10)
