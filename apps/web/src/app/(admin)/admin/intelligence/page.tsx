@@ -12,7 +12,7 @@ const TYPE_CONFIG: Record<string, {
   defaultSeverity: string
 }> = {
   socio_em_comum: {
-    label: 'Socio em Comum',
+    label: 'Sócio em Comum',
     icon: '\u{1F465}',
     defaultSeverity: 'HIGH',
   },
@@ -22,7 +22,7 @@ const TYPE_CONFIG: Record<string, {
     defaultSeverity: 'MEDIUM',
   },
   capital_incompativel: {
-    label: 'Capital Incompativel',
+    label: 'Capital Incompatível',
     icon: '\u{1F4B0}',
     defaultSeverity: 'MEDIUM',
   },
@@ -32,7 +32,7 @@ const TYPE_CONFIG: Record<string, {
     defaultSeverity: 'CRITICAL',
   },
   mesmo_endereco: {
-    label: 'Endereco Compartilhado',
+    label: 'Endereço Compartilhado',
     icon: '\u{1F3E0}',
     defaultSeverity: 'HIGH',
   },
@@ -152,12 +152,12 @@ function timeAgo(dateStr: string): string {
   const diffMs = now.getTime() - date.getTime()
   const diffMin = Math.floor(diffMs / 60000)
   if (diffMin < 1) return 'agora'
-  if (diffMin < 60) return `ha ${diffMin}min`
+  if (diffMin < 60) return `há ${diffMin}min`
   const diffHours = Math.floor(diffMin / 60)
-  if (diffHours < 24) return `ha ${diffHours}h`
+  if (diffHours < 24) return `há ${diffHours}h`
   const diffDays = Math.floor(diffHours / 24)
-  if (diffDays < 30) return `ha ${diffDays}d`
-  return `ha ${Math.floor(diffDays / 30)} meses`
+  if (diffDays < 30) return `há ${diffDays}d`
+  return `há ${Math.floor(diffDays / 30)} meses`
 }
 
 function formatDate(dateStr: string | null | undefined): string {
@@ -222,56 +222,56 @@ function renderSocioEmComumAnalysis(alert: any, sharedCount: number) {
           {' '}e{' '}
           <strong className="text-white">&quot;{empresa2}&quot;</strong>
           {cnpj2 && <span className="text-gray-400"> ({formatCNPJ(cnpj2)})</span>}
-          {' '}compartilham <strong className="text-orange-400">{socios.length || 'multiplos'} socio(s) em comum</strong> e
-          participaram como concorrentes na mesma licitacao.
+          {' '}compartilham <strong className="text-orange-400">{socios.length || 'múltiplos'} sócio(s) em comum</strong> e
+          participaram como concorrentes na mesma licitação.
         </p>
         {detail && (
           <p className="mt-2 text-gray-400 text-xs italic">{detail}</p>
         )}
       </AnalysisSection>
 
-      <AnalysisSection title="Por que isso representa possivel fraude">
+      <AnalysisSection title="Por que isso representa possível fraude">
         <p>
-          Quando a mesma pessoa fisica controla multiplas empresas que disputam o mesmo certame, ha forte indicacao de{' '}
+          Quando a mesma pessoa física controla múltiplas empresas que disputam o mesmo certame, há forte indicação de{' '}
           <strong className="text-red-400">conluio e direcionamento</strong>. As propostas podem ter sido coordenadas para
-          simular competicao &mdash; uma pratica conhecida como &quot;cartel em licitacao&quot; ou &quot;rodizio de propostas&quot;.
-          O socio em comum pode definir previamente qual empresa vencera e calibrar os precos das demais acima do valor combinado,
-          eliminando a competitividade real do certame e causando prejuizo ao erario.
+          simular competição &mdash; uma prática conhecida como &quot;cartel em licitação&quot; ou &quot;rodízio de propostas&quot;.
+          O socio em comum pode definir previamente qual empresa vencerá e calibrar os preços das demais acima do valor combinado,
+          eliminando a competitividade real do certame e causando prejuízo ao erário.
         </p>
         <p className="mt-2 text-yellow-400/80 text-xs">
-          Este e um dos padroes mais classicos e graves de fraude licitatoria, presente em mais de 60% dos casos investigados
-          pelo TCU e Ministerio Publico.
+          Este é um dos padrões mais clássicos e graves de fraude licitatória, presente em mais de 60% dos casos investigados
+          pelo TCU e Ministério Público.
         </p>
       </AnalysisSection>
 
       <AnalysisSection title="Indicadores de risco">
         {socios.length > 0 ? (
           socios.map((socio: string) => (
-            <RiskIndicator key={socio} label="Socio em comum" value={socio} highlight />
+            <RiskIndicator key={socio} label="Sócio em comum" value={socio} highlight />
           ))
         ) : (
-          <RiskIndicator label="Socios em comum" value="Identificados (ver detalhe)" highlight />
+          <RiskIndicator label="Sócios em comum" value="Identificados (ver detalhe)" highlight />
         )}
         <RiskIndicator label="Empresa 1" value={`${empresa1}${cnpj1 ? ' (' + formatCNPJ(cnpj1) + ')' : ''}`} />
         <RiskIndicator label="Empresa 2" value={`${empresa2}${cnpj2 ? ' (' + formatCNPJ(cnpj2) + ')' : ''}`} />
         {sharedCount > 1 && (
           <RiskIndicator
-            label="Coincidencia em outras licitacoes"
-            value={`Estas empresas participaram juntas em ${sharedCount} licitacoes`}
+            label="Coincidência em outras licitações"
+            value={`Estas empresas participaram juntas em ${sharedCount} licitações`}
             highlight
           />
         )}
       </AnalysisSection>
 
-      <AnalysisSection title="Fundamentacao legal">
+      <AnalysisSection title="Fundamentação legal">
         <p className="text-xs text-gray-400 mb-1">
-          A participacao coordenada entre empresas com socios em comum configura:
+          A participação coordenada entre empresas com sócios em comum configura:
         </p>
         <LegalBadge refs={[
-          'Art. 337-F CP (Fraude em licitacao)',
+          'Art. 337-F CP (Fraude em licitação)',
           'Art. 178 Lei 14.133/21',
           'Art. 90 Lei 8.666/93',
-          'Sumula 254 TCU',
+          'Súmula 254 TCU',
         ]} />
       </AnalysisSection>
     </>
@@ -290,22 +290,22 @@ function renderEmpresaRecenteAnalysis(evidence: Record<string, any>) {
         <p>
           A empresa vencedora <strong className="text-white">&quot;{razaoSocial}&quot;</strong>
           {evidence.cnpj && <span className="text-gray-400"> ({formatCNPJ(evidence.cnpj)})</span>}{' '}
-          foi constituida em <strong className="text-orange-400">{formatDate(dataAbertura)}</strong>,
-          apenas <strong className="text-red-400">{diasAntes} dias</strong> antes da abertura da licitacao
+          foi constituída em <strong className="text-orange-400">{formatDate(dataAbertura)}</strong>,
+          apenas <strong className="text-red-400">{diasAntes} dias</strong> antes da abertura da licitação
           ({formatDate(dataLicitacao)}).
         </p>
       </AnalysisSection>
 
-      <AnalysisSection title="Por que isso representa possivel fraude">
+      <AnalysisSection title="Por que isso representa possível fraude">
         <p>
-          Empresas criadas pouco tempo antes de uma licitacao podem ter sido constituidas <strong className="text-red-400">
-          especificamente para participar do certame</strong>, possivelmente como &quot;empresa de fachada&quot; ou
-          &quot;laranja&quot;. Uma empresa legitima normalmente possui historico operacional, clientes anteriores e
-          experiencia comprovavel no ramo de atuacao. A abertura recente levanta suspeita de que a empresa foi criada
-          para dar aparencia de competicao ou para receber recursos de forma fraudulenta.
+          Empresas criadas pouco tempo antes de uma licitação podem ter sido constituídas <strong className="text-red-400">
+          especificamente para participar do certame</strong>, possívelmente como &quot;empresa de fachada&quot; ou
+          &quot;laranja&quot;. Uma empresa legítima normalmente possui histórico operacional, clientes anteriores e
+          experiência comprovável no ramo de atuação. A abertura recente levanta suspeita de que a empresa foi criada
+          para dar aparencia de competição ou para receber recursos de forma fraudulenta.
         </p>
         <p className="mt-2 text-yellow-400/80 text-xs">
-          Empresas com menos de 6 meses de existencia que vencem licitacoes sao classificadas como indicador de risco
+          Empresas com menos de 6 meses de existência que vencem licitações são classificadas como indicador de risco
           em auditorias do TCU e CGU.
         </p>
       </AnalysisSection>
@@ -313,20 +313,20 @@ function renderEmpresaRecenteAnalysis(evidence: Record<string, any>) {
       <AnalysisSection title="Indicadores de risco">
         <RiskIndicator label="Empresa" value={razaoSocial} />
         {evidence.cnpj && <RiskIndicator label="CNPJ" value={formatCNPJ(evidence.cnpj)} />}
-        <RiskIndicator label="Data de constituicao" value={formatDate(dataAbertura)} highlight />
-        <RiskIndicator label="Data da licitacao" value={formatDate(dataLicitacao)} />
-        <RiskIndicator label="Tempo de existencia na abertura" value={`${diasAntes} dias`} highlight />
+        <RiskIndicator label="Data de constituição" value={formatDate(dataAbertura)} highlight />
+        <RiskIndicator label="Data da licitação" value={formatDate(dataLicitacao)} />
+        <RiskIndicator label="Tempo de existência na abertura" value={`${diasAntes} dias`} highlight />
         <RiskIndicator label="Limiar de risco" value="< 180 dias (6 meses)" />
       </AnalysisSection>
 
-      <AnalysisSection title="Fundamentacao legal">
+      <AnalysisSection title="Fundamentação legal">
         <p className="text-xs text-gray-400 mb-1">
-          A ausencia de capacidade tecnica e operacional pode configurar:
+          A ausência de capacidade técnica e operacional pode configurar:
         </p>
         <LegalBadge refs={[
-          'Art. 37 CF (Principio da eficiencia)',
-          'Art. 66-67 Lei 14.133/21 (Qualificacao tecnica)',
-          'Acordao 1793/2011 TCU',
+          'Art. 37 CF (Princípio da eficiência)',
+          'Art. 66-67 Lei 14.133/21 (Qualificação técnica)',
+          'Acórdão 1793/2011 TCU',
         ]} />
       </AnalysisSection>
     </>
@@ -351,16 +351,16 @@ function renderCapitalIncompativelAnalysis(evidence: Record<string, any>) {
         </p>
       </AnalysisSection>
 
-      <AnalysisSection title="Por que isso representa possivel fraude">
+      <AnalysisSection title="Por que isso representa possível fraude">
         <p>
           Uma empresa com capital social desproporcional ao valor do contrato pode{' '}
-          <strong className="text-red-400">nao possuir capacidade economico-financeira real</strong> para executar o servico.
-          Isso pode indicar uma &quot;empresa de fachada&quot; &mdash; constituida apenas no papel, sem estrutura real,
-          funcionarios ou equipamentos &mdash; criada para fraudar licitacoes e desviar recursos publicos.
-          A desproporcao entre capital e contrato tambem sugere possivel inexequibilidade da proposta.
+          <strong className="text-red-400">não possuir capacidade econômico-financeira real</strong> para executar o serviço.
+          Isso pode indicar uma &quot;empresa de fachada&quot; &mdash; constituída apenas no papel, sem estrutura real,
+          funcionários ou equipamentos &mdash; criada para fraudar licitações e desviar recursos públicos.
+          A desproporção entre capital e contrato também sugere possível inexequibilidade da proposta.
         </p>
         <p className="mt-2 text-yellow-400/80 text-xs">
-          O TCU considera risco elevado quando o capital social e inferior a 10% do valor contratado.
+          O TCU considera risco elevado quando o capital social é inferior a 10% do valor contratado.
           Neste caso, o capital representa apenas {percentual}% do contrato.
         </p>
       </AnalysisSection>
@@ -370,19 +370,19 @@ function renderCapitalIncompativelAnalysis(evidence: Record<string, any>) {
         {evidence.cnpj && <RiskIndicator label="CNPJ" value={formatCNPJ(evidence.cnpj)} />}
         <RiskIndicator label="Capital social" value={formatCurrency(capitalSocial)} highlight />
         <RiskIndicator label="Valor do contrato" value={formatCurrency(valorContrato)} />
-        <RiskIndicator label="Proporcao capital/contrato" value={`${percentual}%`} highlight />
+        <RiskIndicator label="Proporção capital/contrato" value={`${percentual}%`} highlight />
         <RiskIndicator label="Limiar de risco" value="< 1% do valor contratado" />
       </AnalysisSection>
 
-      <AnalysisSection title="Fundamentacao legal">
+      <AnalysisSection title="Fundamentação legal">
         <p className="text-xs text-gray-400 mb-1">
-          A ausencia de capacidade economico-financeira pode configurar:
+          A ausência de capacidade econômico-financeira pode configurar:
         </p>
         <LegalBadge refs={[
-          'Art. 69 Lei 14.133/21 (Qualificacao economico-financeira)',
+          'Art. 69 Lei 14.133/21 (Qualificação econômico-financeira)',
           'Art. 31 Lei 8.666/93',
-          'Art. 337-F CP (Fraude em licitacao)',
-          'Acordao 1214/2013 TCU',
+          'Art. 337-F CP (Fraude em licitação)',
+          'Acórdão 1214/2013 TCU',
         ]} />
       </AnalysisSection>
     </>
@@ -402,45 +402,45 @@ function renderSancionadaAnalysis(alert: any) {
         <p>
           A empresa <strong className="text-white">&quot;{empresa}&quot;</strong>
           {cnpj && <span className="text-gray-400"> ({formatCNPJ(cnpj)})</span>}{' '}
-          possui <strong className="text-red-400">{sancoes.length > 0 ? sancoes.length : ''} sancao(oes)</strong> registrada(s)
-          em bases oficiais de penalidades da administracao publica (CEIS/CNEP).
+          possui <strong className="text-red-400">{sancoes.length > 0 ? sancoes.length : ''} sanção(ões)</strong> registrada(s)
+          em bases oficiais de penalidades da administração pública (CEIS/CNEP).
         </p>
         {detail && <p className="mt-2 text-gray-400 text-xs italic">{detail}</p>}
       </AnalysisSection>
 
-      <AnalysisSection title="Por que isso e critico">
+      <AnalysisSection title="Por que isso é crítico">
         <p>
-          Empresas sancionadas estao <strong className="text-red-400">legalmente impedidas de contratar com a administracao publica</strong>{' '}
-          durante a vigencia da penalidade. A participacao em licitacoes durante o periodo de sancao constitui
-          irregularidade grave, podendo configurar crime de fraude licitatoria. Alem disso, a existencia de sancoes
-          revela historico de descumprimento contratual, conduta impropria ou fraude anterior &mdash; representando
-          risco elevado de reincidencia.
+          Empresas sancionadas estão <strong className="text-red-400">legalmente impedidas de contratar com a administração pública</strong>{' '}
+          durante a vigência da penalidade. A participação em licitações durante o período de sanção constitui
+          irregularidade grave, podendo configurar crime de fraude licitatória. Além disso, a existência de sanções
+          revela histórico de descumprimento contratual, conduta imprópria ou fraude anterior &mdash; representando
+          risco elevado de reincidência.
         </p>
       </AnalysisSection>
 
       {sancoes.length > 0 && (
-        <AnalysisSection title="Detalhamento das sancoes">
+        <AnalysisSection title="Detalhamento das sanções">
           <div className="space-y-2">
             {sancoes.map((s: any, idx: number) => (
               <div key={idx} className="bg-red-950/30 border border-red-900/40 rounded-md p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1">
                     <div className="text-sm font-medium text-red-300 mb-1">
-                      {s.tipo || 'Sancao nao especificada'}
+                      {s.tipo || 'Sanção não especificada'}
                     </div>
                     {s.orgao && (
                       <div className="text-xs text-gray-400">
-                        Orgao sancionador: <span className="text-gray-300">{s.orgao}</span>
+                        Órgão sancionador: <span className="text-gray-300">{s.orgao}</span>
                       </div>
                     )}
                     <div className="text-xs text-gray-400 mt-0.5">
-                      Periodo: <span className="text-gray-300">{formatDate(s.inicio)}</span>
+                      Período: <span className="text-gray-300">{formatDate(s.inicio)}</span>
                       {s.fim && <> ate <span className="text-gray-300">{formatDate(s.fim)}</span></>}
                       {!s.fim && <span className="text-red-400 ml-1">(vigente)</span>}
                     </div>
                   </div>
                   <span className="text-xs px-2 py-0.5 bg-red-900/50 text-red-300 rounded-full border border-red-800/50 shrink-0">
-                    Sancao {idx + 1}
+                    Sanção {idx + 1}
                   </span>
                 </div>
               </div>
@@ -452,21 +452,21 @@ function renderSancionadaAnalysis(alert: any) {
       <AnalysisSection title="Indicadores de risco">
         <RiskIndicator label="Empresa" value={empresa} />
         {cnpj && <RiskIndicator label="CNPJ" value={formatCNPJ(cnpj)} />}
-        <RiskIndicator label="Total de sancoes" value={sancoes.length > 0 ? `${sancoes.length}` : 'Registrada no CEIS/CNEP'} highlight />
+        <RiskIndicator label="Total de sanções" value={sancoes.length > 0 ? `${sancoes.length}` : 'Registrada no CEIS/CNEP'} highlight />
         {sancoes.some((s: any) => !s.fim) && (
-          <RiskIndicator label="Sancao vigente" value="Sim - empresa impedida de licitar" highlight />
+          <RiskIndicator label="Sanção vigente" value="Sim - empresa impedida de licitar" highlight />
         )}
       </AnalysisSection>
 
-      <AnalysisSection title="Fundamentacao legal">
+      <AnalysisSection title="Fundamentação legal">
         <p className="text-xs text-gray-400 mb-1">
-          A participacao de empresa sancionada em licitacao configura:
+          A participação de empresa sancionada em licitação configura:
         </p>
         <LegalBadge refs={[
-          'Art. 156 Lei 14.133/21 (Sancoes)',
+          'Art. 156 Lei 14.133/21 (Sanções)',
           'Art. 87-88 Lei 8.666/93',
           'Art. 337-M CP',
-          'Lei 12.846/13 (Anticorrupcao)',
+          'Lei 12.846/13 (Anticorrupção)',
           'CEIS/CNEP (Cadastros de impedidos)',
         ]} />
       </AnalysisSection>
@@ -483,46 +483,46 @@ function renderEnderecoCompartilhadoAnalysis(evidence: Record<string, any>, shar
     <>
       <AnalysisSection title="O que foi detectado">
         <p>
-          <strong className="text-orange-400">{total} empresas concorrentes</strong> na mesma licitacao estao registradas
-          no mesmo endereco: <strong className="text-white">&quot;{endereco}&quot;</strong>.
+          <strong className="text-orange-400">{total} empresas concorrentes</strong> na mesma licitação estão registradas
+          no mesmo endereço: <strong className="text-white">&quot;{endereco}&quot;</strong>.
         </p>
       </AnalysisSection>
 
-      <AnalysisSection title="Por que isso representa possivel fraude">
+      <AnalysisSection title="Por que isso representa possível fraude">
         <p>
-          Empresas supostamente independentes e concorrentes que operam no mesmo endereco fisico levantam
-          forte suspeita de <strong className="text-red-400">pertencerem ao mesmo grupo economico</strong> ou
-          serem controladas pelas mesmas pessoas. Esse padrao e classico em esquemas de &quot;conluio licitatorio&quot;
-          onde varias empresas sao criadas no mesmo local para simular competicao. Na pratica, todas as propostas
-          podem ser elaboradas pela mesma equipe, no mesmo escritorio, com precos previamente combinados.
+          Empresas supostamente independentes e concorrentes que operam no mesmo endereço físico levantam
+          forte suspeita de <strong className="text-red-400">pertencerem ao mesmo grupo econômico</strong> ou
+          serem controladas pelas mesmas pessoas. Esse padrão é clássico em esquemas de &quot;conluio licitatório&quot;
+          onde varias empresas são criadas no mesmo local para simular competição. Na prática, todas as propostas
+          podem ser elaboradas pela mesma equipe, no mesmo escritório, com preços previamente combinados.
         </p>
         <p className="mt-2 text-yellow-400/80 text-xs">
-          O compartilhamento de endereco entre concorrentes e um dos principais indicadores utilizados pela CGU
-          e pelo TCU em auditorias de integridade licitatoria.
+          O compartilhamento de endereço entre concorrentes é um dos principais indicadores utilizados pela CGU
+          e pelo TCU em auditorias de integridade licitatória.
         </p>
       </AnalysisSection>
 
       <AnalysisSection title="Indicadores de risco">
-        <RiskIndicator label="Endereco compartilhado" value={endereco} highlight />
-        <RiskIndicator label="Empresas no mesmo endereco" value={`${total} empresas`} highlight />
+        <RiskIndicator label="Endereço compartilhado" value={endereco} highlight />
+        <RiskIndicator label="Empresas no mesmo endereço" value={`${total} empresas`} highlight />
         {empresas.map((cnpj: string) => (
-          <RiskIndicator key={cnpj} label="CNPJ no endereco" value={formatCNPJ(cnpj)} />
+          <RiskIndicator key={cnpj} label="CNPJ no endereço" value={formatCNPJ(cnpj)} />
         ))}
         {sharedCount > 1 && (
           <RiskIndicator
-            label="Coincidencia em outras licitacoes"
-            value={`Estas empresas participaram juntas em ${sharedCount} licitacoes`}
+            label="Coincidência em outras licitações"
+            value={`Estas empresas participaram juntas em ${sharedCount} licitações`}
             highlight
           />
         )}
       </AnalysisSection>
 
-      <AnalysisSection title="Fundamentacao legal">
+      <AnalysisSection title="Fundamentação legal">
         <p className="text-xs text-gray-400 mb-1">
           O compartilhamento de infraestrutura entre concorrentes pode configurar:
         </p>
         <LegalBadge refs={[
-          'Art. 337-F CP (Fraude em licitacao)',
+          'Art. 337-F CP (Fraude em licitação)',
           'Art. 178 Lei 14.133/21',
           'Art. 90 Lei 8.666/93',
           'IN SEGES/ME 73/2020',
@@ -554,7 +554,7 @@ function renderEntidadeRelacionadaAnalysis(alert: any) {
           <strong className="text-white">&quot;{empresa2}&quot;</strong>
           {cnpj2 && <span className="text-gray-400"> ({formatCNPJ(cnpj2)})</span>}
           {' '}apresentam <strong className="text-orange-400">{matchScore.toFixed(0)}% de similaridade</strong> e
-          participam juntas em <strong className="text-red-400">{commonTenders} licitacao(oes)</strong>.
+          participam juntas em <strong className="text-red-400">{commonTenders} licitação(oes)</strong>.
         </p>
         {alert.detail && (
           <p className="mt-2 text-gray-400 text-xs italic">{alert.detail}</p>
@@ -563,9 +563,9 @@ function renderEntidadeRelacionadaAnalysis(alert: any) {
 
       <AnalysisSection title="Por que isso e suspeito">
         <p>
-          Empresas com alta similaridade em razao social e/ou quadro societario que competem entre si
-          podem ser entidades controladas pelo mesmo grupo economico, configurando <strong className="text-red-400">
-          simulacao de competicao</strong> para manipular resultados de licitacoes.
+          Empresas com alta similaridade em razão social e/ou quadro societário que competem entre si
+          podem ser entidades controladas pelo mesmo grupo econômico, configurando <strong className="text-red-400">
+          simulacao de competição</strong> para manipular resultados de licitações.
         </p>
       </AnalysisSection>
 
@@ -575,27 +575,27 @@ function renderEntidadeRelacionadaAnalysis(alert: any) {
         )}
         {sharedSocios.length > 0 && (
           <>
-            <RiskIndicator label="Socios compartilhados" value={`${sharedSocios.length} socio(s)`} highlight />
+            <RiskIndicator label="Sócios compartilhados" value={`${sharedSocios.length} sócio(s)`} highlight />
             {sharedSocios.slice(0, 5).map((s: any) => (
-              <RiskIndicator key={s.cpf || s.nome} label="Socio em comum" value={s.nome || s.cpf} />
+              <RiskIndicator key={s.cpf || s.nome} label="Sócio em comum" value={s.nome || s.cpf} />
             ))}
           </>
         )}
         <RiskIndicator label="Campos com match" value={matchedFields.join(', ') || 'N/A'} />
-        <RiskIndicator label="Licitacoes em comum" value={`${commonTenders}`} highlight={commonTenders > 1} />
+        <RiskIndicator label="Licitações em comum" value={`${commonTenders}`} highlight={commonTenders > 1} />
         <RiskIndicator label="Empresa 1" value={`${empresa1}${cnpj1 ? ' (' + formatCNPJ(cnpj1) + ')' : ''}`} />
         <RiskIndicator label="Empresa 2" value={`${empresa2}${cnpj2 ? ' (' + formatCNPJ(cnpj2) + ')' : ''}`} />
       </AnalysisSection>
 
-      <AnalysisSection title="Fundamentacao legal">
+      <AnalysisSection title="Fundamentação legal">
         <p className="text-xs text-gray-400 mb-1">
-          A participacao de entidades relacionadas como concorrentes independentes configura:
+          A participação de entidades relacionadas como concorrentes independentes configura:
         </p>
         <LegalBadge refs={[
-          'Art. 337-F CP (Fraude em licitacao)',
+          'Art. 337-F CP (Fraude em licitação)',
           'Art. 178 Lei 14.133/21',
           'Art. 90 Lei 8.666/93',
-          'Sumula 254 TCU',
+          'Súmula 254 TCU',
         ]} />
       </AnalysisSection>
     </>
@@ -624,7 +624,7 @@ function renderAnalysis(alert: any, sharedCount: number) {
     default:
       return (
         <AnalysisSection title="Detalhes">
-          <p>{getDescription(alert) || 'Sem detalhes disponiveis.'}</p>
+          <p>{getDescription(alert) || 'Sem detalhes disponíveis.'}</p>
           {Object.keys(evidence).length > 0 && (
             <pre className="mt-2 text-xs text-gray-400 bg-[#111315] rounded p-3 overflow-x-auto max-h-48 border border-[#2d2f33]">
               {JSON.stringify(evidence, null, 2)}
@@ -694,6 +694,27 @@ export default async function AdminIntelligencePage({
   const { data: alerts, count: filteredCount } = await query.range(offset, offset + PAGE_SIZE - 1)
 
   const totalPages = Math.ceil((filteredCount || 0) / PAGE_SIZE)
+
+  // ── Occurrence groups (same alert_type + same CNPJ root pair) ──
+  const occurrenceMap = new Map<string, number>()
+  const occurrenceIndex = new Map<string, number>()
+  ;(alerts || []).forEach((alert: any) => {
+    const c1 = (alert.cnpj_1 || '').substring(0, 8)
+    const c2 = (alert.cnpj_2 || '').substring(0, 8)
+    const sorted = [c1, c2].sort().join('|')
+    const key = (alert.alert_type || alert.type || '') + '|' + sorted
+    occurrenceMap.set(key, (occurrenceMap.get(key) || 0) + 1)
+  })
+  const groupCounters = new Map<string, number>()
+  ;(alerts || []).forEach((alert: any) => {
+    const c1 = (alert.cnpj_1 || '').substring(0, 8)
+    const c2 = (alert.cnpj_2 || '').substring(0, 8)
+    const sorted = [c1, c2].sort().join('|')
+    const key = (alert.alert_type || alert.type || '') + '|' + sorted
+    const idx = (groupCounters.get(key) || 0) + 1
+    groupCounters.set(key, idx)
+    occurrenceIndex.set(alert.id, idx)
+  })
 
   // ── Batch-fetch tender context for alerts ──
   const tenderIds = [...new Set((alerts || []).map((a: any) => a.tender_id).filter(Boolean))]
@@ -781,21 +802,21 @@ export default async function AdminIntelligencePage({
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
           <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-          <h1 className="text-xl sm:text-2xl font-bold">Central de Inteligencia</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Central de Inteligência</h1>
         </div>
         <p className="text-sm text-gray-400">
-          Analise automatizada de padroes de fraude e conluio em licitacoes.
-          Cruzamento de dados com base na Receita Federal ({'>'}67M registros), CEIS/CNEP e historico de participacoes.
+          Análise automatizada de padrões de fraude e conluio em licitações.
+          Cruzamento de dados com base na Receita Federal ({'>'}67M registros), CEIS/CNEP e histórico de participações.
         </p>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-8">
-        <StatsCard title="Total Alertas" value={totalCount.toLocaleString('pt-BR')} description="Padroes detectados" />
-        <StatsCard title="Criticos" value={criticalCount.toLocaleString('pt-BR')} description="Sancoes ativas" />
-        <StatsCard title="Alto Risco" value={highCount.toLocaleString('pt-BR')} description="Socios e enderecos" />
-        <StatsCard title="Medio Risco" value={mediumCount.toLocaleString('pt-BR')} description="Capital e idade" />
-        <StatsCard title="Analisadas" value={analyzedCount.toLocaleString('pt-BR')} description="Licitacoes escaneadas" />
+        <StatsCard title="Total Alertas" value={totalCount.toLocaleString('pt-BR')} description="Padrões detectados" />
+        <StatsCard title="Críticos" value={criticalCount.toLocaleString('pt-BR')} description="Sanções ativas" />
+        <StatsCard title="Alto Risco" value={highCount.toLocaleString('pt-BR')} description="Sócios e endereços" />
+        <StatsCard title="Médio Risco" value={mediumCount.toLocaleString('pt-BR')} description="Capital e idade" />
+        <StatsCard title="Analisadas" value={analyzedCount.toLocaleString('pt-BR')} description="Licitações escaneadas" />
       </div>
 
       {/* Filters */}
@@ -807,9 +828,9 @@ export default async function AdminIntelligencePage({
             className="px-3 py-2 bg-[#1a1c1f] border border-[#2d2f33] rounded-md text-sm text-white"
           >
             <option value="">Todas severidades</option>
-            <option value="CRITICAL">Critico</option>
+            <option value="CRITICAL">Crítico</option>
             <option value="HIGH">Alto</option>
-            <option value="MEDIUM">Medio</option>
+            <option value="MEDIUM">Médio</option>
           </select>
 
           <select
@@ -818,18 +839,18 @@ export default async function AdminIntelligencePage({
             className="px-3 py-2 bg-[#1a1c1f] border border-[#2d2f33] rounded-md text-sm text-white"
           >
             <option value="">Todos os tipos</option>
-            <option value="socio_em_comum">Socio em Comum</option>
+            <option value="socio_em_comum">Sócio em Comum</option>
             <option value="empresa_recente">Empresa Recente</option>
             <option value="capital_incompativel">Capital Incompativel</option>
             <option value="sancionada">Empresa Sancionada</option>
-            <option value="mesmo_endereco">Endereco Compartilhado</option>
+            <option value="mesmo_endereco">Endereço Compartilhado</option>
             <option value="entidade_relacionada">Entidade Relacionada</option>
           </select>
 
           <input
             name="search"
             type="text"
-            placeholder="Buscar por CNPJ, empresa ou descricao..."
+            placeholder="Buscar por CNPJ, empresa ou descrição..."
             defaultValue={searchFilter}
             className="px-3 py-2 bg-[#1a1c1f] border border-[#2d2f33] rounded-md text-sm text-white placeholder-gray-500 flex-1 min-w-0"
           />
@@ -854,6 +875,14 @@ export default async function AdminIntelligencePage({
             const sharedCount = sharedTenderMap.get(alert.id) || 0
             const tender = tenderMap.get(alert.tender_id)
 
+            // Occurrence badge
+            const oc1 = (alert.cnpj_1 || '').substring(0, 8)
+            const oc2 = (alert.cnpj_2 || '').substring(0, 8)
+            const ocSorted = [oc1, oc2].sort().join('|')
+            const ocKey = (alert.alert_type || alert.type || '') + '|' + ocSorted
+            const ocTotal = occurrenceMap.get(ocKey) || 0
+            const ocIdx = occurrenceIndex.get(alert.id) || 0
+
             return (
               <div
                 key={alert.id}
@@ -876,13 +905,18 @@ export default async function AdminIntelligencePage({
                         {alert.status}
                       </span>
                     )}
+                    {ocTotal > 1 && (
+                      <span className="text-[10px] px-1.5 py-0.5 bg-blue-900/40 text-blue-300 rounded-full border border-blue-700/40">
+                        {ocIdx}ª ocorrência · mesmo grupo
+                      </span>
+                    )}
                   </div>
                   {alert.tender_id && (
                     <Link
                       href={`/opportunities/tender/${alert.tender_id}`}
                       className="text-xs text-brand hover:underline whitespace-nowrap shrink-0 font-medium"
                     >
-                      Ver licitacao {'\u2192'}
+                      Ver licitação {'\u2192'}
                     </Link>
                   )}
                 </div>
@@ -891,7 +925,7 @@ export default async function AdminIntelligencePage({
                 {tender && (
                   <div className="px-5 py-3 bg-black/20 border-b border-white/5">
                     <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Licitacao</div>
-                    <p className="text-sm text-gray-200 line-clamp-2">{tender.objeto || 'Objeto nao informado'}</p>
+                    <p className="text-sm text-gray-200 line-clamp-2">{tender.objeto || 'Objeto não informado'}</p>
                     <div className="flex flex-wrap gap-3 mt-1.5 text-xs text-gray-400">
                       {tender.orgao_nome && <span>{tender.orgao_nome}</span>}
                       {tender.uf && (
@@ -928,7 +962,7 @@ export default async function AdminIntelligencePage({
                 <div className="px-5 py-4">
                   <div className="flex items-center gap-2 mb-4">
                     <div className="w-1 h-4 bg-brand rounded-full" />
-                    <div className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Analise de Inteligencia</div>
+                    <div className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Análise de Inteligência</div>
                   </div>
                   {renderAnalysis(alert, sharedCount)}
                 </div>
@@ -939,7 +973,7 @@ export default async function AdminIntelligencePage({
                     <div className="flex items-center gap-2 text-sm">
                       <span className="text-orange-400">{'\u26A0'}</span>
                       <span className="text-orange-300 font-medium">
-                        Cruzamento de dados: estas empresas coincidem em {sharedCount} licitacoes juntas
+                        Cruzamento de dados: estas empresas coincidem em {sharedCount} licitações juntas
                       </span>
                     </div>
                   </div>
@@ -958,7 +992,7 @@ export default async function AdminIntelligencePage({
       {/* Pagination */}
       <div className="flex justify-between items-center mt-8 pb-4">
         <p className="text-sm text-gray-400">
-          {(filteredCount || 0).toLocaleString('pt-BR')} alertas {'\u00B7'} Pagina {page} de {totalPages || 1}
+          {(filteredCount || 0).toLocaleString('pt-BR')} alertas {'\u00B7'} Página {page} de {totalPages || 1}
         </p>
         <div className="flex gap-2">
           {page > 1 && (
@@ -974,7 +1008,7 @@ export default async function AdminIntelligencePage({
               href={buildUrl({ page: String(page + 1) })}
               className="px-4 py-2 border border-[#2d2f33] rounded-lg text-sm hover:bg-[#2d2f33] transition-colors"
             >
-              Proxima {'\u2192'}
+              Próxima {'\u2192'}
             </Link>
           )}
         </div>
