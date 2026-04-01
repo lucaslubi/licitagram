@@ -440,6 +440,7 @@ class QueryBuilder {
     )
 
     for (const f of this.state.filters) {
+      if (f.type === 'or' && (f as OrFilter).expr.startsWith('__')) continue // Skip fallback markers
       if (f.type === 'or') chain = chain.or(f.expr, (f as OrFilter).opts)
       else if (f.type === 'not') chain = chain.not(f.column, (f as NotFilter).op as any, f.value)
       else if (f.type === 'eq') chain = chain.eq(f.column, f.value)
