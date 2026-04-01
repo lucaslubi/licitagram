@@ -282,7 +282,7 @@ export async function removeCompanyAction(companyId: string): Promise<{ success:
     .eq('id', user.id)
     .single()
 
-  // Remove the link (keeps the company record for other users)
+  // Remove the link
   const { error: deleteError } = await supabase
     .from('user_companies')
     .delete()
@@ -299,6 +299,18 @@ export async function removeCompanyAction(companyId: string): Promise<{ success:
 
   // Delete subscription copy (if any)
   await supabase.from('subscriptions').delete().eq('company_id', companyId)
+
+  // If no other user is linked to this company, delete the company record
+  // (frees up the CNPJ for re-registration)
+  const { count: remainingLinks } = await supabase
+    .from('user_companies')
+    .select('id', { count: 'exact', head: true })
+    .eq('company_id', companyId)
+
+  if ((remainingLinks || 0) === 0) {
+    await supabase.from('companies').delete().eq('id', companyId)
+    console.log(`[MULTI-COMPANY] Deleted orphaned company ${companyId} (no remaining users)`)
+  }
 
   // If user was on this company, switch to the default
   if (profile?.company_id === companyId) {
