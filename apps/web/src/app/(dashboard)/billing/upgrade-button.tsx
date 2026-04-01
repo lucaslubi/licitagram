@@ -5,8 +5,11 @@ import { useState } from 'react'
 export function UpgradeButton({ planId, label }: { planId: string; label: string }) {
   const [loading, setLoading] = useState(false)
 
+  const [error, setError] = useState<string | null>(null)
+
   async function handleClick() {
     setLoading(true)
+    setError(null)
     try {
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
@@ -17,21 +20,29 @@ export function UpgradeButton({ planId, label }: { planId: string; label: string
       if (data.url) {
         window.location.href = data.url
       } else {
-        alert(data.error || 'Erro ao criar sessão de pagamento')
+        const errMsg = data.error || 'Erro ao criar sessão de pagamento'
+        setError(errMsg)
+        console.error('[checkout]', errMsg)
         setLoading(false)
       }
-    } catch {
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Erro de conexão'
+      setError(errMsg)
+      console.error('[checkout]', err)
       setLoading(false)
     }
   }
 
   return (
-    <button
-      onClick={handleClick}
-      disabled={loading}
-      className="w-full py-2 px-4 bg-brand text-white rounded-md hover:bg-brand/90 text-sm font-medium disabled:opacity-50"
-    >
-      {loading ? 'Redirecionando...' : label}
-    </button>
+    <div>
+      <button
+        onClick={handleClick}
+        disabled={loading}
+        className="w-full py-2 px-4 bg-brand text-white rounded-md hover:bg-brand/90 text-sm font-medium disabled:opacity-50"
+      >
+        {loading ? 'Redirecionando...' : label}
+      </button>
+      {error && <p className="text-red-400 text-xs mt-2 text-center">{error}</p>}
+    </div>
   )
 }
