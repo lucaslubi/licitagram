@@ -38,8 +38,13 @@ interface VpsMetrics {
   ram_used: number
   ram_free: number
   cpu_load: number[]
+  cpu_count?: number
+  disk_total_gb?: number
+  disk_used_gb?: number
   disk_used_pct: number
   uptime_hours: number
+  // API may return _mb suffixed fields
+  [key: string]: unknown
 }
 
 interface VpsResponse {
@@ -247,12 +252,25 @@ export async function GET() {
 
     const alerts = generateAlerts(vpsData, dbStats)
 
+    // Normalize VPS metrics field names (API returns ram_total_mb, frontend expects ram_total)
+    const vpsNormalized = vpsData?.vps ? {
+      ram_total: vpsData.vps.ram_total_mb ?? vpsData.vps.ram_total ?? 0,
+      ram_used: vpsData.vps.ram_used_mb ?? vpsData.vps.ram_used ?? 0,
+      ram_free: vpsData.vps.ram_free_mb ?? vpsData.vps.ram_free ?? 0,
+      cpu_load: vpsData.vps.cpu_load || [],
+      cpu_count: vpsData.vps.cpu_count || 0,
+      disk_total_gb: vpsData.vps.disk_total_gb || 0,
+      disk_used_gb: vpsData.vps.disk_used_gb || 0,
+      disk_used_pct: vpsData.vps.disk_used_pct || 0,
+      uptime_hours: vpsData.vps.uptime_hours || 0,
+    } as VpsMetrics : null
+
     return NextResponse.json({
       timestamp: new Date().toISOString(),
       vps_reachable: vpsData !== null,
       workers: vpsData?.workers || [],
       queues: vpsData?.queues || {},
-      vps: vpsData?.vps || null,
+      vps: vpsNormalized,
       database: dbStats,
       alerts,
     })
