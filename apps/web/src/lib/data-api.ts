@@ -3,7 +3,9 @@
  * All functions degrade gracefully — the app continues without enrichment data on errors.
  */
 
-const DATA_API_URL = process.env.ENRICHMENT_API_URL || 'http://85.31.60.53:3998'
+import { ENRICHMENT_API_URL } from './env'
+
+const DATA_API_URL = ENRICHMENT_API_URL
 
 export async function enrichCNPJ(cnpj: string) {
   try {

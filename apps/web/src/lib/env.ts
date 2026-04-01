@@ -38,6 +38,15 @@ export const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL || ''
 export const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || ''
 export const EVOLUTION_INSTANCE = process.env.EVOLUTION_INSTANCE || 'licitagram'
 
+/** VPS Infrastructure */
+export const VPS_MONITORING_URL = optionalEnv('VPS_MONITORING_URL', 'http://85.31.60.53:3998')
+export const VPS_LOGIN_URL = optionalEnv('VPS_LOGIN_URL', 'http://187.77.241.93:3999')
+export const ENRICHMENT_API_URL = optionalEnv('ENRICHMENT_API_URL', 'http://85.31.60.53:3998')
+export const MONITORING_API_KEY = process.env.MONITORING_API_KEY || ''
+
+/** AI */
+export const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || ''
+
 /** App */
 export const APP_URL = optionalEnv('NEXT_PUBLIC_APP_URL', 'http://localhost:3000')
 
