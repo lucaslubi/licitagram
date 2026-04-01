@@ -1,9 +1,17 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import OpenAI from 'openai'
 import { CNAE_GROUPS } from '@licitagram/shared'
 
-const genai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
+const openrouter = new OpenAI({
+  apiKey: process.env.OPENROUTER_API_KEY || '',
+  baseURL: 'https://openrouter.ai/api/v1',
+  defaultHeaders: {
+    'HTTP-Referer': 'https://licitagram.com',
+    'X-Title': 'Licitagram',
+  },
+  timeout: 45_000,
+})
 
 function buildCnaeDescriptions(cnaes: string[]): string[] {
   const descriptions: string[] = []
@@ -60,16 +68,14 @@ Retorne APENAS a descricao, sem formatacao, sem markdown, sem aspas.`
 
     try {
       console.log('[GENERATE] Description request for:', razao_social, '| CNAEs:', cnaeDescriptions.length)
-      const model = genai.getGenerativeModel({ model: 'gemini-2.0-flash' })
-      const result = await model.generateContent({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: {
-          maxOutputTokens: 600,
-          temperature: 0.4,
-        },
+      const response = await openrouter.chat.completions.create({
+        model: 'google/gemini-2.5-flash',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 600,
+        temperature: 0.4,
       })
 
-      const description = result.response.text()?.trim()
+      const description = response.choices[0]?.message?.content?.trim()
       console.log('[GENERATE] Description result length:', description?.length || 0)
       if (!description || description.length < 20) {
         return NextResponse.json({ error: 'IA nao conseguiu gerar descricao' }, { status: 500 })
@@ -110,16 +116,14 @@ INSTRUCOES:
 Retorne APENAS os termos, um por linha, sem numeracao, sem explicacao, sem marcadores.`
 
     try {
-      const model = genai.getGenerativeModel({ model: 'gemini-2.0-flash' })
-      const result = await model.generateContent({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: {
-          maxOutputTokens: 800,
-          temperature: 0.4,
-        },
+      const response = await openrouter.chat.completions.create({
+        model: 'google/gemini-2.5-flash',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 800,
+        temperature: 0.4,
       })
 
-      const content = result.response.text()?.trim()
+      const content = response.choices[0]?.message?.content?.trim()
       if (!content) {
         return NextResponse.json({ error: 'IA não conseguiu gerar termos' }, { status: 500 })
       }
