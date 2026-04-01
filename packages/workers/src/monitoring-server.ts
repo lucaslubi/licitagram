@@ -370,6 +370,35 @@ const server = http.createServer(async (req, res) => {
       }
 
       try {
+        // Sync company to local PG mirror so keyword-matcher can find it
+        try {
+          const { data: company } = await supabase.supabase
+            .from('companies')
+            .select('id, cnpj, razao_social, nome_fantasia, cnae_principal, cnaes_secundarios, descricao_servicos, porte, uf, municipio, capacidades, certificacoes, palavras_chave, matching_status')
+            .eq('id', companyId)
+            .single()
+
+          if (company) {
+            const { localPool } = await import('./lib/local-db')
+            const cols = ['id', 'cnpj', 'razao_social', 'nome_fantasia', 'cnae_principal', 'cnaes_secundarios', 'descricao_servicos', 'porte', 'uf', 'municipio', 'capacidades', 'certificacoes', 'palavras_chave', 'matching_status']
+            const vals = cols.map(k => {
+              const v = (company as any)[k]
+              if (v === null || v === undefined) return null
+              if (typeof v === 'object') return JSON.stringify(v)
+              return v
+            })
+            const ph = cols.map((_, i) => `$${i + 1}`).join(', ')
+            const up = cols.filter(k => k !== 'id').map(k => `${k} = EXCLUDED.${k}`).join(', ')
+            await localPool.query(
+              `INSERT INTO mirror_companies (${cols.join(', ')}) VALUES (${ph}) ON CONFLICT (id) DO UPDATE SET ${up}, synced_at = NOW()`,
+              vals,
+            )
+            console.log(`[monitoring] Synced company ${companyId} to mirror_companies`)
+          }
+        } catch (syncErr: any) {
+          console.warn(`[monitoring] Mirror sync failed (non-blocking): ${syncErr.message}`)
+        }
+
         const r = getRedis()
         await r.publish('licitagram:company-saved', JSON.stringify({ companyId }))
         console.log(`[monitoring] Published company-saved event for ${companyId}`)
