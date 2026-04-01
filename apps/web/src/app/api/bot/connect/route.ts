@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 
 export const maxDuration = 120
 
-const VPS_LOGIN_URL = 'http://187.77.241.93:3999'
+const VPS_LOGIN_URL = process.env.VPS_LOGIN_URL || 'http://187.77.241.93:3999'
 
 /**
  * POST /api/bot/connect
