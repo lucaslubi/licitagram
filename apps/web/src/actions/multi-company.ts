@@ -1,8 +1,16 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 import type { CompanyInfo } from '@/contexts/company-context'
+
+function getServiceSupabase() {
+  return createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
+}
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -302,14 +310,20 @@ export async function removeCompanyAction(companyId: string): Promise<{ success:
 
   // If no other user is linked to this company, delete the company record
   // (frees up the CNPJ for re-registration)
-  const { count: remainingLinks } = await supabase
+  // Uses service client to bypass RLS (no SELECT/DELETE policy for orphaned companies)
+  const serviceSupabase = getServiceSupabase()
+  const { count: remainingLinks } = await serviceSupabase
     .from('user_companies')
     .select('id', { count: 'exact', head: true })
     .eq('company_id', companyId)
 
   if ((remainingLinks || 0) === 0) {
-    await supabase.from('companies').delete().eq('id', companyId)
-    console.log(`[MULTI-COMPANY] Deleted orphaned company ${companyId} (no remaining users)`)
+    const { error: delErr } = await serviceSupabase.from('companies').delete().eq('id', companyId)
+    if (delErr) {
+      console.error(`[MULTI-COMPANY] Failed to delete orphaned company ${companyId}:`, delErr.message)
+    } else {
+      console.log(`[MULTI-COMPANY] Deleted orphaned company ${companyId} (no remaining users)`)
+    }
   }
 
   // If user was on this company, switch to the default

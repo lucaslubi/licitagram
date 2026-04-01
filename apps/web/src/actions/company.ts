@@ -303,8 +303,10 @@ export async function saveCompany(payload: CompanyPayload, existingId?: string) 
 
     if (insertError) {
       // If CNPJ already exists (orphaned from a previous deletion), reuse it
+      // Uses service client to bypass RLS (orphaned companies are invisible to normal queries)
       if (insertError.code === '23505' && cleanCnpj) {
-        const { data: orphaned } = await supabase
+        const serviceSupabase = getServiceSupabase()
+        const { data: orphaned } = await serviceSupabase
           .from('companies')
           .select('id')
           .eq('cnpj', cleanCnpj)
@@ -312,14 +314,14 @@ export async function saveCompany(payload: CompanyPayload, existingId?: string) 
 
         if (orphaned) {
           // Check if anyone else is using this company
-          const { count: otherLinks } = await supabase
+          const { count: otherLinks } = await serviceSupabase
             .from('user_companies')
             .select('id', { count: 'exact', head: true })
             .eq('company_id', orphaned.id)
 
           if ((otherLinks || 0) === 0) {
             // No one is linked — update the orphaned record with new data
-            await supabase.from('companies').update(sanitized).eq('id', orphaned.id)
+            await serviceSupabase.from('companies').update(sanitized).eq('id', orphaned.id)
             await supabase.from('users').update({ company_id: orphaned.id }).eq('id', user.id)
             companyId = orphaned.id
             console.log('[COMPANY] Reused orphaned company:', orphaned.id, 'for CNPJ:', cleanCnpj)
