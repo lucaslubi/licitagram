@@ -6,7 +6,7 @@ import OpenAI from 'openai'
 
 // ── AI Providers ────────────────────────────────────────────────────────────
 // Primary: Gemini 2.5 Flash Preview via OpenRouter (1M token context)
-// Fallback: DeepSeek V3 (64K context, if OpenRouter fails)
+// Fallback: Groq V3 (64K context, if OpenRouter fails)
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || ''
 const GROQ_API_KEY = process.env.GROQ_API_KEY || ''
 
@@ -173,12 +173,12 @@ export async function POST(request: NextRequest) {
       })
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error)
-      console.error('[Consultant] OpenRouter/Gemini failed, falling back to DeepSeek:', errMsg)
-      // Fall through to DeepSeek fallback
+      console.error('[Consultant] OpenRouter/Gemini failed, falling back to Groq:', errMsg)
+      // Fall through to Groq fallback
     }
   }
 
-  // ── Fallback: DeepSeek V3 ──────────────────────────────────────────
+  // ── Fallback: Groq V3 ──────────────────────────────────────────
   if (!GROQ_API_KEY) {
     return NextResponse.json(
       { error: 'Serviço de chat indisponível. Tente novamente mais tarde.' },
@@ -186,12 +186,12 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // Truncate system prompt for DeepSeek's 64K limit
+  // Truncate system prompt for Groq's 64K limit
   const wasTruncated = systemPrompt.length > GROQ_MAX_CONTEXT
   const dsSystemPrompt = wasTruncated ? smartTruncate(systemPrompt, GROQ_MAX_CONTEXT) : systemPrompt
 
   if (wasTruncated) {
-    console.log(`[Consultant] DeepSeek fallback — prompt truncated: ${systemPrompt.length} → ${dsSystemPrompt.length} chars`)
+    console.log(`[Consultant] Groq fallback — prompt truncated: ${systemPrompt.length} → ${dsSystemPrompt.length} chars`)
   }
 
   const dsMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
@@ -202,13 +202,13 @@ export async function POST(request: NextRequest) {
     },
   ]
 
-  // Keep fewer messages for DeepSeek
+  // Keep fewer messages for Groq
   for (const msg of chatMessages.slice(-10)) {
     if (msg.content) dsMessages.push({ role: msg.role, content: msg.content })
   }
 
   try {
-    console.log(`[Consultant] Using DeepSeek V3 fallback — ${dsSystemPrompt.length} chars prompt`)
+    console.log(`[Consultant] Using Groq V3 fallback — ${dsSystemPrompt.length} chars prompt`)
 
     const completion = await groq.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
@@ -229,7 +229,7 @@ export async function POST(request: NextRequest) {
             }
           }
         } catch (err) {
-          console.error('[Consultant] DeepSeek stream error:', err)
+          console.error('[Consultant] Groq stream error:', err)
           controller.enqueue(
             encoder.encode(
               `data: ${JSON.stringify({ content: '\n\n⚠️ Erro durante a geração da resposta.' })}\n\n`,
@@ -251,7 +251,7 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)
-    console.error('[Consultant] DeepSeek error:', { message: msg })
+    console.error('[Consultant] Groq error:', { message: msg })
     return NextResponse.json({ error: `Falha ao processar: ${msg.slice(0, 200)}` }, { status: 500 })
   }
 }

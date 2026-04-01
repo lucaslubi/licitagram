@@ -6,8 +6,8 @@ import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
 import OpenAI from 'openai'
 
 // ── AI Providers ────────────────────────────────────────────────────────────
-// Primary: Gemini 2.5 Flash Preview via OpenRouter (1M token context)
-// Fallback: DeepSeek V3 (64K context, if OpenRouter fails)
+// Primary: Gemini 2.5 Flash via OpenRouter (1M token context)
+// Fallback: Groq Llama 3.3 70B (32K context, if OpenRouter fails)
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || ''
 const GROQ_API_KEY = process.env.GROQ_API_KEY || ''
 
@@ -25,11 +25,11 @@ const groq = new OpenAI({
   baseURL: 'https://api.groq.com/openai/v1',
 })
 
-// DeepSeek fallback limit: ~64K tokens ≈ ~150K chars
+// Groq fallback limit: ~64K tokens ≈ ~150K chars
 const DEEPSEEK_MAX_CONTEXT = 150_000
 
 /**
- * Smart truncation for DeepSeek fallback only.
+ * Smart truncation for Groq fallback only.
  * Gemini 2.5 Flash has 1M tokens — no truncation needed.
  */
 function smartTruncate(text: string, maxChars: number): string {
@@ -516,25 +516,25 @@ ${context}`
       })
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error)
-      console.error('[Chat] OpenRouter/Gemini failed, falling back to DeepSeek:', errMsg)
-      // Fall through to DeepSeek fallback
+      console.error('[Chat] OpenRouter/Gemini failed, falling back to Groq:', errMsg)
+      // Fall through to Groq fallback
     }
   }
 
-  // ── Fallback: DeepSeek V3 ──────────────────────────────────────────
+  // ── Fallback: Groq V3 ──────────────────────────────────────────
   if (!GROQ_API_KEY) {
     return NextResponse.json({ error: 'Serviço de chat indisponível. Tente novamente mais tarde.' }, { status: 503 })
   }
 
-  // Truncate context for DeepSeek's 64K limit
+  // Truncate context for Groq's 64K limit
   const wasTruncated = context.length > DEEPSEEK_MAX_CONTEXT
   const dsContext = wasTruncated ? smartTruncate(context, DEEPSEEK_MAX_CONTEXT) : context
 
   if (wasTruncated) {
-    console.log(`[Chat] DeepSeek fallback — context truncated: ${context.length} → ${dsContext.length} chars`)
+    console.log(`[Chat] Groq fallback — context truncated: ${context.length} → ${dsContext.length} chars`)
   }
 
-  // Rebuild messages with truncated context for DeepSeek
+  // Rebuild messages with truncated context for Groq
   const dsMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
     {
       role: 'system',
@@ -551,7 +551,7 @@ ${context}`
   dsMessages.push({ role: 'user', content: question })
 
   try {
-    console.log(`[Chat] Using DeepSeek V3 fallback — ${dsContext.length} chars context`)
+    console.log(`[Chat] Using Groq V3 fallback — ${dsContext.length} chars context`)
 
     const completion = await groq.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
@@ -572,7 +572,7 @@ ${context}`
             }
           }
         } catch (err) {
-          console.error('[Chat] DeepSeek stream error:', err)
+          console.error('[Chat] Groq stream error:', err)
           controller.enqueue(
             encoder.encode(
               `data: ${JSON.stringify({ content: '\n\n⚠️ Erro durante a geração da resposta.' })}\n\n`,
@@ -594,7 +594,7 @@ ${context}`
     })
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)
-    console.error('[Chat] DeepSeek error:', { message: msg, contextLen: dsContext.length })
+    console.error('[Chat] Groq error:', { message: msg, contextLen: dsContext.length })
     return NextResponse.json({ error: `Falha ao processar: ${msg.slice(0, 200)}` }, { status: 500 })
   }
 }

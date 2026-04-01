@@ -346,9 +346,11 @@ class QueryBuilder {
   insert(data: any, opts?: any): any {
     supabaseWrites++
     const chain = supabase.from(this.state.table).insert(data, opts)
-    // Fire-and-forget mirror write
+    // Fire-and-forget mirror write (log errors instead of swallowing)
     if (this.state.mirrorTable && USE_LOCAL) {
-      this._mirrorInsert(data).catch(() => {})
+      this._mirrorInsert(data).catch((err: any) => {
+        logger.warn({ table: this.state.mirrorTable, err: err?.message }, 'Mirror insert failed')
+      })
     }
     return chain
   }
@@ -369,9 +371,11 @@ class QueryBuilder {
   upsert(data: any, opts?: any): any {
     supabaseWrites++
     const chain = supabase.from(this.state.table).upsert(data, opts)
-    // Fire-and-forget mirror upsert
+    // Fire-and-forget mirror upsert (log errors)
     if (this.state.mirrorTable && USE_LOCAL) {
-      this._mirrorUpsert(data).catch(() => {})
+      this._mirrorUpsert(data).catch((err: any) => {
+        logger.warn({ table: this.state.mirrorTable, err: err?.message }, 'Mirror upsert failed')
+      })
     }
     return chain
   }
@@ -452,7 +456,12 @@ class QueryBuilder {
       else if (f.type === 'like') chain = chain.like(f.column, f.value as string)
       else if (f.type === 'ilike') chain = chain.ilike(f.column, f.value as string)
       else if (f.type === 'is') chain = chain.is(f.column, f.value as any)
-      else if (f.type === 'in') chain = chain.in(f.column, f.value as any[])
+      else if (f.type === 'in') {
+        // Guard: skip empty IN() to avoid Supabase parse errors
+        if (Array.isArray(f.value) && f.value.length > 0) {
+          chain = chain.in(f.column, f.value as any[])
+        }
+      }
     }
 
     // Replay overlaps/contains filters
