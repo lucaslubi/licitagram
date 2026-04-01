@@ -3,6 +3,7 @@ import { getUserWithPlan } from '@/lib/auth-helpers'
 import { createClient } from '@supabase/supabase-js'
 
 export async function GET(request: NextRequest) {
+  try {
   const user = await getUserWithPlan()
   if (!user?.isPlatformAdmin) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -122,4 +123,8 @@ export async function GET(request: NextRequest) {
       'Content-Disposition': `attachment; filename="${filename}"`,
     },
   })
+  } catch (error) {
+    console.error('[GET /api/admin/prospects/export]', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
 }

@@ -8,3 +8,4 @@ dist/
 *.tsbuildinfo
 .vercel
 .DS_Store
+dump.rdb
