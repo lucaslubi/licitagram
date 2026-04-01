@@ -1,13 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-import OpenAI from 'openai'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 import { CNAE_GROUPS } from '@licitagram/shared'
 
-const groqClient = new OpenAI({
-  apiKey: process.env.GROQ_API_KEY || '',
-  baseURL: 'https://api.groq.com/openai/v1',
-  timeout: 45_000, // 45s timeout (Vercel function has 60s max)
-})
+const genai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
 
 function buildCnaeDescriptions(cnaes: string[]): string[] {
   const descriptions: string[] = []
@@ -64,14 +60,16 @@ Retorne APENAS a descricao, sem formatacao, sem markdown, sem aspas.`
 
     try {
       console.log('[GENERATE] Description request for:', razao_social, '| CNAEs:', cnaeDescriptions.length)
-      const response = await groqClient.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 600,
-        temperature: 0.4,
+      const model = genai.getGenerativeModel({ model: 'gemini-2.0-flash' })
+      const result = await model.generateContent({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          maxOutputTokens: 600,
+          temperature: 0.4,
+        },
       })
 
-      const description = response.choices[0]?.message?.content?.trim()
+      const description = result.response.text()?.trim()
       console.log('[GENERATE] Description result length:', description?.length || 0)
       if (!description || description.length < 20) {
         return NextResponse.json({ error: 'IA nao conseguiu gerar descricao' }, { status: 500 })
@@ -112,14 +110,16 @@ INSTRUCOES:
 Retorne APENAS os termos, um por linha, sem numeracao, sem explicacao, sem marcadores.`
 
     try {
-      const response = await groqClient.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 800,
-        temperature: 0.4,
+      const model = genai.getGenerativeModel({ model: 'gemini-2.0-flash' })
+      const result = await model.generateContent({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          maxOutputTokens: 800,
+          temperature: 0.4,
+        },
       })
 
-      const content = response.choices[0]?.message?.content?.trim()
+      const content = result.response.text()?.trim()
       if (!content) {
         return NextResponse.json({ error: 'IA não conseguiu gerar termos' }, { status: 500 })
       }
