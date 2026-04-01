@@ -221,7 +221,7 @@ export async function addCompanyAction(
   await supabase.from('companies').update({ matching_status: 'pending' }).eq('id', companyId)
 
   try {
-    const VPS_URL = process.env.VPS_MONITORING_URL || 'http://187.77.241.93:3998'
+    const VPS_URL = process.env.VPS_MONITORING_URL || 'http://85.31.60.53:3998'
     const MONITORING_KEY = process.env.MONITORING_API_KEY || ''
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 5000)

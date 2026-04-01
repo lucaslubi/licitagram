@@ -308,7 +308,7 @@ export async function POST(request: NextRequest) {
     console.log(`[Chat PDF] Extracting ${docsNeedingExtraction.length} documents via VPS proxy`)
 
     // Use VPS proxy for PDF extraction (no timeout issues, direct access to PNCP)
-    const VPS_URL = process.env.VPS_MONITORING_URL || 'http://187.77.241.93:9090'
+    const VPS_URL = process.env.VPS_MONITORING_URL || 'http://85.31.60.53:3998'
     const VPS_TOKEN = process.env.VPS_MONITORING_TOKEN || ''
 
     await Promise.allSettled(

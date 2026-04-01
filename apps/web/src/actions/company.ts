@@ -442,7 +442,7 @@ export async function saveCompany(payload: CompanyPayload, existingId?: string) 
 
   // ── MATCHING: Fire-and-forget to VPS ─────────────────────────────────────
   // All matching runs on VPS (no Vercel timeout). saveCompany() returns FAST.
-  const VPS_URL = process.env.VPS_MONITORING_URL || 'http://187.77.241.93:3998'
+  const VPS_URL = process.env.VPS_MONITORING_URL || 'http://85.31.60.53:3998'
   const MONITORING_KEY = process.env.MONITORING_API_KEY || ''
   try {
     console.log('[COMPANY] Triggering VPS matching pipeline for', companyId)

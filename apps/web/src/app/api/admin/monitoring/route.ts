@@ -10,7 +10,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || '',
 )
 
-const VPS_MONITORING_URL = process.env.VPS_MONITORING_URL || 'http://187.77.241.93:3998'
+const VPS_MONITORING_URL = process.env.VPS_MONITORING_URL || 'http://85.31.60.53:3998'
 const MONITORING_AUTH_TOKEN = process.env.MONITORING_AUTH_TOKEN || ''
 
 // ─── Types ──────────────────────────────────────────────────────────────────
