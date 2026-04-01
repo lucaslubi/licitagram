@@ -14,11 +14,6 @@ import { logger } from '../lib/logger'
 
 // ─── Clients ─────────────────────────────────────────────────────────────────
 
-const geminiClient = new OpenAI({
-  apiKey: process.env.GEMINI_API_KEY || '',
-  baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
-})
-
 const deepseekClient = new OpenAI({
   apiKey: process.env.DEEPSEEK_API_KEY || '',
   baseURL: 'https://api.deepseek.com',
@@ -60,7 +55,6 @@ const TASK_CONFIG: Record<TaskType, { maxTokens: number; temperature: number }> 
 // ─── Providers (in priority order) ───────────────────────────────────────────
 
 const PROVIDERS = [
-  { client: geminiClient,    model: 'gemini-2.5-flash',             label: 'Gemini-2.5-Flash' },
   { client: deepseekClient,  model: 'deepseek-chat',                label: 'DeepSeek-V3' },
   { client: groqClient,      model: 'llama-3.3-70b-versatile',     label: 'Groq/Llama-3.3-70B' },
 ]
