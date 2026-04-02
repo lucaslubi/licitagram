@@ -22,12 +22,21 @@ export default function SettingsPage() {
   const [message, setMessage] = useState('')
   const [settings, setSettings] = useState({
     min_score: 50,
+    min_valor: null as number | null,
+    max_valor: null as number | null,
     telegram_chat_id: null as number | null,
     email: '',
     ufs_interesse: [] as string[],
     palavras_chave_filtro: [] as string[],
     notification_preferences: { telegram: true, email: false, whatsapp: true } as { telegram: boolean; email: boolean; whatsapp: boolean },
   })
+  const [companyNotifications, setCompanyNotifications] = useState<Array<{
+    id: string
+    company_id: string
+    notifications_enabled: boolean
+    razao_social: string
+    cnpj: string
+  }>>([])
   const router = useRouter()
   const [newUf, setNewUf] = useState('')
   const [newKeyword, setNewKeyword] = useState('')
@@ -59,15 +68,33 @@ export default function SettingsPage() {
     if (companyId) {
       const { data } = await supabase
         .from('companies')
-        .select('min_score, ufs_interesse, palavras_chave_filtro')
+        .select('min_score, min_valor, max_valor, ufs_interesse, palavras_chave_filtro')
         .eq('id', companyId)
         .single()
       companyData = data
     }
 
+    // Load multi-company notification settings
+    const { data: userCompanies } = await supabase
+      .from('user_companies')
+      .select('id, company_id, notifications_enabled, companies(razao_social, nome_fantasia, cnpj)')
+      .eq('user_id', user.id)
+
+    if (userCompanies && userCompanies.length > 0) {
+      setCompanyNotifications(userCompanies.map((uc: any) => ({
+        id: uc.id,
+        company_id: uc.company_id,
+        notifications_enabled: uc.notifications_enabled ?? true,
+        razao_social: uc.companies?.nome_fantasia || uc.companies?.razao_social || 'Empresa',
+        cnpj: uc.companies?.cnpj || '',
+      })))
+    }
+
     const prefs = (userData?.notification_preferences as { telegram?: boolean; email?: boolean; whatsapp?: boolean }) || {}
     setSettings({
       min_score: (companyData?.min_score as number) ?? (userData as Record<string, unknown>)?.min_score as number ?? 50,
+      min_valor: (companyData?.min_valor as number) ?? null,
+      max_valor: (companyData?.max_valor as number) ?? null,
       telegram_chat_id: userData?.telegram_chat_id ?? null,
       email: userData?.email || user.email || '',
       ufs_interesse: (companyData?.ufs_interesse as string[]) || [],
@@ -111,6 +138,8 @@ export default function SettingsPage() {
         .from('companies')
         .update({
           min_score: settings.min_score,
+          min_valor: settings.min_valor,
+          max_valor: settings.max_valor,
           ufs_interesse: settings.ufs_interesse,
           palavras_chave_filtro: settings.palavras_chave_filtro,
         })
@@ -118,11 +147,19 @@ export default function SettingsPage() {
       companyError = error
     }
 
+    // Save multi-company notification toggles
+    for (const uc of companyNotifications) {
+      await supabase
+        .from('user_companies')
+        .update({ notifications_enabled: uc.notifications_enabled })
+        .eq('id', uc.id)
+    }
+
     const error = userError || companyError
     if (error) {
       setMessage('Erro ao salvar: ' + error.message)
     } else {
-      setMessage('Configurações salvas com sucesso!')
+      setMessage('Configuracoes salvas com sucesso!')
     }
     setSaving(false)
   }
@@ -198,6 +235,38 @@ export default function SettingsPage() {
                   ? '⚠️ Volume alto — inclui oportunidades que precisam avaliação'
                   : '🔴 Volume muito alto — muitas oportunidades de baixa relevância'}
               </p>
+            </div>
+
+            <Separator />
+
+            <div>
+              <Label>Faixa de Valor Estimado</Label>
+              <p className="text-xs text-gray-400 mb-2">Filtrar notificacoes por valor da licitacao. Deixe vazio para nao filtrar.</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">Valor Minimo (R$)</label>
+                  <Input
+                    type="number"
+                    placeholder="Ex: 10000"
+                    value={settings.min_valor ?? ''}
+                    onChange={(e) => setSettings({ ...settings, min_valor: e.target.value ? Number(e.target.value) : null })}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block">Valor Maximo (R$)</label>
+                  <Input
+                    type="number"
+                    placeholder="Ex: 500000"
+                    value={settings.max_valor ?? ''}
+                    onChange={(e) => setSettings({ ...settings, max_valor: e.target.value ? Number(e.target.value) : null })}
+                  />
+                </div>
+              </div>
+              {(settings.min_valor || settings.max_valor) && (
+                <p className="text-xs mt-2 px-2 py-1.5 rounded bg-sky-900/20 text-sky-400">
+                  Notificacoes apenas para licitacoes {settings.min_valor ? `acima de R$ ${Number(settings.min_valor).toLocaleString('pt-BR')}` : ''}{settings.min_valor && settings.max_valor ? ' e ' : ''}{settings.max_valor ? `abaixo de R$ ${Number(settings.max_valor).toLocaleString('pt-BR')}` : ''}
+                </p>
+              )}
             </div>
 
             <Separator />
@@ -428,8 +497,47 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
+        {/* Multi-company notification control */}
+        {companyNotifications.length > 1 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Empresas com Notificacoes</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-xs text-gray-400 mb-2">
+                Escolha quais empresas devem enviar notificacoes no Telegram e WhatsApp.
+              </p>
+              {companyNotifications.map((uc, idx) => (
+                <label
+                  key={uc.id}
+                  className="flex items-center justify-between p-3 border rounded-md cursor-pointer hover:bg-[#2d2f33]"
+                >
+                  <div>
+                    <p className="text-sm font-medium">{uc.razao_social}</p>
+                    <p className="text-xs text-gray-400">
+                      {uc.cnpj ? uc.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') : ''}
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={uc.notifications_enabled}
+                    onChange={(e) => {
+                      setCompanyNotifications((prev) =>
+                        prev.map((item, i) =>
+                          i === idx ? { ...item, notifications_enabled: e.target.checked } : item
+                        )
+                      )
+                    }}
+                    className="h-5 w-5 rounded border-[#2d2f33] text-brand focus:ring-brand"
+                  />
+                </label>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
         <Button onClick={handleSave} disabled={saving}>
-          {saving ? 'Salvando...' : 'Salvar Configurações'}
+          {saving ? 'Salvando...' : 'Salvar Configuracoes'}
         </Button>
       </div>
     </div>
