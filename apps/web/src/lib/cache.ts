@@ -38,6 +38,8 @@ interface AuthResult {
   userId: string
   companyId: string | null
   minScore: number
+  minValor: number | null
+  maxValor: number | null
   fullName: string | null
 }
 
@@ -64,16 +66,26 @@ export async function getAuthAndProfile(): Promise<AuthResult | null> {
   if (companyId) {
     const { data: company } = await supabase
       .from('companies')
-      .select('min_score')
+      .select('min_score, min_valor, max_valor')
       .eq('id', companyId)
       .single()
     if (company?.min_score != null) minScore = company.min_score
+    return {
+      userId: user.id,
+      companyId,
+      minScore,
+      minValor: company?.min_valor ?? null,
+      maxValor: company?.max_valor ?? null,
+      fullName: profile?.full_name ?? null,
+    }
   }
 
   return {
     userId: user.id,
     companyId,
     minScore,
+    minValor: null,
+    maxValor: null,
     fullName: profile?.full_name ?? null,
   }
 }
@@ -240,6 +252,8 @@ interface MatchListParams {
   page: number
   pageSize: number
   minScore: number
+  minValor?: number | null
+  maxValor?: number | null
   uf?: string
   modalidade?: string
   dataFrom?: string
@@ -328,6 +342,10 @@ async function fetchMatchListFromDB(params: MatchListParams): Promise<MatchListR
   if (dataTo) query = query.lte('tenders.data_abertura', dataTo)
   if (fonte) query = query.eq('tenders.source', fonte)
   if (params.q) query = query.ilike('tenders.objeto', `%${params.q}%`)
+
+  // Value range filter (from company settings)
+  if (params.minValor != null) query = query.gte('tenders.valor_estimado', params.minValor)
+  if (params.maxValor != null) query = query.lte('tenders.valor_estimado', params.maxValor)
 
   // Fetch all rows (up to 2000) — we paginate in JS after sorting
   query = query.order('score', { ascending: false }).limit(2000)
