@@ -6,7 +6,10 @@ import Stripe from 'stripe'
 function getStripe() {
   const key = process.env.STRIPE_SECRET_KEY
   if (!key) throw new Error('STRIPE_SECRET_KEY not configured')
-  return new Stripe(key)
+  return new Stripe(key, {
+    timeout: 30000,
+    maxNetworkRetries: 3,
+  })
 }
 
 function getServiceSupabase() {
@@ -18,6 +21,8 @@ function getServiceSupabase() {
 
 export async function POST(request: NextRequest) {
   try {
+    const stripeKey = process.env.STRIPE_SECRET_KEY
+    console.log('[stripe/checkout] Key present:', !!stripeKey, 'Key starts with:', stripeKey?.substring(0, 10))
     const stripe = getStripe()
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
