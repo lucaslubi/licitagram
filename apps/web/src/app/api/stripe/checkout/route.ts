@@ -115,6 +115,11 @@ export async function POST(request: NextRequest) {
       'metadata[billing]': billing,
     })
 
+    if (!session.url) {
+      console.error('[stripe/checkout] Session created but no URL:', session.id, 'appUrl:', appUrl)
+      return NextResponse.json({ error: 'Sessao criada mas sem URL de redirecionamento' }, { status: 500 })
+    }
+
     return NextResponse.json({ url: session.url })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)

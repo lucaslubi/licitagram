@@ -17,8 +17,11 @@ export function UpgradeButton({ planId, label }: { planId: string; label: string
         body: JSON.stringify({ planId }),
       })
       const data = await res.json()
-      if (data.url) {
+      if (data.url && data.url.startsWith('http')) {
         window.location.href = data.url
+      } else if (data.url) {
+        setError('URL de checkout invalida: ' + data.url)
+        setLoading(false)
       } else {
         const errMsg = data.error || 'Erro ao criar sessão de pagamento'
         setError(errMsg)
