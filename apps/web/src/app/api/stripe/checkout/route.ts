@@ -1,58 +1,78 @@
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 
 function getStripe() {
-  return new Stripe(process.env.STRIPE_SECRET_KEY || '')
+  const key = process.env.STRIPE_SECRET_KEY
+  if (!key) throw new Error('STRIPE_SECRET_KEY not configured')
+  return new Stripe(key)
+}
+
+function getServiceSupabase() {
+  return createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
 }
 
 export async function POST(request: NextRequest) {
-  const stripe = getStripe()
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  let planId: string
-  let billing: 'monthly' | 'annual' = 'monthly'
   try {
-    const body = await request.json()
-    planId = body.planId
-    if (body.billing === 'annual') billing = 'annual'
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
-  }
+    const stripe = getStripe()
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // Look up plan from DB to get stripe_price_id
-  const { data: plan, error: planError } = await supabase
-    .from('plans')
-    .select('id, slug, name, stripe_price_id, stripe_price_id_annual, is_active')
-    .eq('id', planId)
-    .single()
+    let planId: string
+    let billing: 'monthly' | 'annual' = 'monthly'
+    try {
+      const body = await request.json()
+      planId = body.planId
+      if (body.billing === 'annual') billing = 'annual'
+    } catch {
+      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+    }
 
-  if (planError || !plan || !plan.is_active) {
-    return NextResponse.json({ error: 'Invalid or inactive plan' }, { status: 400 })
-  }
+    if (!planId) {
+      return NextResponse.json({ error: 'planId is required' }, { status: 400 })
+    }
 
-  const priceId = billing === 'annual' && plan.stripe_price_id_annual
-    ? plan.stripe_price_id_annual
-    : plan.stripe_price_id
+    // Use service role to bypass RLS on plans table (plans are public data)
+    const serviceSupabase = getServiceSupabase()
+    const { data: plan, error: planError } = await serviceSupabase
+      .from('plans')
+      .select('id, slug, name, stripe_price_id, stripe_price_id_annual, is_active')
+      .eq('id', planId)
+      .single()
 
-  if (!priceId) {
-    return NextResponse.json({ error: 'Plan not configured for Stripe payments yet' }, { status: 400 })
-  }
+    if (planError) {
+      console.error('[stripe/checkout] Plan lookup error:', planError.message)
+      return NextResponse.json({ error: 'Plano nao encontrado: ' + planError.message }, { status: 400 })
+    }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    if (!plan || !plan.is_active) {
+      return NextResponse.json({ error: 'Plano invalido ou inativo' }, { status: 400 })
+    }
 
-  // Get or create Stripe customer
-  const { data: profile } = await supabase
-    .from('users')
-    .select('stripe_customer_id, email, full_name')
-    .eq('id', user.id)
-    .single()
+    const priceId = billing === 'annual' && plan.stripe_price_id_annual
+      ? plan.stripe_price_id_annual
+      : plan.stripe_price_id
 
-  let customerId = profile?.stripe_customer_id as string | null
+    if (!priceId) {
+      return NextResponse.json({ error: 'Plano nao configurado para pagamento Stripe' }, { status: 400 })
+    }
 
-  try {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://licitagram.com'
+
+    // Get or create Stripe customer
+    const { data: profile } = await supabase
+      .from('users')
+      .select('stripe_customer_id, email, full_name')
+      .eq('id', user.id)
+      .single()
+
+    let customerId = profile?.stripe_customer_id as string | null
+
     if (!customerId) {
       const customer = await stripe.customers.create({
         email: profile?.email || user.email || '',
@@ -92,7 +112,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ url: session.url })
   } catch (err) {
-    console.error('[stripe/checkout] Stripe API error:', err)
-    return NextResponse.json({ error: 'Erro ao criar sessão de pagamento' }, { status: 500 })
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[stripe/checkout] Error:', msg)
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
