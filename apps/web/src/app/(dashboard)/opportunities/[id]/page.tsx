@@ -306,7 +306,7 @@ export default async function OpportunityDetailPage({
           <RiskAnalysisCard tenderId={tender?.id as string || id} hasAccess={isEnterprise} />
 
           {/* Neural Analysis (MiroFish deep fraud detection) */}
-          {isEnterprise && <NeuralFraudSection tenderId={tender?.id as string || id} />}
+          {isEnterprise && nicheCompetitors.length > 0 && <NeuralFraudSection tenderId={tender?.id as string || id} />}
 
           {/* Requirements */}
           {requisitos && (requisitos as Record<string, any>).requisitos && (
