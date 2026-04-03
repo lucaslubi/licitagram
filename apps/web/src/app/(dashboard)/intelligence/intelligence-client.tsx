@@ -4,8 +4,6 @@ import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
-import { NeuralTriggerButton } from '@/components/neural/NeuralTriggerButton'
-
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 interface Stats {
@@ -465,16 +463,6 @@ export function IntelligenceClient({ isEnterprise, isProfessional, planSlug }: P
                             <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
                           </svg>
                         </Link>
-                        {isEnterprise && (
-                          <span onClick={e => e.stopPropagation()}>
-                            <NeuralTriggerButton
-                              type="fraud"
-                              tenderId={alert.tender_id}
-                              label="Analise Neural"
-                              className="text-xs px-3 py-1.5"
-                            />
-                          </span>
-                        )}
                         {isEnterprise && (
                           <Button
                             variant="ghost"
