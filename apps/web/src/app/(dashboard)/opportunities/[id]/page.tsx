@@ -15,6 +15,7 @@ import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
 import { createClient } from '@/lib/supabase/server'
 import { RiskAnalysisCard } from '@/components/fraud/RiskAnalysisCard'
 import { FraudAlertBadges } from '@/components/fraud/FraudAlertBadges'
+import { HabilitacaoChecklist } from './habilitacao-checklist'
 
 export default async function OpportunityDetailPage({
   params,
@@ -303,6 +304,9 @@ export default async function OpportunityDetailPage({
 
           {/* Risk Analysis (fraud detection) */}
           <RiskAnalysisCard tenderId={tender?.id as string || id} hasAccess={isEnterprise} />
+
+          {/* Habilitação Checklist */}
+          {isEnterprise && <HabilitacaoChecklist matchId={id} />}
 
 
           {/* Requirements */}
