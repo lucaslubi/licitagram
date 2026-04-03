@@ -25,22 +25,23 @@ export default async function CalendarPage() {
   const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]
   const events: CalendarEvent[] = []
 
-  // 1. Tenders from pipeline — only recent/future (last 7 days + future)
+  // 1. Tenders from pipeline
   const { data: matches } = await supabase
     .from('matches')
     .select('id, tender_id, score, status, tenders(id, objeto, orgao_nome, data_abertura, data_encerramento)')
     .eq('company_id', user.companyId)
     .not('status', 'in', '(dismissed,lost)')
     .gte('score', 50)
-    .or(`tenders.data_abertura.gte.${sevenDaysAgo},tenders.data_encerramento.gte.${sevenDaysAgo}`)
     .order('score', { ascending: false })
     .limit(200)
+
+  const cutoff = new Date(Date.now() - 7 * 86400000) // 7 days ago
 
   for (const m of matches || []) {
     const t = m.tenders as any
     if (!t) continue
 
-    if (t.data_abertura) {
+    if (t.data_abertura && new Date(t.data_abertura) >= cutoff) {
       const daysUntil = Math.ceil((new Date(t.data_abertura).getTime() - Date.now()) / 86400000)
       events.push({
         id: `abertura-${t.id}`,
@@ -53,7 +54,7 @@ export default async function CalendarPage() {
       })
     }
 
-    if (t.data_encerramento) {
+    if (t.data_encerramento && new Date(t.data_encerramento) >= cutoff) {
       const daysUntil = Math.ceil((new Date(t.data_encerramento).getTime() - Date.now()) / 86400000)
       events.push({
         id: `enc-${t.id}`,
