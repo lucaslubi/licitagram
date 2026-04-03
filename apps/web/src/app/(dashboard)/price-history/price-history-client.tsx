@@ -490,7 +490,7 @@ export function PriceHistoryClient() {
                       const url = URL.createObjectURL(blob)
                       const a = document.createElement('a')
                       a.href = url
-                      a.download = `relatorio_in65_${query.replace(/\s+/g, '_').substring(0, 30)}.md`
+                      a.download = `relatorio_in65_${query.replace(/\s+/g, '_').substring(0, 30)}.docx`
                       a.click()
                       URL.revokeObjectURL(url)
                     } catch { alert('Erro ao gerar relatório') }

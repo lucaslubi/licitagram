@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
+import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, BorderStyle, HeadingLevel } from 'docx'
 
 export const maxDuration = 30
 
+function formatBRL(v: number): string {
+  return `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
 /**
  * POST /api/price-history/report-pdf
- * Generates a price research report conforming to IN SEGES/ME 65/2021.
- * Returns the report as a text/markdown download (PDF generation requires pdfkit).
+ * Generates a DOCX price research report conforming to IN SEGES/ME 65/2021.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -22,76 +26,144 @@ export async function POST(request: NextRequest) {
     const now = new Date()
     const dateStr = now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
 
-    // Build markdown report conforming to IN 65/2021
-    let report = ''
-    report += `# RELATÓRIO DE PESQUISA DE PREÇOS\n`
-    report += `## Instrução Normativa SEGES/ME nº 65, de 7 de julho de 2021\n\n`
-    report += `**Data de geração:** ${dateStr}\n\n`
-    report += `---\n\n`
+    const children: any[] = []
 
-    // Section 1
-    report += `## 1. OBJETO DA PESQUISA\n\n`
-    report += `**Descrição:** ${query}\n`
-    if (filters?.uf) report += `**UF:** ${filters.uf}\n`
-    if (filters?.modalidade) report += `**Modalidade:** ${filters.modalidade}\n`
-    if (filters?.dateRange) report += `**Período:** ${filters.dateRange.from || 'N/A'} a ${filters.dateRange.to || 'N/A'}\n`
-    report += `\n`
+    // Title
+    children.push(
+      new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [
+        new TextRun({ text: 'RELATÓRIO DE PESQUISA DE PREÇOS', bold: true, size: 28 }),
+      ]}),
+      new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 100 }, children: [
+        new TextRun({ text: 'Instrução Normativa SEGES/ME nº 65, de 7 de julho de 2021', italics: true, size: 20 }),
+      ]}),
+      new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 400 }, children: [
+        new TextRun({ text: `Data de geração: ${dateStr}`, size: 18, color: '666666' }),
+      ]}),
+    )
 
-    // Section 2
-    report += `## 2. FONTES DE PESQUISA\n\n`
-    report += `- Portal Nacional de Contratações Públicas (PNCP)\n`
-    report += `- Contratações similares de entes públicos\n`
-    report += `- Sistema Licitagram (licitagram.com)\n\n`
+    // Section 1 — Objeto
+    children.push(
+      new Paragraph({ heading: HeadingLevel.HEADING_1, spacing: { before: 300, after: 100 }, children: [
+        new TextRun({ text: '1. OBJETO DA PESQUISA', bold: true }),
+      ]}),
+      new Paragraph({ spacing: { after: 100 }, children: [
+        new TextRun({ text: 'Descrição: ', bold: true }), new TextRun({ text: query }),
+      ]}),
+    )
+    if (filters?.uf) children.push(new Paragraph({ children: [new TextRun({ text: `UF: ${filters.uf}` })] }))
+    if (filters?.modalidade) children.push(new Paragraph({ children: [new TextRun({ text: `Modalidade: ${filters.modalidade}` })] }))
 
-    // Section 3
-    report += `## 3. RESULTADOS\n\n`
+    // Section 2 — Fontes
+    children.push(
+      new Paragraph({ heading: HeadingLevel.HEADING_1, spacing: { before: 300, after: 100 }, children: [
+        new TextRun({ text: '2. FONTES DE PESQUISA', bold: true }),
+      ]}),
+      new Paragraph({ bullet: { level: 0 }, children: [new TextRun({ text: 'Portal Nacional de Contratações Públicas (PNCP)' })] }),
+      new Paragraph({ bullet: { level: 0 }, children: [new TextRun({ text: 'Contratações similares de entes públicos' })] }),
+      new Paragraph({ bullet: { level: 0 }, children: [new TextRun({ text: 'Sistema Licitagram (licitagram.com)' })] }),
+    )
+
+    // Section 3 — Resultados (tabela)
+    children.push(
+      new Paragraph({ heading: HeadingLevel.HEADING_1, spacing: { before: 300, after: 100 }, children: [
+        new TextRun({ text: '3. RESULTADOS', bold: true }),
+      ]}),
+    )
+
     if (records && records.length > 0) {
-      report += `| Nº | Órgão | UF | Valor Unitário | Data | Fonte |\n`
-      report += `|----|-------|----|----------------|------|-------|\n`
-      records.slice(0, 20).forEach((r: any, i: number) => {
-        const valor = r.unit_price ? `R$ ${Number(r.unit_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'N/I'
-        report += `| ${i + 1} | ${(r.orgao_nome || 'N/I').substring(0, 40)} | ${r.orgao_uf || 'N/I'} | ${valor} | ${r.date_homologation?.substring(0, 10) || 'N/I'} | PNCP |\n`
+      const headerRow = new TableRow({ children: [
+        ...['Nº', 'Órgão', 'UF', 'Valor Unitário', 'Data', 'Fonte'].map(h =>
+          new TableCell({ width: { size: h === 'Órgão' ? 3000 : 1200, type: WidthType.DXA }, children: [
+            new Paragraph({ children: [new TextRun({ text: h, bold: true, size: 18 })] }),
+          ]})
+        ),
+      ]})
+
+      const dataRows = records.slice(0, 20).map((r: any, i: number) => {
+        const valor = r.unit_price ? formatBRL(Number(r.unit_price)) : 'N/I'
+        return new TableRow({ children: [
+          new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: String(i + 1), size: 18 })] })] }),
+          new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: (r.orgao_nome || 'N/I').substring(0, 40), size: 18 })] })] }),
+          new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: r.orgao_uf || 'N/I', size: 18 })] })] }),
+          new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: valor, size: 18 })] })] }),
+          new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: (r.date_homologation || '').substring(0, 10) || 'N/I', size: 18 })] })] }),
+          new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'PNCP', size: 18 })] })] }),
+        ]})
       })
-      report += `\n`
-    } else {
-      report += `*Nenhum registro encontrado com os filtros aplicados.*\n\n`
+
+      children.push(new Table({ rows: [headerRow, ...dataRows] }))
     }
 
-    // Section 4
-    report += `## 4. ANÁLISE ESTATÍSTICA\n\n`
+    // Section 4 — Análise Estatística
+    children.push(
+      new Paragraph({ heading: HeadingLevel.HEADING_1, spacing: { before: 300, after: 100 }, children: [
+        new TextRun({ text: '4. ANÁLISE ESTATÍSTICA', bold: true }),
+      ]}),
+    )
+
     if (statistics) {
-      const fmt = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-      report += `| Indicador | Valor |\n`
-      report += `|-----------|-------|\n`
-      report += `| **Mediana** | **${fmt(statistics.median)}** |\n`
-      report += `| Média | ${fmt(statistics.mean)} |\n`
-      report += `| Menor preço | ${fmt(statistics.min || 0)} |\n`
-      report += `| Maior preço | ${fmt(statistics.max || 0)} |\n`
-      report += `| Desvio padrão | ${fmt(statistics.std_deviation || 0)} |\n`
-      report += `| Coeficiente de variação | ${(statistics.cv_percent || 0).toFixed(1)}% |\n`
-      report += `| Quantidade de amostras | ${statistics.count || 0} |\n\n`
+      const stats = [
+        ['Mediana', formatBRL(statistics.median)],
+        ['Média', formatBRL(statistics.mean)],
+        ['Menor preço', formatBRL(statistics.min || 0)],
+        ['Maior preço', formatBRL(statistics.max || 0)],
+        ['Desvio padrão', formatBRL(statistics.std_deviation || 0)],
+        ['Coeficiente de variação', `${(statistics.cv_percent || 0).toFixed(1)}%`],
+        ['Quantidade de amostras', String(statistics.count || 0)],
+      ]
+
+      const statRows = stats.map(([label, value]) => new TableRow({ children: [
+        new TableCell({ width: { size: 4000, type: WidthType.DXA }, children: [
+          new Paragraph({ children: [new TextRun({ text: label, bold: label === 'Mediana', size: 20 })] }),
+        ]}),
+        new TableCell({ children: [
+          new Paragraph({ alignment: AlignmentType.RIGHT, children: [
+            new TextRun({ text: value, bold: label === 'Mediana', size: 20 }),
+          ]}),
+        ]}),
+      ]}))
+
+      children.push(new Table({ rows: statRows }))
 
       if ((statistics.cv_percent || 0) > 25) {
-        report += `> **NOTA:** Coeficiente de variação superior a 25% indica alta dispersão nos preços. Recomenda-se análise crítica dos valores extremos.\n\n`
+        children.push(new Paragraph({ spacing: { before: 200 }, children: [
+          new TextRun({ text: 'NOTA: ', bold: true, color: 'CC0000' }),
+          new TextRun({ text: 'Coeficiente de variação superior a 25% indica alta dispersão. Recomenda-se análise crítica dos outliers.', italics: true }),
+        ]}))
       }
     }
 
-    // Section 5
-    report += `## 5. METODOLOGIA\n\n`
-    report += `A pesquisa de preços foi realizada conforme art. 5º da IN SEGES/ME nº 65/2021, `
-    report += `utilizando como parâmetro contratações similares de entes públicos registradas no `
-    report += `Portal Nacional de Contratações Públicas (PNCP) e sistemas integrados.\n\n`
+    // Section 5 — Metodologia
+    children.push(
+      new Paragraph({ heading: HeadingLevel.HEADING_1, spacing: { before: 300, after: 100 }, children: [
+        new TextRun({ text: '5. METODOLOGIA', bold: true }),
+      ]}),
+      new Paragraph({ spacing: { after: 200 }, children: [
+        new TextRun({ text: 'A pesquisa de preços foi realizada conforme art. 5º da IN SEGES/ME nº 65/2021, utilizando como parâmetro contratações similares de entes públicos registradas no Portal Nacional de Contratações Públicas (PNCP) e sistemas integrados.' }),
+      ]}),
+    )
 
     // Footer
-    report += `---\n\n`
-    report += `*Relatório gerado por Licitagram (licitagram.com) em ${dateStr}*\n`
-    report += `*Este documento não substitui a análise do agente de contratação.*\n`
+    children.push(
+      new Paragraph({ spacing: { before: 400 }, children: [
+        new TextRun({ text: `Relatório gerado por Licitagram (licitagram.com) em ${dateStr}`, size: 16, color: '999999', italics: true }),
+      ]}),
+      new Paragraph({ children: [
+        new TextRun({ text: 'Este documento não substitui a análise do agente de contratação.', size: 16, color: '999999', italics: true }),
+      ]}),
+    )
 
-    // Return as downloadable markdown
-    return new NextResponse(report, {
+    const doc = new Document({
+      sections: [{ children }],
+    })
+
+    const buffer = await Packer.toBuffer(doc)
+    const filename = `relatorio_in65_${query.replace(/\s+/g, '_').substring(0, 30)}_${now.toISOString().split('T')[0]}.docx`
+
+    return new NextResponse(buffer, {
       headers: {
-        'Content-Type': 'text/markdown; charset=utf-8',
-        'Content-Disposition': `attachment; filename="pesquisa_precos_${query.replace(/\s+/g, '_').substring(0, 30)}_${now.toISOString().split('T')[0]}.md"`,
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'Content-Disposition': `attachment; filename="${filename}"`,
       },
     })
   } catch (err) {
