@@ -351,18 +351,26 @@ export default function SettingsPage() {
                   />
                 </label>
 
-                <label className="flex items-center justify-between p-3 border rounded-md cursor-not-allowed opacity-60">
+                <label className="flex items-center justify-between p-3 border rounded-md cursor-pointer hover:bg-[#2d2f33]">
                   <div className="flex items-center gap-3">
                     <div>
                       <p className="text-sm font-medium">Email</p>
-                      <p className="text-xs text-gray-400">Em breve — receber alertas por email</p>
+                      <p className="text-xs text-gray-400">Receber alertas no email {settings.email || ''}</p>
                     </div>
                   </div>
                   <input
                     type="checkbox"
-                    checked={false}
-                    disabled
-                    className="h-5 w-5 rounded border-[#2d2f33]"
+                    checked={settings.notification_preferences.email}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        notification_preferences: {
+                          ...settings.notification_preferences,
+                          email: e.target.checked,
+                        },
+                      })
+                    }
+                    className="h-5 w-5 rounded border-[#2d2f33] text-brand focus:ring-brand"
                   />
                 </label>
               </div>

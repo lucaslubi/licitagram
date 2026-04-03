@@ -469,15 +469,47 @@ export function PriceHistoryClient() {
                   </span>
                 )}
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleExport}
-                disabled={exporting}
-                className="border-[#2d2f33] text-gray-300 hover:bg-[#2d2f33] hover:text-white"
-              >
-                {exporting ? 'Exportando...' : 'Exportar CSV'}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      const res = await fetch('/api/price-history/report-pdf', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          query,
+                          filters: { uf: uf || undefined, modalidade: modalidade || undefined },
+                          statistics: result?.statistics,
+                          records: result?.records?.slice(0, 20),
+                        }),
+                      })
+                      if (!res.ok) { alert('Erro ao gerar relatório'); return }
+                      const blob = await res.blob()
+                      const url = URL.createObjectURL(blob)
+                      const a = document.createElement('a')
+                      a.href = url
+                      a.download = `relatorio_in65_${query.replace(/\s+/g, '_').substring(0, 30)}.md`
+                      a.click()
+                      URL.revokeObjectURL(url)
+                    } catch { alert('Erro ao gerar relatório') }
+                  }}
+                  disabled={!result || (result.records?.length || 0) < 3}
+                  className="border-[#2d2f33] text-gray-300 hover:bg-[#2d2f33] hover:text-white"
+                >
+                  Relatório IN 65
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExport}
+                  disabled={exporting}
+                  className="border-[#2d2f33] text-gray-300 hover:bg-[#2d2f33] hover:text-white"
+                >
+                  {exporting ? 'Exportando...' : 'Exportar CSV'}
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">

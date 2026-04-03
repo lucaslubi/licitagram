@@ -7,6 +7,7 @@ import { formatCurrency } from '@licitagram/shared'
 import { AI_VERIFIED_SOURCES, MIN_DISPLAY_SCORE, getAuthAndProfile } from '@/lib/cache'
 import { ScoreDonut, UFBarChart, ModalidadeBarChart, DocumentHealth, WinRateCircle } from '@/components/dashboard/DashboardCharts'
 import { SegmentPriceWidget } from '@/components/dashboard/SegmentPriceWidget'
+import { MonthlyReportCard } from '@/components/monthly-report-card'
 
 // Force dynamic rendering — dashboard must always show fresh data
 export const dynamic = 'force-dynamic'
@@ -284,6 +285,11 @@ export default async function DashboardPage() {
         <KPICard label="Taxa de Interesse" value={`${conversionRate}%`} icon="💡" accentColor="#0EA5E9" />
         <KPICard label="Valor em Análise" value={totalValueInAnalysis > 0 ? formatCurrency(totalValueInAnalysis) : 'R$ 0'} icon="💰" accentColor="#10B981" small />
         <KPICard label="Total de Matches" value={totalMatches.toLocaleString('pt-BR')} icon="🏆" accentColor="#F43E01" />
+      </div>
+
+      {/* Monthly Report */}
+      <div className="mb-6">
+        <MonthlyReportCard />
       </div>
 
       {/* Segment Price Widget */}

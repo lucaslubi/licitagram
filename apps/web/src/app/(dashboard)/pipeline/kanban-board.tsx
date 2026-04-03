@@ -168,6 +168,19 @@ function DraggableCard({ match, isDragging }: { match: Match; isDragging: boolea
         </div>
       )}
 
+      {/* Atestado button (won items only) */}
+      {match.status === 'won' && (
+        <div className="mt-2">
+          <a
+            href={`/opportunities/${match.id}#atestado`}
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex items-center gap-1 text-[10px] text-emerald-400 hover:text-emerald-300 font-medium"
+          >
+            📄 Solicitar Atestado Técnico
+          </a>
+        </div>
+      )}
+
       {/* Competition badge (hot items only) */}
       {match.isHot && match.competitionScore != null && (
         <div className="mt-1.5">

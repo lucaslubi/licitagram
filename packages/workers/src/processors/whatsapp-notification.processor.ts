@@ -13,6 +13,7 @@ import { sendMatchAlert, sendOutcomePrompt, isConnected } from '../whatsapp/clie
 import { db as supabase } from '../lib/db'
 import { logger } from '../lib/logger'
 import { validateNotification } from '../lib/notification-guard'
+import { createNotification } from '../lib/create-notification'
 
 /**
  * Handle WhatsApp/Evolution API errors with proper retry semantics.

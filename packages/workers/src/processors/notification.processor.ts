@@ -7,6 +7,7 @@ import { formatMatchAlert, formatHotAlert, formatUrgencyAlert48h, formatUrgencyA
 import { db as supabase } from '../lib/db'
 import { logger } from '../lib/logger'
 import { validateNotification } from '../lib/notification-guard'
+import { createNotification } from '../lib/create-notification'
 
 /**
  * Handle Telegram API errors with proper retry semantics.
@@ -239,6 +240,23 @@ const notificationWorker = new Worker<NotificationJobData>(
         .eq('id', matchId)
 
       if (updateErr) logger.error({ matchId, error: updateErr }, 'Failed to mark match as notified')
+
+      // Insert into unified notifications table
+      if (match && tender) {
+        const userId = (job.data as any).userId
+        const companyId = (match as any).company_id
+        if (userId && companyId) {
+          await createNotification({
+            userId,
+            companyId,
+            type: match.score >= 85 ? 'hot_match' : 'new_match',
+            title: `Nova oportunidade (Score ${match.score})`,
+            body: (tender.objeto || '').substring(0, 200),
+            link: `/opportunities/${matchId}`,
+            metadata: { score: match.score, orgao: tender.orgao_nome },
+          })
+        }
+      }
     } catch (err) {
       handleTelegramError(err, { matchId, telegramChatId, type: 'match_alert', attempt: job.attemptsMade + 1 })
     }
