@@ -144,7 +144,7 @@ export function NeuralPriceDashboard({ predictionId, className }: NeuralPriceDas
               <p className="text-gray-500 text-xs">{prediction.item_description?.slice(0, 80) || 'Item'}</p>
             </div>
           </div>
-          <NeuralRiskGauge score={prediction.confidence_score} size={80} label="Confianca" />
+          {/* Gauge de confianca removido — foco nos dados reais */}
         </div>
 
         {/* Price Range */}
