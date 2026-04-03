@@ -398,18 +398,6 @@ export function PriceHistoryClient() {
 
             <Card className="bg-[#23262a] border-[#2d2f33]">
               <CardContent className="pt-6">
-                <p className="text-xs text-gray-400 uppercase tracking-wide">Confianca</p>
-                <div className="mt-2">
-                  <ConfidenceBadge confidence={result.statistics.confidence} />
-                </div>
-                <p className="text-xs text-gray-400 mt-2">
-                  CV: {result.statistics.cv_percent.toFixed(1)}%
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-[#23262a] border-[#2d2f33]">
-              <CardContent className="pt-6">
                 <p className="text-xs text-gray-400 uppercase tracking-wide">Variacao</p>
                 <p className={`text-2xl font-bold mt-1 ${
                   result.trend.variation_12m_percent != null
