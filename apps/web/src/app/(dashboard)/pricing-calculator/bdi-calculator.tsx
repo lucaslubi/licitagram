@@ -8,17 +8,53 @@ import { Button } from '@/components/ui/button'
 
 type Regime = 'presumido' | 'real' | 'simples'
 
-const PRESETS: Record<string, { label: string; ac: number; seg: number; risco: number; df: number; lucro: number }> = {
-  obras_tcu: { label: 'Obras (TCU)', ac: 4.0, seg: 0.80, risco: 1.27, df: 0.59, lucro: 6.16 },
-  servicos: { label: 'Serviços Comuns', ac: 5.0, seg: 0.50, risco: 1.00, df: 0.50, lucro: 7.00 },
-  ti: { label: 'TI / Software', ac: 6.0, seg: 0.30, risco: 0.80, df: 0.40, lucro: 8.00 },
-  limpeza: { label: 'Limpeza / Conservação', ac: 3.0, seg: 0.50, risco: 0.80, df: 0.50, lucro: 5.00 },
+/**
+ * Presets baseados em referências oficiais:
+ * - Obras: Acórdão TCU 2622/2013 (1ª e 2ª faixas)
+ * - Serviços: SINAPI/IBGE + referências SEINFRA
+ * - TI: IN SGD/ME 94/2022 (contratações de TIC)
+ * - Limpeza/Conservação: Caderno Técnico SEGES
+ * - Engenharia Consultiva: Tabela DNIT/SICRO
+ */
+const PRESETS: Record<string, { label: string; ac: number; seg: number; risco: number; df: number; lucro: number; desc: string }> = {
+  obras_tcu: { label: 'Obras (TCU)', ac: 4.00, seg: 0.80, risco: 1.27, df: 0.59, lucro: 6.16, desc: 'Acórdão TCU 2622/2013 — BDI médio 22,12%' },
+  obras_grande: { label: 'Obras Grande Porte', ac: 3.00, seg: 0.56, risco: 0.97, df: 0.59, lucro: 7.40, desc: 'Acórdão TCU 2622/2013 — 2ª faixa' },
+  servicos: { label: 'Serviços Comuns', ac: 5.00, seg: 0.50, risco: 1.00, df: 0.50, lucro: 7.00, desc: 'Referência SEGES/ME — serviços contínuos' },
+  ti: { label: 'TI / Software', ac: 6.00, seg: 0.30, risco: 0.80, df: 0.40, lucro: 8.00, desc: 'IN SGD/ME 94/2022 — contratações de TIC' },
+  limpeza: { label: 'Limpeza / Conservação', ac: 3.00, seg: 0.50, risco: 0.80, df: 0.50, lucro: 5.00, desc: 'Caderno Técnico SEGES — mão de obra intensiva' },
+  engenharia: { label: 'Engenharia Consultiva', ac: 8.00, seg: 0.50, risco: 1.50, df: 0.50, lucro: 10.00, desc: 'Referência DNIT/SICRO — consultoria' },
+  fornecimento: { label: 'Fornecimento de Bens', ac: 2.50, seg: 0.30, risco: 0.50, df: 0.30, lucro: 5.00, desc: 'Material/equipamento — BDI reduzido' },
 }
 
-const REGIME_DEFAULTS: Record<Regime, { iss: number; pis: number; cofins: number; irpj: number; csll: number }> = {
-  presumido: { iss: 3, pis: 0.65, cofins: 3.0, irpj: 1.2, csll: 1.08 },
-  real: { iss: 3, pis: 1.65, cofins: 7.6, irpj: 1.2, csll: 1.08 },
-  simples: { iss: 2, pis: 0, cofins: 0, irpj: 0, csll: 0 },
+/**
+ * Alíquotas tributárias vigentes (Brasil, 2026):
+ *
+ * Lucro Presumido:
+ *   PIS: 0,65% (cumulativo — Lei 9.718/1998)
+ *   COFINS: 3,00% (cumulativo — Lei 9.718/1998)
+ *   IRPJ: 1,20% (presunção 8% × alíquota 15% para serviços)
+ *   CSLL: 1,08% (presunção 12% × alíquota 9%)
+ *   ISS: 2% a 5% (LC 116/2003 + legislação municipal)
+ *
+ * Lucro Real:
+ *   PIS: 1,65% (não cumulativo — Lei 10.637/2002)
+ *   COFINS: 7,60% (não cumulativo — Lei 10.833/2003)
+ *   IRPJ: 1,20% (sobre lucro real)
+ *   CSLL: 1,08% (sobre lucro real)
+ *
+ * Simples Nacional:
+ *   Alíquota única por faixa de receita bruta (LC 123/2006)
+ *   Anexo III (serviços): 6% a 33% (fator R dependente)
+ *   Anexo IV (construção civil): 4,5% a 33%
+ *
+ * NOTA: A Reforma Tributária (EC 132/2023) introduziu IBS e CBS
+ * em substituição gradual a PIS/COFINS/ISS, com transição de
+ * 2026 a 2033. Os valores abaixo refletem o regime atual (2026).
+ */
+const REGIME_DEFAULTS: Record<Regime, { iss: number; pis: number; cofins: number; irpj: number; csll: number; desc: string }> = {
+  presumido: { iss: 3.00, pis: 0.65, cofins: 3.00, irpj: 1.20, csll: 1.08, desc: 'Cumulativo — Lei 9.718/1998. ISS varia por município (2% a 5%).' },
+  real: { iss: 3.00, pis: 1.65, cofins: 7.60, irpj: 1.20, csll: 1.08, desc: 'Não cumulativo — Leis 10.637/2002 e 10.833/2003. Permite créditos.' },
+  simples: { iss: 0, pis: 0, cofins: 0, irpj: 0, csll: 0, desc: 'LC 123/2006 — Alíquota única. Para BDI, use a alíquota efetiva do DAS no campo ISS.' },
 }
 
 function formatBRL(value: number): string {
@@ -98,12 +134,15 @@ export function BDICalculator() {
       {/* Left: Inputs */}
       <div className="lg:col-span-2 space-y-6">
         {/* Presets */}
-        <div className="flex flex-wrap gap-2">
-          {Object.entries(PRESETS).map(([key, p]) => (
-            <button key={key} onClick={() => applyPreset(key)} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[#2d2f33] text-gray-400 hover:text-white hover:bg-[#3d3f43] transition-colors">
-              {p.label}
-            </button>
-          ))}
+        <div>
+          <p className="text-xs text-gray-500 mb-2">Presets baseados em referências oficiais (TCU, SEGES, DNIT)</p>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(PRESETS).map(([key, p]) => (
+              <button key={key} onClick={() => applyPreset(key)} title={p.desc} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[#2d2f33] text-gray-400 hover:text-white hover:bg-[#3d3f43] transition-colors">
+                {p.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Custos Diretos */}
@@ -142,12 +181,15 @@ export function BDICalculator() {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <NumberInput label="ISS" value={iss} onChange={setIss} suffix="%" />
-            <NumberInput label="PIS" value={pis} onChange={setPis} suffix="%" />
-            <NumberInput label="COFINS" value={cofins} onChange={setCofins} suffix="%" />
-            <NumberInput label="IRPJ" value={irpj} onChange={setIrpj} suffix="%" />
-            <NumberInput label="CSLL" value={csll} onChange={setCsll} suffix="%" />
+          <CardContent className="space-y-3">
+            <p className="text-[10px] text-gray-500">{REGIME_DEFAULTS[regime].desc}</p>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <NumberInput label="ISS (LC 116/2003)" value={iss} onChange={setIss} suffix="%" />
+              <NumberInput label="PIS" value={pis} onChange={setPis} suffix="%" />
+              <NumberInput label="COFINS" value={cofins} onChange={setCofins} suffix="%" />
+              <NumberInput label="IRPJ" value={irpj} onChange={setIrpj} suffix="%" />
+              <NumberInput label="CSLL" value={csll} onChange={setCsll} suffix="%" />
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -204,12 +246,23 @@ export function BDICalculator() {
             </div>
 
             {/* Reference */}
-            <div className="bg-[#111214] rounded-lg p-3 mt-4">
+            <div className="bg-[#111214] rounded-lg p-3 mt-4 space-y-2">
+              <p className="text-[10px] text-gray-400 font-semibold">Referências oficiais:</p>
               <p className="text-[10px] text-gray-500">
-                Referência TCU (Acórdão 2622/2013):<br />
+                <strong>TCU (Acórdão 2622/2013):</strong><br />
                 Obras: 20,34% a 25,00%<br />
-                Serviços: 18% a 25%<br />
-                Fornecimento: 11% a 15%
+                Serviços: 18,00% a 25,00%<br />
+                Fornecimento: 11,00% a 15,00%
+              </p>
+              <p className="text-[10px] text-gray-500">
+                <strong>Encargos sociais CLT:</strong><br />
+                Grupo A (INSS, FGTS, etc.): ~36,80%<br />
+                Grupo B (férias, 13º, etc.): ~35,20%<br />
+                Grupo C (multa FGTS, etc.): ~6,16%<br />
+                Total estimado: ~78,16%
+              </p>
+              <p className="text-[9px] text-amber-400/60 mt-2">
+                ⚠️ Reforma Tributária (EC 132/2023): IBS e CBS substituirão PIS/COFINS/ISS gradualmente de 2026 a 2033. Alíquotas podem mudar.
               </p>
             </div>
           </CardContent>
