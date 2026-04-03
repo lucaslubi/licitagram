@@ -16,6 +16,7 @@ import { createClient } from '@/lib/supabase/server'
 import { RiskAnalysisCard } from '@/components/fraud/RiskAnalysisCard'
 import { FraudAlertBadges } from '@/components/fraud/FraudAlertBadges'
 import { HabilitacaoChecklist } from './habilitacao-checklist'
+import { LanceSimulator } from './lance-simulator'
 
 export default async function OpportunityDetailPage({
   params,
@@ -307,6 +308,11 @@ export default async function OpportunityDetailPage({
 
           {/* Habilitação Checklist */}
           {isEnterprise && <HabilitacaoChecklist matchId={id} />}
+
+          {/* Lance Simulator */}
+          {isEnterprise && tender?.valor_estimado && (
+            <LanceSimulator matchId={id} tenderId={tender.id as string} valorEstimado={Number(tender.valor_estimado)} />
+          )}
 
 
           {/* Requirements */}
