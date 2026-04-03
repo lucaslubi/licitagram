@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -118,11 +118,39 @@ export function BDICalculator() {
   }
 
   function NumberInput({ label, value, onChange, suffix, step }: { label: string; value: number; onChange: (v: number) => void; suffix?: string; step?: number }) {
+    const [raw, setRaw] = useState(value ? String(value) : '')
+
+    // Sync when value changes externally (presets, regime change)
+    useEffect(() => { setRaw(value ? String(value) : '') }, [value])
+
     return (
       <div>
         <Label className="text-xs text-gray-400">{label}</Label>
         <div className="flex items-center gap-1 mt-1">
-          <Input type="number" step={step || 0.01} value={value || ''} onChange={e => onChange(Number(e.target.value) || 0)} className="text-right font-mono" />
+          <Input
+            type="text"
+            inputMode="decimal"
+            step={step || 0.01}
+            value={raw}
+            onChange={e => {
+              const v = e.target.value
+              // Allow empty, digits, dots, commas
+              if (v === '' || /^[\d.,]*$/.test(v)) {
+                setRaw(v)
+                const num = parseFloat(v.replace(',', '.'))
+                onChange(isNaN(num) ? 0 : num)
+              }
+            }}
+            onBlur={() => {
+              // Format on blur
+              const num = parseFloat(raw.replace(',', '.'))
+              if (isNaN(num) || raw === '') {
+                setRaw('')
+                onChange(0)
+              }
+            }}
+            className="text-right font-mono"
+          />
           {suffix && <span className="text-xs text-gray-500 w-6">{suffix}</span>}
         </div>
       </div>
