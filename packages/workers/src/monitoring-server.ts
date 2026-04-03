@@ -546,10 +546,10 @@ const server = http.createServer(async (req, res) => {
           // Build rich price document from real tender data
           let priceDoc = `# Previsao de Preco: ${queryHash}\n\n`
 
-          // Fetch recent tenders matching the query
+          // Fetch recent tenders matching the query (include id for competitor lookup)
           const { data: tenders } = await supabase.supabase
             .from('tenders')
-            .select('objeto, valor_estimado, valor_homologado, orgao_nome, uf, data_publicacao, modalidade_nome')
+            .select('id, objeto, valor_estimado, valor_homologado, orgao_nome, uf, municipio, data_publicacao, data_encerramento, modalidade_nome, situacao_nome')
             .ilike('objeto', `%${queryHash}%`)
             .not('valor_estimado', 'is', null)
             .order('data_publicacao', { ascending: false })
@@ -568,12 +568,60 @@ const server = http.createServer(async (req, res) => {
             priceDoc += `- Minimo: R$ ${sorted[0].toFixed(2)}\n`
             priceDoc += `- Maximo: R$ ${sorted[sorted.length - 1].toFixed(2)}\n\n`
 
-            priceDoc += `## Historico Recente\n`
+            // Values with homologated prices (actual contract values)
+            const homologados = tenders.filter((t: any) => t.valor_homologado && Number(t.valor_homologado) > 0)
+            if (homologados.length > 0) {
+              const hValues = homologados.map((t: any) => Number(t.valor_homologado))
+              const hMean = hValues.reduce((a: number, b: number) => a + b, 0) / hValues.length
+              const hSorted = [...hValues].sort((a: number, b: number) => a - b)
+              priceDoc += `## Precos Homologados (contratos realizados: ${homologados.length})\n`
+              priceDoc += `- Media contratada: R$ ${hMean.toFixed(2)}\n`
+              priceDoc += `- Menor contratacao: R$ ${hSorted[0].toFixed(2)}\n`
+              priceDoc += `- Maior contratacao: R$ ${hSorted[hSorted.length - 1].toFixed(2)}\n`
+              const desconto = ((mean - hMean) / mean * 100)
+              priceDoc += `- Desconto medio sobre estimativa: ${desconto.toFixed(1)}%\n\n`
+            }
+
+            // Monthly trend
+            const byMonth = new Map<string, { count: number; values: number[] }>()
+            for (const t of tenders) {
+              const month = (t.data_publicacao || '').substring(0, 7)
+              if (!month) continue
+              const entry = byMonth.get(month) || { count: 0, values: [] }
+              entry.count++
+              if (t.valor_estimado) entry.values.push(Number(t.valor_estimado))
+              byMonth.set(month, entry)
+            }
+            if (byMonth.size > 1) {
+              priceDoc += `## Tendencia Mensal\n`
+              for (const [month, data] of Array.from(byMonth.entries()).sort()) {
+                const monthMedian = data.values.sort((a, b) => a - b)[Math.floor(data.values.length / 2)] || 0
+                priceDoc += `- ${month}: ${data.count} licitacoes, mediana R$ ${monthMedian.toFixed(2)}\n`
+              }
+              priceDoc += '\n'
+            }
+
+            // Regional distribution
+            const byUF = new Map<string, number>()
+            for (const t of tenders) {
+              if (t.uf) byUF.set(t.uf, (byUF.get(t.uf) || 0) + 1)
+            }
+            if (byUF.size > 1) {
+              priceDoc += `## Distribuicao Regional\n`
+              for (const [uf, count] of Array.from(byUF.entries()).sort((a, b) => b[1] - a[1]).slice(0, 10)) {
+                priceDoc += `- ${uf}: ${count} licitacoes (${(count / tenders.length * 100).toFixed(0)}%)\n`
+              }
+              priceDoc += '\n'
+            }
+
+            priceDoc += `## Historico Detalhado (${Math.min(20, tenders.length)} licitacoes)\n`
             for (const t of tenders.slice(0, 20)) {
               const valor = t.valor_estimado ? `R$ ${Number(t.valor_estimado).toLocaleString('pt-BR')}` : 'N/I'
-              const homolog = t.valor_homologado ? ` (homologado: R$ ${Number(t.valor_homologado).toLocaleString('pt-BR')})` : ''
-              priceDoc += `- ${t.data_publicacao || 'N/D'} | ${t.orgao_nome?.substring(0, 50)} | ${valor}${homolog} | ${t.modalidade_nome || ''}\n`
-              priceDoc += `  Objeto: ${t.objeto?.substring(0, 150)}\n`
+              const homolog = t.valor_homologado ? ` → Contratado: R$ ${Number(t.valor_homologado).toLocaleString('pt-BR')}` : ''
+              priceDoc += `- ${t.data_publicacao || 'N/D'} | ${t.orgao_nome?.substring(0, 50)} | ${t.uf || ''}\n`
+              priceDoc += `  Estimado: ${valor}${homolog}\n`
+              priceDoc += `  ${t.modalidade_nome || ''} | ${t.situacao_nome || ''}\n`
+              priceDoc += `  Objeto: ${t.objeto?.substring(0, 200)}\n\n`
             }
 
             // Fetch competitors for these tenders
