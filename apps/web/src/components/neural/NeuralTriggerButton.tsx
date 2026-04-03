@@ -66,9 +66,10 @@ export function NeuralTriggerButton({
   }
 
   async function pollForResult(id: string) {
-    const maxAttempts = 60
-    for (let i = 0; i < maxAttempts; i++) {
-      await new Promise((r) => setTimeout(r, 3000))
+    // Fast polling first (2s), then slower (5s) — total ~90s max
+    const intervals = [2000, 2000, 2000, 3000, 3000, 3000, 5000, 5000, 5000, 5000, 5000, 5000, 5000, 5000, 5000, 5000, 5000, 5000]
+    for (let i = 0; i < intervals.length; i++) {
+      await new Promise((r) => setTimeout(r, intervals[i]))
       try {
         const res = await fetch(`/api/neural/result?type=${type}&id=${id}`)
         const data = await res.json()
