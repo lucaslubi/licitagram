@@ -543,12 +543,78 @@ const server = http.createServer(async (req, res) => {
             .update({ status: 'processing' })
             .eq('id', analysisId)
 
-          // For price analysis, build a simpler document
-          // The actual price data should come from the API caller
+          // Build rich price document from real tender data
+          let priceDoc = `# Previsao de Preco: ${queryHash}\n\n`
+
+          // Fetch recent tenders matching the query
+          const { data: tenders } = await supabase.supabase
+            .from('tenders')
+            .select('objeto, valor_estimado, valor_homologado, orgao_nome, uf, data_publicacao, modalidade_nome')
+            .ilike('objeto', `%${queryHash}%`)
+            .not('valor_estimado', 'is', null)
+            .order('data_publicacao', { ascending: false })
+            .limit(50)
+
+          if (tenders && tenders.length > 0) {
+            // Statistics
+            const valores = tenders.map((t: any) => Number(t.valor_estimado)).filter((v: number) => v > 0)
+            const mean = valores.reduce((a: number, b: number) => a + b, 0) / valores.length
+            const sorted = [...valores].sort((a: number, b: number) => a - b)
+            const median = sorted[Math.floor(sorted.length / 2)]
+
+            priceDoc += `## Estatisticas (${valores.length} licitacoes)\n`
+            priceDoc += `- Media: R$ ${mean.toFixed(2)}\n`
+            priceDoc += `- Mediana: R$ ${median.toFixed(2)}\n`
+            priceDoc += `- Minimo: R$ ${sorted[0].toFixed(2)}\n`
+            priceDoc += `- Maximo: R$ ${sorted[sorted.length - 1].toFixed(2)}\n\n`
+
+            priceDoc += `## Historico Recente\n`
+            for (const t of tenders.slice(0, 20)) {
+              const valor = t.valor_estimado ? `R$ ${Number(t.valor_estimado).toLocaleString('pt-BR')}` : 'N/I'
+              const homolog = t.valor_homologado ? ` (homologado: R$ ${Number(t.valor_homologado).toLocaleString('pt-BR')})` : ''
+              priceDoc += `- ${t.data_publicacao || 'N/D'} | ${t.orgao_nome?.substring(0, 50)} | ${valor}${homolog} | ${t.modalidade_nome || ''}\n`
+              priceDoc += `  Objeto: ${t.objeto?.substring(0, 150)}\n`
+            }
+
+            // Fetch competitors for these tenders
+            const tenderIds = tenders.slice(0, 10).map((t: any) => t.id).filter(Boolean)
+            if (tenderIds.length > 0) {
+              const { data: competitors } = await supabase.supabase
+                .from('competitors')
+                .select('cnpj, nome, valor_proposta, situacao')
+                .in('tender_id', tenderIds)
+                .limit(50)
+
+              if (competitors && competitors.length > 0) {
+                // Group by supplier
+                const supplierMap = new Map<string, { nome: string; propostas: number[]; vitorias: number }>()
+                for (const c of competitors) {
+                  if (!c.cnpj) continue
+                  const s = supplierMap.get(c.cnpj) || { nome: c.nome || c.cnpj, propostas: [], vitorias: 0 }
+                  if (c.valor_proposta) s.propostas.push(Number(c.valor_proposta))
+                  if (c.situacao === 'Vencedor') s.vitorias++
+                  supplierMap.set(c.cnpj, s)
+                }
+
+                priceDoc += `\n## Fornecedores (${supplierMap.size})\n`
+                for (const [cnpj, s] of supplierMap) {
+                  const avgProposta = s.propostas.length > 0 ? s.propostas.reduce((a, b) => a + b, 0) / s.propostas.length : 0
+                  priceDoc += `### ${s.nome}\n`
+                  priceDoc += `- CNPJ: ${cnpj}\n`
+                  priceDoc += `- Participacoes: ${s.propostas.length}\n`
+                  priceDoc += `- Vitorias: ${s.vitorias}\n`
+                  priceDoc += `- Proposta media: R$ ${avgProposta.toFixed(2)}\n\n`
+                }
+              }
+            }
+          } else {
+            priceDoc += `Sem dados historicos encontrados para "${queryHash}". Gere uma previsao baseada no termo de busca.\n`
+          }
+
           const mirofishRes = await fetch(`${MIROFISH_URL}/api/licitagram/price-analysis`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ document: `Analise de precos para query ${queryHash}`, query_hash: queryHash }),
+            body: JSON.stringify({ document: priceDoc, query_hash: queryHash }),
             signal: AbortSignal.timeout(60_000),
           })
 
