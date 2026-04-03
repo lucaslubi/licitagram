@@ -371,7 +371,7 @@ export function PriceHistoryClient() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <Card className="bg-[#23262a] border-[#2d2f33]">
               <CardContent className="pt-6">
-                <p className="text-xs text-gray-400 uppercase tracking-wide">Preco Mediano</p>
+                <p className="text-xs text-gray-400 uppercase tracking-wide">Preço Mediano</p>
                 <p className="text-2xl font-bold text-white mt-1">
                   {formatBRL(result.statistics.median)}
                 </p>
@@ -379,7 +379,7 @@ export function PriceHistoryClient() {
                   <TrendArrow direction={result.trend.direction} />
                   <span className="text-xs text-gray-400">
                     {result.trend.direction === 'subindo' ? 'Em alta' :
-                     result.trend.direction === 'descendo' ? 'Em queda' : 'Estavel'}
+                     result.trend.direction === 'descendo' ? 'Em queda' : 'Estável'}
                   </span>
                 </div>
               </CardContent>
@@ -397,7 +397,7 @@ export function PriceHistoryClient() {
 
             <Card className="bg-[#23262a] border-[#2d2f33]">
               <CardContent className="pt-6">
-                <p className="text-xs text-gray-400 uppercase tracking-wide">Variacao</p>
+                <p className="text-xs text-gray-400 uppercase tracking-wide">Variação</p>
                 <p className={`text-2xl font-bold mt-1 ${
                   result.trend.variation_12m_percent != null
                     ? result.trend.variation_12m_percent > 0

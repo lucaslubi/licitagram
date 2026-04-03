@@ -159,7 +159,7 @@ export default function SettingsPage() {
     if (error) {
       setMessage('Erro ao salvar: ' + error.message)
     } else {
-      setMessage('Configuracoes salvas com sucesso!')
+      setMessage('Configurações salvas com sucesso!')
     }
     setSaving(false)
   }
@@ -241,10 +241,10 @@ export default function SettingsPage() {
 
             <div>
               <Label>Faixa de Valor Estimado</Label>
-              <p className="text-xs text-gray-400 mb-2">Filtrar notificacoes por valor da licitacao. Deixe vazio para nao filtrar.</p>
+              <p className="text-xs text-gray-400 mb-2">Filtrar notificações por valor da licitação. Deixe vazio para não filtrar.</p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-gray-400 mb-1 block">Valor Minimo (R$)</label>
+                  <label className="text-xs text-gray-400 mb-1 block">Valor Mínimo (R$)</label>
                   <Input
                     type="number"
                     placeholder="Ex: 10000"
@@ -253,7 +253,7 @@ export default function SettingsPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-400 mb-1 block">Valor Maximo (R$)</label>
+                  <label className="text-xs text-gray-400 mb-1 block">Valor Máximo (R$)</label>
                   <Input
                     type="number"
                     placeholder="Ex: 500000"
@@ -264,7 +264,7 @@ export default function SettingsPage() {
               </div>
               {(settings.min_valor || settings.max_valor) && (
                 <p className="text-xs mt-2 px-2 py-1.5 rounded bg-sky-900/20 text-sky-400">
-                  Notificacoes apenas para licitacoes {settings.min_valor ? `acima de R$ ${Number(settings.min_valor).toLocaleString('pt-BR')}` : ''}{settings.min_valor && settings.max_valor ? ' e ' : ''}{settings.max_valor ? `abaixo de R$ ${Number(settings.max_valor).toLocaleString('pt-BR')}` : ''}
+                  Notificações apenas para licitações {settings.min_valor ? `acima de R$ ${Number(settings.min_valor).toLocaleString('pt-BR')}` : ''}{settings.min_valor && settings.max_valor ? ' e ' : ''}{settings.max_valor ? `abaixo de R$ ${Number(settings.max_valor).toLocaleString('pt-BR')}` : ''}
                 </p>
               )}
             </div>
@@ -501,11 +501,11 @@ export default function SettingsPage() {
         {companyNotifications.length > 1 && (
           <Card>
             <CardHeader>
-              <CardTitle>Empresas com Notificacoes</CardTitle>
+              <CardTitle>Empresas com Notificações</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-xs text-gray-400 mb-2">
-                Escolha quais empresas devem enviar notificacoes no Telegram e WhatsApp.
+                Escolha quais empresas devem enviar notificações no Telegram e WhatsApp.
               </p>
               {companyNotifications.map((uc, idx) => (
                 <label
@@ -537,7 +537,7 @@ export default function SettingsPage() {
         )}
 
         <Button onClick={handleSave} disabled={saving}>
-          {saving ? 'Salvando...' : 'Salvar Configuracoes'}
+          {saving ? 'Salvando...' : 'Salvar Configurações'}
         </Button>
       </div>
     </div>

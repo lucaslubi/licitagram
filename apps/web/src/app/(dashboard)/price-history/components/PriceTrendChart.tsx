@@ -63,9 +63,9 @@ function CustomTooltip({ active, payload, label, formatCurrency }: CustomTooltip
         if (entry.dataKey === 'range') return null
         const labelMap: Record<string, string> = {
           median: 'Mediana',
-          mean: 'Media',
-          min: 'Minimo',
-          max: 'Maximo',
+          mean: 'Média',
+          min: 'Mínimo',
+          max: 'Máximo',
         }
         return (
           <div key={entry.dataKey} className="flex items-center justify-between gap-4 text-xs">
