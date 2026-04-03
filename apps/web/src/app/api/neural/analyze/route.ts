@@ -40,6 +40,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'type must be fraud or price' }, { status: 400 })
     }
 
+    if (!user.companyId) {
+      return NextResponse.json({ error: 'Empresa nao vinculada ao perfil' }, { status: 400 })
+    }
+
+    console.log('[neural/analyze]', type, tenderId || queryHash, 'user:', user.email, 'company:', user.companyId)
+
     const serviceSupabase = getServiceSupabase()
 
     if (type === 'fraud') {
