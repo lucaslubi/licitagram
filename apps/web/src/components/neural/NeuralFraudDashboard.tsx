@@ -63,18 +63,21 @@ export function NeuralFraudDashboard({ analysisId, initialData, className }: Neu
   }
 
   async function handleChat() {
-    if (!chatInput.trim() || !analysis?.mirofish_simulation_id) return
+    if (!chatInput.trim()) return
     const msg = chatInput.trim()
     setChatInput('')
     setChatMessages((prev) => [...prev, { role: 'user', content: msg }])
     setChatLoading(true)
 
     try {
+      const ctx = `Analise de fraude: risco ${analysis?.risk_score}, nivel ${analysis?.risk_level}\nEmpresas: ${(analysis?.graph_nodes || []).map((n: any) => n.label).join(', ')}\nConluio: ${(analysis?.collusion_indicators || []).map((c: any) => c.type + ' ' + c.probability + '%').join('; ')}\nResumo: ${analysis?.simulation_summary?.substring(0, 500) || ''}\nRecomendacoes: ${(analysis?.recommended_actions || []).join('; ')}`
+
       const res = await fetch('/api/neural/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          simulationId: analysis.mirofish_simulation_id,
+          simulationId: analysis?.mirofish_simulation_id || '',
+          context: ctx,
           message: msg,
           history: chatMessages,
         }),

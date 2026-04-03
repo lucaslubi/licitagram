@@ -59,16 +59,19 @@ export function NeuralPriceDashboard({ predictionId, initialData, className }: N
   }
 
   async function handleChat() {
-    if (!chatInput.trim() || !prediction?.mirofish_simulation_id) return
+    if (!chatInput.trim()) return
     const msg = chatInput.trim()
     setChatInput('')
     setChatMessages(prev => [...prev, { role: 'user', content: msg }])
     setChatLoading(true)
     try {
+      // Build context from prediction data
+      const ctx = `Previsao de precos: ${prediction?.item_description || ''}\nMediana prevista: ${prediction?.predicted_median ? formatBRL(prediction.predicted_median) : 'N/A'}\nFaixa: ${prediction?.predicted_range_low ? formatBRL(prediction.predicted_range_low) : '?'} - ${prediction?.predicted_range_high ? formatBRL(prediction.predicted_range_high) : '?'}\nFornecedores: ${suppliers.map((s: any) => s.label).join(', ')}\nInsights: ${prediction?.market_insights?.substring(0, 500) || ''}\nComportamento: ${prediction?.supplier_behavior_summary?.substring(0, 500) || ''}`
+
       const res = await fetch('/api/neural/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ simulationId: prediction.mirofish_simulation_id, message: msg, history: chatMessages }),
+        body: JSON.stringify({ simulationId: prediction?.mirofish_simulation_id || '', context: ctx, message: msg, history: chatMessages }),
       })
       const data = await res.json()
       setChatMessages(prev => [...prev, { role: 'assistant', content: data.response || 'Sem resposta.' }])

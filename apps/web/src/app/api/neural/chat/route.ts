@@ -7,8 +7,12 @@ const MIROFISH_URL = process.env.MIROFISH_URL || 'http://85.31.60.53:5001'
 
 /**
  * POST /api/neural/chat
- * Interactive chat with MiroFish report agent about an analysis.
- * Body: { simulationId: string, message: string, history?: Array<{role, content}> }
+ * Interactive chat about a neural analysis.
+ * Body: { message, context?, simulationId?, history? }
+ *
+ * Works with or without simulationId:
+ * - With simulationId: uses Zep memory for context
+ * - Without: uses the provided context string
  */
 export async function POST(request: NextRequest) {
   try {
@@ -20,37 +24,36 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { simulationId, message, history } = body as {
-      simulationId: string
+    const { message, context, simulationId, history } = body as {
       message: string
+      context?: string
+      simulationId?: string
       history?: Array<{ role: string; content: string }>
     }
 
-    if (!simulationId || !message) {
-      return NextResponse.json({ error: 'simulationId and message required' }, { status: 400 })
+    if (!message) {
+      return NextResponse.json({ error: 'message required' }, { status: 400 })
     }
 
-    // Forward to MiroFish report chat endpoint
     const res = await fetch(`${MIROFISH_URL}/api/report/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        simulation_id: simulationId,
+        simulation_id: simulationId || '',
         message,
+        context: context || '',
         chat_history: history || [],
       }),
       signal: AbortSignal.timeout(25_000),
     })
 
     if (!res.ok) {
-      const text = await res.text().catch(() => '')
-      return NextResponse.json({ error: `MiroFish error: ${res.status}` }, { status: 502 })
+      return NextResponse.json({ error: `Erro do servidor de analise: ${res.status}` }, { status: 502 })
     }
 
     const data = await res.json()
     return NextResponse.json({
-      response: data.data?.response || 'Sem resposta do agente.',
-      sources: data.data?.sources || [],
+      response: data.data?.response || 'Sem resposta.',
     })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
