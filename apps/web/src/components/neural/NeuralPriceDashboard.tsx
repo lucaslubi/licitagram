@@ -25,6 +25,7 @@ interface PricePrediction {
 
 interface NeuralPriceDashboardProps {
   predictionId: string
+  initialData?: any
   className?: string
 }
 
@@ -37,9 +38,9 @@ function formatBRL(value: number): string {
  * Shows: predicted range, supplier graph, price curve, anomalies,
  * simulation timeline, and interactive chat.
  */
-export function NeuralPriceDashboard({ predictionId, className }: NeuralPriceDashboardProps) {
-  const [prediction, setPrediction] = useState<PricePrediction | null>(null)
-  const [loading, setLoading] = useState(true)
+export function NeuralPriceDashboard({ predictionId, initialData, className }: NeuralPriceDashboardProps) {
+  const [prediction, setPrediction] = useState<PricePrediction | null>(initialData || null)
+  const [loading, setLoading] = useState(!initialData)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'overview' | 'suppliers' | 'curve' | 'simulation' | 'chat'>('overview')
   const [chatMessages, setChatMessages] = useState<Array<{ role: string; content: string }>>([])
@@ -47,7 +48,7 @@ export function NeuralPriceDashboard({ predictionId, className }: NeuralPriceDas
   const [chatLoading, setChatLoading] = useState(false)
 
   useEffect(() => {
-    fetchPrediction()
+    if (!initialData) fetchPrediction()
   }, [predictionId])
 
   async function fetchPrediction() {

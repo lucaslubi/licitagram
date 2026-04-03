@@ -24,6 +24,7 @@ interface FraudAnalysis {
 
 interface NeuralFraudDashboardProps {
   analysisId: string
+  initialData?: any
   className?: string
 }
 
@@ -32,9 +33,9 @@ interface NeuralFraudDashboardProps {
  * Shows: risk gauge, corporate graph, collusion chain, simulation timeline,
  * collusion indicators, recommendations, and interactive chat.
  */
-export function NeuralFraudDashboard({ analysisId, className }: NeuralFraudDashboardProps) {
-  const [analysis, setAnalysis] = useState<FraudAnalysis | null>(null)
-  const [loading, setLoading] = useState(true)
+export function NeuralFraudDashboard({ analysisId, initialData, className }: NeuralFraudDashboardProps) {
+  const [analysis, setAnalysis] = useState<FraudAnalysis | null>(initialData || null)
+  const [loading, setLoading] = useState(!initialData)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'graph' | 'chain' | 'simulation' | 'chat'>('graph')
   const [chatMessages, setChatMessages] = useState<Array<{ role: string; content: string }>>([])
@@ -42,7 +43,7 @@ export function NeuralFraudDashboard({ analysisId, className }: NeuralFraudDashb
   const [chatLoading, setChatLoading] = useState(false)
 
   useEffect(() => {
-    fetchAnalysis()
+    if (!initialData) fetchAnalysis()
   }, [analysisId])
 
   async function fetchAnalysis() {

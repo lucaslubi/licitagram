@@ -8,13 +8,13 @@ interface NeuralTriggerButtonProps {
   queryHash?: string
   label?: string
   className?: string
-  onResult?: (id: string) => void
+  onResult?: (id: string, data?: any) => void
 }
 
 /**
- * NeuralTriggerButton — On-demand button that triggers MiroFish analysis.
- * Shows confirmation modal before consuming LLM tokens.
- * Prevents accidental token usage.
+ * NeuralTriggerButton — Triggers MiroFish analysis synchronously.
+ * The API now waits for the result (up to 45s) and returns it directly.
+ * No polling needed — single request/response.
  */
 export function NeuralTriggerButton({
   type,
@@ -27,7 +27,6 @@ export function NeuralTriggerButton({
   const [loading, setLoading] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [resultId, setResultId] = useState<string | null>(null)
 
   const buttonLabel = label || (type === 'fraud' ? 'Analise Neural' : 'Previsao Neural')
 
@@ -45,51 +44,23 @@ export function NeuralTriggerButton({
       const data = await res.json()
 
       if (!res.ok) {
-        setError(data.error || 'Erro ao iniciar analise')
+        setError(data.error || 'Erro na analise')
         setLoading(false)
         return
       }
 
-      setResultId(data.id)
-      onResult?.(data.id)
-
-      if (data.cached) {
-        setLoading(false)
+      // Result comes directly — no polling needed
+      const result = data.analysis || data.prediction
+      if (result) {
+        onResult?.(result.id, result)
       } else {
-        // Poll for completion
-        pollForResult(data.id)
+        setError('Resultado vazio')
       }
+      setLoading(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro de conexao')
       setLoading(false)
     }
-  }
-
-  async function pollForResult(id: string) {
-    // Fast polling first (2s), then slower (5s) — total ~90s max
-    const intervals = [2000, 2000, 2000, 3000, 3000, 3000, 5000, 5000, 5000, 5000, 5000, 5000, 5000, 5000, 5000, 5000, 5000, 5000]
-    for (let i = 0; i < intervals.length; i++) {
-      await new Promise((r) => setTimeout(r, intervals[i]))
-      try {
-        const res = await fetch(`/api/neural/result?type=${type}&id=${id}`)
-        const data = await res.json()
-        const analysis = data.analysis || data.prediction
-        if (analysis?.status === 'completed') {
-          setLoading(false)
-          onResult?.(id)
-          return
-        }
-        if (analysis?.status === 'failed') {
-          setError(analysis.error_message || 'Analise falhou')
-          setLoading(false)
-          return
-        }
-      } catch {
-        // Continue polling
-      }
-    }
-    setError('Timeout: analise demorou mais que o esperado')
-    setLoading(false)
   }
 
   return (
@@ -109,7 +80,7 @@ export function NeuralTriggerButton({
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
-            Analisando...
+            Analisando... (~20s)
           </>
         ) : (
           <>
@@ -143,12 +114,12 @@ export function NeuralTriggerButton({
 
             <p className="text-gray-300 text-sm mb-4">
               {type === 'fraud'
-                ? 'Esta analise vai construir um grafo de relacionamentos societarios, simular cenarios de conluio e identificar conexoes ocultas entre as empresas participantes.'
-                : 'Esta analise vai simular o comportamento dos fornecedores e prever a faixa de preco para proximas licitacoes semelhantes.'}
+                ? 'Construir grafo de relacionamentos societarios e simular cenarios de conluio entre as empresas participantes.'
+                : 'Simular comportamento dos fornecedores e prever faixa de preco para proximas licitacoes semelhantes.'}
             </p>
 
             <p className="text-gray-500 text-xs mb-6">
-              Usa inteligencia artificial avancada. O resultado sera armazenado em cache para consultas futuras.
+              A analise leva cerca de 20 segundos. O resultado sera armazenado em cache.
             </p>
 
             <div className="flex gap-3">

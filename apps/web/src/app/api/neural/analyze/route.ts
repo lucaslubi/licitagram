@@ -1,4 +1,3 @@
-import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
@@ -12,19 +11,17 @@ function getServiceSupabase() {
   )
 }
 
-const MIROFISH_URL = process.env.MIROFISH_URL || 'http://85.31.60.53:5001'
-
 /**
  * POST /api/neural/analyze
- * Triggers a MiroFish neural analysis on demand.
- * Body: { type: 'fraud' | 'price', tenderId?: string, queryHash?: string }
+ *
+ * SYNCHRONOUS approach: triggers MiroFish via VPS, waits for completion
+ * (up to 45s), then returns the result directly. No polling needed.
  */
 export async function POST(request: NextRequest) {
   try {
     const user = await getUserWithPlan()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    // Neural analysis requires Enterprise plan
     if (!hasFeature(user, 'competitive_intel') && !user.isPlatformAdmin) {
       return NextResponse.json({ error: 'Recurso disponivel no plano Enterprise' }, { status: 403 })
     }
@@ -44,60 +41,46 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Empresa nao vinculada ao perfil' }, { status: 400 })
     }
 
-    console.log('[neural/analyze]', type, tenderId || queryHash, 'user:', user.email, 'company:', user.companyId)
-
     const serviceSupabase = getServiceSupabase()
+    const VPS_URL = process.env.VPS_MONITORING_URL || 'http://85.31.60.53:3998'
 
+    // ── FRAUD ──────────────────────────────────────────────────────────
     if (type === 'fraud') {
-      if (!tenderId) return NextResponse.json({ error: 'tenderId required for fraud analysis' }, { status: 400 })
+      if (!tenderId) return NextResponse.json({ error: 'tenderId required' }, { status: 400 })
 
-      // Check if analysis already exists (cached)
+      // Check cache
       const { data: existing } = await serviceSupabase
         .from('mirofish_fraud_analysis')
-        .select('id, status, risk_score, completed_at')
+        .select('*')
         .eq('tender_id', tenderId)
         .eq('company_id', user.companyId)
         .maybeSingle()
 
       if (existing && existing.status === 'completed') {
-        return NextResponse.json({ id: existing.id, cached: true, status: 'completed' })
+        return NextResponse.json({ analysis: existing, cached: true })
       }
 
-      if (existing && existing.status === 'processing') {
-        return NextResponse.json({ id: existing.id, cached: false, status: 'processing' })
-      }
-
-      // Create pending analysis record (INSERT only, don't overwrite completed)
-      let analysisId: string
-      const { data: analysis, error: insertErr } = await serviceSupabase
+      // Create record
+      const { data: record } = await serviceSupabase
         .from('mirofish_fraud_analysis')
-        .insert({
-          tender_id: tenderId,
-          company_id: user.companyId,
-          status: 'pending',
-        })
+        .insert({ tender_id: tenderId, company_id: user.companyId, status: 'pending' })
         .select('id')
         .single()
 
-      if (insertErr) {
-        // If unique conflict, record already exists — fetch it
-        if (insertErr.code === '23505') {
-          const { data: existingRecord } = await serviceSupabase
-            .from('mirofish_fraud_analysis')
-            .select('id, status')
-            .eq('tender_id', tenderId)
-            .eq('company_id', user.companyId)
-            .single()
-          if (existingRecord) {
-            return NextResponse.json({ id: existingRecord.id, cached: existingRecord.status === 'completed', status: existingRecord.status })
-          }
-        }
-        return NextResponse.json({ error: insertErr.message }, { status: 500 })
+      if (!record) {
+        // Conflict — fetch existing
+        const { data: ex } = await serviceSupabase
+          .from('mirofish_fraud_analysis')
+          .select('*')
+          .eq('tender_id', tenderId)
+          .eq('company_id', user.companyId)
+          .single()
+        if (ex?.status === 'completed') return NextResponse.json({ analysis: ex, cached: true })
       }
-      analysisId = analysis.id
 
-      // Trigger VPS worker to run MiroFish analysis (await to ensure delivery)
-      const VPS_URL = process.env.VPS_MONITORING_URL || 'http://85.31.60.53:3998'
+      const analysisId = record?.id
+
+      // Trigger VPS and WAIT for result
       try {
         await fetch(`${VPS_URL}/trigger-neural`, {
           method: 'POST',
@@ -105,35 +88,46 @@ export async function POST(request: NextRequest) {
           body: JSON.stringify({ type: 'fraud', analysisId, tenderId, companyId: user.companyId }),
           signal: AbortSignal.timeout(10000),
         })
-      } catch (triggerErr) {
-        console.error('[neural/analyze] Trigger failed:', triggerErr)
+      } catch {}
+
+      // Poll Supabase for result (up to 45s)
+      for (let i = 0; i < 22; i++) {
+        await new Promise(r => setTimeout(r, 2000))
+        const { data: result } = await serviceSupabase
+          .from('mirofish_fraud_analysis')
+          .select('*')
+          .eq('id', analysisId)
+          .single()
+
+        if (result?.status === 'completed') {
+          return NextResponse.json({ analysis: result, cached: false })
+        }
+        if (result?.status === 'failed') {
+          return NextResponse.json({ error: result.error_message || 'Analise falhou' }, { status: 500 })
+        }
       }
 
-      return NextResponse.json({ id: analysisId, cached: false, status: 'pending' })
+      return NextResponse.json({ error: 'Timeout — analise demorou mais que o esperado' }, { status: 504 })
     }
 
+    // ── PRICE ──────────────────────────────────────────────────────────
     if (type === 'price') {
-      if (!queryHash) return NextResponse.json({ error: 'queryHash required for price analysis' }, { status: 400 })
+      if (!queryHash) return NextResponse.json({ error: 'queryHash required' }, { status: 400 })
 
-      // Check cache (7-day TTL)
+      // Check cache
       const { data: existing } = await serviceSupabase
         .from('mirofish_price_predictions')
-        .select('id, status, completed_at, expires_at')
+        .select('*')
         .eq('query_hash', queryHash)
         .eq('company_id', user.companyId)
         .maybeSingle()
 
       if (existing && existing.status === 'completed') {
-        return NextResponse.json({ id: existing.id, cached: true, status: 'completed' })
+        return NextResponse.json({ prediction: existing, cached: true })
       }
 
-      if (existing && (existing.status === 'processing' || existing.status === 'pending')) {
-        return NextResponse.json({ id: existing.id, cached: false, status: existing.status })
-      }
-
-      // Create pending prediction record (INSERT only, don't overwrite completed)
-      let predictionId: string
-      const { data: prediction, error: insertErr } = await serviceSupabase
+      // Create record
+      const { data: record } = await serviceSupabase
         .from('mirofish_price_predictions')
         .insert({
           query_hash: queryHash,
@@ -144,24 +138,19 @@ export async function POST(request: NextRequest) {
         .select('id')
         .single()
 
-      if (insertErr) {
-        if (insertErr.code === '23505') {
-          const { data: existingRecord } = await serviceSupabase
-            .from('mirofish_price_predictions')
-            .select('id, status')
-            .eq('query_hash', queryHash)
-            .eq('company_id', user.companyId)
-            .single()
-          if (existingRecord) {
-            return NextResponse.json({ id: existingRecord.id, cached: existingRecord.status === 'completed', status: existingRecord.status })
-          }
-        }
-        return NextResponse.json({ error: insertErr.message }, { status: 500 })
+      if (!record) {
+        const { data: ex } = await serviceSupabase
+          .from('mirofish_price_predictions')
+          .select('*')
+          .eq('query_hash', queryHash)
+          .eq('company_id', user.companyId)
+          .single()
+        if (ex?.status === 'completed') return NextResponse.json({ prediction: ex, cached: true })
       }
-      predictionId = prediction.id
 
-      // Trigger VPS worker (await to ensure delivery)
-      const VPS_URL = process.env.VPS_MONITORING_URL || 'http://85.31.60.53:3998'
+      const predictionId = record?.id
+
+      // Trigger VPS and WAIT
       try {
         await fetch(`${VPS_URL}/trigger-neural`, {
           method: 'POST',
@@ -169,11 +158,26 @@ export async function POST(request: NextRequest) {
           body: JSON.stringify({ type: 'price', analysisId: predictionId, queryHash, companyId: user.companyId }),
           signal: AbortSignal.timeout(10000),
         })
-      } catch (triggerErr) {
-        console.error('[neural/analyze] Price trigger failed:', triggerErr)
+      } catch {}
+
+      // Poll for result (up to 45s)
+      for (let i = 0; i < 22; i++) {
+        await new Promise(r => setTimeout(r, 2000))
+        const { data: result } = await serviceSupabase
+          .from('mirofish_price_predictions')
+          .select('*')
+          .eq('id', predictionId)
+          .single()
+
+        if (result?.status === 'completed') {
+          return NextResponse.json({ prediction: result, cached: false })
+        }
+        if (result?.status === 'failed') {
+          return NextResponse.json({ error: result.error_message || 'Analise falhou' }, { status: 500 })
+        }
       }
 
-      return NextResponse.json({ id: predictionId, cached: false, status: 'pending' })
+      return NextResponse.json({ error: 'Timeout — analise demorou mais que o esperado' }, { status: 504 })
     }
 
     return NextResponse.json({ error: 'Invalid type' }, { status: 400 })

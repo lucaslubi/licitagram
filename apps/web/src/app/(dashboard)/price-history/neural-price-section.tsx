@@ -8,18 +8,14 @@ interface NeuralPriceSectionProps {
   queryHash: string
 }
 
-/**
- * NeuralPriceSection — Shows neural price prediction trigger and dashboard.
- * Only triggers when user explicitly clicks (no automatic token consumption).
- */
 export function NeuralPriceSection({ queryHash }: NeuralPriceSectionProps) {
-  const [predictionId, setPredictionId] = useState<string | null>(null)
+  const [predictionData, setPredictionData] = useState<any>(null)
 
   if (!queryHash) return null
 
   return (
     <div className="space-y-4">
-      {!predictionId && (
+      {!predictionData && (
         <div className="flex items-center justify-between bg-[#111214] border border-zinc-800 rounded-xl p-4">
           <div>
             <h3 className="text-white text-sm font-semibold">Previsao Neural de Precos</h3>
@@ -28,12 +24,22 @@ export function NeuralPriceSection({ queryHash }: NeuralPriceSectionProps) {
           <NeuralTriggerButton
             type="price"
             queryHash={queryHash}
-            onResult={(id) => setPredictionId(id)}
+            onResult={(_id, data) => setPredictionData(data)}
           />
         </div>
       )}
 
-      {predictionId && <NeuralPriceDashboard predictionId={predictionId} />}
+      {predictionData && (
+        <div>
+          <button
+            onClick={() => setPredictionData(null)}
+            className="text-gray-500 hover:text-gray-300 text-xs mb-2"
+          >
+            ← Nova analise
+          </button>
+          <NeuralPriceDashboard predictionId={predictionData.id} initialData={predictionData} />
+        </div>
+      )}
     </div>
   )
 }

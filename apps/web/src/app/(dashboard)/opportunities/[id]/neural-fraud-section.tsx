@@ -9,11 +9,11 @@ interface NeuralFraudSectionProps {
 }
 
 export function NeuralFraudSection({ tenderId }: NeuralFraudSectionProps) {
-  const [analysisId, setAnalysisId] = useState<string | null>(null)
+  const [analysisData, setAnalysisData] = useState<any>(null)
 
   return (
     <div className="space-y-4">
-      {!analysisId && (
+      {!analysisData && (
         <div className="flex items-center justify-between bg-[#111214] border border-zinc-800 rounded-xl p-4">
           <div>
             <h3 className="text-white text-sm font-semibold">Analise Neural Anti-Fraude</h3>
@@ -22,20 +22,20 @@ export function NeuralFraudSection({ tenderId }: NeuralFraudSectionProps) {
           <NeuralTriggerButton
             type="fraud"
             tenderId={tenderId}
-            onResult={(id) => setAnalysisId(id)}
+            onResult={(_id, data) => setAnalysisData(data)}
           />
         </div>
       )}
 
-      {analysisId && (
+      {analysisData && (
         <div>
           <button
-            onClick={() => setAnalysisId(null)}
+            onClick={() => setAnalysisData(null)}
             className="text-gray-500 hover:text-gray-300 text-xs mb-2"
           >
             ← Voltar
           </button>
-          <NeuralFraudDashboard analysisId={analysisId} />
+          <NeuralFraudDashboard analysisId={analysisData.id} initialData={analysisData} />
         </div>
       )}
     </div>
