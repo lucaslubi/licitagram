@@ -544,7 +544,8 @@ const server = http.createServer(async (req, res) => {
             .eq('id', analysisId)
 
           // Build rich price document from real tender data
-          let priceDoc = `# Previsao de Preco: ${queryHash}\n\n`
+          let priceDoc = `# Previsao de Preco: ${queryHash}\n`
+          priceDoc += `ATENCAO: Os nos do grafo devem ser FORNECEDORES (empresas que vendem), NAO orgaos publicos.\n\n`
 
           // Fetch recent tenders matching the query (include id for competitor lookup)
           const { data: tenders } = await supabase.supabase
@@ -554,6 +555,70 @@ const server = http.createServer(async (req, res) => {
             .not('valor_estimado', 'is', null)
             .order('data_publicacao', { ascending: false })
             .limit(50)
+
+          // FETCH COMPETITORS FIRST — this is the most important data
+          if (tenders && tenders.length > 0) {
+            const tenderIds = tenders.map((t: any) => t.id).filter(Boolean)
+            const { data: allCompetitors } = await supabase.supabase
+              .from('competitors')
+              .select('cnpj, nome, valor_proposta, situacao, tender_id')
+              .in('tender_id', tenderIds.slice(0, 20))
+              .limit(200)
+
+            if (allCompetitors && allCompetitors.length > 0) {
+              // Group by supplier CNPJ
+              const suppliers = new Map<string, { nome: string; cnpj: string; propostas: number[]; vitorias: number; licitacoes: string[] }>()
+              for (const c of allCompetitors) {
+                if (!c.cnpj) continue
+                const s = suppliers.get(c.cnpj) || { nome: c.nome || c.cnpj, cnpj: c.cnpj, propostas: [], vitorias: 0, licitacoes: [] }
+                if (c.valor_proposta) s.propostas.push(Number(c.valor_proposta))
+                if (c.situacao === 'Vencedor') s.vitorias++
+                s.licitacoes.push(c.tender_id)
+                suppliers.set(c.cnpj, s)
+              }
+
+              priceDoc += `## FORNECEDORES QUE PARTICIPAM DESTE MERCADO (${suppliers.size} empresas)\n`
+              priceDoc += `USE ESTES DADOS PARA GERAR OS NOS DO GRAFO (supplier_graph_nodes).\n`
+              priceDoc += `Cada fornecedor abaixo DEVE virar um no com id=CNPJ.\n\n`
+
+              for (const [cnpj, s] of suppliers) {
+                const avg = s.propostas.length > 0 ? s.propostas.reduce((a, b) => a + b, 0) / s.propostas.length : 0
+                const winRate = s.propostas.length > 0 ? ((s.vitorias / s.propostas.length) * 100).toFixed(0) : '0'
+                priceDoc += `### ${s.nome}\n`
+                priceDoc += `- CNPJ: ${cnpj}\n`
+                priceDoc += `- Participacoes: ${s.propostas.length}\n`
+                priceDoc += `- Vitorias: ${s.vitorias} (${winRate}%)\n`
+                priceDoc += `- Proposta media: R$ ${avg.toFixed(2)}\n`
+                if (s.propostas.length > 1) {
+                  priceDoc += `- Proposta minima: R$ ${Math.min(...s.propostas).toFixed(2)}\n`
+                  priceDoc += `- Proposta maxima: R$ ${Math.max(...s.propostas).toFixed(2)}\n`
+                }
+                priceDoc += '\n'
+              }
+
+              // Find pairs of suppliers that competed together
+              priceDoc += `## RELACOES ENTRE FORNECEDORES\n`
+              priceDoc += `USE ESTES DADOS PARA GERAR AS EDGES DO GRAFO (supplier_graph_edges).\n\n`
+              const pairs = new Map<string, { cnpj1: string; cnpj2: string; nome1: string; nome2: string; count: number }>()
+              for (const tid of tenderIds.slice(0, 20)) {
+                const comps = allCompetitors.filter((c: any) => c.tender_id === tid && c.cnpj)
+                for (let i = 0; i < comps.length; i++) {
+                  for (let j = i + 1; j < comps.length; j++) {
+                    const key = [comps[i].cnpj, comps[j].cnpj].sort().join('_')
+                    const p = pairs.get(key) || { cnpj1: comps[i].cnpj, cnpj2: comps[j].cnpj, nome1: comps[i].nome, nome2: comps[j].nome, count: 0 }
+                    p.count++
+                    pairs.set(key, p)
+                  }
+                }
+              }
+              for (const [, p] of pairs) {
+                if (p.count >= 1) {
+                  priceDoc += `- ${p.nome1} (${p.cnpj1}) e ${p.nome2} (${p.cnpj2}): competiram juntos em ${p.count} licitacao(oes)\n`
+                }
+              }
+              priceDoc += '\n'
+            }
+          }
 
           if (tenders && tenders.length > 0) {
             // Statistics
@@ -624,37 +689,7 @@ const server = http.createServer(async (req, res) => {
               priceDoc += `  Objeto: ${t.objeto?.substring(0, 200)}\n\n`
             }
 
-            // Fetch competitors for these tenders
-            const tenderIds = tenders.slice(0, 10).map((t: any) => t.id).filter(Boolean)
-            if (tenderIds.length > 0) {
-              const { data: competitors } = await supabase.supabase
-                .from('competitors')
-                .select('cnpj, nome, valor_proposta, situacao')
-                .in('tender_id', tenderIds)
-                .limit(50)
-
-              if (competitors && competitors.length > 0) {
-                // Group by supplier
-                const supplierMap = new Map<string, { nome: string; propostas: number[]; vitorias: number }>()
-                for (const c of competitors) {
-                  if (!c.cnpj) continue
-                  const s = supplierMap.get(c.cnpj) || { nome: c.nome || c.cnpj, propostas: [], vitorias: 0 }
-                  if (c.valor_proposta) s.propostas.push(Number(c.valor_proposta))
-                  if (c.situacao === 'Vencedor') s.vitorias++
-                  supplierMap.set(c.cnpj, s)
-                }
-
-                priceDoc += `\n## Fornecedores (${supplierMap.size})\n`
-                for (const [cnpj, s] of supplierMap) {
-                  const avgProposta = s.propostas.length > 0 ? s.propostas.reduce((a, b) => a + b, 0) / s.propostas.length : 0
-                  priceDoc += `### ${s.nome}\n`
-                  priceDoc += `- CNPJ: ${cnpj}\n`
-                  priceDoc += `- Participacoes: ${s.propostas.length}\n`
-                  priceDoc += `- Vitorias: ${s.vitorias}\n`
-                  priceDoc += `- Proposta media: R$ ${avgProposta.toFixed(2)}\n\n`
-                }
-              }
-            }
+            // (Competitors already fetched above in the FORNECEDORES section)
           } else {
             priceDoc += `Sem dados historicos encontrados para "${queryHash}". Gere uma previsao baseada no termo de busca.\n`
           }
