@@ -2,6 +2,7 @@ import { Worker } from 'bullmq'
 import { connection } from '../queues/connection'
 import { notificationQueue, NOTIFICATION_PRIORITY } from '../queues/notification.queue'
 import { whatsappQueue } from '../queues/notification-whatsapp.queue'
+import { emailQueue } from '../queues/notification-email.queue'
 import { db as supabase } from '../lib/db'
 import { logger } from '../lib/logger'
 import { purgeNonCompetitiveMatches } from '../lib/notification-guard'
@@ -85,7 +86,7 @@ const pendingNotificationsWorker = new Worker(
     // Find users with any notification channel linked
     const { data: users, error: usersErr } = await supabase
       .from('users')
-      .select('id, company_id, telegram_chat_id, whatsapp_number, whatsapp_verified, min_score, notification_preferences')
+      .select('id, company_id, email, email_notifications_enabled, telegram_chat_id, whatsapp_number, whatsapp_verified, min_score, notification_preferences')
       .not('company_id', 'is', null)
 
     if (usersErr) {
@@ -311,6 +312,23 @@ const pendingNotificationsWorker = new Worker(
                 },
                 {
                   jobId: `wa-${user.id}-${match.id}`,
+                  priority,
+                },
+              )
+            }
+
+            // Email notifications
+            const hasEmail = user.email && user.email_notifications_enabled
+            if (hasEmail) {
+              await emailQueue.add(
+                `em-${user.id}-${match.id}`,
+                {
+                  matchId: match.id,
+                  userEmail: user.email,
+                  userId: user.id,
+                },
+                {
+                  jobId: `em-${user.id}-${match.id}`,
                   priority,
                 },
               )
