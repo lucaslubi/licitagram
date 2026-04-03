@@ -410,6 +410,193 @@ const server = http.createServer(async (req, res) => {
       return
     }
 
+    // POST /trigger-neural — Called by Vercel to run MiroFish analysis
+    // Proxies to MiroFish service on KVM8 and saves results to Supabase
+    if (req.method === 'POST' && url.pathname === '/trigger-neural') {
+      const raw = await readBody(req)
+      let body: any
+      try {
+        body = JSON.parse(raw)
+      } catch {
+        sendJson(res, 400, { success: false, error: 'Invalid JSON' })
+        return
+      }
+
+      const { type, analysisId, tenderId, queryHash, companyId } = body
+      if (!type || !analysisId) {
+        sendJson(res, 400, { success: false, error: 'type and analysisId required' })
+        return
+      }
+
+      const MIROFISH_URL = process.env.MIROFISH_URL || 'http://187.77.241.93:5001'
+      const MIROFISH_ENABLED = process.env.MIROFISH_ENABLED === 'true'
+
+      if (!MIROFISH_ENABLED) {
+        sendJson(res, 200, { success: false, message: 'MiroFish disabled' })
+        return
+      }
+
+      // Run analysis in background (don't block response)
+      sendJson(res, 200, { success: true, message: `Neural analysis queued: ${type}/${analysisId}` })
+
+      try {
+        if (type === 'fraud' && tenderId) {
+          // Build fraud document from Supabase data
+          const { data: tender } = await supabase.supabase
+            .from('tenders')
+            .select('objeto, orgao_nome, valor_estimado, uf, modalidade_nome')
+            .eq('id', tenderId)
+            .single()
+
+          const { data: competitors } = await supabase.supabase
+            .from('competitors')
+            .select('cnpj, nome, valor_proposta, situacao')
+            .eq('tender_id', tenderId)
+
+          const { data: alerts } = await supabase.supabase
+            .from('fraud_alerts')
+            .select('alert_type, severity, detail')
+            .eq('tender_id', tenderId)
+
+          // Build document
+          let doc = `# Analise de Fraude: Licitacao\n## Dados\n`
+          doc += `Objeto: ${tender?.objeto || 'N/A'}\nOrgao: ${tender?.orgao_nome || 'N/A'}\n`
+          doc += `Valor: ${tender?.valor_estimado ? 'R$ ' + Number(tender.valor_estimado).toLocaleString('pt-BR') : 'N/I'}\n\n`
+          doc += `## Participantes (${competitors?.length || 0})\n`
+          for (const c of competitors || []) {
+            doc += `- ${c.nome} (${c.cnpj}) - R$ ${c.valor_proposta || 'N/I'} ${c.situacao === 'Vencedor' ? '[VENCEDOR]' : ''}\n`
+          }
+          doc += `\n## Alertas (${alerts?.length || 0})\n`
+          for (const a of alerts || []) {
+            doc += `- [${a.severity}] ${a.alert_type}: ${a.detail}\n`
+          }
+
+          // Expand partner graph from local PG
+          try {
+            const cnpjs = (competitors || []).map((c: any) => c.cnpj).filter(Boolean)
+            if (cnpjs.length > 0) {
+              const { localPool } = await import('./lib/local-db')
+              const { rows: partners } = await localPool.query(
+                'SELECT cnpj, nome_socio, cnpj_cpf_socio FROM socios WHERE cnpj = ANY($1) LIMIT 200',
+                [cnpjs]
+              )
+              if (partners.length > 0) {
+                doc += `\n## Rede Societaria (${partners.length} socios)\n`
+                for (const p of partners) {
+                  doc += `- ${p.cnpj} → ${p.nome_socio} (${p.cnpj_cpf_socio})\n`
+                }
+              }
+            }
+          } catch { /* PG not available, continue without */ }
+
+          // Update status to processing
+          await supabase.supabase
+            .from('mirofish_fraud_analysis')
+            .update({ status: 'processing' })
+            .eq('id', analysisId)
+
+          // Call MiroFish
+          const mirofishRes = await fetch(`${MIROFISH_URL}/api/licitagram/fraud-analysis`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ document: doc, tender_id: tenderId }),
+            signal: AbortSignal.timeout(60_000),
+          })
+
+          if (mirofishRes.ok) {
+            const result = await mirofishRes.json()
+            const analysis = result.data?.analysis || {}
+
+            await supabase.supabase
+              .from('mirofish_fraud_analysis')
+              .update({
+                status: 'completed',
+                risk_score: analysis.risk_score || 0,
+                risk_level: analysis.risk_level || 'low',
+                graph_nodes: analysis.graph_nodes || [],
+                graph_edges: analysis.graph_edges || [],
+                network_depth: analysis.network_depth || 1,
+                companies_analyzed: analysis.companies_analyzed || 0,
+                hidden_connections: analysis.hidden_connections || [],
+                collusion_indicators: analysis.collusion_indicators || [],
+                simulation_summary: analysis.simulation_summary || '',
+                recommended_actions: analysis.recommended_actions || [],
+                llm_tokens_used: analysis.llm_tokens_used || 0,
+                analysis_duration_ms: analysis.analysis_duration_ms || 0,
+                completed_at: new Date().toISOString(),
+              })
+              .eq('id', analysisId)
+
+            console.log(`[monitoring] Neural fraud analysis completed: ${analysisId} risk=${analysis.risk_score}`)
+          } else {
+            const errText = await mirofishRes.text().catch(() => 'unknown')
+            await supabase.supabase
+              .from('mirofish_fraud_analysis')
+              .update({ status: 'failed', error_message: errText.slice(0, 500) })
+              .eq('id', analysisId)
+          }
+        }
+
+        if (type === 'price' && queryHash) {
+          await supabase.supabase
+            .from('mirofish_price_predictions')
+            .update({ status: 'processing' })
+            .eq('id', analysisId)
+
+          // For price analysis, build a simpler document
+          // The actual price data should come from the API caller
+          const mirofishRes = await fetch(`${MIROFISH_URL}/api/licitagram/price-analysis`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ document: `Analise de precos para query ${queryHash}`, query_hash: queryHash }),
+            signal: AbortSignal.timeout(60_000),
+          })
+
+          if (mirofishRes.ok) {
+            const result = await mirofishRes.json()
+            const pred = result.data?.prediction || {}
+
+            await supabase.supabase
+              .from('mirofish_price_predictions')
+              .update({
+                status: 'completed',
+                predicted_range_low: pred.predicted_range_low,
+                predicted_range_high: pred.predicted_range_high,
+                predicted_median: pred.predicted_median,
+                confidence_score: pred.confidence_score || 0,
+                supplier_graph_nodes: pred.supplier_graph_nodes || [],
+                supplier_graph_edges: pred.supplier_graph_edges || [],
+                price_curve: pred.price_curve || [],
+                anomaly_flags: pred.anomaly_flags || [],
+                supplier_behavior_summary: pred.supplier_behavior_summary || '',
+                market_insights: pred.market_insights || '',
+                llm_tokens_used: pred.llm_tokens_used || 0,
+                analysis_duration_ms: pred.analysis_duration_ms || 0,
+                completed_at: new Date().toISOString(),
+              })
+              .eq('id', analysisId)
+
+            console.log(`[monitoring] Neural price prediction completed: ${analysisId}`)
+          } else {
+            await supabase.supabase
+              .from('mirofish_price_predictions')
+              .update({ status: 'failed', error_message: 'MiroFish returned error' })
+              .eq('id', analysisId)
+          }
+        }
+      } catch (err: any) {
+        console.error(`[monitoring] Neural analysis failed:`, err.message)
+        // Update status to failed
+        const table = type === 'fraud' ? 'mirofish_fraud_analysis' : 'mirofish_price_predictions'
+        await supabase.supabase
+          .from(table)
+          .update({ status: 'failed', error_message: err.message?.slice(0, 500) })
+          .eq('id', analysisId)
+          .catch(() => {})
+      }
+      return
+    }
+
     // POST /action
     if (req.method === 'POST' && url.pathname === '/action') {
       const raw = await readBody(req)
