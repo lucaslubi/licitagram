@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type { PriceSearchResult, PriceStatistics, PriceTrend } from '@licitagram/price-history'
 import { PriceTrendChart } from './components/PriceTrendChart'
+import { NeuralPriceSection } from './neural-price-section'
 
 const UF_OPTIONS = [
   '','AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS','MT',
@@ -427,6 +428,9 @@ export function PriceHistoryClient() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Neural Price Prediction */}
+          <NeuralPriceSection queryHash={query + uf + modalidade} />
 
           {/* Trend chart */}
           {result.trend.points.length > 0 && (
