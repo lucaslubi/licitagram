@@ -1,11 +1,19 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserWithPlan } from '@/lib/auth-helpers'
+
+function getServiceSupabase() {
+  return createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
+}
 
 /**
  * GET /api/neural/result?type=fraud&id=xxx
  * GET /api/neural/result?type=price&id=xxx
- * Returns the full neural analysis result including graph data for D3 visualization.
+ * Returns the full neural analysis result including graph data for D3.
+ * Uses service role to bypass RLS (records created by workers).
  */
 export async function GET(request: NextRequest) {
   try {
@@ -20,7 +28,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'type and id required' }, { status: 400 })
     }
 
-    const supabase = await createClient()
+    const supabase = getServiceSupabase()
 
     if (type === 'fraud') {
       const { data, error } = await supabase
