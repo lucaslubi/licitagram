@@ -67,20 +67,34 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ id: existing.id, cached: false, status: 'processing' })
       }
 
-      // Create pending analysis record
+      // Create pending analysis record (INSERT only, don't overwrite completed)
+      let analysisId: string
       const { data: analysis, error: insertErr } = await serviceSupabase
         .from('mirofish_fraud_analysis')
-        .upsert({
+        .insert({
           tender_id: tenderId,
           company_id: user.companyId,
           status: 'pending',
-        }, { onConflict: 'tender_id,company_id' })
+        })
         .select('id')
         .single()
 
       if (insertErr) {
+        // If unique conflict, record already exists — fetch it
+        if (insertErr.code === '23505') {
+          const { data: existingRecord } = await serviceSupabase
+            .from('mirofish_fraud_analysis')
+            .select('id, status')
+            .eq('tender_id', tenderId)
+            .eq('company_id', user.companyId)
+            .single()
+          if (existingRecord) {
+            return NextResponse.json({ id: existingRecord.id, cached: existingRecord.status === 'completed', status: existingRecord.status })
+          }
+        }
         return NextResponse.json({ error: insertErr.message }, { status: 500 })
       }
+      analysisId = analysis.id
 
       // Trigger VPS worker to run MiroFish analysis (await to ensure delivery)
       const VPS_URL = process.env.VPS_MONITORING_URL || 'http://85.31.60.53:3998'
@@ -88,14 +102,14 @@ export async function POST(request: NextRequest) {
         await fetch(`${VPS_URL}/trigger-neural`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type: 'fraud', analysisId: analysis.id, tenderId, companyId: user.companyId }),
+          body: JSON.stringify({ type: 'fraud', analysisId, tenderId, companyId: user.companyId }),
           signal: AbortSignal.timeout(10000),
         })
       } catch (triggerErr) {
         console.error('[neural/analyze] Trigger failed:', triggerErr)
       }
 
-      return NextResponse.json({ id: analysis.id, cached: false, status: 'pending' })
+      return NextResponse.json({ id: analysisId, cached: false, status: 'pending' })
     }
 
     if (type === 'price') {
@@ -109,25 +123,42 @@ export async function POST(request: NextRequest) {
         .eq('company_id', user.companyId)
         .maybeSingle()
 
-      if (existing && existing.status === 'completed' && existing.expires_at && new Date(existing.expires_at) > new Date()) {
+      if (existing && existing.status === 'completed') {
         return NextResponse.json({ id: existing.id, cached: true, status: 'completed' })
       }
 
-      // Create pending prediction record
+      if (existing && (existing.status === 'processing' || existing.status === 'pending')) {
+        return NextResponse.json({ id: existing.id, cached: false, status: existing.status })
+      }
+
+      // Create pending prediction record (INSERT only, don't overwrite completed)
+      let predictionId: string
       const { data: prediction, error: insertErr } = await serviceSupabase
         .from('mirofish_price_predictions')
-        .upsert({
+        .insert({
           query_hash: queryHash,
           company_id: user.companyId,
           status: 'pending',
           expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        }, { onConflict: 'query_hash,company_id' })
+        })
         .select('id')
         .single()
 
       if (insertErr) {
+        if (insertErr.code === '23505') {
+          const { data: existingRecord } = await serviceSupabase
+            .from('mirofish_price_predictions')
+            .select('id, status')
+            .eq('query_hash', queryHash)
+            .eq('company_id', user.companyId)
+            .single()
+          if (existingRecord) {
+            return NextResponse.json({ id: existingRecord.id, cached: existingRecord.status === 'completed', status: existingRecord.status })
+          }
+        }
         return NextResponse.json({ error: insertErr.message }, { status: 500 })
       }
+      predictionId = prediction.id
 
       // Trigger VPS worker (await to ensure delivery)
       const VPS_URL = process.env.VPS_MONITORING_URL || 'http://85.31.60.53:3998'
@@ -135,14 +166,14 @@ export async function POST(request: NextRequest) {
         await fetch(`${VPS_URL}/trigger-neural`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type: 'price', analysisId: prediction.id, queryHash, companyId: user.companyId }),
+          body: JSON.stringify({ type: 'price', analysisId: predictionId, queryHash, companyId: user.companyId }),
           signal: AbortSignal.timeout(10000),
         })
       } catch (triggerErr) {
         console.error('[neural/analyze] Price trigger failed:', triggerErr)
       }
 
-      return NextResponse.json({ id: prediction.id, cached: false, status: 'pending' })
+      return NextResponse.json({ id: predictionId, cached: false, status: 'pending' })
     }
 
     return NextResponse.json({ error: 'Invalid type' }, { status: 400 })
