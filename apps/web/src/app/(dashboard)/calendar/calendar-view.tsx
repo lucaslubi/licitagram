@@ -33,7 +33,7 @@ function toDateOnly(dateStr: string): string {
 function formatDate(dateStr: string): string {
   const parts = toDateOnly(dateStr).split('-')
   if (parts.length < 3) return dateStr
-  return `${parts[2]}/${parts[1]}`
+  return `${parts[2]}/${parts[1]}/${parts[0].slice(2)}`
 }
 
 function daysUntil(dateStr: string): string {

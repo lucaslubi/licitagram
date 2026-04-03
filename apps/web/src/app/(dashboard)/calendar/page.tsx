@@ -22,15 +22,17 @@ export default async function CalendarPage() {
 
   const supabase = await createClient()
   const today = new Date().toISOString().split('T')[0]
+  const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]
   const events: CalendarEvent[] = []
 
-  // 1. Tenders from pipeline (matches not dismissed/lost)
+  // 1. Tenders from pipeline — only recent/future (last 7 days + future)
   const { data: matches } = await supabase
     .from('matches')
     .select('id, tender_id, score, status, tenders(id, objeto, orgao_nome, data_abertura, data_encerramento)')
     .eq('company_id', user.companyId)
     .not('status', 'in', '(dismissed,lost)')
     .gte('score', 50)
+    .or(`tenders.data_abertura.gte.${sevenDaysAgo},tenders.data_encerramento.gte.${sevenDaysAgo}`)
     .order('score', { ascending: false })
     .limit(200)
 
