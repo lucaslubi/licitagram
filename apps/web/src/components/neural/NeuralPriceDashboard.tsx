@@ -199,28 +199,6 @@ export function NeuralPriceDashboard({ predictionId, className }: NeuralPriceDas
         {/* Overview tab */}
         {activeTab === 'overview' && (
           <div className="space-y-4">
-            {/* Anomalies */}
-            {(prediction.anomaly_flags || []).length > 0 && (
-              <div>
-                <h4 className="text-white text-sm font-semibold mb-2">Anomalias Detectadas</h4>
-                <div className="space-y-2">
-                  {(prediction.anomaly_flags as any[]).map((flag: any, i: number) => (
-                    <div key={i} className="bg-red-900/10 border border-red-900/30 rounded-lg p-3">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-red-400 text-xs font-semibold">{flag.type || 'ANOMALIA'}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${
-                          flag.severity === 'high' ? 'bg-red-900/30 text-red-400' : 'bg-amber-900/30 text-amber-400'
-                        }`}>
-                          {flag.severity || 'medio'}
-                        </span>
-                      </div>
-                      <p className="text-gray-300 text-sm">{flag.description}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Supplier behavior */}
             {prediction.supplier_behavior_summary && (
               <div className="bg-[#1a1c1f] border border-zinc-800 rounded-lg p-4">
