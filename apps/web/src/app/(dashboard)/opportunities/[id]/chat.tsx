@@ -345,7 +345,7 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
     for (const doc of pdfUrls) {
       const docName = doc.titulo || doc.tipo || 'Documento do Edital'
       try {
-        console.log(`[Chat Auto] Downloading via proxy: ${doc.url.slice(0, 80)}`)
+        // Download via proxy to bypass CORS
         // Use our proxy to bypass CORS — government sites don't set CORS headers
         const proxyUrl = `/api/chat/proxy-pdf?url=${encodeURIComponent(doc.url)}`
         const response = await fetch(proxyUrl, {
@@ -377,7 +377,7 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
         if (text && text.length >= 30) {
           const newDoc: UploadedDoc = { name: docName, chars: text.length, pages, text }
           downloaded.push(newDoc)
-          console.log(`[Chat Auto] Extracted ${text.length} chars, ${pages} pages from "${docName}"`)
+          // PDF text extracted successfully
         } else {
           console.warn(`[Chat Auto] No text extracted from ${docName}`)
         }

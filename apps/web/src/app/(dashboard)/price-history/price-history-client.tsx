@@ -30,19 +30,6 @@ const formatBRL = (value: number) =>
 const formatCompact = (value: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' }).format(value)
 
-function ConfidenceBadge({ confidence }: { confidence: PriceStatistics['confidence'] }) {
-  const colors = {
-    alta: 'bg-emerald-900/20 text-emerald-400 border-emerald-800/30',
-    media: 'bg-amber-900/20 text-amber-400 border-amber-800/30',
-    baixa: 'bg-red-900/20 text-red-400 border-red-800/30',
-  }
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${colors[confidence]}`}>
-      {confidence.charAt(0).toUpperCase() + confidence.slice(1)}
-    </span>
-  )
-}
-
 function TrendArrow({ direction }: { direction: PriceTrend['direction'] }) {
   if (direction === 'subindo') return <span className="text-red-400">&#9650;</span>
   if (direction === 'descendo') return <span className="text-emerald-400">&#9660;</span>
