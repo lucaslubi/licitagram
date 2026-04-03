@@ -25,13 +25,23 @@ const TYPE_CONFIG: Record<string, { label: string; color: string; dot: string }>
 const DAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
+function toDateOnly(dateStr: string): string {
+  // Handle both "2026-04-05" and "2026-04-05T14:00:00+00:00"
+  return (dateStr || '').substring(0, 10)
+}
+
 function formatDate(dateStr: string): string {
-  const d = new Date(dateStr + 'T12:00:00')
-  return `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`
+  const parts = toDateOnly(dateStr).split('-')
+  if (parts.length < 3) return dateStr
+  return `${parts[2]}/${parts[1]}`
 }
 
 function daysUntil(dateStr: string): string {
-  const diff = Math.ceil((new Date(dateStr + 'T23:59:59').getTime() - Date.now()) / 86400000)
+  const clean = toDateOnly(dateStr)
+  if (!clean || clean.length < 10) return ''
+  const [y, m, d] = clean.split('-').map(Number)
+  const target = new Date(y, m - 1, d, 23, 59, 59)
+  const diff = Math.ceil((target.getTime() - Date.now()) / 86400000)
   if (diff < 0) return `${Math.abs(diff)}d atrás`
   if (diff === 0) return 'Hoje'
   if (diff === 1) return 'Amanhã'
@@ -60,9 +70,10 @@ export function CalendarView({ events }: { events: CalendarEvent[] }) {
   const eventsByDate = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>()
     for (const e of filteredEvents) {
-      const list = map.get(e.date) || []
+      const key = toDateOnly(e.date)
+      const list = map.get(key) || []
       list.push(e)
-      map.set(e.date, list)
+      map.set(key, list)
     }
     return map
   }, [filteredEvents])
@@ -82,10 +93,11 @@ export function CalendarView({ events }: { events: CalendarEvent[] }) {
     ]
 
     for (const e of sortedEvents) {
-      if (e.date === today) groups[0].events.push(e)
-      else if (e.date === tomorrow) groups[1].events.push(e)
-      else if (e.date > today && e.date <= weekEnd) groups[2].events.push(e)
-      else if (e.date > weekEnd) groups[3].events.push(e)
+      const d = toDateOnly(e.date)
+      if (d === today) groups[0].events.push(e)
+      else if (d === tomorrow) groups[1].events.push(e)
+      else if (d > today && d <= weekEnd) groups[2].events.push(e)
+      else if (d > weekEnd) groups[3].events.push(e)
       else groups[4].events.push(e)
     }
 
