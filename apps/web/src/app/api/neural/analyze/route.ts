@@ -76,14 +76,18 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: insertErr.message }, { status: 500 })
       }
 
-      // Fire-and-forget: trigger VPS worker to run MiroFish analysis
+      // Trigger VPS worker to run MiroFish analysis (await to ensure delivery)
       const VPS_URL = process.env.VPS_MONITORING_URL || 'http://85.31.60.53:3998'
-      fetch(`${VPS_URL}/trigger-neural`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'fraud', analysisId: analysis.id, tenderId, companyId: user.companyId }),
-        signal: AbortSignal.timeout(5000),
-      }).catch(() => {})
+      try {
+        await fetch(`${VPS_URL}/trigger-neural`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'fraud', analysisId: analysis.id, tenderId, companyId: user.companyId }),
+          signal: AbortSignal.timeout(10000),
+        })
+      } catch (triggerErr) {
+        console.error('[neural/analyze] Trigger failed:', triggerErr)
+      }
 
       return NextResponse.json({ id: analysis.id, cached: false, status: 'pending' })
     }
@@ -119,14 +123,18 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: insertErr.message }, { status: 500 })
       }
 
-      // Fire-and-forget trigger
+      // Trigger VPS worker (await to ensure delivery)
       const VPS_URL = process.env.VPS_MONITORING_URL || 'http://85.31.60.53:3998'
-      fetch(`${VPS_URL}/trigger-neural`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'price', analysisId: prediction.id, queryHash, companyId: user.companyId }),
-        signal: AbortSignal.timeout(5000),
-      }).catch(() => {})
+      try {
+        await fetch(`${VPS_URL}/trigger-neural`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'price', analysisId: prediction.id, queryHash, companyId: user.companyId }),
+          signal: AbortSignal.timeout(10000),
+        })
+      } catch (triggerErr) {
+        console.error('[neural/analyze] Price trigger failed:', triggerErr)
+      }
 
       return NextResponse.json({ id: prediction.id, cached: false, status: 'pending' })
     }
