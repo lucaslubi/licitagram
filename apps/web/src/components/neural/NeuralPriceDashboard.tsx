@@ -235,7 +235,7 @@ export function NeuralPriceDashboard({ predictionId, className }: NeuralPriceDas
               <div className="bg-[#1a1c1f] rounded-lg p-4">
                 <h4 className="text-white text-sm font-semibold mb-3">Historico vs Previsao</h4>
                 {/* SVG line chart */}
-                <svg width="100%" viewBox="0 0 720 300" className="overflow-visible">
+                <svg width="720" height="300" viewBox="0 0 720 300" className="overflow-visible" style={{ maxWidth: '100%', height: 'auto' }}>
                   {(() => {
                     const curve = prediction.price_curve as any[]
                     if (curve.length === 0) return null

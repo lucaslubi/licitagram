@@ -64,6 +64,7 @@ export function NeuralGraph({ nodes, edges, width = 800, height = 500, onNodeCli
 
   const renderGraph = useCallback(() => {
     if (!svgRef.current || nodes.length === 0) return
+    if (width <= 0 || height <= 0) return
 
     const svg = d3.select(svgRef.current)
     svg.selectAll('*').remove()
