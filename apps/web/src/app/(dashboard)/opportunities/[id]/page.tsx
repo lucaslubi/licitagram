@@ -17,6 +17,7 @@ import { RiskAnalysisCard } from '@/components/fraud/RiskAnalysisCard'
 import { FraudAlertBadges } from '@/components/fraud/FraudAlertBadges'
 import { HabilitacaoChecklist } from './habilitacao-checklist'
 import { LanceSimulator } from './lance-simulator'
+import { ImpugnationCard } from './impugnation-card'
 
 export default async function OpportunityDetailPage({
   params,
@@ -308,6 +309,9 @@ export default async function OpportunityDetailPage({
 
           {/* Habilitação Checklist */}
           {isEnterprise && <HabilitacaoChecklist matchId={id} />}
+
+          {/* Impugnação */}
+          {isEnterprise && <ImpugnationCard matchId={id} dataAbertura={tender?.data_abertura as string || null} />}
 
           {/* Lance Simulator */}
           {isEnterprise && tender?.valor_estimado && (
