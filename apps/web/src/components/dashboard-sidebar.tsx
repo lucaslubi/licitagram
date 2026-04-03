@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation'
 import { signOut } from '@/actions/auth'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { NotificationBell } from '@/components/notification-bell'
 
 interface NavItem {
   href: string
@@ -109,6 +110,11 @@ export function DashboardSidebar({
         ) : (
           <Image src="/logo-login.png" alt="Licitagram" width={880} height={198} className="h-16 w-auto" />
         )}
+      </div>
+
+      {/* Notification Bell */}
+      <div className={`flex justify-end px-3 ${collapsed ? 'justify-center' : ''}`}>
+        <NotificationBell />
       </div>
 
       {/* Company Switcher (Enterprise multi-CNPJ) */}
