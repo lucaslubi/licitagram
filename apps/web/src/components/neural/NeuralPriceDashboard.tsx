@@ -41,7 +41,7 @@ export function NeuralPriceDashboard({ predictionId, className }: NeuralPriceDas
   const [prediction, setPrediction] = useState<PricePrediction | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'overview' | 'suppliers' | 'curve' | 'chat'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'suppliers' | 'curve' | 'simulation' | 'chat'>('overview')
   const [chatMessages, setChatMessages] = useState<Array<{ role: string; content: string }>>([])
   const [chatInput, setChatInput] = useState('')
   const [chatLoading, setChatLoading] = useState(false)
@@ -178,6 +178,7 @@ export function NeuralPriceDashboard({ predictionId, className }: NeuralPriceDas
           { id: 'overview' as const, label: 'Visao Geral' },
           { id: 'suppliers' as const, label: 'Grafo Fornecedores' },
           { id: 'curve' as const, label: 'Curva de Precos' },
+          { id: 'simulation' as const, label: 'Simulacao' },
           { id: 'chat' as const, label: 'Chat IA' },
         ].map((tab) => (
           <button
@@ -298,6 +299,41 @@ export function NeuralPriceDashboard({ predictionId, className }: NeuralPriceDas
               </div>
             ) : (
               <p className="text-gray-500 text-sm text-center py-8">Sem dados de curva de precos</p>
+            )}
+          </div>
+        )}
+
+        {/* Chat tab */}
+        {/* Simulation tab */}
+        {activeTab === 'simulation' && (
+          <div className="space-y-3">
+            {(prediction.simulation_timeline || []).length > 0 ? (
+              <>
+                <h4 className="text-white text-sm font-semibold">Simulacao de Comportamento dos Fornecedores</h4>
+                <p className="text-gray-500 text-xs mb-3">Como os fornecedores competiriam numa proxima licitacao similar</p>
+                {(prediction.simulation_timeline as any[]).map((event: any, i: number) => (
+                  <div key={i} className="flex gap-3 items-start">
+                    <div className="flex flex-col items-center">
+                      <div className="w-8 h-8 rounded-full bg-cyan-600/20 flex items-center justify-center text-cyan-400 text-xs font-bold font-[family-name:var(--font-geist-mono)]">
+                        {event.round || i + 1}
+                      </div>
+                      {i < (prediction.simulation_timeline as any[]).length - 1 && (
+                        <div className="w-0.5 h-8 bg-zinc-800 mt-1" />
+                      )}
+                    </div>
+                    <div className="flex-1 bg-[#1a1c1f] border border-zinc-800 rounded-lg p-3">
+                      <p className="text-gray-300 text-sm">{event.event || event.description || ''}</p>
+                      {event.price && (
+                        <p className="text-cyan-400 text-xs font-[family-name:var(--font-geist-mono)] mt-1">
+                          R$ {Number(event.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </>
+            ) : (
+              <p className="text-gray-500 text-sm text-center py-8">Simulacao nao disponivel para esta analise</p>
             )}
           </div>
         )}
