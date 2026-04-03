@@ -430,7 +430,7 @@ export function PriceHistoryClient() {
           </div>
 
           {/* Neural Price Prediction */}
-          <NeuralPriceSection queryHash={searchQuery + ufFilter + modalidadeFilter} />
+          <NeuralPriceSection queryHash={query + uf + modalidade} />
 
           {/* Trend chart */}
           {result.trend.points.length > 0 && (
