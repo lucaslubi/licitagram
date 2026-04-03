@@ -27,6 +27,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/documents', label: 'Certidões', requiredFeature: 'compliance_checker' },
   { href: '/drive', label: 'Drive' },
   { href: '/proposals', label: 'Propostas', requiredFeature: 'proposal_generator' },
+  { href: '/calendar', label: 'Agenda' },
   // --- separator ---
   { href: '/company', label: 'Empresa', separator: true },
   { href: '/billing', label: 'Plano' },
