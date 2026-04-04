@@ -119,8 +119,8 @@ export default async function DashboardLayout({
         />
 
         {/* Main content — add top padding on mobile for the fixed top bar */}
-        <main className="flex-1 overflow-auto bg-[#111214]">
-          <div className="pt-14 md:pt-0 h-full">
+        <main className="flex-1 overflow-y-auto min-h-0 bg-[#111214]">
+          <div className="pt-14 md:pt-0 min-h-full">
             {matchingStatus && matchingStatus !== 'ready' && (
               <MatchingProgressBanner
                 initialStatus={matchingStatus}
@@ -135,7 +135,7 @@ export default async function DashboardLayout({
               hasTelegram={!!user.telegramChatId}
               hasWhatsapp={hasWhatsapp}
             >
-              <div className="p-4 md:p-8 h-full">{children}</div>
+              <div className="p-4 md:p-8">{children}</div>
             </DashboardAiWrapper>
           </div>
         </main>
