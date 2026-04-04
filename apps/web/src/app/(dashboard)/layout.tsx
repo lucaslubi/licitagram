@@ -131,6 +131,7 @@ export default async function DashboardLayout({
               onboardingCompleted={user.onboardingCompleted}
               userUfs={user.ufsInteresse}
               userKeywords={user.palavrasChaveFiltro}
+              userEmail={userEmail}
               hasTelegram={!!user.telegramChatId}
               hasWhatsapp={hasWhatsapp}
             >

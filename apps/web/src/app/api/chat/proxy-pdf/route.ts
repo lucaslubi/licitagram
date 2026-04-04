@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'File too small' }, { status: 422 })
     }
 
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Length': String(buffer.byteLength),

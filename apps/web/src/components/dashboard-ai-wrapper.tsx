@@ -11,6 +11,7 @@ interface DashboardAiWrapperProps {
   onboardingCompleted: boolean
   userUfs: string[]
   userKeywords: string[]
+  userEmail: string
   hasTelegram: boolean
   hasWhatsapp: boolean
 }
@@ -20,6 +21,7 @@ export function DashboardAiWrapper({
   onboardingCompleted,
   userUfs,
   userKeywords,
+  userEmail,
   hasTelegram,
   hasWhatsapp,
 }: DashboardAiWrapperProps) {
@@ -47,6 +49,7 @@ export function DashboardAiWrapper({
         <OnboardingWizard
           userUfs={userUfs}
           userKeywords={userKeywords}
+          userEmail={userEmail}
           hasTelegram={hasTelegram}
           hasWhatsapp={hasWhatsapp}
           onComplete={handleWizardComplete}

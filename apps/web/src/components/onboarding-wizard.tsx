@@ -1,13 +1,15 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   X,
   ChevronRight,
+  ChevronDown,
   Check,
   MessageCircle,
   Send,
@@ -15,14 +17,27 @@ import {
   Sparkles,
   Search,
   Bell,
+  Copy,
+  ExternalLink,
 } from 'lucide-react'
 
 interface OnboardingWizardProps {
   userUfs?: string[]
   userKeywords?: string[]
+  userEmail?: string
   hasTelegram: boolean
   hasWhatsapp: boolean
   onComplete: (startTour: boolean) => void
+}
+
+// --- Inline WhatsApp connect flow ---
+type WaStatus = 'idle' | 'sending' | 'code_sent' | 'verifying' | 'connected'
+
+function formatPhoneBR(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 11)
+  if (digits.length <= 2) return `(${digits}`
+  if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
 }
 
 const ALL_UFS = [
@@ -44,6 +59,7 @@ const UF_NAMES: Record<string, string> = {
 export function OnboardingWizard({
   userUfs = [],
   userKeywords = [],
+  userEmail = '',
   hasTelegram,
   hasWhatsapp,
   onComplete,
@@ -53,6 +69,94 @@ export function OnboardingWizard({
   const [keywordInput, setKeywordInput] = useState('')
   const [selectedUfs, setSelectedUfs] = useState<string[]>(userUfs)
   const [saving, setSaving] = useState(false)
+
+  // --- WhatsApp inline state ---
+  const [waStatus, setWaStatus] = useState<WaStatus>(hasWhatsapp ? 'connected' : 'idle')
+  const [waPhone, setWaPhone] = useState('')
+  const [waCode, setWaCode] = useState('')
+  const [waError, setWaError] = useState('')
+  const [waExpanded, setWaExpanded] = useState(false)
+  const [waConnected, setWaConnected] = useState(hasWhatsapp)
+
+  // --- Telegram inline state ---
+  const [tgExpanded, setTgExpanded] = useState(false)
+  const [tgConnected, setTgConnected] = useState(hasTelegram)
+  const [tgCopied, setTgCopied] = useState(false)
+
+  // Check WhatsApp status on mount
+  useEffect(() => {
+    if (hasWhatsapp) return
+    fetch('/api/whatsapp/status')
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data?.connected) {
+          setWaStatus('connected')
+          setWaConnected(true)
+        }
+      })
+      .catch(() => {})
+  }, [hasWhatsapp])
+
+  const sendWaCode = async () => {
+    setWaError('')
+    const digits = waPhone.replace(/\D/g, '')
+    if (digits.length < 10 || digits.length > 11) {
+      setWaError('Informe um número de celular válido')
+      return
+    }
+    setWaStatus('sending')
+    try {
+      const res = await fetch('/api/whatsapp/send-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: digits }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setWaError(data.error || 'Erro ao enviar código')
+        setWaStatus('idle')
+        return
+      }
+      setWaStatus('code_sent')
+    } catch {
+      setWaError('Erro de conexão')
+      setWaStatus('idle')
+    }
+  }
+
+  const verifyWaCode = async () => {
+    setWaError('')
+    if (waCode.length !== 6) {
+      setWaError('Digite o código de 6 dígitos')
+      return
+    }
+    setWaStatus('verifying')
+    try {
+      const res = await fetch('/api/whatsapp/verify-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: waCode }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setWaError(data.error || 'Erro ao verificar')
+        setWaStatus('code_sent')
+        return
+      }
+      setWaStatus('connected')
+      setWaConnected(true)
+      setWaExpanded(false)
+    } catch {
+      setWaError('Erro de conexão')
+      setWaStatus('code_sent')
+    }
+  }
+
+  const copyTelegramCommand = () => {
+    navigator.clipboard.writeText(`/start ${userEmail}`)
+    setTgCopied(true)
+    setTimeout(() => setTgCopied(false), 2000)
+  }
 
   const addKeyword = useCallback(() => {
     const trimmed = keywordInput.trim().toLowerCase()
@@ -301,9 +405,9 @@ export function OnboardingWizard({
             </div>
           )}
 
-          {/* Step 3 — Notifications */}
+          {/* Step 3 — Notifications (inline connection flows) */}
           {step === 3 && (
-            <div className="space-y-6 animate-in fade-in duration-300">
+            <div className="space-y-5 animate-in fade-in duration-300">
               <div className="text-center space-y-1">
                 <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-orange-50 mb-2">
                   <Bell className="w-5 h-5 text-orange-500" />
@@ -318,73 +422,200 @@ export function OnboardingWizard({
               </div>
 
               <div className="space-y-3">
-                {/* Telegram */}
-                <div className="flex items-center justify-between p-4 rounded-xl border border-gray-200 bg-gray-50">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center">
-                      <Send className="w-5 h-5 text-blue-500" />
+                {/* ── Telegram ── */}
+                <div className="rounded-xl border border-gray-200 bg-gray-50 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => !tgConnected && setTgExpanded((v) => !v)}
+                    className="flex items-center justify-between w-full p-4 text-left"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center">
+                        <Send className="w-5 h-5 text-blue-500" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">Telegram</p>
+                        <p className="text-xs text-gray-500">Alertas instantâneos no Telegram</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">
-                        Telegram
+                    {tgConnected ? (
+                      <div className="flex items-center gap-1.5 text-emerald-600">
+                        <Check className="w-4 h-4" />
+                        <span className="text-xs font-medium">Conectado</span>
+                      </div>
+                    ) : (
+                      <ChevronDown
+                        className={`w-4 h-4 text-gray-400 transition-transform ${tgExpanded ? 'rotate-180' : ''}`}
+                      />
+                    )}
+                  </button>
+
+                  {tgExpanded && !tgConnected && (
+                    <div className="px-4 pb-4 space-y-3 border-t border-gray-200 pt-3">
+                      <ol className="text-sm text-gray-600 list-decimal list-inside space-y-2">
+                        <li>
+                          Abra o Telegram e busque por{' '}
+                          <a
+                            href="https://t.me/LicitagramBot"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 font-medium hover:underline inline-flex items-center gap-1"
+                          >
+                            @LicitagramBot
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        </li>
+                        <li>
+                          Envie o comando:
+                          <div className="flex items-center gap-2 mt-1.5">
+                            <code className="bg-white border border-gray-200 px-3 py-1.5 rounded-md text-sm font-mono text-gray-800 flex-1 truncate">
+                              /start {userEmail}
+                            </code>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                copyTelegramCommand()
+                              }}
+                              className="shrink-0"
+                            >
+                              {tgCopied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                            </Button>
+                          </div>
+                        </li>
+                        <li>Pronto! Você receberá alertas automaticamente.</li>
+                      </ol>
+                      <p className="text-xs text-gray-400">
+                        Após enviar o comando, a conexão será detectada automaticamente.
                       </p>
-                      <p className="text-xs text-gray-500">
-                        Alertas instantâneos no Telegram
-                      </p>
                     </div>
-                  </div>
-                  {hasTelegram ? (
-                    <div className="flex items-center gap-1.5 text-emerald-600">
-                      <Check className="w-4 h-4" />
-                      <span className="text-xs font-medium">Conectado</span>
-                    </div>
-                  ) : (
-                    <a href="/settings">
-                      <Button variant="outline" size="sm">
-                        Conectar
-                      </Button>
-                    </a>
                   )}
                 </div>
 
-                {/* WhatsApp */}
-                <div className="flex items-center justify-between p-4 rounded-xl border border-gray-200 bg-gray-50">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center">
-                      <MessageCircle className="w-5 h-5 text-green-500" />
+                {/* ── WhatsApp ── */}
+                <div className="rounded-xl border border-gray-200 bg-gray-50 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => !waConnected && setWaExpanded((v) => !v)}
+                    className="flex items-center justify-between w-full p-4 text-left"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center">
+                        <MessageCircle className="w-5 h-5 text-green-500" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">WhatsApp</p>
+                        <p className="text-xs text-gray-500">Receba alertas no WhatsApp</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">
-                        WhatsApp
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        Receba alertas no WhatsApp
-                      </p>
+                    {waConnected ? (
+                      <div className="flex items-center gap-1.5 text-emerald-600">
+                        <Check className="w-4 h-4" />
+                        <span className="text-xs font-medium">Conectado</span>
+                      </div>
+                    ) : (
+                      <ChevronDown
+                        className={`w-4 h-4 text-gray-400 transition-transform ${waExpanded ? 'rotate-180' : ''}`}
+                      />
+                    )}
+                  </button>
+
+                  {waExpanded && !waConnected && (
+                    <div className="px-4 pb-4 space-y-3 border-t border-gray-200 pt-3">
+                      {waStatus === 'idle' || waStatus === 'sending' ? (
+                        <>
+                          <div>
+                            <Label htmlFor="onb-wa-phone" className="text-sm text-gray-700">
+                              Número de celular
+                            </Label>
+                            <Input
+                              id="onb-wa-phone"
+                              type="tel"
+                              placeholder="(11) 99999-9999"
+                              value={waPhone}
+                              onChange={(e) => setWaPhone(formatPhoneBR(e.target.value))}
+                              className="mt-1 bg-white"
+                            />
+                          </div>
+                          {waError && <p className="text-sm text-red-500">{waError}</p>}
+                          <Button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              sendWaCode()
+                            }}
+                            disabled={waStatus === 'sending'}
+                            className="w-full"
+                            size="sm"
+                          >
+                            {waStatus === 'sending' ? 'Enviando...' : 'Enviar Código de Verificação'}
+                          </Button>
+                        </>
+                      ) : (waStatus === 'code_sent' || waStatus === 'verifying') ? (
+                        <>
+                          <p className="text-sm text-gray-600">
+                            Enviamos um código de 6 dígitos para seu WhatsApp.
+                          </p>
+                          <div>
+                            <Label htmlFor="onb-wa-code" className="text-sm text-gray-700">
+                              Código de verificação
+                            </Label>
+                            <Input
+                              id="onb-wa-code"
+                              type="text"
+                              inputMode="numeric"
+                              maxLength={6}
+                              placeholder="000000"
+                              value={waCode}
+                              onChange={(e) => setWaCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                              className="text-center text-xl tracking-widest font-mono mt-1 bg-white"
+                            />
+                          </div>
+                          {waError && <p className="text-sm text-red-500">{waError}</p>}
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                verifyWaCode()
+                              }}
+                              disabled={waStatus === 'verifying' || waCode.length !== 6}
+                              className="flex-1"
+                              size="sm"
+                            >
+                              {waStatus === 'verifying' ? 'Verificando...' : 'Verificar'}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setWaStatus('idle')
+                                setWaCode('')
+                                setWaError('')
+                              }}
+                            >
+                              Voltar
+                            </Button>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              sendWaCode()
+                            }}
+                            className="text-xs text-gray-400 underline hover:text-gray-600"
+                          >
+                            Reenviar código
+                          </button>
+                        </>
+                      ) : null}
                     </div>
-                  </div>
-                  {hasWhatsapp ? (
-                    <div className="flex items-center gap-1.5 text-emerald-600">
-                      <Check className="w-4 h-4" />
-                      <span className="text-xs font-medium">Conectado</span>
-                    </div>
-                  ) : (
-                    <a href="/settings">
-                      <Button variant="outline" size="sm">
-                        Conectar
-                      </Button>
-                    </a>
                   )}
                 </div>
               </div>
 
               <p className="text-xs text-center text-gray-400">
-                Você pode configurar isso depois em{' '}
-                <a
-                  href="/settings"
-                  className="text-orange-500 hover:underline font-medium"
-                >
-                  Configurações
-                </a>
+                Você pode configurar isso depois em Configurações
               </p>
 
               <Button
@@ -449,11 +680,11 @@ export function OnboardingWizard({
                       Notificações
                     </p>
                     <p className="text-xs text-gray-500">
-                      {hasTelegram && hasWhatsapp
+                      {tgConnected && waConnected
                         ? 'Telegram e WhatsApp conectados'
-                        : hasTelegram
+                        : tgConnected
                           ? 'Telegram conectado'
-                          : hasWhatsapp
+                          : waConnected
                             ? 'WhatsApp conectado'
                             : 'Nenhum canal conectado'}
                     </p>
