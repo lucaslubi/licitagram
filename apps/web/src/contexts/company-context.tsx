@@ -63,16 +63,36 @@ export function CompanyProvider({
 }: CompanyProviderProps) {
   const [companies, setCompanies] = useState<CompanyInfo[]>(initialCompanies)
 
-  // Resolve initial active company: localStorage > default > first
+  // Resolve initial active company:
+  // 1. Always trust the server's defaultCompanyId (users.company_id) as the
+  //    authoritative source — it reflects the DB state after login.
+  // 2. Only use localStorage when the user has multiple companies AND the
+  //    stored value differs from the default (i.e. they explicitly switched).
+  // 3. On logout/login, defaultCompanyId always wins, preventing stale data.
   const [activeCompanyId, setActiveCompanyId] = useState<string | null>(() => {
     if (typeof window === 'undefined') return defaultCompanyId
-    try {
-      const stored = localStorage.getItem(ACTIVE_COMPANY_KEY)
-      if (stored && initialCompanies.some((c) => c.id === stored)) {
-        return stored
-      }
-    } catch {}
-    return defaultCompanyId || initialCompanies[0]?.id || null
+
+    // If server provides a default, use it — unless the user explicitly
+    // switched to another valid company in a previous session.
+    if (defaultCompanyId) {
+      try {
+        const stored = localStorage.getItem(ACTIVE_COMPANY_KEY)
+        // Only honor localStorage if it's a DIFFERENT valid company
+        // (meaning the user explicitly switched before)
+        if (
+          stored &&
+          stored !== defaultCompanyId &&
+          initialCompanies.some((c) => c.id === stored)
+        ) {
+          return stored
+        }
+      } catch {}
+      // Sync localStorage with server truth
+      try { localStorage.setItem(ACTIVE_COMPANY_KEY, defaultCompanyId) } catch {}
+      return defaultCompanyId
+    }
+
+    return initialCompanies[0]?.id || null
   })
 
   // Persist active company to localStorage
