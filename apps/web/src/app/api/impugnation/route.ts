@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
+import { buildImpugnationSystemPrompt, buildImpugnationUserPrompt } from '@/lib/impugnation-prompt'
 import OpenAI from 'openai'
 
 export const maxDuration = 60
@@ -63,49 +64,25 @@ export async function POST(request: NextRequest) {
       ? addBusinessDays(new Date(tender.data_abertura), 3)
       : new Date(Date.now() + 7 * 86400000)
 
-    const editalText = (tender?.tender_documents || []).map((d: any) => d.texto_extraido || '').join('\n').substring(0, 10000)
+    const editalText = (tender?.tender_documents || []).map((d: any) => d.texto_extraido || '').join('\n').substring(0, 30000)
 
-    // Generate impugnation text via LLM
+    // Generate impugnation text via LLM (specialist prompt)
     const response = await openrouter.chat.completions.create({
       model: 'google/gemini-2.5-flash',
       messages: [
-        {
-          role: 'system',
-          content: `Você é um advogado especialista em direito administrativo e licitações públicas (Lei 14.133/2021).
-Gere um texto de IMPUGNAÇÃO AO EDITAL formal, fundamentado juridicamente.
-
-Estrutura:
-1. DESTINATÁRIO: Pregoeiro/Comissão do órgão
-2. IDENTIFICAÇÃO DO IMPUGNANTE: Dados da empresa
-3. DO OBJETO: Número e objeto da licitação
-4. DOS FATOS: Descrição objetiva do problema
-5. DO DIREITO: Fundamentação legal — Lei 14.133/2021, artigos relevantes, jurisprudência TCU
-6. DO PEDIDO: O que se solicita
-7. FECHAMENTO: Termos em que pede deferimento
-
-Use linguagem jurídica formal. Cite artigos específicos da Lei 14.133/2021.`
-        },
+        { role: 'system', content: buildImpugnationSystemPrompt() },
         {
           role: 'user',
-          content: `DADOS DA EMPRESA:
-${company?.razao_social || 'N/A'}, CNPJ ${company?.cnpj || 'N/A'}
-Representante: ${company?.representante_nome || 'N/A'} (${company?.representante_cargo || 'Representante Legal'})
-${company?.municipio || ''} - ${company?.uf || ''}
-
-DADOS DA LICITAÇÃO:
-Objeto: ${tender?.objeto || 'N/A'}
-Órgão: ${tender?.orgao_nome || 'N/A'}
-Modalidade: ${tender?.modalidade_nome || 'N/A'}
-
-MOTIVO DA IMPUGNAÇÃO:
-${motivo}
-
-TRECHO RELEVANTE DO EDITAL:
-${editalText.substring(0, 5000) || 'Texto não disponível'}`
-        }
+          content: buildImpugnationUserPrompt(
+            company,
+            { objeto: tender?.objeto, orgao_nome: tender?.orgao_nome, modalidade_nome: tender?.modalidade_nome, data_abertura: tender?.data_abertura },
+            motivo,
+            editalText,
+          ),
+        },
       ],
-      max_tokens: 4096,
-      temperature: 0.3,
+      max_tokens: 8192,
+      temperature: 0.2,
     })
 
     const textoCompleto = response.choices[0]?.message?.content || ''
