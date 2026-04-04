@@ -6,6 +6,8 @@ import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
 import { buildTenderAnalysisPrompt } from '@/lib/tender-analysis-prompt'
 import OpenAI from 'openai'
 
+export const maxDuration = 120
+
 // ── AI Providers ────────────────────────────────────────────────────────────
 // Primary: Gemini 2.5 Flash via OpenRouter (1M token context)
 // Fallback: Groq Llama 3.3 70B (32K context, if OpenRouter fails)
@@ -154,6 +156,7 @@ async function extractPdfText(url: string): Promise<{ text: string | null; error
 }
 
 export async function POST(request: NextRequest) {
+  try {
   // Auth + plan check
   const userCtx = await getUserWithPlan()
   if (!userCtx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -557,5 +560,10 @@ ${context}`
     const msg = error instanceof Error ? error.message : String(error)
     console.error('[Chat] Groq error:', { message: msg, contextLen: dsContext.length })
     return NextResponse.json({ error: `Falha ao processar: ${msg.slice(0, 200)}` }, { status: 500 })
+  }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[Chat] Unhandled error:', msg, err instanceof Error ? err.stack : '')
+    return NextResponse.json({ error: `Erro interno: ${msg.slice(0, 200)}` }, { status: 500 })
   }
 }
