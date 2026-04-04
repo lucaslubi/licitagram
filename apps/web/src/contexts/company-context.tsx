@@ -63,39 +63,15 @@ export function CompanyProvider({
 }: CompanyProviderProps) {
   const [companies, setCompanies] = useState<CompanyInfo[]>(initialCompanies)
 
-  // Resolve initial active company:
-  // 1. Always trust the server's defaultCompanyId (users.company_id) as the
-  //    authoritative source — it reflects the DB state after login.
-  // 2. Only use localStorage when the user has multiple companies AND the
-  //    stored value differs from the default (i.e. they explicitly switched).
-  // 3. On logout/login, defaultCompanyId always wins, preventing stale data.
-  const [activeCompanyId, setActiveCompanyId] = useState<string | null>(() => {
-    if (typeof window === 'undefined') return defaultCompanyId
+  // ALWAYS use the server's defaultCompanyId (users.company_id) as the single
+  // source of truth. The /api/switch-company endpoint updates users.company_id
+  // in the DB, then triggers a full page reload — after which the layout passes
+  // the updated defaultCompanyId. This prevents sidebar/data desync.
+  const [activeCompanyId, setActiveCompanyId] = useState<string | null>(
+    defaultCompanyId || initialCompanies[0]?.id || null,
+  )
 
-    // If server provides a default, use it — unless the user explicitly
-    // switched to another valid company in a previous session.
-    if (defaultCompanyId) {
-      try {
-        const stored = localStorage.getItem(ACTIVE_COMPANY_KEY)
-        // Only honor localStorage if it's a DIFFERENT valid company
-        // (meaning the user explicitly switched before)
-        if (
-          stored &&
-          stored !== defaultCompanyId &&
-          initialCompanies.some((c) => c.id === stored)
-        ) {
-          return stored
-        }
-      } catch {}
-      // Sync localStorage with server truth
-      try { localStorage.setItem(ACTIVE_COMPANY_KEY, defaultCompanyId) } catch {}
-      return defaultCompanyId
-    }
-
-    return initialCompanies[0]?.id || null
-  })
-
-  // Persist active company to localStorage
+  // Sync localStorage for reference (not used on init — server is the source of truth)
   useEffect(() => {
     if (activeCompanyId) {
       try {
@@ -107,16 +83,27 @@ export function CompanyProvider({
   const switchCompany = useCallback(
     async (companyId: string) => {
       if (companies.some((c) => c.id === companyId)) {
-        setActiveCompanyId(companyId)
-        // Persist to database so server-side pages use the correct company
+        // 1. Update DB first — this is the source of truth for server components
         try {
-          await fetch('/api/switch-company', {
+          const res = await fetch('/api/switch-company', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ companyId }),
           })
-        } catch {}
-        // Reload page to refresh server-side data for the new company
+          if (!res.ok) {
+            console.error('[switchCompany] API failed:', res.status)
+            return // Don't reload if DB update failed — prevents desync
+          }
+        } catch (err) {
+          console.error('[switchCompany] fetch error:', err)
+          return // Don't reload on network error
+        }
+        // 2. Update local state + localStorage
+        setActiveCompanyId(companyId)
+        try { localStorage.setItem(ACTIVE_COMPANY_KEY, companyId) } catch {}
+        // 3. Invalidate middleware plan cookie so the reload picks up new company context
+        document.cookie = 'x-plan-ctx=; Path=/; Max-Age=0'
+        // 4. Reload to refresh all server-side data for the new company
         window.location.reload()
       }
     },
