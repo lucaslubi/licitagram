@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
+import { createPortal } from 'react-dom'
 
 interface Notification {
   id: string
@@ -39,12 +40,15 @@ function timeAgo(dateStr: string): string {
   return `há ${days}d`
 }
 
+const DROPDOWN_WIDTH = 360
+
 export function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 })
+  const buttonRef = useRef<HTMLButtonElement>(null)
 
   // Poll unread count every 30s
   useEffect(() => {
@@ -53,13 +57,32 @@ export function NotificationBell() {
     return () => clearInterval(interval)
   }, [])
 
-  // Close on outside click
+  // Close on outside click or scroll
   useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    if (!open) return
+    function handleClose(e: MouseEvent) {
+      if (buttonRef.current?.contains(e.target as Node)) return
+      setOpen(false)
     }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
+    function handleScroll() { setOpen(false) }
+    document.addEventListener('mousedown', handleClose)
+    window.addEventListener('scroll', handleScroll, true)
+    return () => {
+      document.removeEventListener('mousedown', handleClose)
+      window.removeEventListener('scroll', handleScroll, true)
+    }
+  }, [open])
+
+  const calcPosition = useCallback(() => {
+    if (!buttonRef.current) return
+    const rect = buttonRef.current.getBoundingClientRect()
+    const vw = window.innerWidth
+    // Prefer opening to the right of the button; shift left if it would overflow viewport
+    let left = rect.right + 8
+    if (left + DROPDOWN_WIDTH > vw - 8) {
+      left = Math.max(8, vw - DROPDOWN_WIDTH - 8)
+    }
+    setDropdownPos({ top: rect.bottom + 6, left })
   }, [])
 
   async function fetchCount() {
@@ -102,13 +125,78 @@ export function NotificationBell() {
   }
 
   function handleToggle() {
-    if (!open) fetchNotifications()
-    setOpen(!open)
+    if (!open) {
+      calcPosition()
+      fetchNotifications()
+    }
+    setOpen(v => !v)
   }
 
+  const dropdown = open ? (
+    <div
+      style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: DROPDOWN_WIDTH, zIndex: 9999 }}
+      className="bg-[#1a1c1f] border border-[#2d2f33] rounded-xl shadow-2xl overflow-hidden"
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[#2d2f33]">
+        <h3 className="text-white text-sm font-semibold">Notificações</h3>
+        {unreadCount > 0 && (
+          <button onClick={markAllRead} className="text-xs text-emerald-400 hover:text-emerald-300">
+            Marcar todas como lidas
+          </button>
+        )}
+      </div>
+
+      {/* List */}
+      <div className="overflow-y-auto max-h-[380px]">
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : notifications.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-gray-500 text-sm">Nenhuma notificação</p>
+          </div>
+        ) : (
+          notifications.map(n => (
+            <div
+              key={n.id}
+              className={`px-4 py-3 border-b border-[#2d2f33]/50 hover:bg-[#2d2f33]/30 cursor-pointer transition-colors ${!n.read ? 'bg-[#1e2025]' : ''}`}
+              onClick={() => {
+                markRead(n.id)
+                setOpen(false)
+                if (n.link) window.location.href = n.link
+              }}
+            >
+              <div className="flex gap-3">
+                <span className="text-lg shrink-0">{TYPE_ICONS[n.type] || '🔔'}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className={`text-xs truncate ${!n.read ? 'text-white font-semibold' : 'text-gray-300'}`}>{n.title}</p>
+                    <span className="text-[10px] text-gray-500 shrink-0">{timeAgo(n.created_at)}</span>
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-0.5 line-clamp-2">{n.body}</p>
+                </div>
+                {!n.read && <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 mt-1.5" />}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="border-t border-[#2d2f33] px-4 py-2">
+        <Link href="/notifications" className="text-xs text-gray-400 hover:text-white" onClick={() => setOpen(false)}>
+          Ver todas as notificações →
+        </Link>
+      </div>
+    </div>
+  ) : null
+
   return (
-    <div className="relative" ref={ref}>
+    <>
       <button
+        ref={buttonRef}
         onClick={handleToggle}
         className="relative p-2 rounded-lg hover:bg-[#2d2f33] transition-colors"
         aria-label="Notificações"
@@ -123,62 +211,7 @@ export function NotificationBell() {
         )}
       </button>
 
-      {open && (
-        <div className="absolute right-0 top-full mt-2 w-[360px] max-h-[480px] bg-[#1a1c1f] border border-[#2d2f33] rounded-xl shadow-2xl z-50 overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-[#2d2f33]">
-            <h3 className="text-white text-sm font-semibold">Notificações</h3>
-            {unreadCount > 0 && (
-              <button onClick={markAllRead} className="text-xs text-emerald-400 hover:text-emerald-300">
-                Marcar todas como lidas
-              </button>
-            )}
-          </div>
-
-          {/* List */}
-          <div className="overflow-y-auto max-h-[380px]">
-            {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-              </div>
-            ) : notifications.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-gray-500 text-sm">Nenhuma notificação</p>
-              </div>
-            ) : (
-              notifications.map(n => (
-                <div
-                  key={n.id}
-                  className={`px-4 py-3 border-b border-[#2d2f33]/50 hover:bg-[#2d2f33]/30 cursor-pointer transition-colors ${!n.read ? 'bg-[#1e2025]' : ''}`}
-                  onClick={() => {
-                    markRead(n.id)
-                    if (n.link) window.location.href = n.link
-                  }}
-                >
-                  <div className="flex gap-3">
-                    <span className="text-lg shrink-0">{TYPE_ICONS[n.type] || '🔔'}</span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className={`text-xs truncate ${!n.read ? 'text-white font-semibold' : 'text-gray-300'}`}>{n.title}</p>
-                        <span className="text-[10px] text-gray-500 shrink-0">{timeAgo(n.created_at)}</span>
-                      </div>
-                      <p className="text-[11px] text-gray-400 mt-0.5 line-clamp-2">{n.body}</p>
-                    </div>
-                    {!n.read && <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 mt-1.5" />}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-
-          {/* Footer */}
-          <div className="border-t border-[#2d2f33] px-4 py-2">
-            <Link href="/notifications" className="text-xs text-gray-400 hover:text-white" onClick={() => setOpen(false)}>
-              Ver todas as notificações →
-            </Link>
-          </div>
-        </div>
-      )}
-    </div>
+      {typeof document !== 'undefined' && createPortal(dropdown, document.body)}
+    </>
   )
 }
