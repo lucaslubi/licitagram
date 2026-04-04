@@ -166,7 +166,7 @@ async function buildPlanContextFromDB(
   try {
     const { data: profile } = await supabase
       .from('users')
-      .select('company_id, is_platform_admin')
+      .select('company_id, is_platform_admin, plan_id, subscription_status')
       .eq('id', userId)
       .single()
 
@@ -186,6 +186,27 @@ async function buildPlanContextFromDB(
       }
     }
 
+    // ── 1. Check user-level plan override first ────────────────────────────
+    if (profile.plan_id) {
+      const { data: userPlan } = await supabase
+        .from('plans')
+        .select('slug, features')
+        .eq('id', profile.plan_id)
+        .single()
+
+      if (userPlan) {
+        return {
+          planSlug: userPlan.slug,
+          planId: profile.plan_id,
+          features: userPlan.features as any,
+          isPlatformAdmin: false,
+          subscriptionStatus: (profile.subscription_status || 'active') as any,
+          ts: Date.now(),
+        }
+      }
+    }
+
+    // ── 2. Fallback: company-level subscription ────────────────────────────
     if (!profile.company_id) {
       return {
         planSlug: null,
