@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkSancoes } from '@/lib/data-api'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ cnpj: string }> }) {
   try {
     const supabase = await createClient()

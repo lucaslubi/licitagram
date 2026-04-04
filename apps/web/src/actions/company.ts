@@ -313,21 +313,29 @@ export async function saveCompany(payload: CompanyPayload, existingId?: string) 
           .maybeSingle()
 
         if (orphaned) {
-          // Check if anyone else is using this company
-          const { count: otherLinks } = await serviceSupabase
-            .from('user_companies')
-            .select('id', { count: 'exact', head: true })
-            .eq('company_id', orphaned.id)
+          // CNPJ exists — link this user to the existing company
+          // This allows multiple users to share the same company/CNPJ
+          await supabase.from('users').update({ company_id: orphaned.id }).eq('id', user.id)
 
-          if ((otherLinks || 0) === 0) {
-            // No one is linked — update the orphaned record with new data
-            await serviceSupabase.from('companies').update(sanitized).eq('id', orphaned.id)
-            await supabase.from('users').update({ company_id: orphaned.id }).eq('id', user.id)
-            companyId = orphaned.id
-            console.log('[COMPANY] Reused orphaned company:', orphaned.id, 'for CNPJ:', cleanCnpj)
-          } else {
-            return { error: 'CNPJ já cadastrado por outra conta' }
+          // Also create user_companies link if it doesn't exist
+          const { data: existingLink } = await serviceSupabase
+            .from('user_companies')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('company_id', orphaned.id)
+            .maybeSingle()
+
+          if (!existingLink) {
+            await serviceSupabase.from('user_companies').insert({
+              user_id: user.id,
+              company_id: orphaned.id,
+              role: 'user',
+              is_default: true,
+            })
+            console.log('[COMPANY] Linked user', user.id, 'to existing company:', orphaned.id, 'CNPJ:', cleanCnpj)
           }
+
+          companyId = orphaned.id
         } else {
           return { error: insertError.message }
         }
@@ -342,6 +350,19 @@ export async function saveCompany(payload: CompanyPayload, existingId?: string) 
         .eq('id', user.id)
       if (linkError) return { error: linkError.message }
       companyId = id
+
+      // Also create user_companies link for multi-company support
+      const serviceSupabase2 = getServiceSupabase()
+      await serviceSupabase2.from('user_companies').insert({
+        user_id: user.id,
+        company_id: id,
+        role: 'admin',
+        is_default: true,
+      }).then(({ error: ucErr }) => {
+        if (ucErr && ucErr.code !== '23505') {
+          console.error('[COMPANY] user_companies link error:', ucErr.message)
+        }
+      })
     }
   }
 

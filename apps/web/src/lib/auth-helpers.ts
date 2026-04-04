@@ -60,16 +60,55 @@ export async function getUserWithPlan(): Promise<UserWithPlan | null> {
       id, company_id, full_name, role, min_score,
       is_platform_admin, admin_permissions, is_active,
       onboarding_completed, telegram_chat_id,
-      ufs_interesse, palavras_chave_filtro
+      ufs_interesse, palavras_chave_filtro,
+      plan_id, subscription_status
     `)
     .eq('id', user.id)
     .single()
 
   if (!profile) return null
 
-  // Fetch subscription + plan if user has a company
+  // ── 1. Check user-level plan override first ──────────────────────────────
   let subscription: SubscriptionWithPlan | null = null
-  if (profile.company_id) {
+  let plan: Plan | null = null
+
+  if (profile.plan_id) {
+    // User has a direct plan assignment — takes priority over company subscription
+    const { data: userPlan } = await supabase
+      .from('plans')
+      .select('*')
+      .eq('id', profile.plan_id)
+      .single()
+
+    if (userPlan) {
+      plan = userPlan as Plan
+      // Build a synthetic subscription object for compatibility
+      subscription = {
+        id: `user-${user.id}`,
+        company_id: profile.company_id,
+        plan_id: profile.plan_id,
+        plan: userPlan.slug,
+        status: profile.subscription_status || 'active',
+        plans: userPlan,
+        matches_used_this_month: 0,
+        matches_reset_at: new Date().toISOString(),
+        ai_analyses_used: 0,
+        extra_users_count: 0,
+        max_companies: 999,
+        max_alerts_per_day: userPlan.max_alerts_per_day ?? 999,
+        max_ai_analyses_month: userPlan.max_ai_analyses_per_month ?? 999,
+        stripe_customer_id: null,
+        stripe_subscription_id: null,
+        current_period_start: null,
+        current_period_end: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      } as SubscriptionWithPlan
+    }
+  }
+
+  // ── 2. Fallback: company-level subscription ──────────────────────────────
+  if (!subscription && profile.company_id) {
     const { data: sub } = await supabase
       .from('subscriptions')
       .select(`*, plans(*)`)
@@ -104,9 +143,9 @@ export async function getUserWithPlan(): Promise<UserWithPlan | null> {
         }
       }
     }
-  }
 
-  const plan = subscription?.plans || null
+    if (!plan) plan = subscription?.plans || null
+  }
 
   return {
     userId: user.id,

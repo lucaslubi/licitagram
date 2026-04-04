@@ -24,9 +24,9 @@ export const SUPABASE_URL = requireEnv('NEXT_PUBLIC_SUPABASE_URL')
 export const SUPABASE_ANON_KEY = requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY')
 export const SUPABASE_SERVICE_ROLE_KEY = requireEnv('SUPABASE_SERVICE_ROLE_KEY')
 
-/** Stripe */
-export const STRIPE_SECRET_KEY = requireEnv('STRIPE_SECRET_KEY')
-export const STRIPE_WEBHOOK_SECRET = requireEnv('STRIPE_WEBHOOK_SECRET')
+/** Stripe (optional at build time — required at runtime by Stripe routes) */
+export const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || ''
+export const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || ''
 
 /** AI */
 export const TOGETHER_API_KEY = process.env.TOGETHER_API_KEY || ''
