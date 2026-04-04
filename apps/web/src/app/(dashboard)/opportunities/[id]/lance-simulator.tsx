@@ -16,6 +16,8 @@ interface SimResult {
   distribuicaoDescontos: Array<{ faixa: string; count: number }>
   descontoMediano: number
   totalConcorrentes: number
+  dataSource: 'direct' | 'similar' | 'market'
+  dataSourceLabel: string
 }
 
 export function LanceSimulator({ matchId, tenderId, valorEstimado }: { matchId: string; tenderId: string; valorEstimado: number }) {
@@ -25,18 +27,25 @@ export function LanceSimulator({ matchId, tenderId, valorEstimado }: { matchId: 
 
   const meuLance = valorEstimado * (1 - desconto / 100)
 
-  async function simulate() {
+  async function simulate(overrideDesconto?: number) {
+    const d = overrideDesconto ?? desconto
     setLoading(true)
     try {
       const res = await fetch('/api/lance-simulator', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenderId, valorEstimado, meuDesconto: desconto }),
+        body: JSON.stringify({ tenderId, valorEstimado, meuDesconto: d }),
       })
       const data = await res.json()
       if (res.ok) setResult(data)
     } catch {}
     setLoading(false)
+  }
+
+  function applyRecommendation(targetValue: number) {
+    const newDesconto = Math.round(((valorEstimado - targetValue) / valorEstimado) * 10000) / 100
+    setDesconto(Math.max(0, Math.min(50, newDesconto)))
+    simulate(newDesconto)
   }
 
   if (!valorEstimado || valorEstimado <= 0) return null
@@ -74,7 +83,7 @@ export function LanceSimulator({ matchId, tenderId, valorEstimado }: { matchId: 
           </div>
         </div>
 
-        <Button onClick={simulate} disabled={loading} size="sm" className="w-full">
+        <Button onClick={() => simulate()} disabled={loading} size="sm" className="w-full">
           {loading ? 'Simulando...' : 'Simular'}
         </Button>
 
@@ -89,17 +98,31 @@ export function LanceSimulator({ matchId, tenderId, valorEstimado }: { matchId: 
               <p className="text-xs text-gray-400">probabilidade de vitória</p>
             </div>
 
-            {/* Quick buttons */}
+            {/* Data source indicator */}
+            <div className={`text-center px-3 py-1.5 rounded-md text-[10px] ${
+              result.dataSource === 'direct'
+                ? 'bg-emerald-950/30 text-emerald-400 border border-emerald-900/20'
+                : result.dataSource === 'similar'
+                  ? 'bg-blue-950/30 text-blue-400 border border-blue-900/20'
+                  : 'bg-amber-950/30 text-amber-400 border border-amber-900/20'
+            }`}>
+              {result.dataSource === 'direct' && '📊 '}
+              {result.dataSource === 'similar' && '🔍 '}
+              {result.dataSource === 'market' && '📈 '}
+              {result.dataSourceLabel}
+            </div>
+
+            {/* Recommendation buttons */}
             <div className="grid grid-cols-3 gap-2">
-              <button onClick={() => { setDesconto(result.descontoMediano - 2); simulate() }} className="p-2 rounded-lg bg-[#111214] text-center hover:bg-[#2d2f33]">
+              <button onClick={() => applyRecommendation(result.recomendacao.lanceMinimo)} className="p-2 rounded-lg bg-[#111214] text-center hover:bg-[#2d2f33] transition-colors">
                 <p className="text-[10px] text-gray-500">Conservador</p>
-                <p className="text-xs text-white font-mono">{formatBRL(result.recomendacao.lanceSugerido)}</p>
+                <p className="text-xs text-white font-mono">{formatBRL(result.recomendacao.lanceMinimo)}</p>
               </button>
-              <button onClick={() => { setDesconto(result.descontoMediano); simulate() }} className="p-2 rounded-lg bg-emerald-900/10 border border-emerald-900/20 text-center">
+              <button onClick={() => applyRecommendation(result.recomendacao.lanceSugerido)} className="p-2 rounded-lg bg-emerald-900/10 border border-emerald-900/20 text-center hover:bg-emerald-900/20 transition-colors">
                 <p className="text-[10px] text-emerald-400">Sugerido</p>
                 <p className="text-xs text-white font-mono">{formatBRL(result.recomendacao.lanceSugerido)}</p>
               </button>
-              <button onClick={() => { setDesconto(result.descontoMediano + 5); simulate() }} className="p-2 rounded-lg bg-[#111214] text-center hover:bg-[#2d2f33]">
+              <button onClick={() => applyRecommendation(result.recomendacao.lanceAgressivo)} className="p-2 rounded-lg bg-[#111214] text-center hover:bg-[#2d2f33] transition-colors">
                 <p className="text-[10px] text-gray-500">Agressivo</p>
                 <p className="text-xs text-white font-mono">{formatBRL(result.recomendacao.lanceAgressivo)}</p>
               </button>
@@ -107,22 +130,36 @@ export function LanceSimulator({ matchId, tenderId, valorEstimado }: { matchId: 
 
             {/* Distribution */}
             <div>
-              <p className="text-xs text-gray-400 mb-2">Distribuição de descontos ({result.totalConcorrentes} concorrentes)</p>
+              <p className="text-xs text-gray-400 mb-2">
+                Distribuição de descontos
+                {result.totalConcorrentes > 0 && ` (${result.totalConcorrentes} concorrentes)`}
+              </p>
               <div className="flex items-end gap-1 h-20">
                 {result.distribuicaoDescontos.map((d, i) => {
                   const maxCount = Math.max(...result.distribuicaoDescontos.map(x => x.count), 1)
                   const h = (d.count / maxCount) * 100
+                  const isMyRange = desconto >= [0, 5, 10, 15, 20, 30][i] && desconto < [5, 10, 15, 20, 30, 100][i]
                   return (
                     <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
-                      <div className="w-full rounded-t bg-emerald-500/40" style={{ height: `${Math.max(4, h)}%` }} />
-                      <span className="text-[8px] text-gray-500">{d.faixa}</span>
+                      <div
+                        className={`w-full rounded-t transition-colors ${isMyRange ? 'bg-emerald-500' : 'bg-emerald-500/30'}`}
+                        style={{ height: `${Math.max(4, h)}%` }}
+                      />
+                      <span className={`text-[8px] ${isMyRange ? 'text-emerald-400 font-bold' : 'text-gray-500'}`}>{d.faixa}</span>
                     </div>
                   )
                 })}
               </div>
+              {/* User's position marker */}
+              <p className="text-[10px] text-gray-500 text-center mt-1">
+                Seu desconto: <span className="text-emerald-400 font-mono">{desconto}%</span>
+                {result.descontoMediano > 0 && (
+                  <> · Mediana: <span className="text-gray-300 font-mono">{result.descontoMediano}%</span></>
+                )}
+              </p>
             </div>
 
-            {/* Top competitors */}
+            {/* Top competitors (only for direct data) */}
             {result.concorrentes.length > 0 && (
               <div>
                 <p className="text-xs text-gray-400 mb-2">Principais concorrentes</p>
