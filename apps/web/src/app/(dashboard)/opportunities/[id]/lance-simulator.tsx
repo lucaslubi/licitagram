@@ -24,12 +24,14 @@ export function LanceSimulator({ matchId, tenderId, valorEstimado }: { matchId: 
   const [desconto, setDesconto] = useState(10)
   const [result, setResult] = useState<SimResult | null>(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const meuLance = valorEstimado * (1 - desconto / 100)
 
   async function simulate(overrideDesconto?: number) {
     const d = overrideDesconto ?? desconto
     setLoading(true)
+    setError(null)
     try {
       const res = await fetch('/api/lance-simulator', {
         method: 'POST',
@@ -37,8 +39,14 @@ export function LanceSimulator({ matchId, tenderId, valorEstimado }: { matchId: 
         body: JSON.stringify({ tenderId, valorEstimado, meuDesconto: d }),
       })
       const data = await res.json()
-      if (res.ok) setResult(data)
-    } catch {}
+      if (res.ok) {
+        setResult(data)
+      } else {
+        setError(data.error || `Erro ${res.status}`)
+      }
+    } catch (err) {
+      setError('Erro de conexão')
+    }
     setLoading(false)
   }
 
@@ -82,6 +90,8 @@ export function LanceSimulator({ matchId, tenderId, valorEstimado }: { matchId: 
             <p className="text-sm text-emerald-400 font-mono font-bold">{formatBRL(meuLance)}</p>
           </div>
         </div>
+
+        {error && <p className="text-red-400 text-xs">{error}</p>}
 
         <Button onClick={() => simulate()} disabled={loading} size="sm" className="w-full">
           {loading ? 'Simulando...' : 'Simular'}

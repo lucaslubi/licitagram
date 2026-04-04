@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { tenderId, valorEstimado, meuDesconto } = await request.json()
+    console.log('[lance-simulator] Input:', { tenderId, valorEstimado, meuDesconto, meuDescontoType: typeof meuDesconto })
     if (!tenderId || !valorEstimado) return NextResponse.json({ error: 'tenderId e valorEstimado obrigatórios' }, { status: 400 })
 
     const supabase = await createClient()
@@ -43,6 +44,7 @@ export async function POST(request: NextRequest) {
 
     let competitors = directCompetitors || []
     let dataSource: 'direct' | 'similar' | 'market' = 'direct'
+    console.log('[lance-simulator] Direct competitors:', competitors.length)
 
     // ── 3. Fallback: similar tenders if no direct competitors ───────────
     if (competitors.length === 0) {
@@ -58,12 +60,19 @@ export async function POST(request: NextRequest) {
       if (keywords.length > 0) {
         // Search for competitors in similar tenders
         const searchPattern = keywords.slice(0, 3).join(' | ')
-        const { data: similarTenders } = await supabase
+        console.log('[lance-simulator] Similar search pattern:', searchPattern)
+        const { data: similarTenders, error: searchErr } = await supabase
           .from('tenders')
           .select('id')
           .neq('id', tenderId)
           .textSearch('objeto', searchPattern, { type: 'websearch', config: 'portuguese' })
           .limit(20)
+
+        if (searchErr) {
+          console.error('[lance-simulator] textSearch error:', searchErr.message)
+        }
+
+        console.log('[lance-simulator] Similar tenders found:', similarTenders?.length || 0)
 
         if (similarTenders && similarTenders.length > 0) {
           const tenderIds = similarTenders.map(t => t.id)
@@ -76,6 +85,7 @@ export async function POST(request: NextRequest) {
             .limit(100)
 
           competitors = similarComps || []
+          console.log('[lance-simulator] Similar competitors:', competitors.length)
         }
       }
     }
@@ -120,6 +130,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    console.log('[lance-simulator] After queries:', { dataSource, competitorsCount: competitors.length, descontosCount: descontos.length, descontosFirst5: descontos.slice(0, 5) })
+
     // ── 5. Market fallback: generate synthetic distribution ─────────────
     if (descontos.length === 0) {
       dataSource = 'market'
@@ -136,6 +148,8 @@ export async function POST(request: NextRequest) {
       // Clamp to reasonable range
       probabilidadeVitoria = Math.max(0, Math.min(100, probabilidadeVitoria))
     }
+
+    console.log('[lance-simulator] Probability:', { probabilidadeVitoria, meuDesconto, descontosLen: descontos.length, dataSource, melhorQueEu: descontos.filter(d => d > meuDesconto).length })
 
     // ── 7. Histogram ────────────────────────────────────────────────────
     const faixas = [
