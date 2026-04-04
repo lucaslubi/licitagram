@@ -57,28 +57,35 @@ export async function POST(request: NextRequest) {
         {
           role: 'system',
           content: `Analise o edital abaixo e extraia TODOS os documentos exigidos para habilitação.
-Para cada documento, retorne um JSON array com:
+Para cada documento, retorne um objeto com:
 - tipo: string (ex: 'CND Federal', 'CRF FGTS', 'Atestado Técnico', 'Balanço Patrimonial')
 - categoria: 'juridica' | 'tecnica' | 'economica' | 'fiscal' | 'trabalhista' | 'declaracao'
 - descricao: string (exigência específica do edital)
-- clausula: string (referência à cláusula)
+- clausula: string (referência à cláusula do edital)
 - obrigatorio: boolean
 
-Retorne APENAS o JSON array, sem texto adicional.`
+IMPORTANTE: Retorne APENAS um JSON puro com a chave "items" contendo o array. Exemplo: {"items": [{"tipo": "CND Federal", "categoria": "fiscal", "descricao": "...", "clausula": "5.1", "obrigatorio": true}]}
+NÃO use markdown, NÃO adicione texto antes ou depois do JSON.
+Se o texto do edital não estiver disponível, gere a lista padrão de documentos exigidos pela Lei 14.133/2021 para a modalidade informada.`
         },
-        { role: 'user', content: `Objeto: ${tender?.objeto || 'N/A'}\nÓrgão: ${tender?.orgao_nome || 'N/A'}\n\nTexto do edital:\n${editalText || 'Texto não disponível — gere uma lista padrão baseada na Lei 14.133/2021.'}` }
+        { role: 'user', content: `Objeto: ${tender?.objeto || 'N/A'}\nÓrgão: ${tender?.orgao_nome || 'N/A'}\nModalidade: ${tender?.modalidade_nome || 'N/A'}\n\nTexto do edital:\n${editalText || 'Texto não disponível — gere uma lista padrão de habilitação baseada na Lei 14.133/2021 para esta modalidade.'}` }
       ],
       max_tokens: 4096,
       temperature: 0.1,
-      response_format: { type: 'json_object' },
     })
+
+    console.log('[habilitacao-checklist] LLM finish_reason:', response.choices[0]?.finish_reason)
 
     let items: any[] = []
     try {
-      const content = response.choices[0]?.message?.content || '[]'
+      let content = response.choices[0]?.message?.content || '[]'
+      // Strip markdown code blocks if present (```json ... ```)
+      content = content.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim()
+      console.log('[habilitacao-checklist] LLM response length:', content.length, 'first 200 chars:', content.substring(0, 200))
       const parsed = JSON.parse(content)
-      items = Array.isArray(parsed) ? parsed : parsed.items || parsed.documentos || []
-    } catch {
+      items = Array.isArray(parsed) ? parsed : parsed.items || parsed.documentos || parsed.documents || parsed.requisitos || []
+    } catch (parseErr) {
+      console.error('[habilitacao-checklist] JSON parse error:', parseErr, 'raw:', response.choices[0]?.message?.content?.substring(0, 500))
       items = []
     }
 
@@ -125,10 +132,13 @@ Retorne APENAS o JSON array, sem texto adicional.`
       missing: checklist.filter((i: any) => i.status === 'missing').length,
     }
 
+    const obrigatorios = checklist.filter((i: any) => i.obrigatorio)
+    const aprovado = obrigatorios.length > 0 && obrigatorios.every((i: any) => i.status === 'ok')
+
     return NextResponse.json({
       items: checklist,
       resumo,
-      aprovado: checklist.filter((i: any) => i.obrigatorio).every((i: any) => i.status === 'ok'),
+      aprovado,
     })
   } catch (err) {
     console.error('[habilitacao-checklist]', err)
