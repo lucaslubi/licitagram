@@ -27,7 +27,7 @@ export async function listUsers(params?: {
 
   let query = supabase
     .from('users')
-    .select('id, full_name, email, role, is_active, is_platform_admin, company_id, created_at', { count: 'exact' })
+    .select('id, full_name, email, role, is_active, is_platform_admin, company_id, plan_id, subscription_status, created_at, plans(slug, name)', { count: 'exact' })
     .order('created_at', { ascending: false })
     .range((page - 1) * pageSize, page * pageSize - 1)
 
@@ -87,6 +87,72 @@ export async function updateUserRole(userId: string, role: 'admin' | 'user' | 'v
   })
 
   return { success: true }
+}
+
+export async function assignUserPlan(userId: string, planSlug: string | null) {
+  await requirePlatformAdmin()
+  const supabase = getServiceSupabase()
+
+  if (!planSlug) {
+    // Remove user-level plan (fall back to company subscription)
+    const { error } = await supabase
+      .from('users')
+      .update({ plan_id: null, subscription_status: null })
+      .eq('id', userId)
+
+    if (error) return { error: error.message }
+
+    await logAction({
+      action: 'user.plan_removed',
+      targetType: 'user',
+      targetId: userId,
+      details: { plan: 'removed' },
+    })
+
+    return { success: true }
+  }
+
+  // Find the plan
+  const { data: plan } = await supabase
+    .from('plans')
+    .select('id, slug, name')
+    .eq('slug', planSlug)
+    .single()
+
+  if (!plan) return { error: `Plano '${planSlug}' não encontrado` }
+
+  const { error } = await supabase
+    .from('users')
+    .update({ plan_id: plan.id, subscription_status: 'active' })
+    .eq('id', userId)
+
+  if (error) return { error: error.message }
+
+  await logAction({
+    action: 'user.plan_assigned',
+    targetType: 'user',
+    targetId: userId,
+    details: { plan_slug: plan.slug, plan_name: plan.name },
+  })
+
+  return { success: true }
+}
+
+export async function getUserPlan(userId: string) {
+  await requirePlatformAdmin()
+  const supabase = getServiceSupabase()
+
+  const { data } = await supabase
+    .from('users')
+    .select('plan_id, subscription_status, plans(slug, name)')
+    .eq('id', userId)
+    .single()
+
+  return {
+    planSlug: (data?.plans as any)?.slug || null,
+    planName: (data?.plans as any)?.name || null,
+    subscriptionStatus: data?.subscription_status || null,
+  }
 }
 
 export async function deleteUser(userId: string) {

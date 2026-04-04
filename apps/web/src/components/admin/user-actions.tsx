@@ -2,12 +2,21 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { toggleUserActive, updateUserRole, deleteUser } from '@/actions/admin/users'
+import { toggleUserActive, updateUserRole, deleteUser, assignUserPlan } from '@/actions/admin/users'
+
+const PLAN_OPTIONS = [
+  { value: '', label: 'Sem plano (empresa)' },
+  { value: 'starter', label: 'Starter' },
+  { value: 'professional', label: 'Profissional' },
+  { value: 'enterprise', label: 'Enterprise' },
+]
 
 export function UserActions({ user }: { user: any }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [confirmDelete, setConfirmDelete] = useState(false)
+
+  const currentPlanSlug = user.plans?.slug || ''
 
   function handleToggleActive() {
     startTransition(async () => {
@@ -23,6 +32,13 @@ export function UserActions({ user }: { user: any }) {
     })
   }
 
+  function handlePlanChange(planSlug: string) {
+    startTransition(async () => {
+      await assignUserPlan(user.id, planSlug || null)
+      router.refresh()
+    })
+  }
+
   function handleDelete() {
     startTransition(async () => {
       await deleteUser(user.id)
@@ -33,6 +49,30 @@ export function UserActions({ user }: { user: any }) {
 
   return (
     <div className="flex items-center gap-1.5">
+      {/* Plan selector */}
+      <select
+        value={currentPlanSlug}
+        onChange={(e) => handlePlanChange(e.target.value)}
+        disabled={isPending}
+        className={`px-1.5 py-1 border rounded text-xs bg-[#23262a] ${
+          currentPlanSlug === 'enterprise'
+            ? 'border-amber-600/50 text-amber-400'
+            : currentPlanSlug === 'professional'
+              ? 'border-blue-600/50 text-blue-400'
+              : currentPlanSlug === 'starter'
+                ? 'border-emerald-600/50 text-emerald-400'
+                : 'border-gray-600/50 text-gray-400'
+        }`}
+        title="Plano do usuário"
+      >
+        {PLAN_OPTIONS.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+
+      {/* Role selector */}
       <select
         value={user.role}
         onChange={(e) => handleRoleChange(e.target.value)}
