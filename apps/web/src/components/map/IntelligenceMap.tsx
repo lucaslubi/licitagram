@@ -77,12 +77,12 @@ export function IntelligenceMap({
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  // Sheet height calculation
+  // Sheet height calculation (account for 56px mobile header)
   const sheetHeight = useMemo(() => {
     switch (sheetPosition) {
       case 'collapsed': return '80px'
       case 'half': return '50vh'
-      case 'full': return 'calc(100vh - 40px)'
+      case 'full': return 'calc(100vh - 60px)'
     }
   }, [sheetPosition])
 
@@ -919,11 +919,11 @@ export function IntelligenceMap({
       {/* Mobile Bottom Sheet */}
       {isMobile && (
         <div
-          className="fixed bottom-0 left-0 right-0 z-30 bg-[#111214] rounded-t-2xl shadow-[0_-4px_20px_rgba(0,0,0,0.4)] flex flex-col"
+          className="fixed bottom-0 left-0 right-0 z-[35] bg-[#111214] rounded-t-2xl shadow-[0_-4px_20px_rgba(0,0,0,0.4)] flex flex-col"
           style={{
             height: sheetHeight,
             transition: 'height 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            maxHeight: 'calc(100vh - 40px)',
+            maxHeight: 'calc(100vh - 60px)',
           }}
         >
           {/* Drag handle */}
@@ -949,9 +949,9 @@ export function IntelligenceMap({
           onClick={() => {
             setSheetPosition((prev) => prev === 'full' ? 'collapsed' : 'full')
           }}
-          className="fixed z-30 bottom-24 right-4 w-12 h-12 rounded-full bg-brand text-white shadow-lg flex items-center justify-center active:scale-95 transition-transform"
+          className="fixed z-[36] bottom-24 right-4 w-12 h-12 rounded-full bg-brand text-white shadow-lg flex items-center justify-center active:scale-95 transition-transform"
           style={{
-            bottom: sheetPosition === 'collapsed' ? '96px' : sheetPosition === 'half' ? 'calc(50vh + 12px)' : 'calc(100vh - 28px - 48px)',
+            bottom: sheetPosition === 'collapsed' ? '96px' : sheetPosition === 'half' ? 'calc(50vh + 12px)' : 'calc(100vh - 60px - 56px)',
             transition: 'bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s',
           }}
           aria-label={sheetPosition === 'full' ? 'Ver mapa' : 'Ver lista'}
