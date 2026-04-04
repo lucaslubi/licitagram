@@ -101,9 +101,8 @@ export function CompanyProvider({
         // 2. Update local state + localStorage
         setActiveCompanyId(companyId)
         try { localStorage.setItem(ACTIVE_COMPANY_KEY, companyId) } catch {}
-        // 3. Invalidate middleware plan cookie so the reload picks up new company context
-        document.cookie = 'x-plan-ctx=; Path=/; Max-Age=0'
-        // 4. Reload to refresh all server-side data for the new company
+        // 3. Reload to refresh all server-side data for the new company
+        // (The API response already invalidated the httpOnly plan cookie)
         window.location.reload()
       }
     },

@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { PLAN_CTX_COOKIE } from '@licitagram/shared'
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,7 +33,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ ok: true })
+    // Invalidate the httpOnly plan context cookie so middleware rebuilds it
+    // on the next request with the new company's subscription data
+    const res = NextResponse.json({ ok: true })
+    res.cookies.set(PLAN_CTX_COOKIE, '', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 0,
+      path: '/',
+    })
+    return res
   } catch (error) {
     console.error('[POST /api/switch-company]', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
