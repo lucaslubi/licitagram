@@ -7,6 +7,61 @@ import { invalidateMatchCaches } from '../lib/redis-cache'
 import { CNAE_GROUPS, getCompanyDivisions } from '@licitagram/shared'
 import { callLLM } from '../ai/llm-client'
 import OpenAI from 'openai'
+import { createHash } from 'crypto'
+import IORedis from 'ioredis'
+
+// ─── Triage Cache (Redis) ───────────────────────────────────────────────────
+
+let triageCacheRedis: IORedis | null = null
+
+function getTriageCache(): IORedis {
+  if (!triageCacheRedis) {
+    triageCacheRedis = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
+      maxRetriesPerRequest: 3,
+      lazyConnect: true,
+    })
+    triageCacheRedis.on('error', (err) => {
+      logger.error({ err: err.message }, 'Triage cache Redis connection error')
+    })
+  }
+  return triageCacheRedis
+}
+
+const TRIAGE_CACHE_PREFIX = 'triage:cache:'
+const TRIAGE_CACHE_TTL = 24 * 60 * 60 // 24 hours
+
+function triageCacheKey(companyId: string, objeto: string): string {
+  const hash = createHash('md5').update(companyId + objeto.slice(0, 200)).digest('hex')
+  return `${TRIAGE_CACHE_PREFIX}${hash}`
+}
+
+interface CachedTriageResult {
+  score: number
+  recomendacao: string
+}
+
+async function getTriageCached(key: string): Promise<CachedTriageResult | null> {
+  try {
+    const val = await getTriageCache().get(key)
+    if (val) return JSON.parse(val) as CachedTriageResult
+  } catch {
+    // Redis down — skip cache
+  }
+  return null
+}
+
+async function setTriageCachedBatch(entries: Array<{ key: string; result: CachedTriageResult }>): Promise<void> {
+  if (entries.length === 0) return
+  try {
+    const pipeline = getTriageCache().pipeline()
+    for (const { key, result } of entries) {
+      pipeline.set(key, JSON.stringify(result), 'EX', TRIAGE_CACHE_TTL)
+    }
+    await pipeline.exec()
+  } catch {
+    // Ignore
+  }
+}
 
 const deepseekClient = new OpenAI({
   apiKey: process.env.DEEPSEEK_API_KEY || '',
@@ -197,87 +252,93 @@ async function triageBatch(
 
   if (items.length === 0) return []
 
-  // Build batch prompt with richer context per item
-  const tenderList = items
-    .map((item: any, i: number) => {
-      const valor = item.valorEstimado
-        ? `R$ ${item.valorEstimado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-        : 'N/I'
-      const orgao = item.orgao || 'N/I'
-      return `${i + 1}. ID: ${item.matchId} | Objeto: "${item.objeto}" | Valor: ${valor} | Orgao: ${orgao}`
-    })
-    .join('\n')
+  // ─── Optimization 1: CNAE Pre-filter BEFORE AI call ──────────────────────
+  // Same logic as the post-AI CNAE validation gate (lines below), but done
+  // BEFORE wasting an API call. Items with ZERO CNAE overlap get score 10
+  // and skip AI entirely. Items WITH overlap continue to AI as normal.
 
-  const userPrompt = `${companyContext}
+  const companyDivs = getCompanyDivisions(companyCnaes)
+  const itemsForAI: typeof items = []
+  const itemsSkipped: typeof items = []
 
----
+  for (const item of items) {
+    const tenderDivisions = item.tenderCnaes.map((c: string) => c.substring(0, 2))
+    const hasDirectOverlap = tenderDivisions.some((d: string) => companyDivs.direct.has(d))
+    const hasRelatedOverlap = tenderDivisions.some((d: string) => companyDivs.related.has(d))
 
-Analise as seguintes licitacoes e retorne um JSON array com scores de 0-100 para cada uma.
-
-Licitacoes:
-${tenderList}
-
-Retorne APENAS um JSON array valido (sem markdown, sem texto adicional):
-[{"matchId": "xxx", "score": 85, "recomendacao": "participar|avaliar_melhor|nao_recomendado"}, ...]
-
-LEMBRE: score 0-15 para objetos TOTALMENTE fora do escopo da empresa. Avalie TODAS as ${items.length} licitacoes.`
-
-  // Use shared LLM client with fallback providers
-  const content = await callLLM({
-    task: 'onDemandAnalysis', // Uses maxTokens: 8192, temperature: 0.1
-    system: TRIAGE_SYSTEM_PROMPT,
-    prompt: userPrompt,
-    jsonMode: true,
-    maxRetries: 2,
-  })
-
-  const cleanJson = content.replace(/```json?\s*/gi, '').replace(/```\s*/g, '').trim()
-
-  let parsed: TriageResult[]
-  try {
-    const raw = JSON.parse(cleanJson)
-    parsed = Array.isArray(raw) ? raw : (raw.results || raw.items || raw.data || [])
-  } catch {
-    logger.error({ content: cleanJson.slice(0, 500), batchSize: items.length }, 'AI triage batch parse error')
-    return []
+    if (tenderDivisions.length > 0 && !hasDirectOverlap && !hasRelatedOverlap) {
+      // ZERO CNAE overlap — skip AI, auto-score 10
+      itemsSkipped.push(item)
+    } else {
+      itemsForAI.push(item)
+    }
   }
 
-  // Build validated results, skipping individual items that fail
+  // ─── Process skipped items (no AI needed) ─────────────────────────────────
   const results: TriageResult[] = []
   const now = new Date().toISOString()
   const dbUpdates: PromiseLike<unknown>[] = []
 
-  for (const item of parsed) {
-    try {
-      if (!item.matchId || typeof item.score !== 'number') continue
-      let safeScore = Math.min(100, Math.max(0, Math.round(item.score)))
-      const match = items.find((m: any) => m.matchId === item.matchId)
-      if (!match) continue
+  for (const item of itemsSkipped) {
+    const updatePayload: Record<string, unknown> = {
+      score: 10,
+      match_source: 'ai_triage',
+      recomendacao: 'nao_recomendado',
+      analyzed_at: now,
+    }
 
-      // Post-AI CNAE validation gate
-      const tenderDivisions = match.tenderCnaes.map((c: string) => c.substring(0, 2))
-      const companyDivs = getCompanyDivisions(companyCnaes)
+    if (item.matchSource !== 'ai' && item.matchSource !== 'ai_triage') {
+      updatePayload.keyword_score = item.originalScore
+    }
+
+    dbUpdates.push(
+      supabase
+        .from('matches')
+        .update(updatePayload)
+        .eq('id', item.matchId),
+    )
+
+    results.push({
+      matchId: item.matchId,
+      score: 10,
+      recomendacao: 'nao_recomendado',
+    })
+  }
+
+  // ─── Optimization 2: Cache lookup BEFORE AI call ──────────────────────────
+  const itemsToCallAI: typeof items = []
+  const cacheKeys = new Map<string, string>() // matchId -> cacheKey
+  let cacheHitCount = 0
+
+  for (const item of itemsForAI) {
+    const cKey = triageCacheKey(companyId, item.objeto)
+    cacheKeys.set(item.matchId, cKey)
+
+    const cached = await getTriageCached(cKey)
+    if (cached) {
+      cacheHitCount++
+      let safeScore = Math.min(100, Math.max(0, Math.round(cached.score)))
+
+      // Apply post-AI CNAE validation gate on cached results too
+      const tenderDivisions = item.tenderCnaes.map((c: string) => c.substring(0, 2))
       const hasDirectOverlap = tenderDivisions.some((d: string) => companyDivs.direct.has(d))
       const hasRelatedOverlap = tenderDivisions.some((d: string) => companyDivs.related.has(d))
 
       if (tenderDivisions.length > 0 && !hasDirectOverlap && !hasRelatedOverlap) {
-        // AI gave high score but ZERO CNAE overlap — cap at 35
         safeScore = Math.min(safeScore, 35)
       } else if (tenderDivisions.length > 0 && !hasDirectOverlap && hasRelatedOverlap) {
-        // Only related CNAE match — cap at 65
         safeScore = Math.min(safeScore, 65)
       }
 
       const updatePayload: Record<string, unknown> = {
         score: safeScore,
         match_source: 'ai_triage',
-        recomendacao: item.recomendacao || null,
+        recomendacao: cached.recomendacao || null,
         analyzed_at: now,
       }
 
-      // Save original keyword score if not already saved by a previous AI analysis
-      if (match.matchSource !== 'ai' && match.matchSource !== 'ai_triage') {
-        updatePayload.keyword_score = match.originalScore
+      if (item.matchSource !== 'ai' && item.matchSource !== 'ai_triage') {
+        updatePayload.keyword_score = item.originalScore
       }
 
       dbUpdates.push(
@@ -290,10 +351,146 @@ LEMBRE: score 0-15 para objetos TOTALMENTE fora do escopo da empresa. Avalie TOD
       results.push({
         matchId: item.matchId,
         score: safeScore,
-        recomendacao: item.recomendacao || 'avaliar_melhor',
+        recomendacao: cached.recomendacao || 'avaliar_melhor',
       })
-    } catch (err) {
-      logger.warn({ matchId: item?.matchId, err }, 'Skipping malformed triage item')
+    } else {
+      itemsToCallAI.push(item)
+    }
+  }
+
+  // ─── Optimization 3: Log savings ──────────────────────────────────────────
+  const estimatedTokensSaved = (itemsSkipped.length + cacheHitCount) * 600 // ~600 tokens per item avg
+  logger.info(
+    {
+      companyId,
+      totalItems: items.length,
+      preFilteredSkipped: itemsSkipped.length,
+      cacheHits: cacheHitCount,
+      sentToAI: itemsToCallAI.length,
+      estimatedTokensSaved,
+    },
+    'AI triage cost optimization stats',
+  )
+
+  // ─── Call AI only for uncached items with CNAE overlap ────────────────────
+  if (itemsToCallAI.length > 0) {
+    const tenderList = itemsToCallAI
+      .map((item: any, i: number) => {
+        const valor = item.valorEstimado
+          ? `R$ ${item.valorEstimado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+          : 'N/I'
+        const orgao = item.orgao || 'N/I'
+        return `${i + 1}. ID: ${item.matchId} | Objeto: "${item.objeto}" | Valor: ${valor} | Orgao: ${orgao}`
+      })
+      .join('\n')
+
+    const userPrompt = `${companyContext}
+
+---
+
+Analise as seguintes licitacoes e retorne um JSON array com scores de 0-100 para cada uma.
+
+Licitacoes:
+${tenderList}
+
+Retorne APENAS um JSON array valido (sem markdown, sem texto adicional):
+[{"matchId": "xxx", "score": 85, "recomendacao": "participar|avaliar_melhor|nao_recomendado"}, ...]
+
+LEMBRE: score 0-15 para objetos TOTALMENTE fora do escopo da empresa. Avalie TODAS as ${itemsToCallAI.length} licitacoes.`
+
+    // Use shared LLM client with fallback providers
+    const content = await callLLM({
+      task: 'onDemandAnalysis', // Uses maxTokens: 8192, temperature: 0.1
+      system: TRIAGE_SYSTEM_PROMPT,
+      prompt: userPrompt,
+      jsonMode: true,
+      maxRetries: 2,
+    })
+
+    const cleanJson = content.replace(/```json?\s*/gi, '').replace(/```\s*/g, '').trim()
+
+    let parsed: TriageResult[]
+    try {
+      const raw = JSON.parse(cleanJson)
+      parsed = Array.isArray(raw) ? raw : (raw.results || raw.items || raw.data || [])
+    } catch {
+      logger.error({ content: cleanJson.slice(0, 500), batchSize: itemsToCallAI.length }, 'AI triage batch parse error')
+      // Still return results from pre-filter and cache
+      if (dbUpdates.length > 0) {
+        const settled = await Promise.allSettled(dbUpdates)
+        const failedCount = settled.filter((r) => r.status === 'rejected').length
+        if (failedCount > 0) {
+          logger.warn({ companyId, failedCount, total: dbUpdates.length }, 'Some triage DB updates failed')
+        }
+      }
+      try { await invalidateMatchCaches(companyId) } catch { /* ignore */ }
+      return results
+    }
+
+    // Build validated results from AI response
+    const cacheEntries: Array<{ key: string; result: CachedTriageResult }> = []
+
+    for (const item of parsed) {
+      try {
+        if (!item.matchId || typeof item.score !== 'number') continue
+        let safeScore = Math.min(100, Math.max(0, Math.round(item.score)))
+        const match = itemsToCallAI.find((m: any) => m.matchId === item.matchId)
+        if (!match) continue
+
+        // Post-AI CNAE validation gate (unchanged)
+        const tenderDivisions = match.tenderCnaes.map((c: string) => c.substring(0, 2))
+        const hasDirectOverlap = tenderDivisions.some((d: string) => companyDivs.direct.has(d))
+        const hasRelatedOverlap = tenderDivisions.some((d: string) => companyDivs.related.has(d))
+
+        if (tenderDivisions.length > 0 && !hasDirectOverlap && !hasRelatedOverlap) {
+          // AI gave high score but ZERO CNAE overlap — cap at 35
+          safeScore = Math.min(safeScore, 35)
+        } else if (tenderDivisions.length > 0 && !hasDirectOverlap && hasRelatedOverlap) {
+          // Only related CNAE match — cap at 65
+          safeScore = Math.min(safeScore, 65)
+        }
+
+        const updatePayload: Record<string, unknown> = {
+          score: safeScore,
+          match_source: 'ai_triage',
+          recomendacao: item.recomendacao || null,
+          analyzed_at: now,
+        }
+
+        // Save original keyword score if not already saved by a previous AI analysis
+        if (match.matchSource !== 'ai' && match.matchSource !== 'ai_triage') {
+          updatePayload.keyword_score = match.originalScore
+        }
+
+        dbUpdates.push(
+          supabase
+            .from('matches')
+            .update(updatePayload)
+            .eq('id', item.matchId),
+        )
+
+        results.push({
+          matchId: item.matchId,
+          score: safeScore,
+          recomendacao: item.recomendacao || 'avaliar_melhor',
+        })
+
+        // Cache the raw AI result (before CNAE gate) for reuse
+        const cKey = cacheKeys.get(item.matchId)
+        if (cKey) {
+          cacheEntries.push({
+            key: cKey,
+            result: { score: item.score, recomendacao: item.recomendacao || 'avaliar_melhor' },
+          })
+        }
+      } catch (err) {
+        logger.warn({ matchId: item?.matchId, err }, 'Skipping malformed triage item')
+      }
+    }
+
+    // Cache AI results in batch
+    if (cacheEntries.length > 0) {
+      await setTriageCachedBatch(cacheEntries)
     }
   }
 
@@ -363,7 +560,6 @@ const aiTriageWorker = new Worker<AiTriageJobData>(
     // Process in batches of BATCH_SIZE
     let triaged = 0
     let lowScoreCount = 0
-
     for (let i = 0; i < matchIds.length; i += BATCH_SIZE) {
       const batch = matchIds.slice(i, i + BATCH_SIZE)
 
