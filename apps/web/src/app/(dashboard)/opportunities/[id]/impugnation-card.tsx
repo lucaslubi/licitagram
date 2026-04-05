@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 
 export function ImpugnationCard({ matchId, dataAbertura }: { matchId: string; dataAbertura: string | null }) {
   const [showModal, setShowModal] = useState(false)
@@ -27,7 +26,6 @@ export function ImpugnationCard({ matchId, dataAbertura }: { matchId: string; da
     prazoFormatted = prazo.toLocaleDateString('pt-BR')
   }
 
-  const isUrgent = diasRestantes > 0 && diasRestantes <= 3
   const isExpired = prazoDate !== null && diasRestantes <= 0
 
   async function generate() {
@@ -55,7 +53,7 @@ export function ImpugnationCard({ matchId, dataAbertura }: { matchId: string; da
     setTimeout(() => setCopied(false), 2000)
   }
 
-  function handleDownloadDocx() {
+  function handleDownload() {
     if (!result) return
     const blob = new Blob([result.texto_completo], { type: 'text/plain;charset=utf-8' })
     const url = URL.createObjectURL(blob)
@@ -68,129 +66,102 @@ export function ImpugnationCard({ matchId, dataAbertura }: { matchId: string; da
 
   return (
     <>
-      {/* Main Card — prominent design */}
-      <div className={`rounded-xl border-2 overflow-hidden ${
-        isUrgent
-          ? 'border-red-500/40 bg-gradient-to-br from-red-950/20 to-[#131316]'
-          : isExpired
-            ? 'border-white/[0.06] bg-[#131316]'
-            : 'border-amber-500/30 bg-gradient-to-br from-amber-950/10 to-[#131316]'
-      }`}>
-        {/* Header with icon strip */}
-        <div className={`px-5 py-3 flex items-center justify-between ${
-          isUrgent ? 'bg-red-500/10' : isExpired ? 'bg-white/[0.03]' : 'bg-amber-500/5'
-        }`}>
-          <div className="flex items-center gap-3">
-            <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
-              isUrgent ? 'bg-red-500/20' : isExpired ? 'bg-white/[0.06]' : 'bg-amber-500/15'
-            }`}>
-              <span className="text-lg">⚖️</span>
+      <div className="card-refined">
+        <div className="card-refined-header">
+          <div className="flex items-center gap-2.5">
+            <div className="card-refined-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" /></svg>
             </div>
             <div>
-              <h3 className="text-white font-semibold text-sm">Impugnação de Edital</h3>
-              <p className="text-[11px] text-gray-400">Gerador jurídico com IA — Lei 14.133/2021</p>
+              <h3 className="card-refined-title">Impugnação de Edital</h3>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Gerador jurídico — Lei 14.133/2021</p>
             </div>
           </div>
-          {diasRestantes > 0 ? (
-            <Badge className={`text-[11px] font-semibold px-2.5 py-1 ${
-              isUrgent
-                ? 'bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse'
-                : 'bg-amber-500/15 text-amber-400 border border-amber-500/25'
+          {diasRestantes > 0 && (
+            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border font-mono tabular-nums ${
+              diasRestantes <= 3
+                ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                : 'bg-foreground/5 text-muted-foreground border-border'
             }`}>
-              {isUrgent ? `🔴 URGENTE — ${diasRestantes}d restante${diasRestantes > 1 ? 's' : ''}` : `⏰ ${diasRestantes} dias úteis`}
-            </Badge>
-          ) : null}
+              {diasRestantes}d restantes
+            </span>
+          )}
         </div>
 
-        {/* Body */}
-        <div className="px-5 py-4">
-          {!result ? (
-            <div className="space-y-4">
-              <div className="flex items-start gap-3">
-                <div className="flex-1 space-y-2">
-                  <p className="text-gray-300 text-xs leading-relaxed">
-                    Gere uma <span className="text-white font-medium">impugnação formal completa</span> fundamentada na Lei 14.133/2021, jurisprudência do TCU e argumentação em 5 camadas — pronta para protocolar.
-                  </p>
-                  {prazoFormatted && diasRestantes > 0 && (
-                    <p className="text-[11px] text-gray-500">
-                      📅 Prazo limite para impugnação: <span className={isUrgent ? 'text-red-400 font-medium' : 'text-amber-400'}>{prazoFormatted}</span>
-                      {' '}(art. 164, Lei 14.133/2021 — 3 dias úteis antes da abertura)
-                    </p>
-                  )}
+        {!result ? (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Gere uma impugnação formal completa fundamentada na Lei 14.133/2021, jurisprudência do TCU e argumentação em 5 camadas — pronta para protocolar.
+            </p>
+            {prazoFormatted && diasRestantes > 0 && (
+              <p className="text-[11px] text-muted-foreground">
+                Prazo limite: <span className={diasRestantes <= 3 ? 'text-red-400 font-medium' : 'text-foreground font-medium'}>{prazoFormatted}</span>
+                <span className="text-muted-foreground/60"> (art. 164, Lei 14.133 — 3 dias úteis antes da abertura)</span>
+              </p>
+            )}
+
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                'Peça formal completa',
+                'Argumentação em 5 camadas',
+                'Jurisprudência do TCU',
+                'Redação substitutiva',
+              ].map((f) => (
+                <div key={f} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-background border border-border">
+                  <span className="text-[10px] text-muted-foreground">{f}</span>
                 </div>
-              </div>
+              ))}
+            </div>
 
-              {/* Feature highlights */}
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { icon: '📜', text: 'Peça formal completa' },
-                  { icon: '⚖️', text: 'Argumentação em 5 camadas' },
-                  { icon: '🏛️', text: 'Jurisprudência do TCU' },
-                  { icon: '💡', text: 'Redação substitutiva' },
-                ].map((f) => (
-                  <div key={f.text} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[#0a0a0b]/60 border border-white/[0.06]">
-                    <span className="text-xs">{f.icon}</span>
-                    <span className="text-[10px] text-gray-400">{f.text}</span>
-                  </div>
-                ))}
+            <Button
+              onClick={() => setShowModal(true)}
+              variant="outline"
+              size="sm"
+              className="text-xs"
+            >
+              Gerar Impugnação
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {result.fundamentacao && (
+              <div className="bg-background rounded-lg px-3 py-2 border border-border">
+                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mb-1">Fundamentação Principal</p>
+                <p className="text-[11px] text-foreground/80 line-clamp-3">{result.fundamentacao}</p>
               </div>
+            )}
 
-              <Button
-                onClick={() => setShowModal(true)}
-                className={`font-medium ${
-                  isUrgent
-                    ? 'bg-red-600 hover:bg-red-700 text-white'
-                    : 'bg-amber-600 hover:bg-amber-700 text-white'
-                }`}
-                size="sm"
-              >
-                ⚖️ Gerar Impugnação Jurídica
+            <div className="bg-background rounded-lg p-4 max-h-[500px] overflow-y-auto border border-border">
+              <pre className="text-xs text-foreground/80 whitespace-pre-wrap font-sans leading-relaxed">{result.texto_completo}</pre>
+            </div>
+
+            <div className="flex gap-2 flex-wrap">
+              <Button size="sm" variant="outline" onClick={handleDownload} className="text-xs">
+                Baixar Documento
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleCopy} className="text-xs">
+                {copied ? 'Copiado' : 'Copiar Texto'}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => { setResult(null); setMotivo('') }} className="text-xs text-muted-foreground">
+                Nova Impugnação
               </Button>
             </div>
-          ) : (
-            <div className="space-y-3">
-              {/* Fundamentação preview */}
-              {result.fundamentacao && (
-                <div className="bg-emerald-950/20 border border-emerald-800/30 rounded-lg px-3 py-2">
-                  <p className="text-[10px] text-emerald-400 font-medium mb-1">💡 FUNDAMENTAÇÃO PRINCIPAL</p>
-                  <p className="text-[11px] text-gray-300 line-clamp-3">{result.fundamentacao}</p>
-                </div>
-              )}
-
-              {/* Full text */}
-              <div className="bg-[#0a0a0b] rounded-lg p-4 max-h-[500px] overflow-y-auto border border-white/[0.06]">
-                <pre className="text-xs text-gray-300 whitespace-pre-wrap font-sans leading-relaxed">{result.texto_completo}</pre>
-              </div>
-
-              {/* Actions */}
-              <div className="flex gap-2 flex-wrap">
-                <Button size="sm" onClick={handleDownloadDocx} className="bg-emerald-600 hover:bg-emerald-700">
-                  📥 Baixar Documento
-                </Button>
-                <Button size="sm" variant="outline" onClick={handleCopy}>
-                  {copied ? '✅ Copiado!' : '📋 Copiar Texto'}
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => { setResult(null); setMotivo('') }} className="text-gray-400">
-                  Nova Impugnação
-                </Button>
-              </div>
-            </div>
-          )}
-          {error && <p className="text-red-400 text-xs mt-2">❌ {error}</p>}
-        </div>
+          </div>
+        )}
+        {error && <p className="text-red-400 text-xs mt-2">{error}</p>}
       </div>
 
-      {/* Modal — reason input */}
+      {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="bg-[#131316] border border-white/[0.08] rounded-xl p-6 max-w-lg mx-4 w-full shadow-2xl">
+          <div className="bg-card border border-border rounded-xl p-6 max-w-lg mx-4 w-full shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-lg bg-amber-500/15 flex items-center justify-center">
-                <span className="text-xl">⚖️</span>
+              <div className="w-9 h-9 rounded-lg bg-secondary border border-border flex items-center justify-center">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground"><circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" /></svg>
               </div>
               <div>
-                <h3 className="text-white font-semibold">Gerar Impugnação de Edital</h3>
-                <p className="text-gray-400 text-xs">Descreva o(s) motivo(s) para análise jurídica</p>
+                <h3 className="text-foreground font-semibold text-sm">Gerar Impugnação</h3>
+                <p className="text-muted-foreground text-xs">Descreva o(s) motivo(s) para análise jurídica</p>
               </div>
             </div>
 
@@ -198,30 +169,30 @@ export function ImpugnationCard({ matchId, dataAbertura }: { matchId: string; da
               value={motivo}
               onChange={e => setMotivo(e.target.value)}
               placeholder={"Exemplos:\n• Exigência de atestado com quantitativo de 100% restringe competitividade\n• Indicação de marca sem justificativa técnica (cláusula 5.3)\n• Capital social mínimo exigido acima de 10% do valor estimado\n• Prazo de execução insuficiente para o porte do objeto"}
-              className="w-full h-40 bg-[#0a0a0b] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white placeholder:text-gray-600 focus:border-amber-600 focus:outline-none resize-none"
+              className="w-full h-40 bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/40 focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring resize-none"
             />
 
-            <div className="bg-[#0a0a0b] rounded-lg px-3 py-2 mt-3 border border-white/[0.06]">
-              <p className="text-[10px] text-gray-500">
-                💡 <span className="text-gray-400">Dica:</span> Quanto mais específico o motivo (citando cláusulas e valores), mais precisa será a impugnação. A IA analisará o edital completo e pode identificar vícios adicionais.
+            <div className="bg-background rounded-lg px-3 py-2 mt-3 border border-border">
+              <p className="text-[10px] text-muted-foreground">
+                Quanto mais específico o motivo (citando cláusulas e valores), mais precisa será a impugnação.
               </p>
             </div>
 
             <div className="flex gap-3 mt-4">
-              <Button variant="outline" onClick={() => setShowModal(false)} className="flex-1">
+              <Button variant="outline" onClick={() => setShowModal(false)} className="flex-1 text-xs">
                 Cancelar
               </Button>
               <Button
                 onClick={generate}
                 disabled={loading || !motivo.trim()}
-                className="flex-1 bg-amber-600 hover:bg-amber-700"
+                className="flex-1 text-xs"
               >
                 {loading ? (
                   <span className="flex items-center gap-2">
-                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span className="w-3.5 h-3.5 border-2 border-foreground/30 border-t-foreground rounded-full animate-spin" />
                     Gerando (~30s)...
                   </span>
-                ) : '⚖️ Gerar Impugnação'}
+                ) : 'Gerar Impugnação'}
               </Button>
             </div>
           </div>
