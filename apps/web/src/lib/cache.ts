@@ -100,6 +100,7 @@ interface TenderListParams {
   dataFrom?: string
   dataTo?: string
   fonte?: string
+  esfera?: string
   search?: string
   searchEdital?: boolean
   ordemValor?: string
@@ -127,6 +128,7 @@ export async function getTenderList(params: TenderListParams): Promise<TenderLis
     df: params.dataFrom,
     dt: params.dataTo,
     src: params.fonte,
+    esf: params.esfera,
     q: params.search,
     se: params.searchEdital ? '1' : undefined,
     ov: params.ordemValor,
@@ -192,6 +194,7 @@ async function fetchTenderListFromDB(params: TenderListParams): Promise<TenderLi
   if (dataFrom) query = query.gte('data_abertura', dataFrom)
   if (dataTo) query = query.lte('data_abertura', dataTo)
   if (fonte) query = query.eq('source', fonte)
+  if (params.esfera) query = query.eq('orgao_esfera', params.esfera)
 
   // Text search (accent-insensitive via PostgreSQL unaccent RPC)
   if (search && !searchEdital) {
@@ -259,6 +262,7 @@ interface MatchListParams {
   dataFrom?: string
   dataTo?: string
   fonte?: string
+  esfera?: string
   scoreMin?: number
   ordemValor?: string
   ordemData?: string
@@ -286,6 +290,7 @@ export async function getMatchList(params: MatchListParams): Promise<MatchListRe
     df: params.dataFrom,
     dt: params.dataTo,
     src: params.fonte,
+    esf: params.esfera,
     sm: params.scoreMin,
     ov: params.ordemValor,
     od: params.ordemData,
@@ -341,6 +346,7 @@ async function fetchMatchListFromDB(params: MatchListParams): Promise<MatchListR
   if (dataFrom) query = query.gte('tenders.data_abertura', dataFrom)
   if (dataTo) query = query.lte('tenders.data_abertura', dataTo)
   if (fonte) query = query.eq('tenders.source', fonte)
+  if (params.esfera) query = query.eq('tenders.orgao_esfera', params.esfera)
   if (params.q) query = query.ilike('tenders.objeto', `%${params.q}%`)
 
   // Value range filter (from company settings)

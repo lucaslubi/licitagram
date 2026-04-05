@@ -37,7 +37,7 @@ export default async function OpportunitiesPage({
   searchParams: Promise<{
     page?: string; uf?: string; view?: string; q?: string; q_match?: string
     modalidade?: string; score_min?: string; data_de?: string; data_ate?: string
-    fonte?: string; busca_edital?: string; ordem_valor?: string; ordem_data?: string
+    fonte?: string; esfera?: string; busca_edital?: string; ordem_valor?: string; ordem_data?: string
   }>
 }) {
   const params = await searchParams
@@ -64,6 +64,7 @@ export default async function OpportunitiesPage({
   const dataDeFilter = params.data_de || ''
   const dataAteFilter = params.data_ate || ''
   const fonteFilter = params.fonte || ''
+  const esferaFilter = params.esfera || ''
   const buscaEdital = params.busca_edital === '1'
   const ordemValorFilter = params.ordem_valor || ''
   const ordemDataFilter = params.ordem_data || ''
@@ -78,6 +79,7 @@ export default async function OpportunitiesPage({
   if (dataDeFilter) baseParams.set('data_de', dataDeFilter)
   if (dataAteFilter) baseParams.set('data_ate', dataAteFilter)
   if (fonteFilter) baseParams.set('fonte', fonteFilter)
+  if (esferaFilter) baseParams.set('esfera', esferaFilter)
   if (buscaEdital) baseParams.set('busca_edital', '1')
   if (ordemValorFilter) baseParams.set('ordem_valor', ordemValorFilter)
   if (ordemDataFilter) baseParams.set('ordem_data', ordemDataFilter)
@@ -98,6 +100,7 @@ export default async function OpportunitiesPage({
         dataFrom: dataDeFilter || undefined,
         dataTo: dataAteFilter || undefined,
         fonte: fonteFilter || undefined,
+        esfera: esferaFilter || undefined,
         scoreMin: scoreMinFilter || undefined,
         ordemValor: ordemValorFilter || undefined,
         ordemData: ordemDataFilter || undefined,
@@ -120,6 +123,7 @@ export default async function OpportunitiesPage({
       dataDeFilter,
       dataAteFilter,
       fonteFilter,
+      esferaFilter,
       ordemValorFilter,
       ordemDataFilter,
       userMinScore,
@@ -140,6 +144,7 @@ export default async function OpportunitiesPage({
       dataFrom: dataDeFilter || undefined,
       dataTo: dataAteFilter || undefined,
       fonte: fonteFilter || undefined,
+      esfera: esferaFilter || undefined,
       search: searchQuery || undefined,
       searchEdital: buscaEdital,
       ordemValor: ordemValorFilter || undefined,
@@ -223,7 +228,7 @@ export default async function OpportunitiesPage({
                 Buscar no texto do edital
               </label>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
               <div>
                 <label className="text-sm font-medium text-gray-400">UF</label>
                 <select
@@ -267,6 +272,20 @@ export default async function OpportunitiesPage({
                 </select>
               </div>
               <div>
+                <label className="text-sm font-medium text-gray-400">Esfera</label>
+                <select
+                  name="esfera"
+                  defaultValue={esferaFilter}
+                  className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">Todas</option>
+                  <option value="F">Federal</option>
+                  <option value="E">Estadual</option>
+                  <option value="M">Municipal</option>
+                  <option value="D">Distrital</option>
+                </select>
+              </div>
+              <div>
                 <label className="text-sm font-medium text-gray-400">De</label>
                 <input
                   name="data_de"
@@ -304,7 +323,7 @@ export default async function OpportunitiesPage({
               >
                 Filtrar
               </button>
-              {(searchQuery || modalidadeFilter || dataDeFilter || dataAteFilter || fonteFilter || ordemValorFilter || ordemDataFilter) && (
+              {(searchQuery || modalidadeFilter || dataDeFilter || dataAteFilter || fonteFilter || esferaFilter || ordemValorFilter || ordemDataFilter) && (
                 <Link
                   href={`/opportunities?view=${view}&uf=${ufFilter}`}
                   className="h-10 px-3 flex items-center text-sm text-gray-400 hover:text-white"
@@ -464,6 +483,7 @@ function renderMatchesView(props: {
   dataDeFilter: string
   dataAteFilter: string
   fonteFilter: string
+  esferaFilter: string
   ordemValorFilter: string
   ordemDataFilter: string
   userMinScore: number
@@ -474,7 +494,7 @@ function renderMatchesView(props: {
 }) {
   const {
     matches, matchCount, filteredMatchCount, totalPages, tenderCount, page,
-    ufFilter, modalidadeFilter, scoreMinFilter, dataDeFilter, dataAteFilter, fonteFilter,
+    ufFilter, modalidadeFilter, scoreMinFilter, dataDeFilter, dataAteFilter, fonteFilter, esferaFilter,
     ordemValorFilter, ordemDataFilter, userMinScore, baseParams, canExport, hasAllPortals,
     qMatchFilter,
   } = props
@@ -522,7 +542,7 @@ function renderMatchesView(props: {
                 className="flex h-10 w-full rounded-md border border-[#2d2f33] bg-[#2d2f33] pl-10 pr-3 py-2 text-sm text-white placeholder:text-gray-500"
               />
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
               <div>
                 <label className="text-sm font-medium text-gray-400">Score Min</label>
                 <select
@@ -576,6 +596,20 @@ function renderMatchesView(props: {
                   <option value="comprasgov">Compras.gov</option>
                   {hasAllPortals && <option value="bec_sp">BEC SP</option>}
                   {hasAllPortals && <option value="compras_mg">Compras MG</option>}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-400">Esfera</label>
+                <select
+                  name="esfera"
+                  defaultValue={esferaFilter}
+                  className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">Todas</option>
+                  <option value="F">Federal</option>
+                  <option value="E">Estadual</option>
+                  <option value="M">Municipal</option>
+                  <option value="D">Distrital</option>
                 </select>
               </div>
               <div>

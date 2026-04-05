@@ -186,12 +186,6 @@ export function SmartPricingV2({ query, valorEstimado, uf, modalidade, bandLabel
 
   if (!data) return null
 
-  const confidenceColors = {
-    alta: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
-    média: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
-    baixa: 'text-red-400 bg-red-500/10 border-red-500/30',
-  }
-
   return (
     <div className="space-y-4">
       {/* Header with context */}
@@ -207,14 +201,6 @@ export function SmartPricingV2({ query, valorEstimado, uf, modalidade, bandLabel
         </div>
 
         <div className="flex items-center gap-2">
-          <span
-            className={`text-[10px] px-2 py-0.5 rounded-full border ${
-              confidenceColors[data.context.confidence.level as keyof typeof confidenceColors] || confidenceColors.baixa
-            }`}
-            title={data.context.confidence.detail}
-          >
-            Confiança: {data.context.confidence.label}
-          </span>
           <Button variant="ghost" size="sm" onClick={fetchPricing} className="text-gray-500 hover:text-white h-7 w-7 p-0">
             ↻
           </Button>
@@ -324,13 +310,6 @@ export function SmartPricingV2({ query, valorEstimado, uf, modalidade, bandLabel
       {/* Data Quality Footer */}
       <div className="flex flex-wrap items-center gap-3 text-[10px] text-gray-600">
         <span>🔒 {data.context.sample_size} amostras</span>
-        <span
-          className={`px-1.5 py-0.5 rounded border ${
-            confidenceColors[data.context.confidence.level as keyof typeof confidenceColors] || confidenceColors.baixa
-          }`}
-        >
-          Confiança: {data.context.confidence.label}
-        </span>
         <span>📅 {data.context.date_range}</span>
         {data.context.band_widened && (
           <span className="text-amber-400">⚠ Faixa ampliada por amostra insuficiente</span>
