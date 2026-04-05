@@ -61,6 +61,47 @@ function formatBRL(value: number): string {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
 }
 
+// IMPORTANT: Defined outside BDICalculator to avoid remounting on every parent re-render
+function NumberInput({ label, value, onChange, suffix, step }: { label: string; value: number; onChange: (v: number) => void; suffix?: string; step?: number }) {
+  const [raw, setRaw] = useState(value ? String(value) : '')
+
+  // Sync when value changes externally (presets, regime change)
+  useEffect(() => { setRaw(value ? String(value) : '') }, [value])
+
+  return (
+    <div>
+      <Label className="text-xs text-gray-400">{label}</Label>
+      <div className="flex items-center gap-1 mt-1">
+        <Input
+          type="text"
+          inputMode="decimal"
+          step={step || 0.01}
+          value={raw}
+          onChange={e => {
+            const v = e.target.value
+            // Allow empty, digits, dots, commas
+            if (v === '' || /^[\d.,]*$/.test(v)) {
+              setRaw(v)
+              const num = parseFloat(v.replace(',', '.'))
+              onChange(isNaN(num) ? 0 : num)
+            }
+          }}
+          onBlur={() => {
+            // Format on blur
+            const num = parseFloat(raw.replace(',', '.'))
+            if (isNaN(num) || raw === '') {
+              setRaw('')
+              onChange(0)
+            }
+          }}
+          className="text-right font-mono"
+        />
+        {suffix && <span className="text-xs text-gray-500 w-6">{suffix}</span>}
+      </div>
+    </div>
+  )
+}
+
 export function BDICalculator() {
   // Custos diretos
   const [custoMaterial, setCustoMaterial] = useState(0)
@@ -115,46 +156,6 @@ export function BDICalculator() {
     setRegime(r)
     const d = REGIME_DEFAULTS[r]
     setIss(d.iss); setPis(d.pis); setCofins(d.cofins); setIrpj(d.irpj); setCsll(d.csll)
-  }
-
-  function NumberInput({ label, value, onChange, suffix, step }: { label: string; value: number; onChange: (v: number) => void; suffix?: string; step?: number }) {
-    const [raw, setRaw] = useState(value ? String(value) : '')
-
-    // Sync when value changes externally (presets, regime change)
-    useEffect(() => { setRaw(value ? String(value) : '') }, [value])
-
-    return (
-      <div>
-        <Label className="text-xs text-gray-400">{label}</Label>
-        <div className="flex items-center gap-1 mt-1">
-          <Input
-            type="text"
-            inputMode="decimal"
-            step={step || 0.01}
-            value={raw}
-            onChange={e => {
-              const v = e.target.value
-              // Allow empty, digits, dots, commas
-              if (v === '' || /^[\d.,]*$/.test(v)) {
-                setRaw(v)
-                const num = parseFloat(v.replace(',', '.'))
-                onChange(isNaN(num) ? 0 : num)
-              }
-            }}
-            onBlur={() => {
-              // Format on blur
-              const num = parseFloat(raw.replace(',', '.'))
-              if (isNaN(num) || raw === '') {
-                setRaw('')
-                onChange(0)
-              }
-            }}
-            className="text-right font-mono"
-          />
-          {suffix && <span className="text-xs text-gray-500 w-6">{suffix}</span>}
-        </div>
-      </div>
-    )
   }
 
   return (

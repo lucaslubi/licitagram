@@ -136,8 +136,9 @@ export function PriceHistoryClient() {
 
   const hasSuggestions = suggestions.recent.length > 0 || suggestions.popular.length > 0
 
-  const doSearch = useCallback(async (page = 1) => {
-    if (!query.trim() || query.trim().length < 3) {
+  const doSearch = useCallback(async (page = 1, queryOverride?: string) => {
+    const q = (queryOverride ?? query).trim()
+    if (!q || q.length < 3) {
       setError('Digite pelo menos 3 caracteres para buscar.')
       return
     }
@@ -145,10 +146,10 @@ export function PriceHistoryClient() {
     setLoading(true)
     setError(null)
     setShowSuggestions(false)
-    saveRecentSearch(query)
+    saveRecentSearch(q)
 
     try {
-      const params = new URLSearchParams({ q: query.trim(), page: String(page), page_size: '20' })
+      const params = new URLSearchParams({ q, page: String(page), page_size: '20' })
       if (uf) params.set('uf', uf)
       if (modalidade) params.set('modalidade', modalidade)
       if (dateFrom) params.set('date_from', dateFrom)
@@ -233,7 +234,7 @@ export function PriceHistoryClient() {
           {trending.map((t) => (
             <button
               key={t.query}
-              onClick={() => { setQuery(t.query); }}
+              onClick={() => { setQuery(t.query); doSearch(1, t.query) }}
               className="px-3 py-1 rounded-full text-xs bg-[#23262a] border border-[#2d2f33] text-gray-300 hover:border-[#F43E01]/40 hover:text-white transition-colors"
             >
               {t.query}
@@ -277,7 +278,7 @@ export function PriceHistoryClient() {
                           <button
                             key={`recent-${s}`}
                             className="w-full text-left px-2 py-1.5 text-sm text-gray-300 hover:bg-[#2d2f33] rounded transition-colors flex items-center gap-2"
-                            onClick={() => { setQuery(s); setShowSuggestions(false); setTimeout(() => doSearch(1), 50) }}
+                            onClick={() => { setQuery(s); setShowSuggestions(false); doSearch(1, s) }}
                           >
                             <svg className="w-3 h-3 text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -294,7 +295,7 @@ export function PriceHistoryClient() {
                           <button
                             key={`pop-${s}`}
                             className="w-full text-left px-2 py-1.5 text-sm text-gray-300 hover:bg-[#2d2f33] rounded transition-colors flex items-center gap-2"
-                            onClick={() => { setQuery(s); setShowSuggestions(false); setTimeout(() => doSearch(1), 50) }}
+                            onClick={() => { setQuery(s); setShowSuggestions(false); doSearch(1, s) }}
                           >
                             <svg className="w-3 h-3 text-brand shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
