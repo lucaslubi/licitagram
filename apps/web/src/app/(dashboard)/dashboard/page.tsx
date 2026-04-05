@@ -320,10 +320,10 @@ export default async function DashboardPage() {
 
       {/* ─── KPI Row 1: Volume ─── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-        <KPICard label="Licitações Abertas" value={totalTenders.toLocaleString('pt-BR')} />
+        <KPICard label="Licitações Abertas" value={totalTenders.toLocaleString('pt-BR')} noTrend />
         <KPICard label="Novas Esta Semana" value={weekTenders.toLocaleString('pt-BR')} trend={weekTrend} />
         <KPICard label="Matches Este Mês" value={monthMatches.toLocaleString('pt-BR')} trend={matchesTrend} />
-        <KPICard label="Valor em Análise" value={totalValueInAnalysis > 0 ? formatCompactValue(totalValueInAnalysis) : 'R$ 0'} subtitle="Soma dos editais monitorados" small />
+        <KPICard label="Valor em Análise" value={totalValueInAnalysis > 0 ? formatCompactValue(totalValueInAnalysis) : 'R$ 0'} subtitle="Soma dos editais monitorados" small noTrend />
       </div>
 
       {/* ─── KPI Row 2: Performance ─── */}
@@ -333,14 +333,16 @@ export default async function DashboardPage() {
           value={`${avgScore}`}
           suffix="/100"
           highlight
+          noTrend
         />
-        <KPICard label="Score 70+" value={highMatches.toLocaleString('pt-BR')} />
+        <KPICard label="Score 70+" value={highMatches.toLocaleString('pt-BR')} noTrend />
         <KPICard
           label="Taxa de Interesse"
           value={`${conversionRate}%`}
           subtitle={conversionRate === 0 ? 'Aguardando primeiras interações' : undefined}
+          noTrend
         />
-        <KPICard label="Total de Matches" value={totalMatches.toLocaleString('pt-BR')} />
+        <KPICard label="Total de Matches" value={totalMatches.toLocaleString('pt-BR')} noTrend />
       </div>
 
       {/* ─── Monthly Report ─── */}
@@ -353,11 +355,12 @@ export default async function DashboardPage() {
         <SegmentPriceWidget />
       </div>
 
-      {/* ─── Win Rate Card ─── */}
+      {/* ─── Performance Cards ─── */}
       {totalOutcomes > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <Card className="md:col-span-1">
-            <CardContent className="pt-5 pb-4 px-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+          <Card>
+            <CardHeader><CardTitle className="text-sm font-semibold tracking-tight">Taxa de Vitória</CardTitle></CardHeader>
+            <CardContent>
               <WinRateCircle rate={overallWinRate} won={totalWon} lost={totalLost} />
               {recentTotal >= 3 && Math.abs(winRateDiff) > 10 && (
                 <p className={`text-xs mt-3 font-medium ${winRateDiff > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
@@ -366,14 +369,39 @@ export default async function DashboardPage() {
               )}
             </CardContent>
           </Card>
+          <Card>
+            <CardHeader><CardTitle className="text-sm font-semibold tracking-tight">Ticket Médio</CardTitle></CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-2xl font-bold text-white font-[family-name:var(--font-geist-mono)] tabular-nums">
+                    {totalValueInAnalysis > 0 && totalMatches > 0
+                      ? formatCompactValue(totalValueInAnalysis / totalMatches)
+                      : '—'}
+                  </p>
+                  <p className="text-[10px] text-gray-600 mt-1">— sem histórico</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-white/[0.03] rounded-lg p-3">
+                    <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Em pipeline</p>
+                    <p className="text-lg font-bold text-white font-[family-name:var(--font-geist-mono)] tabular-nums mt-0.5">{interestedCount}</p>
+                  </div>
+                  <div className="bg-white/[0.03] rounded-lg p-3">
+                    <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Conversão</p>
+                    <p className="text-lg font-bold text-white font-[family-name:var(--font-geist-mono)] tabular-nums mt-0.5">{conversionRate}%</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 
       {/* ─── Section Divider ─── */}
-      <div className="flex items-center gap-3 mb-6">
-        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
-        <h2 className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Análise de Performance</h2>
-        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
+      <div className="flex items-center gap-5 my-10 mb-7">
+        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
+        <h2 className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.12em] whitespace-nowrap">Análise de Performance</h2>
+        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
@@ -434,7 +462,7 @@ export default async function DashboardPage() {
         </CardHeader>
         <CardContent>
           {topMatchesResult.data && topMatchesResult.data.length > 0 ? (
-            <div className="space-y-2">
+            <div className="divide-y divide-white/[0.06]">
               {topMatchesResult.data.map((match) => {
                 const tender = (match.tenders as unknown) as Record<string, unknown> | null
                 const scoreVal = match.score
@@ -444,13 +472,16 @@ export default async function DashboardPage() {
                 const encDate = tender?.data_encerramento ? new Date(tender.data_encerramento as string) : null
                 const diffDays = encDate ? Math.ceil((encDate.getTime() - now.getTime()) / 86400000) : null
 
+                // Status badge config
+                const statusConfig = getStatusConfig(match.status as string)
+
                 return (
                   <Link
                     key={match.id}
                     href={`/opportunities/${match.id}`}
-                    className="flex items-center gap-3 p-3 rounded-xl border border-white/[0.06] hover:border-white/[0.12] hover:bg-white/[0.02] transition-all duration-200 group"
+                    className="grid grid-cols-[40px_1fr_120px_50px_90px] md:grid-cols-[40px_1fr_140px_56px_100px] gap-3 items-center py-3 px-2 rounded-lg hover:bg-white/[0.02] transition-colors group -mx-2"
                   >
-                    {/* Mini score ring */}
+                    {/* Score */}
                     <div
                       className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 border-2"
                       style={{ borderColor: scoreColor, backgroundColor: scoreColor + '10' }}
@@ -458,23 +489,28 @@ export default async function DashboardPage() {
                       <span className="text-xs font-bold font-[family-name:var(--font-geist-mono)] tabular-nums" style={{ color: scoreColor }}>{scoreVal}</span>
                     </div>
 
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
+                    {/* Title + Org */}
+                    <div className="min-w-0">
                       <p className="text-sm text-white line-clamp-1 group-hover:text-brand transition-colors">{(tender?.objeto as string) || 'N/A'}</p>
-                      <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-500">
-                        <span className="truncate max-w-[200px]">{(tender?.orgao_nome as string) || ''}</span>
-                        {Boolean(tender?.uf) && <span>· {String(tender?.uf)}</span>}
-                        {Boolean(tender?.valor_estimado) && (
-                          <span className="text-gray-400 font-[family-name:var(--font-geist-mono)] tabular-nums">
-                            · {formatCurrency(Number(tender?.valor_estimado))}
-                          </span>
-                        )}
-                      </div>
+                      <p className="text-xs text-gray-500 truncate mt-0.5">
+                        {(tender?.orgao_nome as string) || ''}{Boolean(tender?.uf) && ` · ${String(tender?.uf)}`}
+                      </p>
                     </div>
 
-                    {/* Right side: countdown + status */}
-                    <div className="flex items-center gap-2 shrink-0">
-                      {diffDays !== null && diffDays >= 0 && diffDays <= 7 && (
+                    {/* Value — fixed column */}
+                    <div className="text-right">
+                      {Boolean(tender?.valor_estimado) ? (
+                        <span className="text-xs text-gray-300 font-[family-name:var(--font-geist-mono)] tabular-nums">
+                          {formatCurrency(Number(tender?.valor_estimado))}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-600">—</span>
+                      )}
+                    </div>
+
+                    {/* Countdown — fixed column */}
+                    <div className="text-center">
+                      {diffDays !== null && diffDays >= 0 && diffDays <= 7 ? (
                         <span className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${
                           diffDays <= 1 ? 'bg-red-500/20 text-red-400' :
                           diffDays <= 3 ? 'bg-amber-500/20 text-amber-400' :
@@ -482,17 +518,14 @@ export default async function DashboardPage() {
                         }`}>
                           {diffDays === 0 ? 'Hoje' : `D-${diffDays}`}
                         </span>
-                      )}
-                      <Badge variant="outline" className="text-[10px]">{
-                        match.status === 'new' ? 'Nova' :
-                        match.status === 'notified' ? 'Notificada' :
-                        match.status === 'interested' ? 'Interesse' :
-                        match.status === 'applied' ? 'Aplicada' :
-                        match.status === 'dismissed' ? 'Descartada' :
-                        match.status === 'won' ? 'Ganha' :
-                        match.status === 'lost' ? 'Perdida' :
-                        match.status
-                      }</Badge>
+                      ) : null}
+                    </div>
+
+                    {/* Status badge — fixed column */}
+                    <div className="text-right">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium border ${statusConfig.classes}`}>
+                        {statusConfig.label}
+                      </span>
                     </div>
                   </Link>
                 )
@@ -523,6 +556,7 @@ function KPICard({
   small,
   highlight,
   trend,
+  noTrend,
 }: {
   label: string
   value: string
@@ -531,34 +565,60 @@ function KPICard({
   small?: boolean
   highlight?: boolean
   trend?: { pct: number; direction: 'up' | 'down' | 'neutral' }
+  noTrend?: boolean
 }) {
   return (
     <Card className={`relative overflow-hidden ${highlight ? 'border-emerald-500/20' : ''}`}>
       {/* Gleam line — only on highlighted card */}
       {highlight && (
-        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-emerald-400/60 to-transparent" />
+        <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-emerald-400/60 to-transparent" />
       )}
       <CardContent className="pt-4 pb-3.5 px-4">
         <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1.5">{label}</p>
-        <div className="flex items-baseline gap-1">
-          <p className={`font-bold text-white font-[family-name:var(--font-geist-mono)] tabular-nums ${small ? 'text-lg' : 'text-2xl'} tracking-tight`}>
+        <div className="flex items-baseline gap-0.5">
+          <p className={`font-bold text-white font-[family-name:var(--font-geist-mono)] tabular-nums ${small ? 'text-lg' : 'text-[28px]'} tracking-tight leading-none`}>
             {value}
           </p>
-          {suffix && <span className="text-sm text-gray-500 font-[family-name:var(--font-geist-mono)]">{suffix}</span>}
+          {suffix && <span className="text-base text-gray-400 font-medium font-[family-name:var(--font-geist-mono)]">{suffix}</span>}
         </div>
         {/* Trend indicator */}
-        {trend && trend.direction !== 'neutral' && trend.pct > 0 && (
-          <div className={`flex items-center gap-1 mt-1.5 text-[10px] font-medium ${
+        {trend && trend.direction !== 'neutral' && trend.pct > 0 ? (
+          <div className={`flex items-center gap-1 mt-2 text-[10px] font-medium ${
             trend.direction === 'up' ? 'text-emerald-400' : 'text-red-400'
           }`}>
             <span>{trend.direction === 'up' ? '↑' : '↓'}</span>
             <span className="font-[family-name:var(--font-geist-mono)] tabular-nums">{trend.pct}%</span>
             <span className="text-gray-600">vs período anterior</span>
           </div>
-        )}
+        ) : !noTrend && !subtitle ? (
+          <p className="text-[10px] text-gray-600 mt-2">— sem histórico</p>
+        ) : null}
         {/* Subtitle */}
-        {subtitle && <p className="text-[10px] text-gray-600 mt-1">{subtitle}</p>}
+        {subtitle && <p className="text-[10px] text-gray-600 mt-1.5">{subtitle}</p>}
       </CardContent>
     </Card>
   )
+}
+
+// ─── Status Badge Config ──────────────────────────────────────────────────────
+
+function getStatusConfig(status: string): { label: string; classes: string } {
+  switch (status) {
+    case 'new':
+      return { label: 'Nova', classes: 'bg-white/[0.04] text-gray-400 border-white/[0.06]' }
+    case 'notified':
+      return { label: 'Notificada', classes: 'bg-brand/10 text-brand border-brand/20' }
+    case 'interested':
+      return { label: 'Interesse', classes: 'bg-amber-500/10 text-amber-400 border-amber-500/20' }
+    case 'applied':
+      return { label: 'Participando', classes: 'bg-blue-500/10 text-blue-400 border-blue-500/20' }
+    case 'won':
+      return { label: 'Ganha', classes: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' }
+    case 'lost':
+      return { label: 'Perdida', classes: 'bg-red-500/10 text-red-400 border-red-500/20' }
+    case 'dismissed':
+      return { label: 'Descartada', classes: 'bg-white/[0.03] text-gray-500 border-white/[0.04]' }
+    default:
+      return { label: status, classes: 'bg-white/[0.04] text-gray-400 border-white/[0.06]' }
+  }
 }
