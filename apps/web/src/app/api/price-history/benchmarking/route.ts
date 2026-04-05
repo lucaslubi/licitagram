@@ -138,46 +138,22 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    // Step 1: Get tender IDs only (fast — uses GIN index, no JOIN)
-    let idsQuery = supabase
-      .from('tenders')
-      .select('id')
-      .textSearch('objeto', q, { type: 'websearch', config: 'portuguese' })
-
-    if (uf) idsQuery = idsQuery.eq('uf', uf)
-    if (modalidade) idsQuery = idsQuery.eq('modalidade_nome', modalidade)
-    if (dateFrom) idsQuery = idsQuery.gte('data_encerramento', dateFrom)
-    if (dateTo) idsQuery = idsQuery.lte('data_encerramento', dateTo)
-
-    idsQuery = idsQuery.order('data_encerramento', { ascending: false }).limit(50)
-
-    const { data: tenderIds, error: idsError } = await idsQuery
-    if (idsError) {
-      console.error('Benchmarking IDs query error:', idsError)
-      return NextResponse.json({ error: idsError.message }, { status: 500 })
-    }
-
-    if (!tenderIds || tenderIds.length === 0) {
-      return NextResponse.json(
-        { error: 'Nenhum resultado encontrado para esta pesquisa' },
-        { status: 404 },
-      )
-    }
-
-    const ids = tenderIds.map((t) => t.id)
-
-    // Step 2: Get full data for those specific IDs (fast — uses PK index)
-    const { data, error } = await supabase
-      .from('tenders')
-      .select(
-        'id, objeto, valor_estimado, uf, orgao_nome, data_encerramento, data_publicacao, competitors(cnpj, nome, valor_proposta, situacao, uf_fornecedor)',
-      )
-      .in('id', ids)
+    // Use RPC for efficient server-side query (CTE + GIN index)
+    const { data: rpcData, error } = await supabase.rpc('search_tenders_with_bids', {
+      p_query: q,
+      p_uf: uf || null,
+      p_modalidade: modalidade || null,
+      p_date_from: dateFrom || null,
+      p_date_to: dateTo || null,
+      p_limit: 50,
+    })
 
     if (error) {
       console.error('Benchmarking query error:', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    const data = rpcData as Array<Record<string, unknown>> | null
 
     if (!data || data.length === 0) {
       return NextResponse.json(
@@ -186,7 +162,7 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    // Extract all valor_proposta values > 0
+    // Extract all valor_proposta values from RPC flat rows
     const allPrices: number[] = []
     const winningBids: {
       valor: number
@@ -197,32 +173,23 @@ export async function GET(req: NextRequest) {
       valor_estimado: number | null
     }[] = []
 
-    for (const tender of data) {
-      const competitors = (tender.competitors || []) as Array<{
-        cnpj: string | null
-        nome: string | null
-        valor_proposta: number | null
-        situacao: string | null
-        uf_fornecedor: string | null
-      }>
+    for (const row of data) {
+      const valorProposta = row.valor_proposta as number
+      if (!valorProposta || valorProposta <= 0) continue
 
-      for (const comp of competitors) {
-        if (!comp.valor_proposta || comp.valor_proposta <= 0) continue
+      allPrices.push(valorProposta)
 
-        allPrices.push(comp.valor_proposta)
-
-        // Collect winning bids for similar_wins
-        const situacao = (comp.situacao || '').trim()
-        if (situacao === 'Informado' || situacao === 'Homologado') {
-          winningBids.push({
-            valor: comp.valor_proposta,
-            orgao: tender.orgao_nome || 'N/I',
-            uf: tender.uf || '',
-            data: tender.data_encerramento || tender.data_publicacao || '',
-            fornecedor: comp.nome || 'N/I',
-            valor_estimado: tender.valor_estimado as number | null,
-          })
-        }
+      // Collect winning bids for similar_wins
+      const situacao = ((row.situacao as string) || '').trim()
+      if (situacao === 'Informado' || situacao === 'Homologado') {
+        winningBids.push({
+          valor: valorProposta,
+          orgao: (row.orgao_nome as string) || 'N/I',
+          uf: (row.uf as string) || '',
+          data: ((row.data_encerramento || row.data_publicacao) as string) || '',
+          fornecedor: (row.nome as string) || 'N/I',
+          valor_estimado: row.valor_estimado as number | null,
+        })
       }
     }
 

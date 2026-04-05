@@ -83,47 +83,22 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    // Step 1: Get tender IDs only (fast — uses GIN index, no JOIN)
-    let idsQuery = supabase
-      .from('tenders')
-      .select('id')
-      .textSearch('objeto', q, { type: 'websearch', config: 'portuguese' })
-      .gt('valor_estimado', 0)
-
-    if (uf) idsQuery = idsQuery.eq('uf', uf)
-    if (modalidade) idsQuery = idsQuery.eq('modalidade_nome', modalidade)
-
-    idsQuery = idsQuery.order('data_encerramento', { ascending: false }).limit(50)
-
-    const { data: tenderIds, error: idsError } = await idsQuery
-    if (idsError) {
-      console.error('Seasonality IDs query error:', idsError)
-      return NextResponse.json({ error: idsError.message }, { status: 500 })
-    }
-
-    if (!tenderIds || tenderIds.length === 0) {
-      return NextResponse.json({
-        monthly: [], quarterly: [], best_months: [], yoy: [],
-        total_records: 0, years_analyzed: 0,
-        cache_hit: false, query_time_ms: Date.now() - startTime,
-      })
-    }
-
-    const ids = tenderIds.map((t) => t.id)
-
-    // Step 2: Get full data for those specific IDs (fast — uses PK index)
-    const { data, error } = await supabase
-      .from('tenders')
-      .select(
-        'id, objeto, valor_estimado, uf, modalidade_nome, data_encerramento, data_publicacao, competitors(valor_proposta)',
-      )
-      .in('id', ids)
-      .gt('valor_estimado', 0)
+    // Use RPC for efficient server-side query (CTE + GIN index)
+    const { data: rpcData, error } = await supabase.rpc('search_tenders_with_bids', {
+      p_query: q,
+      p_uf: uf || null,
+      p_modalidade: modalidade || null,
+      p_date_from: null,
+      p_date_to: null,
+      p_limit: 50,
+    })
 
     if (error) {
       console.error('Seasonality query error:', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    const data = rpcData as Array<Record<string, unknown>> | null
 
     if (!data || data.length === 0) {
       return NextResponse.json({
@@ -138,7 +113,7 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    // Aggregate data into buckets
+    // Aggregate RPC flat rows into buckets
     const monthBuckets: Record<number, MonthBucket> = {}
     const yearBuckets: Record<number, YearBucket> = {}
     const allPrices: number[] = []
@@ -149,8 +124,8 @@ export async function GET(req: NextRequest) {
       monthBuckets[m] = { prices: [], discounts: [] }
     }
 
-    for (const tender of data) {
-      const dateStr = tender.data_encerramento || tender.data_publicacao
+    for (const row of data) {
+      const dateStr = (row.data_encerramento || row.data_publicacao) as string | null
       if (!dateStr) continue
 
       const date = new Date(dateStr)
@@ -158,7 +133,9 @@ export async function GET(req: NextRequest) {
       const month = date.getMonth() + 1 // 1-12
       const year = date.getFullYear()
       if (month < 1 || month > 12 || year < 2000 || year > 2100) continue
-      const valorEstimado = tender.valor_estimado as number
+      const valorEstimado = row.valor_estimado as number
+      const price = row.valor_proposta as number
+      if (!price || price <= 0) continue
 
       yearsSet.add(year)
 
@@ -166,25 +143,18 @@ export async function GET(req: NextRequest) {
         yearBuckets[year] = { prices: [], volume: 0 }
       }
 
-      const competitors = (tender.competitors || []) as Array<{ valor_proposta: number | null }>
+      const discountPct = valorEstimado > 0
+        ? ((valorEstimado - price) / valorEstimado) * 100
+        : 0
 
-      for (const comp of competitors) {
-        if (!comp.valor_proposta || comp.valor_proposta <= 0) continue
+      monthBuckets[month].prices.push(price)
+      monthBuckets[month].discounts.push(discountPct)
 
-        const price = comp.valor_proposta
-        const discountPct = valorEstimado > 0
-          ? ((valorEstimado - price) / valorEstimado) * 100
-          : 0
+      yearBuckets[year].prices.push(price)
+      yearBuckets[year].volume++
 
-        monthBuckets[month].prices.push(price)
-        monthBuckets[month].discounts.push(discountPct)
-
-        yearBuckets[year].prices.push(price)
-        yearBuckets[year].volume++
-
-        allPrices.push(price)
-        totalRecords++
-      }
+      allPrices.push(price)
+      totalRecords++
     }
 
     const globalMedian = median(allPrices)

@@ -184,85 +184,44 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    // Step 1: Get tender IDs only (fast — uses GIN index, no JOIN)
-    let idsQuery = supabase
-      .from('tenders')
-      .select('id')
-      .textSearch('objeto', q, { type: 'websearch', config: 'portuguese' })
-      .gt('valor_estimado', 0)
-
-    if (uf) idsQuery = idsQuery.eq('uf', uf)
-    if (modalidade) idsQuery = idsQuery.eq('modalidade_nome', modalidade)
-    if (dateFrom) idsQuery = idsQuery.gte('data_encerramento', dateFrom)
-    if (dateTo) idsQuery = idsQuery.lte('data_encerramento', dateTo)
-
-    idsQuery = idsQuery.order('data_encerramento', { ascending: false }).limit(50)
-
-    const { data: tenderIds, error: idsError } = await idsQuery
-    if (idsError) {
-      console.error('Discount analysis IDs query error:', idsError)
-      return NextResponse.json({ error: idsError.message }, { status: 500 })
-    }
-
-    if (!tenderIds || tenderIds.length === 0) {
-      return NextResponse.json({
-        global: { mean_discount: 0, median_discount: 0, min_discount: 0, max_discount: 0, std_deviation: 0, total_records: 0 },
-        histogram: [], by_uf: [], by_porte: [], by_modalidade: [], trend: [],
-        winner_vs_loser: { winners: { mean_discount: 0, median_discount: 0, count: 0 }, losers: { mean_discount: 0, median_discount: 0, count: 0 } },
-        cache_hit: false, query_time_ms: Date.now() - startTime,
-      })
-    }
-
-    const ids = tenderIds.map((t) => t.id)
-
-    // Step 2: Get full data for those specific IDs (fast — uses PK index)
-    const { data, error } = await supabase
-      .from('tenders')
-      .select(
-        'valor_estimado, valor_homologado, uf, modalidade_nome, data_encerramento, competitors(valor_proposta, situacao, porte, uf_fornecedor, cnpj, nome)',
-      )
-      .in('id', ids)
-      .gt('valor_estimado', 0)
+    // Use RPC for efficient server-side query (CTE + GIN index)
+    const { data: rpcData, error } = await supabase.rpc('search_tenders_with_bids', {
+      p_query: q,
+      p_uf: uf || null,
+      p_modalidade: modalidade || null,
+      p_date_from: dateFrom || null,
+      p_date_to: dateTo || null,
+      p_limit: 50,
+    })
 
     if (error) {
       console.error('Discount analysis query error:', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Build discount entries from the raw data
+    // Build discount entries from RPC flat rows
     const entries: DiscountEntry[] = []
 
-    if (data) {
-      for (const tender of data) {
-        const valorEstimado = tender.valor_estimado as number
-        const competitors = (tender.competitors || []) as Array<{
-          valor_proposta: number | null
-          situacao: string | null
-          porte: string | null
-          uf_fornecedor: string | null
-          cnpj: string | null
-          nome: string | null
-        }>
+    if (rpcData) {
+      for (const row of rpcData as Array<Record<string, unknown>>) {
+        const valorEstimado = row.valor_estimado as number
+        const valorProposta = row.valor_proposta as number
+        if (!valorEstimado || !valorProposta) continue
 
-        const tenderMonth = tender.data_encerramento
-          ? (tender.data_encerramento as string).slice(0, 7)
+        const discountPct = ((valorEstimado - valorProposta) / valorEstimado) * 100
+        const isWinner = WINNER_SITUACOES.includes((row.situacao as string) || '')
+        const tenderMonth = row.data_encerramento
+          ? String(row.data_encerramento).slice(0, 7)
           : 'unknown'
 
-        for (const comp of competitors) {
-          if (!comp.valor_proposta || comp.valor_proposta <= 0) continue
-
-          const discountPct = ((valorEstimado - comp.valor_proposta) / valorEstimado) * 100
-          const isWinner = WINNER_SITUACOES.includes(comp.situacao || '')
-
-          entries.push({
-            discount_pct: round2(discountPct),
-            uf: (tender.uf as string) || 'N/I',
-            porte: normalizePorte(comp.porte),
-            modalidade: (tender.modalidade_nome as string) || 'N/I',
-            month: tenderMonth,
-            is_winner: isWinner,
-          })
-        }
+        entries.push({
+          discount_pct: round2(discountPct),
+          uf: (row.uf as string) || 'N/I',
+          porte: normalizePorte(row.porte as string),
+          modalidade: (row.modalidade_nome as string) || 'N/I',
+          month: tenderMonth,
+          is_winner: isWinner,
+        })
       }
     }
 
