@@ -55,8 +55,15 @@ export async function POST(request: NextRequest) {
     const tender = match.tenders as any
     const { data: company } = await supabase
       .from('companies')
-      .select('razao_social, cnpj, representante_nome, representante_cpf, representante_cargo, uf, municipio')
+      .select('razao_social, cnpj, uf, municipio')
       .eq('id', user.companyId)
+      .single()
+
+    // Fetch user profile for representative info
+    const { data: userProfile } = await supabase
+      .from('users')
+      .select('full_name')
+      .eq('id', user.userId)
       .single()
 
     // Calculate deadline (3 business days before opening)
@@ -66,6 +73,17 @@ export async function POST(request: NextRequest) {
 
     const editalText = (tender?.tender_documents || []).map((d: any) => d.texto_extraido || '').join('\n').substring(0, 30000)
 
+    // Merge company + user profile for prompt
+    const companyForPrompt = {
+      razao_social: company?.razao_social || null,
+      cnpj: company?.cnpj || null,
+      representante_nome: userProfile?.full_name || null,
+      representante_cpf: null,
+      representante_cargo: null,
+      uf: company?.uf || null,
+      municipio: company?.municipio || null,
+    }
+
     // Generate impugnation text via LLM (specialist prompt)
     const response = await openrouter.chat.completions.create({
       model: 'google/gemini-2.5-flash',
@@ -74,7 +92,7 @@ export async function POST(request: NextRequest) {
         {
           role: 'user',
           content: buildImpugnationUserPrompt(
-            company,
+            companyForPrompt,
             { objeto: tender?.objeto, orgao_nome: tender?.orgao_nome, modalidade_nome: tender?.modalidade_nome, data_abertura: tender?.data_abertura },
             motivo,
             editalText,
