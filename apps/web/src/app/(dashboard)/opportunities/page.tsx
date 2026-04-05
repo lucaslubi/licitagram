@@ -249,6 +249,16 @@ export default async function OpportunitiesPage({
                   <option value="E">Estadual</option>
                   <option value="M">Municipal</option>
                 </select>
+                <select name="ordem_valor" defaultValue={ordemValorFilter} className="opp-filter-select">
+                  <option value="">Valor: Padrão</option>
+                  <option value="valor_desc">Valor: Maior</option>
+                  <option value="valor_asc">Valor: Menor</option>
+                </select>
+                <select name="ordem_data" defaultValue={ordemDataFilter} className="opp-filter-select">
+                  <option value="">Data: Padrão</option>
+                  <option value="data_desc">Data: Recente</option>
+                  <option value="data_asc">Data: Antiga</option>
+                </select>
               </div>
             </div>
             {/* Submit + clear */}
@@ -504,6 +514,16 @@ export default async function OpportunitiesPage({
                 <option value="F">Federal</option>
                 <option value="E">Estadual</option>
                 <option value="M">Municipal</option>
+              </select>
+              <select name="ordem_valor" defaultValue={ordemValorFilter} className="opp-filter-select">
+                <option value="">Valor: Padrão</option>
+                <option value="valor_desc">Valor: Maior</option>
+                <option value="valor_asc">Valor: Menor</option>
+              </select>
+              <select name="ordem_data" defaultValue={ordemDataFilter} className="opp-filter-select">
+                <option value="">Data: Padrão</option>
+                <option value="data_desc">Data: Recente</option>
+                <option value="data_asc">Data: Antiga</option>
               </select>
             </div>
           </div>
