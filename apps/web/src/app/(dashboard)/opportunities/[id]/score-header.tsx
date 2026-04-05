@@ -50,11 +50,12 @@ function ScoreBadgeLarge({ score, verified, keywordScore }: { score: number; ver
       {showKeywordDiff && (
         <span className="text-gray-300">→</span>
       )}
-      <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-lg font-bold border ${color}`}>
-        Score {score}
-        {verified ? (
-          <span className="text-xs font-normal opacity-70">IA</span>
-        ) : (
+      <span
+        className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-lg font-bold border ${color}`}
+        title="Pontuação consolidada considerando CNAE, competitividade, valor e histórico"
+      >
+        Score IA: {score}
+        {!verified && (
           <span className="text-xs font-normal opacity-50">estimado</span>
         )}
       </span>

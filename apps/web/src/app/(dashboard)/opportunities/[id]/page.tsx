@@ -271,8 +271,18 @@ export default async function OpportunityDetailPage({
                   </div>
                   <div className="bg-[#111214] rounded p-2">
                     <div className="text-gray-400">Competitividade</div>
-                    <div className="font-medium">
-                      {(match.competition_score as number) >= 75 ? 'Baixa' : (match.competition_score as number) >= 50 ? 'Moderada' : 'Alta'}
+                    <div className={`font-medium ${
+                      nicheCompetitors.length <= 3 ? 'text-emerald-400' :
+                      nicheCompetitors.length <= 7 ? 'text-lime-400' :
+                      nicheCompetitors.length <= 15 ? 'text-amber-400' :
+                      nicheCompetitors.length <= 30 ? 'text-orange-400' :
+                      'text-red-400'
+                    }`}>
+                      {nicheCompetitors.length <= 3 ? 'Muito Baixa' :
+                       nicheCompetitors.length <= 7 ? 'Baixa' :
+                       nicheCompetitors.length <= 15 ? 'Média' :
+                       nicheCompetitors.length <= 30 ? 'Alta' :
+                       'Muito Alta'}
                     </div>
                   </div>
                 </div>
@@ -289,7 +299,11 @@ export default async function OpportunityDetailPage({
                         <FraudAlertBadges tenderId={tender?.id as string || id} cnpj={(c.cnpj as string) || ''} />
                       </div>
                       <span className="text-gray-400 shrink-0 ml-2">
-                        Win rate {Math.round(Number(c.win_rate || 0) * 100)}% · {(c.porte as string) || 'N/I'}
+                        {Number(c.total_participacoes || 0) >= 5
+                          ? `Win rate ${Math.round(Number(c.win_rate || 0) * 100)}%`
+                          : <span className="opacity-60" title="Amostra pequena — menos de 5 participações registradas">{Number(c.total_vitorias || 0)}/{Number(c.total_participacoes || 0)} part.</span>
+                        }
+                        {' · '}{(c.porte as string) || 'N/I'}
                       </span>
                     </div>
                   ))}
@@ -418,20 +432,80 @@ export default async function OpportunityDetailPage({
             />
           )}
 
-          {/* Intelligent Pricing */}
-          <TenderPricing
-            objeto={(tender?.objeto as string) || ''}
-            valorEstimado={(tender?.valor_estimado as number) || null}
-            uf={(tender?.uf as string) || null}
-            modalidade={(tender?.modalidade_nome as string) || null}
-          />
+          {/* Intelligent Pricing — Enterprise only */}
+          {isEnterprise ? (
+            <TenderPricing
+              objeto={(tender?.objeto as string) || ''}
+              valorEstimado={(tender?.valor_estimado as number) || null}
+              uf={(tender?.uf as string) || null}
+              modalidade={(tender?.modalidade_nome as string) || null}
+            />
+          ) : (
+            <Card className="relative overflow-hidden">
+              <div className="absolute inset-0 bg-[#1a1c1f]/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center p-6 text-center">
+                <div className="w-12 h-12 bg-amber-500/15 rounded-lg flex items-center justify-center mb-3">
+                  <span className="text-2xl">🔒</span>
+                </div>
+                <h3 className="text-white font-semibold mb-1">Precificador Inteligente</h3>
+                <p className="text-xs text-gray-400 max-w-sm mb-4">
+                  Análise comparativa de preços com histórico de 130K+ licitações, detecção de outliers e sugestão de preço competitivo.
+                </p>
+                <Link
+                  href="/settings?tab=billing&upgrade=enterprise&source=pricing_intelligence"
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  Disponível no plano Enterprise →
+                </Link>
+              </div>
+              <CardHeader>
+                <CardTitle className="text-base">Precificador Inteligente</CardTitle>
+              </CardHeader>
+              <CardContent className="filter blur-sm pointer-events-none">
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="bg-[#111214] rounded-lg p-3"><div className="h-4 bg-[#2d2f33] rounded w-20 mb-2" /><div className="h-6 bg-[#2d2f33] rounded w-24" /></div>
+                  <div className="bg-[#111214] rounded-lg p-3"><div className="h-4 bg-[#2d2f33] rounded w-20 mb-2" /><div className="h-6 bg-[#2d2f33] rounded w-24" /></div>
+                  <div className="bg-[#111214] rounded-lg p-3"><div className="h-4 bg-[#2d2f33] rounded w-20 mb-2" /><div className="h-6 bg-[#2d2f33] rounded w-24" /></div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
-          {/* Historical Prices */}
-          <HistoricalPrices
-            currentObjeto={(tender?.objeto as string) || ''}
-            currentValorEstimado={(tender?.valor_estimado as number) || null}
-            currentTenderId={(tender?.id as string) || id}
-          />
+          {/* Historical Prices — Enterprise only */}
+          {isEnterprise ? (
+            <HistoricalPrices
+              currentObjeto={(tender?.objeto as string) || ''}
+              currentValorEstimado={(tender?.valor_estimado as number) || null}
+              currentTenderId={(tender?.id as string) || id}
+            />
+          ) : (
+            <Card className="relative overflow-hidden">
+              <div className="absolute inset-0 bg-[#1a1c1f]/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center p-6 text-center">
+                <div className="w-12 h-12 bg-amber-500/15 rounded-lg flex items-center justify-center mb-3">
+                  <span className="text-2xl">🔒</span>
+                </div>
+                <h3 className="text-white font-semibold mb-1">Histórico de Preços Similares</h3>
+                <p className="text-xs text-gray-400 max-w-sm mb-4">
+                  Compare preços com licitações semelhantes e descubra o desconto mediano do mercado.
+                </p>
+                <Link
+                  href="/settings?tab=billing&upgrade=enterprise&source=historical_prices"
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  Disponível no plano Enterprise →
+                </Link>
+              </div>
+              <CardHeader>
+                <CardTitle className="text-base">Histórico de Preços Similares</CardTitle>
+              </CardHeader>
+              <CardContent className="filter blur-sm pointer-events-none">
+                <div className="grid grid-cols-3 gap-3 p-3 bg-[#2d2f33] rounded-lg">
+                  <div className="text-center"><div className="h-3 bg-[#111214] rounded w-16 mx-auto mb-1" /><div className="h-5 bg-[#111214] rounded w-20 mx-auto" /></div>
+                  <div className="text-center"><div className="h-3 bg-[#111214] rounded w-16 mx-auto mb-1" /><div className="h-5 bg-[#111214] rounded w-20 mx-auto" /></div>
+                  <div className="text-center"><div className="h-3 bg-[#111214] rounded w-16 mx-auto mb-1" /><div className="h-5 bg-[#111214] rounded w-20 mx-auto" /></div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Sidebar */}
@@ -448,12 +522,21 @@ export default async function OpportunityDetailPage({
               >
                 Gerar Proposta
               </Link>
-              <Link
-                href={`/price-history?q=${encodeURIComponent((tender?.objeto as string) || '')}`}
-                className="block w-full text-center px-4 py-2 rounded-lg bg-[#1a1c1f] hover:bg-[#2d2f33] border border-[#2d2f33] text-gray-300 hover:text-white text-sm font-medium transition-colors"
-              >
-                Preços de Mercado
-              </Link>
+              {isEnterprise ? (
+                <Link
+                  href={`/price-history?q=${encodeURIComponent((tender?.objeto as string) || '')}`}
+                  className="block w-full text-center px-4 py-2 rounded-lg bg-[#1a1c1f] hover:bg-[#2d2f33] border border-[#2d2f33] text-gray-300 hover:text-white text-sm font-medium transition-colors"
+                >
+                  Preços de Mercado
+                </Link>
+              ) : (
+                <Link
+                  href="/settings?tab=billing&upgrade=enterprise&source=market_prices"
+                  className="block w-full text-center px-4 py-2 rounded-lg bg-[#1a1c1f] hover:bg-[#2d2f33] border border-[#2d2f33] text-gray-500 text-sm font-medium transition-colors"
+                >
+                  🔒 Preços de Mercado (Enterprise)
+                </Link>
+              )}
             </CardContent>
           </Card>
 

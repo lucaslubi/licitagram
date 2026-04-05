@@ -284,7 +284,7 @@ export function AiAnalysis({ matchId, initialData, matchSource, hasAccess = true
               </svg>
               Parecer Técnico
             </CardTitle>
-            <p className="text-xs text-muted-foreground mt-1">Avaliação detalhada de compatibilidade por dimensão</p>
+            <p className="text-xs text-muted-foreground mt-1">Compatibilidade direta entre sua empresa e os requisitos do edital</p>
           </CardHeader>
           <CardContent className="pt-4">
             {(() => {
@@ -342,10 +342,10 @@ export function AiAnalysis({ matchId, initialData, matchSource, hasAccess = true
                   {/* Donut Chart */}
                   <div className="relative w-24 h-24 sm:w-28 sm:h-28 shrink-0">
                     <div className="w-full h-full rounded-full" style={{ background: conicGradient }} />
-                    <div className="absolute inset-2.5 sm:inset-3 bg-[#1a1c1f] rounded-full flex items-center justify-center shadow-inner">
+                    <div className="absolute inset-2.5 sm:inset-3 bg-[#1a1c1f] rounded-full flex items-center justify-center shadow-inner" title="Match direto entre sua empresa e os requisitos literais do edital (CNAE + palavras-chave + descrição)">
                       <div className="text-center">
-                        <p className="text-lg sm:text-xl font-bold text-white">{avgScore}</p>
-                        <p className="text-[8px] sm:text-[9px] text-gray-400 uppercase tracking-wider">Score</p>
+                        <p className="text-lg sm:text-xl font-bold text-white">{avgScore}%</p>
+                        <p className="text-[8px] sm:text-[9px] text-gray-400 uppercase tracking-wider">Compat.</p>
                       </div>
                     </div>
                   </div>
@@ -376,6 +376,16 @@ export function AiAnalysis({ matchId, initialData, matchSource, hasAccess = true
                       )
                     })}
                   </div>
+                  {/* Explanation when Score IA >> Compatibilidade Técnica */}
+                  {initialData.score > avgScore + 15 && (
+                    <div className="mt-4 p-3 bg-amber-950/20 border border-amber-800/30 rounded-lg">
+                      <p className="text-xs text-amber-300/90 leading-relaxed">
+                        ⚠️ A compatibilidade técnica direta é {avgScore}%, mas o Score IA é {initialData.score} porque considera fatores adicionais:
+                        {breakdown.some(b => b.category === 'cnae' || b.category === 'compatibilidade_cnae') && getScoreForItem(breakdown.find(b => b.category === 'cnae' || b.category === 'compatibilidade_cnae')!) >= 70 && ' CNAE compatível,'}
+                        {' '}baixa competitividade no nicho, valor dentro da faixa habitual e histórico de participação.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )
             })()}

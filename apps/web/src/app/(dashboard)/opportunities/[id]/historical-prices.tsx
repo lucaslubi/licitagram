@@ -286,9 +286,15 @@ export function HistoricalPrices({
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           Histórico de Preços Similares
-          <Badge variant="secondary" className="text-xs ml-auto">
-            {stats.count} licitações
-          </Badge>
+          {stats.count < 5 ? (
+            <Badge variant="outline" className="text-xs ml-auto bg-amber-900/20 text-amber-400 border-amber-800/30">
+              ⚠️ {stats.count} amostras — confiança baixa
+            </Badge>
+          ) : (
+            <Badge variant="secondary" className="text-xs ml-auto bg-emerald-900/20 text-emerald-400 border-emerald-800/30">
+              ✓ {stats.count} licitações
+            </Badge>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
