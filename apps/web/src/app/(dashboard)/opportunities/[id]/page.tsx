@@ -18,6 +18,7 @@ import { FraudAlertBadges } from '@/components/fraud/FraudAlertBadges'
 import { HabilitacaoChecklist } from './habilitacao-checklist'
 import { LanceSimulator } from './lance-simulator'
 import { ImpugnationCard } from './impugnation-card'
+import { TenderPricing } from './tender-pricing'
 
 export default async function OpportunityDetailPage({
   params,
@@ -416,6 +417,14 @@ export default async function OpportunityDetailPage({
               }
             />
           )}
+
+          {/* Intelligent Pricing */}
+          <TenderPricing
+            objeto={(tender?.objeto as string) || ''}
+            valorEstimado={(tender?.valor_estimado as number) || null}
+            uf={(tender?.uf as string) || null}
+            modalidade={(tender?.modalidade_nome as string) || null}
+          />
 
           {/* Historical Prices */}
           <HistoricalPrices

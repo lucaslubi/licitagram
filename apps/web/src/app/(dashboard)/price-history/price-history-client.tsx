@@ -13,7 +13,8 @@ import { DiscountAnalysis } from './components/DiscountAnalysis'
 import { SeasonalityAnalysis } from './components/SeasonalityAnalysis'
 import { BenchmarkGauge } from './components/BenchmarkGauge'
 import { CompetitorProfile } from './components/CompetitorProfile'
-import { SmartPricing } from './components/SmartPricing'
+import { SmartPricingV2 } from './components/SmartPricingV2'
+import { PriceBandSelector } from './components/PriceBandSelector'
 import { PriceWatch } from './components/PriceWatch'
 
 const UF_OPTIONS = [
@@ -73,6 +74,8 @@ export function PriceHistoryClient() {
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [activeTab, setActiveTab] = useState<TabId>('tendencia')
   const [winOnly, setWinOnly] = useState(false)
+  const [valorEstimado, setValorEstimado] = useState<number | null>(null)
+  const [selectedBandLabel, setSelectedBandLabel] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -708,7 +711,40 @@ export function PriceHistoryClient() {
                 </CardContent>
               </Card>
               <BenchmarkGauge query={query} uf={uf} modalidade={modalidade} dateFrom={dateFrom} dateTo={dateTo} />
-              <SmartPricing query={query} uf={uf} modalidade={modalidade} />
+
+              {/* Price Band Selector + Contextual Pricing */}
+              <PriceBandSelector
+                query={query}
+                uf={uf || undefined}
+                modalidade={modalidade || undefined}
+                selectedBandId={null}
+                onSelectBand={(ve, label) => {
+                  setValorEstimado(ve)
+                  setSelectedBandLabel(label)
+                }}
+              />
+
+              {valorEstimado ? (
+                <SmartPricingV2
+                  query={query}
+                  valorEstimado={valorEstimado}
+                  uf={uf || undefined}
+                  modalidade={modalidade || undefined}
+                  bandLabel={selectedBandLabel || undefined}
+                />
+              ) : (
+                <Card className="bg-[#23262a] border-[#2d2f33]">
+                  <CardContent className="py-6 text-center space-y-2">
+                    <p className="text-gray-400 text-sm">
+                      Selecione uma faixa de valor acima para ativar o Precificador Inteligente
+                    </p>
+                    <p className="text-gray-600 text-xs">
+                      A análise contextual compara apenas licitações na mesma faixa de valor, gerando recomendações precisas com probabilidade de vitória estatística.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+
               <PriceWatch />
             </div>
           )}

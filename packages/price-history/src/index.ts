@@ -3,4 +3,20 @@ export { analyzeTrend, groupByMonth, analyzeTrendDirection } from './trend-analy
 export { buildSearchClause, buildFilterClauses, buildFullQuery, generateCacheKey } from './search-engine'
 export { cachedQuery } from './cache-strategy'
 export { formatAsCSV, formatAsSpreadsheetData, formatAsSummaryText } from './export-formatter'
+export {
+  computeDiscountRatioStats,
+  fitWinProbabilityModel,
+  generateRecommendations,
+  generateWinCurve,
+  assessContextualConfidence,
+} from './statistical-engine'
+export type {
+  ContextualBid,
+  DiscountRatioStats,
+  WinProbModel,
+  WinCurvePoint,
+  PricingRecommendation,
+  PriceBand,
+  ConfidenceLevel,
+} from './statistical-engine'
 export type * from './types'
