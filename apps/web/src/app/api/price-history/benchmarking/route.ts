@@ -159,10 +159,11 @@ export async function GET(req: NextRequest) {
       query = query.lte('data_encerramento', dateTo)
     }
 
-    // Limit to 500 records for computation (reduces query time significantly)
+    // Limit to 50 tenders to avoid statement timeout
+    // (each tender has many competitors, so 50 tenders = hundreds of data points)
     query = query
       .order('data_encerramento', { ascending: false })
-      .limit(500)
+      .limit(50)
 
     const { data, error } = await query
 
