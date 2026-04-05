@@ -284,7 +284,7 @@ export function HistoricalPrices({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
+        <CardTitle className="flex items-center gap-2 text-sm font-semibold tracking-tight">
           Histórico de Preços Similares
           {stats.count < 5 ? (
             <Badge variant="outline" className="text-xs ml-auto bg-amber-900/20 text-amber-400 border-amber-800/30">
@@ -301,20 +301,20 @@ export function HistoricalPrices({
         {/* Summary stats */}
         <div className="grid grid-cols-3 gap-3 p-3 bg-white/[0.04] rounded-lg">
           <div className="text-center">
-            <p className="text-xs text-gray-400">Valor Estimado Medio</p>
-            <p className="text-sm font-bold text-white">
+            <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Valor Estimado Médio</p>
+            <p className="text-sm font-bold text-white font-[family-name:var(--font-geist-mono)] tabular-nums">
               {stats.avgEstimado > 0 ? formatCurrencyBR(stats.avgEstimado) : '-'}
             </p>
           </div>
           <div className="text-center">
-            <p className="text-xs text-gray-400">Valor Vencedor Medio</p>
-            <p className="text-sm font-bold text-emerald-400">
+            <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Valor Vencedor Médio</p>
+            <p className="text-sm font-bold text-emerald-400 font-[family-name:var(--font-geist-mono)] tabular-nums">
               {stats.avgHomologado > 0 ? formatCurrencyBR(stats.avgHomologado) : '-'}
             </p>
           </div>
           <div className="text-center">
-            <p className="text-xs text-gray-400">Desconto Mediano</p>
-            <p className="text-sm font-bold text-brand">
+            <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Desconto Mediano</p>
+            <p className="text-sm font-bold text-brand font-[family-name:var(--font-geist-mono)] tabular-nums">
               {stats.avgDesconto > 0 ? `${stats.avgDesconto.toFixed(1)}%` : '-'}
             </p>
           </div>
@@ -323,11 +323,11 @@ export function HistoricalPrices({
         {/* Comparison with current */}
         {currentValorEstimado && stats.avgDesconto > 0 && (
           <div className="p-3 border border-brand/20 bg-brand/5 rounded-lg">
-            <p className="text-xs text-gray-400 mb-1">Sugestao de preco competitivo</p>
+            <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1">Sugestão de preço competitivo</p>
             <p className="text-sm font-medium text-white">
-              Com base no desconto mediano de {stats.avgDesconto.toFixed(1)}%, um preco competitivo
+              Com base no desconto mediano de <span className="font-[family-name:var(--font-geist-mono)] tabular-nums">{stats.avgDesconto.toFixed(1)}%</span>, um preço competitivo
               seria em torno de{' '}
-              <span className="font-bold text-brand">
+              <span className="font-bold text-brand font-[family-name:var(--font-geist-mono)] tabular-nums">
                 {formatCurrencyBR(currentValorEstimado * (1 - stats.avgDesconto / 100))}
               </span>
             </p>
@@ -355,11 +355,11 @@ export function HistoricalPrices({
                   </p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-gray-400">
+                  <p className="text-gray-400 font-[family-name:var(--font-geist-mono)] tabular-nums">
                     Est: {t.valor_estimado ? formatCurrencyBR(t.valor_estimado) : '-'}
                   </p>
                   {t.valor_homologado ? (
-                    <p className="text-emerald-400 font-medium">
+                    <p className="text-emerald-400 font-medium font-[family-name:var(--font-geist-mono)] tabular-nums">
                       Ven: {formatCurrencyBR(t.valor_homologado)}
                       {desconto !== null && desconto >= 0 && (
                         <span className="text-brand ml-1">(-{desconto.toFixed(0)}%)</span>

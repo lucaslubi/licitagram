@@ -137,7 +137,7 @@ export function ImpugnationCard({ matchId, dataAbertura }: { matchId: string; da
 
               <Button
                 onClick={() => setShowModal(true)}
-                className={`w-full font-medium ${
+                className={`font-medium ${
                   isUrgent
                     ? 'bg-red-600 hover:bg-red-700 text-white'
                     : 'bg-amber-600 hover:bg-amber-700 text-white'

@@ -291,14 +291,14 @@ export default async function OpportunityDetailPage({
             <CardContent className="space-y-3">
               {/* Factor breakdown */}
               {match.competition_score != null && (
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="bg-[#0a0a0b] rounded p-2">
-                    <div className="text-gray-400">Concorrentes no nicho</div>
-                    <div className="font-medium">{nicheCompetitors.length}</div>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="bg-[#0a0a0b] rounded-lg p-3">
+                    <div className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Concorrentes no nicho</div>
+                    <div className="font-semibold text-white font-[family-name:var(--font-geist-mono)] tabular-nums mt-0.5">{nicheCompetitors.length}</div>
                   </div>
-                  <div className="bg-[#0a0a0b] rounded p-2">
-                    <div className="text-gray-400">Competitividade</div>
-                    <div className={`font-medium ${
+                  <div className="bg-[#0a0a0b] rounded-lg p-3">
+                    <div className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Competitividade</div>
+                    <div className={`font-semibold mt-0.5 ${
                       nicheCompetitors.length <= 3 ? 'text-emerald-400' :
                       nicheCompetitors.length <= 7 ? 'text-lime-400' :
                       nicheCompetitors.length <= 15 ? 'text-amber-400' :
@@ -317,7 +317,7 @@ export default async function OpportunityDetailPage({
 
               {/* Known competitors table (enterprise: names, others: count + lock) */}
               {isEnterprise && nicheCompetitors.length > 0 ? (
-                <div className="space-y-1">
+                <div className="space-y-2">
                   <div className="text-xs text-gray-400 font-medium">Principais concorrentes:</div>
                   {nicheCompetitors.slice(0, 5).map((c, i) => (
                     <div key={i} className="flex items-center justify-between text-xs py-1.5 border-b border-white/[0.06] last:border-0">
@@ -365,7 +365,7 @@ export default async function OpportunityDetailPage({
           {requisitos && (requisitos as Record<string, any>).requisitos && (
             <Card>
               <CardHeader>
-                <CardTitle>Requisitos Extraídos</CardTitle>
+                <CardTitle className="text-sm font-semibold tracking-tight">Requisitos Extraídos</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
@@ -400,8 +400,7 @@ export default async function OpportunityDetailPage({
           {documents.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Documentos do Edital
-                </CardTitle>
+                <CardTitle className="text-sm font-semibold tracking-tight">Documentos do Edital</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
@@ -433,9 +432,9 @@ export default async function OpportunityDetailPage({
                         href={doc.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="shrink-0 ml-3 text-sm text-brand hover:underline"
+                        className="shrink-0 ml-3 text-sm text-gray-400 hover:text-white transition-colors group flex items-center gap-1"
                       >
-                        Download →
+                        Download <span className="transition-transform group-hover:translate-x-0.5">→</span>
                       </a>
                     </div>
                   ))}
@@ -539,7 +538,7 @@ export default async function OpportunityDetailPage({
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Status</CardTitle>
+              <CardTitle className="text-sm font-semibold tracking-tight">Status</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <StatusChanger matchId={match.id} currentStatus={match.status} />
