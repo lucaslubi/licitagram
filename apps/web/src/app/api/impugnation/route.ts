@@ -96,7 +96,15 @@ export async function POST(request: NextRequest) {
       temperature: 0.2,
     })
 
-    const textoCompleto = response.choices[0]?.message?.content || ''
+    // Strip markdown artifacts (**, ##, *, etc.) — document must look human-written
+    const rawText = response.choices[0]?.message?.content || ''
+    const textoCompleto = rawText
+      .replace(/\*\*([^*]+)\*\*/g, '$1')  // **bold** → bold
+      .replace(/##\s*/g, '')               // ## headings → plain
+      .replace(/#{1,3}\s*/g, '')           // # / ### headings
+      .replace(/\*([^*]+)\*/g, '$1')       // *italic* → italic
+      .replace(/`([^`]+)`/g, '$1')         // `code` → code
+      .replace(/^-{3,}$/gm, '')           // --- horizontal rules
     const fundamentacao = textoCompleto.split('DO DIREITO')[1]?.split('DO PEDIDO')[0] || textoCompleto.substring(0, 500)
 
     // Save to database
