@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
-import { formatCurrency } from '@licitagram/shared'
+import { formatCurrency, formatDate } from '@licitagram/shared'
 import { AI_VERIFIED_SOURCES, MIN_DISPLAY_SCORE, getAuthAndProfile } from '@/lib/cache'
 import { ScoreDonut, UFBarChart, ModalidadeBarChart, DocumentHealth, WinRateCircle } from '@/components/dashboard/DashboardCharts'
 import { SegmentPriceWidget } from '@/components/dashboard/SegmentPriceWidget'
@@ -25,7 +25,7 @@ export default async function DashboardPage() {
     return (
       <div>
         <h1 className="text-2xl font-bold mb-4 text-white">Bem-vindo ao Licitagram!</h1>
-        <Card className="bg-[#1a1c1f] border-[#2d2f33]">
+        <Card>
           <CardContent className="pt-6">
             <p className="text-gray-400 mb-4">
               Para começar a receber oportunidades, cadastre os dados da sua empresa.
@@ -43,9 +43,15 @@ export default async function DashboardPage() {
   }
 
   const now = new Date()
-  const today = now.toISOString().split('T')[0] // YYYY-MM-DD
+  const today = now.toISOString().split('T')[0]
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+
+  // Previous month for trends
+  const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0)
+  const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000)
+  const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000)
 
   const [
     totalMatchesResult,
@@ -60,9 +66,11 @@ export default async function DashboardPage() {
     documentsResult,
     winStatsOverall,
     winStatsRecent,
+    // Trend comparisons
+    prevMonthMatchesResult,
+    prevWeekTendersResult,
   ] = await Promise.all([
     // Total matches (AI-verified only, open tenders only)
-    // IMPORTANT: use head:true to get accurate count without row limit (max_rows=1000)
     supabase
       .from('matches')
       .select('id, tenders!inner(data_encerramento, modalidade_id)', { count: 'exact', head: true })
@@ -72,7 +80,7 @@ export default async function DashboardPage() {
       .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' }),
 
-    // Score 70+ matches (AI-verified only, open tenders only)
+    // Score 70+ matches
     supabase
       .from('matches')
       .select('id, tenders!inner(data_encerramento, modalidade_id)', { count: 'exact', head: true })
@@ -82,22 +90,20 @@ export default async function DashboardPage() {
       .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' }),
 
-    // Novas esta semana — filter on data_publicacao (actual publication date), NOT created_at
-    // Also only count OPEN tenders (not expired)
+    // New tenders this week
     supabase
       .from('tenders')
       .select('id', { count: 'exact', head: true })
       .gte('data_publicacao', sevenDaysAgo.toISOString().split('T')[0])
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`),
 
-    // Licitações monitoradas — only OPEN tenders (not expired)
+    // Total open tenders
     supabase
       .from('tenders')
       .select('id', { count: 'exact', head: true })
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`),
 
-    // All match scores for distribution + average (AI-verified, open tenders)
-    // Use explicit .limit(10000) to override PostgREST max_rows=1000 default
+    // All match scores for distribution
     supabase
       .from('matches')
       .select('score, tenders!inner(data_encerramento, modalidade_id)')
@@ -108,7 +114,7 @@ export default async function DashboardPage() {
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
       .limit(1000),
 
-    // Top 5 matches for "Melhores Oportunidades" (AI-verified, open tenders)
+    // Top 5 matches
     supabase
       .from('matches')
       .select('id, score, status, match_source, created_at, tenders!inner(objeto, orgao_nome, uf, valor_estimado, data_encerramento, modalidade_id)')
@@ -120,7 +126,7 @@ export default async function DashboardPage() {
       .order('score', { ascending: false })
       .limit(5),
 
-    // Matches this month (AI-verified only, open tenders, no non-competitive modalities)
+    // Matches this month
     supabase
       .from('matches')
       .select('id, tenders!inner(data_encerramento, modalidade_id)', { count: 'exact', head: true })
@@ -131,7 +137,7 @@ export default async function DashboardPage() {
       .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' }),
 
-    // Interested/applied matches (AI-verified only, open tenders, no non-competitive)
+    // Interested/applied matches
     supabase
       .from('matches')
       .select('id, tenders!inner(data_encerramento, modalidade_id)', { count: 'exact', head: true })
@@ -141,8 +147,7 @@ export default async function DashboardPage() {
       .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' }),
 
-    // Matches with tender details for Valor em Análise, Top UFs, Top Modalidades
-    // Use explicit .limit(10000) to override PostgREST max_rows=1000 default
+    // Matches with tender details for Valor, UFs, Modalidades
     supabase
       .from('matches')
       .select('score, tenders!inner(uf, modalidade_nome, modalidade_id, valor_estimado, data_encerramento)')
@@ -153,26 +158,44 @@ export default async function DashboardPage() {
       .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
       .limit(1000),
 
-    // Company documents for health check (table may not exist yet)
+    // Company documents
     supabase
       .from('company_documents')
       .select('id, validade')
       .eq('company_id', companyId),
 
-    // Win stats overall (table may not exist yet)
+    // Win stats overall
     supabase
       .from('bid_outcomes')
       .select('outcome', { count: 'exact' })
       .eq('company_id', companyId)
       .in('outcome', ['won', 'lost']),
 
-    // Win stats last 30 days (table may not exist yet)
+    // Win stats last 30 days
     supabase
       .from('bid_outcomes')
       .select('outcome')
       .eq('company_id', companyId)
       .in('outcome', ['won', 'lost'])
       .gte('reported_at', thirtyDaysAgo.toISOString()),
+
+    // ── Trend: Previous month matches ──
+    supabase
+      .from('matches')
+      .select('id, tenders!inner(data_encerramento, modalidade_id)', { count: 'exact', head: true })
+      .eq('company_id', companyId)
+      .in('match_source', [...AI_VERIFIED_SOURCES])
+      .gte('score', minScore)
+      .gte('created_at', sixtyDaysAgo.toISOString())
+      .lt('created_at', thirtyDaysAgo.toISOString())
+      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)'),
+
+    // ── Trend: Previous week tenders ──
+    supabase
+      .from('tenders')
+      .select('id', { count: 'exact', head: true })
+      .gte('data_publicacao', fourteenDaysAgo.toISOString().split('T')[0])
+      .lt('data_publicacao', sevenDaysAgo.toISOString().split('T')[0]),
   ])
 
   const totalMatches = totalMatchesResult.count ?? 0
@@ -181,6 +204,10 @@ export default async function DashboardPage() {
   const totalTenders = totalTendersResult.count ?? 0
   const monthMatches = monthMatchesResult.count ?? 0
   const interestedCount = interestedResult.count ?? 0
+
+  // Trend calculations
+  const prevMonthMatches = prevMonthMatchesResult.count ?? 0
+  const prevWeekTenders = prevWeekTendersResult.count ?? 0
 
   // Score average and distribution
   const scores = (allMatchScores.data || []).map((m) => m.score)
@@ -195,7 +222,7 @@ export default async function DashboardPage() {
     ] : []),
   ]
 
-  // Valor em Análise, Top UFs, Top Modalidades — from ALL matches (no limit)
+  // Match details for Valor, UFs, Modalidades
   const matchDetails = (matchesForStats.data || []) as Array<{ score: number; tenders: unknown }>
   let totalValueInAnalysis = 0
   const ufCounts: Record<string, number> = {}
@@ -214,7 +241,7 @@ export default async function DashboardPage() {
   const topUFs = Object.entries(ufCounts).sort((a, b) => b[1] - a[1]).slice(0, 5)
   const topModalidades = Object.entries(modalidadeCounts).sort((a, b) => b[1] - a[1]).slice(0, 5)
 
-  // Document health — wrapped in try/catch (table may not exist yet)
+  // Document health
   let docs: Array<{ id: string; validade: string | null }> = []
   let docsExpiring = 0
   let docsExpired = 0
@@ -232,7 +259,7 @@ export default async function DashboardPage() {
     }).length
   } catch { /* company_documents table may not exist */ }
 
-  // Win rate calculations — wrapped in try/catch (table may not exist yet)
+  // Win rate calculations
   let totalWon = 0
   let totalLost = 0
   let totalOutcomes = 0
@@ -259,53 +286,82 @@ export default async function DashboardPage() {
 
   const conversionRate = totalMatches > 0 ? Math.round((interestedCount / totalMatches) * 100) : 0
 
+  // Format compact value
+  function formatCompactValue(n: number): string {
+    if (n >= 1_000_000_000) return `R$ ${(n / 1_000_000_000).toFixed(2)} bi`
+    if (n >= 1_000_000) return `R$ ${(n / 1_000_000).toFixed(1)} mi`
+    if (n >= 1_000) return `R$ ${(n / 1_000).toFixed(0)} mil`
+    return formatCurrency(n)
+  }
+
+  // Trend calculation helper
+  function calcTrend(current: number, previous: number): { pct: number; direction: 'up' | 'down' | 'neutral' } {
+    if (previous === 0 && current === 0) return { pct: 0, direction: 'neutral' }
+    if (previous === 0) return { pct: 100, direction: 'up' }
+    const pct = Math.round(((current - previous) / previous) * 100)
+    return { pct: Math.abs(pct), direction: pct > 0 ? 'up' : pct < 0 ? 'down' : 'neutral' }
+  }
+
+  const matchesTrend = calcTrend(monthMatches, prevMonthMatches)
+  const weekTrend = calcTrend(weekTenders, prevWeekTenders)
+
   return (
-    <div id="dashboard-overview" className="bg-[#111214] -m-4 p-4 md:-m-8 md:p-8 pb-8 md:pb-12">
+    <div className="-m-4 p-4 md:-m-8 md:p-8 pb-8 md:pb-12">
+      {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-          <p className="text-sm text-gray-400 mt-1">Visao geral das suas oportunidades</p>
+          <h1 className="text-xl font-semibold text-white tracking-tight">Dashboard</h1>
+          <p className="text-xs text-gray-500 mt-0.5">Visão geral das suas oportunidades</p>
         </div>
-        <p className="text-[10px] text-gray-400 bg-[#1a1c1f] px-3 py-1.5 rounded-full border border-[#2d2f33]">
+        <p className="text-[10px] text-gray-500 bg-white/[0.04] px-3 py-1.5 rounded-full border border-white/[0.06]">
           Atualizado: {new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
         </p>
       </div>
 
-      {/* Primary KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <KPICard label="Licitações Abertas" value={totalTenders.toLocaleString('pt-BR')} icon="📋" accentColor="#F43E01" />
-        <KPICard label="Matches Este Mes" value={monthMatches.toLocaleString('pt-BR')} icon="🎯" accentColor="#10B981" />
-        <KPICard label="Score 70+" value={highMatches.toLocaleString('pt-BR')} icon="🔥" accentColor="#F97316" />
-        <KPICard label="Novas Esta Semana" value={weekTenders.toLocaleString('pt-BR')} icon="✨" accentColor="#6366F1" />
+      {/* ─── KPI Row 1: Volume ─── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+        <KPICard label="Licitações Abertas" value={totalTenders.toLocaleString('pt-BR')} />
+        <KPICard label="Novas Esta Semana" value={weekTenders.toLocaleString('pt-BR')} trend={weekTrend} />
+        <KPICard label="Matches Este Mês" value={monthMatches.toLocaleString('pt-BR')} trend={matchesTrend} />
+        <KPICard label="Valor em Análise" value={totalValueInAnalysis > 0 ? formatCompactValue(totalValueInAnalysis) : 'R$ 0'} subtitle="Soma dos editais monitorados" small />
       </div>
 
-      {/* Secondary KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <KPICard label="Score Medio" value={`${avgScore}/100`} icon="📊" accentColor="#8B5CF6" />
-        <KPICard label="Taxa de Interesse" value={`${conversionRate}%`} icon="💡" accentColor="#0EA5E9" />
-        <KPICard label="Valor em Análise" value={totalValueInAnalysis > 0 ? formatCurrency(totalValueInAnalysis) : 'R$ 0'} icon="💰" accentColor="#10B981" small />
-        <KPICard label="Total de Matches" value={totalMatches.toLocaleString('pt-BR')} icon="🏆" accentColor="#F43E01" />
+      {/* ─── KPI Row 2: Performance ─── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+        <KPICard
+          label="Score Médio"
+          value={`${avgScore}`}
+          suffix="/100"
+          highlight
+        />
+        <KPICard label="Score 70+" value={highMatches.toLocaleString('pt-BR')} />
+        <KPICard
+          label="Taxa de Interesse"
+          value={`${conversionRate}%`}
+          subtitle={conversionRate === 0 ? 'Aguardando primeiras interações' : undefined}
+        />
+        <KPICard label="Total de Matches" value={totalMatches.toLocaleString('pt-BR')} />
       </div>
 
-      {/* Monthly Report */}
+      {/* ─── Monthly Report ─── */}
       <div className="mb-6">
         <MonthlyReportCard />
       </div>
 
-      {/* Segment Price Widget */}
+      {/* ─── Segment Price Widget ─── */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <SegmentPriceWidget />
       </div>
 
-      {/* Win Rate Card */}
+      {/* ─── Win Rate Card ─── */}
       {totalOutcomes > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <Card className="md:col-span-1 relative overflow-hidden bg-[#1a1c1f] border-[#2d2f33] rounded-2xl">
+          <Card className="md:col-span-1">
             <CardContent className="pt-5 pb-4 px-5">
               <WinRateCircle rate={overallWinRate} won={totalWon} lost={totalLost} />
               {recentTotal >= 3 && Math.abs(winRateDiff) > 10 && (
-                <p className={`text-xs mt-3 font-medium ${winRateDiff > 0 ? 'text-emerald-400' : 'text-red-500'}`}>
-                  {winRateDiff > 0 ? '\u2191' : '\u2193'} {Math.abs(winRateDiff)}% nos ultimos 30 dias
+                <p className={`text-xs mt-3 font-medium ${winRateDiff > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {winRateDiff > 0 ? '↑' : '↓'} {Math.abs(winRateDiff)}% nos últimos 30 dias
                 </p>
               )}
             </CardContent>
@@ -313,83 +369,121 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Section Header */}
+      {/* ─── Section Divider ─── */}
       <div className="flex items-center gap-3 mb-6">
-        <div className="h-px flex-1 bg-[#2d2f33]" />
-        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Análise de Performance</h2>
-        <div className="h-px flex-1 bg-[#2d2f33]" />
+        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
+        <h2 className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Análise de Performance</h2>
+        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <Card className="bg-[#1a1c1f] border-[#2d2f33] rounded-2xl">
-          <CardHeader><CardTitle className="text-base text-white">Distribuicao de Scores</CardTitle></CardHeader>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        <Card>
+          <CardHeader><CardTitle className="text-sm font-semibold tracking-tight">Distribuição de Scores</CardTitle></CardHeader>
           <CardContent>
             <ScoreDonut distribution={scoreDistribution.map(d => ({ ...d, percentage: scores.length > 0 ? Math.round((d.count / scores.length) * 100) : 0 }))} />
           </CardContent>
         </Card>
 
-        <Card className="bg-[#1a1c1f] border-[#2d2f33] rounded-2xl">
-          <CardHeader><CardTitle className="text-base text-white">Saude dos Documentos</CardTitle></CardHeader>
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold tracking-tight">Saúde dos Documentos</CardTitle>
+              {docs.length === 0 && <Link href="/documents" className="text-xs text-gray-400 hover:text-white transition-colors">Cadastrar →</Link>}
+            </div>
+          </CardHeader>
           <CardContent>
             <DocumentHealth valid={docs.length - docsExpiring - docsExpired} expiring={docsExpiring} expired={docsExpired} />
-            {(docsExpiring > 0 || docsExpired > 0) && <Link href="/documents" className="block text-center text-sm text-brand hover:underline mt-4">Ver documentos</Link>}
-            {docs.length === 0 && <Link href="/documents" className="block text-center text-sm text-brand hover:underline mt-4">Cadastrar documentos</Link>}
+            {(docsExpiring > 0 || docsExpired > 0) && (
+              <Link href="/documents" className="flex items-center justify-center gap-1 text-xs text-gray-400 hover:text-white transition-colors mt-4 group">
+                Gerenciar documentos <span className="transition-transform group-hover:translate-x-0.5">→</span>
+              </Link>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <Card className="bg-[#1a1c1f] border-[#2d2f33] rounded-2xl">
-          <CardHeader><CardTitle className="text-base text-white">Top 5 UFs com Oportunidades</CardTitle></CardHeader>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
+        <Card>
+          <CardHeader><CardTitle className="text-sm font-semibold tracking-tight">Top 5 UFs</CardTitle></CardHeader>
           <CardContent>
             {topUFs.length > 0 ? (
               <UFBarChart data={topUFs} />
-            ) : <p className="text-center text-sm text-gray-400 py-4">Sem dados ainda</p>}
+            ) : <p className="text-center text-xs text-gray-500 py-4">Sem dados ainda</p>}
           </CardContent>
         </Card>
 
-        <Card className="bg-[#1a1c1f] border-[#2d2f33] rounded-2xl">
-          <CardHeader><CardTitle className="text-base text-white">Top 5 Modalidades</CardTitle></CardHeader>
+        <Card>
+          <CardHeader><CardTitle className="text-sm font-semibold tracking-tight">Top 5 Modalidades</CardTitle></CardHeader>
           <CardContent>
             {topModalidades.length > 0 ? (
               <ModalidadeBarChart data={topModalidades} />
-            ) : <p className="text-center text-sm text-gray-400 py-4">Sem dados ainda</p>}
+            ) : <p className="text-center text-xs text-gray-500 py-4">Sem dados ainda</p>}
           </CardContent>
         </Card>
       </div>
 
-      {/* Top opportunities */}
-      <Card className="bg-[#1a1c1f] border-[#2d2f33] rounded-2xl">
+      {/* ─── Top Opportunities ─── */}
+      <Card>
         <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span className="text-white">Melhores Oportunidades</span>
-            <Link href="/opportunities" className="text-sm text-brand hover:underline font-normal">Ver todas</Link>
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-semibold tracking-tight">Melhores Oportunidades</CardTitle>
+            <Link href="/opportunities" className="text-xs text-gray-400 hover:text-white transition-colors group flex items-center gap-1">
+              Ver todas <span className="transition-transform group-hover:translate-x-0.5">→</span>
+            </Link>
+          </div>
         </CardHeader>
         <CardContent>
           {topMatchesResult.data && topMatchesResult.data.length > 0 ? (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {topMatchesResult.data.map((match) => {
                 const tender = (match.tenders as unknown) as Record<string, unknown> | null
-                const scoreColor = match.score >= 80 ? '#F43E01' : match.score >= 70 ? '#10B981' : match.score >= 50 ? '#FBBF24' : '#EF4444'
+                const scoreVal = match.score
+                const scoreColor = scoreVal >= 80 ? '#10B981' : scoreVal >= 70 ? '#84CC16' : scoreVal >= 50 ? '#F59E0B' : '#EF4444'
+
+                // Countdown
+                const encDate = tender?.data_encerramento ? new Date(tender.data_encerramento as string) : null
+                const diffDays = encDate ? Math.ceil((encDate.getTime() - now.getTime()) / 86400000) : null
+
                 return (
-                  <Link key={match.id} href={`/opportunities/${match.id}`} className="flex items-center gap-4 p-4 rounded-xl border border-[#2d2f33] hover:border-[#F43E01]/30 transition-all duration-200 group">
-                    {/* Score circle */}
-                    <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 border-2" style={{ borderColor: scoreColor, backgroundColor: scoreColor + '10' }}>
-                      <span className="text-sm font-bold" style={{ color: scoreColor }}>{match.score}</span>
+                  <Link
+                    key={match.id}
+                    href={`/opportunities/${match.id}`}
+                    className="flex items-center gap-3 p-3 rounded-xl border border-white/[0.06] hover:border-white/[0.12] hover:bg-white/[0.02] transition-all duration-200 group"
+                  >
+                    {/* Mini score ring */}
+                    <div
+                      className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 border-2"
+                      style={{ borderColor: scoreColor, backgroundColor: scoreColor + '10' }}
+                    >
+                      <span className="text-xs font-bold font-[family-name:var(--font-geist-mono)] tabular-nums" style={{ color: scoreColor }}>{scoreVal}</span>
                     </div>
+
+                    {/* Content */}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white truncate group-hover:text-[#F43E01] transition-colors">{(tender?.objeto as string) || 'N/A'}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {(tender?.orgao_nome as string) || ''} — {(tender?.uf as string) || ''}
-                        {tender?.valor_estimado ? (
-                          <span className="text-emerald-400 font-medium"> — {formatCurrency(tender.valor_estimado as number)}</span>
-                        ) : ''}
-                      </p>
+                      <p className="text-sm text-white line-clamp-1 group-hover:text-brand transition-colors">{(tender?.objeto as string) || 'N/A'}</p>
+                      <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-500">
+                        <span className="truncate max-w-[200px]">{(tender?.orgao_nome as string) || ''}</span>
+                        {Boolean(tender?.uf) && <span>· {String(tender?.uf)}</span>}
+                        {Boolean(tender?.valor_estimado) && (
+                          <span className="text-gray-400 font-[family-name:var(--font-geist-mono)] tabular-nums">
+                            · {formatCurrency(Number(tender?.valor_estimado))}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 ml-3 shrink-0">
-                      <ScoreBadge score={match.score} source={match.match_source as string | null} />
-                      <Badge variant="outline" className="text-xs">{
+
+                    {/* Right side: countdown + status */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {diffDays !== null && diffDays >= 0 && diffDays <= 7 && (
+                        <span className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${
+                          diffDays <= 1 ? 'bg-red-500/20 text-red-400' :
+                          diffDays <= 3 ? 'bg-amber-500/20 text-amber-400' :
+                          'bg-white/[0.04] text-gray-400'
+                        }`}>
+                          {diffDays === 0 ? 'Hoje' : `D-${diffDays}`}
+                        </span>
+                      )}
+                      <Badge variant="outline" className="text-[10px]">{
                         match.status === 'new' ? 'Nova' :
                         match.status === 'notified' ? 'Notificada' :
                         match.status === 'interested' ? 'Interesse' :
@@ -419,28 +513,52 @@ export default async function DashboardPage() {
   )
 }
 
-function KPICard({ label, value, icon, accentColor, small }: { label: string; value: string; icon: string; accentColor: string; small?: boolean }) {
-  return (
-    <Card className="relative overflow-hidden bg-[#1a1c1f] border-[#2d2f33] hover:border-[#F43E01]/20 transition-all duration-200 rounded-2xl">
-      <CardContent className="pt-5 pb-4 px-5">
-        <div className="flex items-start justify-between mb-2">
-          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">{label}</p>
-          <span className="text-lg">{icon}</span>
-        </div>
-        <p className={`font-bold text-white ${small ? 'text-lg' : 'text-2xl'}`}>{value}</p>
-      </CardContent>
-      <div className="absolute bottom-0 left-0 right-0 h-1 rounded-b-2xl" style={{ backgroundColor: accentColor }} />
-    </Card>
-  )
-}
+// ─── KPI Card ─────────────────────────────────────────────────────────────────
 
-function ScoreBadge({ score, source }: { score: number; source?: string | null }) {
-  const color = score >= 80 ? 'bg-orange-900/30 text-orange-400' : score >= 70 ? 'bg-emerald-900/30 text-emerald-400' : score >= 50 ? 'bg-amber-900/30 text-amber-400' : 'bg-red-900/30 text-red-400'
-  const isAI = source === 'ai' || source === 'ai_triage' || source === 'semantic'
+function KPICard({
+  label,
+  value,
+  suffix,
+  subtitle,
+  small,
+  highlight,
+  trend,
+}: {
+  label: string
+  value: string
+  suffix?: string
+  subtitle?: string
+  small?: boolean
+  highlight?: boolean
+  trend?: { pct: number; direction: 'up' | 'down' | 'neutral' }
+}) {
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${color}`} title={isAI ? 'Score verificado por IA' : 'Score do matching automático'}>
-      {score}
-      {isAI && <span className="text-[9px] font-normal opacity-70">IA</span>}
-    </span>
+    <Card className={`relative overflow-hidden ${highlight ? 'border-emerald-500/20' : ''}`}>
+      {/* Gleam line — only on highlighted card */}
+      {highlight && (
+        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-emerald-400/60 to-transparent" />
+      )}
+      <CardContent className="pt-4 pb-3.5 px-4">
+        <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1.5">{label}</p>
+        <div className="flex items-baseline gap-1">
+          <p className={`font-bold text-white font-[family-name:var(--font-geist-mono)] tabular-nums ${small ? 'text-lg' : 'text-2xl'} tracking-tight`}>
+            {value}
+          </p>
+          {suffix && <span className="text-sm text-gray-500 font-[family-name:var(--font-geist-mono)]">{suffix}</span>}
+        </div>
+        {/* Trend indicator */}
+        {trend && trend.direction !== 'neutral' && trend.pct > 0 && (
+          <div className={`flex items-center gap-1 mt-1.5 text-[10px] font-medium ${
+            trend.direction === 'up' ? 'text-emerald-400' : 'text-red-400'
+          }`}>
+            <span>{trend.direction === 'up' ? '↑' : '↓'}</span>
+            <span className="font-[family-name:var(--font-geist-mono)] tabular-nums">{trend.pct}%</span>
+            <span className="text-gray-600">vs período anterior</span>
+          </div>
+        )}
+        {/* Subtitle */}
+        {subtitle && <p className="text-[10px] text-gray-600 mt-1">{subtitle}</p>}
+      </CardContent>
+    </Card>
   )
 }
