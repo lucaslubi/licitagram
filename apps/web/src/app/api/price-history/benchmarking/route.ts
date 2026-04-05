@@ -138,34 +138,41 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    // Build the Supabase query — same base as search/discount-analysis
-    let query = supabase
+    // Step 1: Get tender IDs only (fast — uses GIN index, no JOIN)
+    let idsQuery = supabase
       .from('tenders')
-      .select(
-        'id, objeto, valor_estimado, uf, orgao_nome, data_encerramento, data_publicacao, competitors!inner(cnpj, nome, valor_proposta, situacao, uf_fornecedor)',
-      )
+      .select('id')
       .textSearch('objeto', q, { type: 'websearch', config: 'portuguese' })
 
-    if (uf) {
-      query = query.eq('uf', uf)
-    }
-    if (modalidade) {
-      query = query.eq('modalidade_nome', modalidade)
-    }
-    if (dateFrom) {
-      query = query.gte('data_encerramento', dateFrom)
-    }
-    if (dateTo) {
-      query = query.lte('data_encerramento', dateTo)
+    if (uf) idsQuery = idsQuery.eq('uf', uf)
+    if (modalidade) idsQuery = idsQuery.eq('modalidade_nome', modalidade)
+    if (dateFrom) idsQuery = idsQuery.gte('data_encerramento', dateFrom)
+    if (dateTo) idsQuery = idsQuery.lte('data_encerramento', dateTo)
+
+    idsQuery = idsQuery.order('data_encerramento', { ascending: false }).limit(50)
+
+    const { data: tenderIds, error: idsError } = await idsQuery
+    if (idsError) {
+      console.error('Benchmarking IDs query error:', idsError)
+      return NextResponse.json({ error: idsError.message }, { status: 500 })
     }
 
-    // Limit to 50 tenders to avoid statement timeout
-    // (each tender has many competitors, so 50 tenders = hundreds of data points)
-    query = query
-      .order('data_encerramento', { ascending: false })
-      .limit(50)
+    if (!tenderIds || tenderIds.length === 0) {
+      return NextResponse.json(
+        { error: 'Nenhum resultado encontrado para esta pesquisa' },
+        { status: 404 },
+      )
+    }
 
-    const { data, error } = await query
+    const ids = tenderIds.map((t) => t.id)
+
+    // Step 2: Get full data for those specific IDs (fast — uses PK index)
+    const { data, error } = await supabase
+      .from('tenders')
+      .select(
+        'id, objeto, valor_estimado, uf, orgao_nome, data_encerramento, data_publicacao, competitors(cnpj, nome, valor_proposta, situacao, uf_fornecedor)',
+      )
+      .in('id', ids)
 
     if (error) {
       console.error('Benchmarking query error:', error)

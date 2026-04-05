@@ -83,30 +83,42 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    // Build query: tenders + competitors (inner join)
-    let query = supabase
+    // Step 1: Get tender IDs only (fast — uses GIN index, no JOIN)
+    let idsQuery = supabase
       .from('tenders')
-      .select(
-        'id, objeto, valor_estimado, uf, modalidade_nome, data_encerramento, data_publicacao, competitors!inner(valor_proposta)',
-      )
+      .select('id')
       .textSearch('objeto', q, { type: 'websearch', config: 'portuguese' })
-      .gt('competitors.valor_proposta', 0)
       .gt('valor_estimado', 0)
 
-    if (uf) {
-      query = query.eq('uf', uf)
-    }
-    if (modalidade) {
-      query = query.eq('modalidade_nome', modalidade)
+    if (uf) idsQuery = idsQuery.eq('uf', uf)
+    if (modalidade) idsQuery = idsQuery.eq('modalidade_nome', modalidade)
+
+    idsQuery = idsQuery.order('data_encerramento', { ascending: false }).limit(50)
+
+    const { data: tenderIds, error: idsError } = await idsQuery
+    if (idsError) {
+      console.error('Seasonality IDs query error:', idsError)
+      return NextResponse.json({ error: idsError.message }, { status: 500 })
     }
 
-    // Limit to 50 tenders to avoid statement timeout
-    // (each tender has many competitors, so 50 tenders = hundreds of data points)
-    query = query
-      .order('data_encerramento', { ascending: false })
-      .limit(50)
+    if (!tenderIds || tenderIds.length === 0) {
+      return NextResponse.json({
+        monthly: [], quarterly: [], best_months: [], yoy: [],
+        total_records: 0, years_analyzed: 0,
+        cache_hit: false, query_time_ms: Date.now() - startTime,
+      })
+    }
 
-    const { data, error } = await query
+    const ids = tenderIds.map((t) => t.id)
+
+    // Step 2: Get full data for those specific IDs (fast — uses PK index)
+    const { data, error } = await supabase
+      .from('tenders')
+      .select(
+        'id, objeto, valor_estimado, uf, modalidade_nome, data_encerramento, data_publicacao, competitors(valor_proposta)',
+      )
+      .in('id', ids)
+      .gt('valor_estimado', 0)
 
     if (error) {
       console.error('Seasonality query error:', error)
