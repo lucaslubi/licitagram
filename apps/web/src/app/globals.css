@@ -295,3 +295,128 @@
 .sidebar-nav-item-active .sidebar-nav-icon {
   color: hsl(18 95% 55%);
 }
+
+/* ─── Opportunities Table ─────────────────────────────────────────────────── */
+
+.opp-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.opp-table thead th {
+  padding: 10px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: hsl(240 4% 46%);
+  border-bottom: 1px solid hsl(240 4% 14%);
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  background: hsl(240 5% 8%);
+  z-index: 10;
+}
+
+.opp-row {
+  cursor: pointer;
+  transition: background 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.opp-row:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.opp-row td {
+  padding: 12px;
+  border-bottom: 1px solid hsl(240 4% 14% / 0.5);
+  vertical-align: top;
+}
+
+.opp-col-score {
+  width: 52px;
+  text-align: center;
+  vertical-align: middle !important;
+}
+
+.opp-col-main {
+  min-width: 280px;
+}
+
+.opp-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: hsl(240 5% 96%);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  letter-spacing: -0.01em;
+  margin-bottom: 4px;
+}
+
+.opp-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: hsl(240 4% 34%);
+}
+
+.opp-dot {
+  color: hsl(240 4% 24%);
+  font-size: 8px;
+}
+
+.opp-col-value {
+  width: 120px;
+  text-align: right;
+  vertical-align: middle !important;
+}
+
+.opp-col-deadline {
+  width: 140px;
+  vertical-align: middle !important;
+}
+
+.opp-col-source {
+  width: 90px;
+  vertical-align: middle !important;
+}
+
+.opp-col-status {
+  width: 100px;
+  vertical-align: middle !important;
+}
+
+/* Filter select — compact inline */
+.opp-filter-select {
+  height: 36px;
+  padding: 0 28px 0 10px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 8px;
+  border: 1px solid hsl(240 4% 14%);
+  background: hsl(240 4% 12%);
+  color: hsl(240 5% 96%);
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  cursor: pointer;
+  transition: border-color 150ms;
+  white-space: nowrap;
+}
+
+.opp-filter-select:hover {
+  border-color: hsl(240 4% 20%);
+}
+
+.opp-filter-select:focus {
+  outline: none;
+  border-color: hsl(18 95% 55%);
+  box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.1);
+}

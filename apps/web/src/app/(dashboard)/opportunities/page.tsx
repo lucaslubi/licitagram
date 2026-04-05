@@ -1,17 +1,7 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import { formatCurrency, formatDate, PNCP_MODALITIES } from '@licitagram/shared'
-// Types in @/types/database (TenderRow, MatchRow) — cache.ts returns Record<string, any>
+import { formatDate, PNCP_MODALITIES } from '@licitagram/shared'
 import {
   getAuthAndProfile,
   getTenderList,
@@ -23,13 +13,87 @@ import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
 import { PipelineTag } from '@/components/pipeline-tag'
 import { createClient } from '@/lib/supabase/server'
 import type { PlanFeatures } from '@licitagram/shared'
+import { formatCompactBRL } from '@/lib/geo/map-utils'
 
 // Force dynamic rendering — opportunities must always show fresh data
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-const DEFAULT_MIN_SCORE = 40
 const ALL_SCORE_OPTIONS = Array.from({ length: 13 }, (_, i) => 40 + i * 5)
+const UF_LIST = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO']
+
+// ─── Status translations ─────────────────────────────────────────────────────
+const MATCH_STATUS_MAP: Record<string, { label: string; cls: string }> = {
+  new: { label: 'Nova', cls: 'bg-foreground/5 text-foreground border-border' },
+  notified: { label: 'Notificada', cls: 'bg-primary/10 text-primary border-primary/20' },
+  interested: { label: 'Interesse', cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+  participating: { label: 'Participando', cls: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+  won: { label: 'Ganha', cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+  lost: { label: 'Perdida', cls: 'bg-red-500/10 text-red-400 border-red-500/20' },
+  discarded: { label: 'Descartada', cls: 'bg-foreground/5 text-muted-foreground border-border' },
+}
+
+const TENDER_STATUS_MAP: Record<string, { label: string; cls: string }> = {
+  new: { label: 'Nova', cls: 'bg-foreground/5 text-foreground border-border' },
+  analyzed: { label: 'Analisado', cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+  analyzing: { label: 'Analisando...', cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+  error: { label: 'Analisar com IA', cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function truncateText(text: string, max: number): string {
+  return text.length > max ? text.slice(0, max - 3) + '...' : text
+}
+
+function formatCurrencyFull(value: number): string {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
+}
+
+function countdownText(dataEncerramento: string | null): { text: string; urgent: boolean } | null {
+  if (!dataEncerramento) return null
+  const now = new Date()
+  const enc = new Date(dataEncerramento)
+  const diffDays = Math.ceil((enc.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+  if (diffDays < 0) return { text: 'Encerrado', urgent: true }
+  if (diffDays === 0) return { text: 'Hoje', urgent: true }
+  if (diffDays <= 3) return { text: `${diffDays}d`, urgent: true }
+  if (diffDays <= 7) return { text: `${diffDays}d`, urgent: false }
+  return null
+}
+
+// ─── Score badge with new palette ─────────────────────────────────────────────
+
+function ScoreBadge({ score, matchSource }: { score: number; matchSource?: string }) {
+  const cls =
+    score >= 90 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+    : score >= 80 ? 'bg-lime-500/10 text-lime-400 border-lime-500/20'
+    : score >= 70 ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+    : 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold border font-mono tabular-nums ${cls}`}>
+      {score}
+    </span>
+  )
+}
+
+function SourceBadge({ source }: { source: string }) {
+  const config: Record<string, { label: string; cls: string }> = {
+    pncp: { label: 'PNCP', cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+    comprasgov: { label: 'Compras.gov', cls: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+    bec_sp: { label: 'BEC SP', cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+    portal_mg: { label: 'MG', cls: 'bg-primary/10 text-primary border-primary/20' },
+  }
+  const { label, cls } = config[source] || { label: source, cls: 'bg-foreground/5 text-muted-foreground border-border' }
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium border ${cls}`}>
+      {label}
+    </span>
+  )
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function OpportunitiesPage({
   searchParams,
@@ -42,7 +106,6 @@ export default async function OpportunitiesPage({
 }) {
   const params = await searchParams
 
-  // Single auth + profile fetch (replaces 2 separate queries)
   const [auth, user] = await Promise.all([
     getAuthAndProfile(),
     getUserWithPlan(),
@@ -70,7 +133,7 @@ export default async function OpportunitiesPage({
   const ordemDataFilter = params.ordem_data || ''
   const qMatchFilter = params.q_match || ''
 
-  // Build query params for links
+  // Build query params for pagination links
   const baseParams = new URLSearchParams()
   if (ufFilter) baseParams.set('uf', ufFilter)
   if (searchQuery) baseParams.set('q', searchQuery)
@@ -85,70 +148,265 @@ export default async function OpportunitiesPage({
   if (ordemDataFilter) baseParams.set('ordem_data', ordemDataFilter)
   if (qMatchFilter) baseParams.set('q_match', qMatchFilter)
 
+  const hasActiveFilters = !!(qMatchFilter || searchQuery || modalidadeFilter || scoreMinFilter || dataDeFilter || dataAteFilter || fonteFilter || esferaFilter || ordemValorFilter || ordemDataFilter)
+
   if (view === 'matches' && companyId) {
-    // PARALLEL: fetch matches + both tab totals simultaneously
     const [matchResult, tenderCount, matchTotalCount] = await Promise.all([
       getMatchList({
-        companyId,
-        page,
-        pageSize,
-        minScore: userMinScore,
-        minValor: minValor ?? undefined,
-        maxValor: maxValor ?? undefined,
-        uf: ufFilter || undefined,
-        modalidade: modalidadeFilter || undefined,
-        dataFrom: dataDeFilter || undefined,
-        dataTo: dataAteFilter || undefined,
-        fonte: fonteFilter || undefined,
-        esfera: esferaFilter || undefined,
+        companyId, page, pageSize, minScore: userMinScore,
+        minValor: minValor ?? undefined, maxValor: maxValor ?? undefined,
+        uf: ufFilter || undefined, modalidade: modalidadeFilter || undefined,
+        dataFrom: dataDeFilter || undefined, dataTo: dataAteFilter || undefined,
+        fonte: fonteFilter || undefined, esfera: esferaFilter || undefined,
         scoreMin: scoreMinFilter || undefined,
-        ordemValor: ordemValorFilter || undefined,
-        ordemData: ordemDataFilter || undefined,
+        ordemValor: ordemValorFilter || undefined, ordemData: ordemDataFilter || undefined,
         q: qMatchFilter || undefined,
       }),
       getTenderCount(),
       getMatchCount(companyId, userMinScore),
     ])
 
-    return renderMatchesView({
-      matches: matchResult.matches,
-      matchCount: matchTotalCount,
-      filteredMatchCount: matchResult.count,
-      totalPages: matchResult.totalPages,
-      tenderCount,
-      page,
-      ufFilter,
-      modalidadeFilter,
-      scoreMinFilter,
-      dataDeFilter,
-      dataAteFilter,
-      fonteFilter,
-      esferaFilter,
-      ordemValorFilter,
-      ordemDataFilter,
-      userMinScore,
-      baseParams,
-      canExport,
-      hasAllPortals,
-      qMatchFilter,
-    })
+    const effectiveMinScore = scoreMinFilter > 0 ? scoreMinFilter : userMinScore
+
+    return (
+      <div>
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-5">
+          <div>
+            <h1 className="text-xl font-semibold text-foreground tracking-tight">Oportunidades</h1>
+            <div className="flex gap-1 mt-3">
+              <Link
+                href="/opportunities?view=tenders"
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-[13px] font-medium transition-all duration-150 border bg-transparent border-border text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+              >
+                Abertas
+                <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-secondary text-muted-foreground font-mono tabular-nums">{tenderCount?.toLocaleString('pt-BR') ?? 0}</span>
+              </Link>
+              <Link
+                href="/opportunities?view=matches"
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-[13px] font-medium transition-all duration-150 border bg-secondary border-border text-foreground"
+              >
+                Matches IA
+                <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-primary/10 text-primary font-mono tabular-nums">{matchTotalCount?.toLocaleString('pt-BR') ?? 0}</span>
+              </Link>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground font-mono tabular-nums">
+              {matchResult.count?.toLocaleString('pt-BR') ?? 0} resultados
+              <span className="text-muted-foreground/60"> · score &ge; {effectiveMinScore}%</span>
+            </span>
+            {canExport && (
+              <a
+                href={`/api/export?view=matches&uf=${ufFilter}&modalidade=${modalidadeFilter}&fonte=${fonteFilter}&score_min=${effectiveMinScore}`}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-border bg-secondary text-foreground hover:bg-secondary/80 transition-colors"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
+                Exportar Excel
+              </a>
+            )}
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="bg-card border border-border rounded-xl p-4 mb-4">
+          <form className="space-y-3">
+            <input type="hidden" name="view" value="matches" />
+            <div className="flex flex-col sm:flex-row gap-3">
+              {/* Search */}
+              <div className="relative flex-1 max-w-sm">
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                </svg>
+                <input
+                  name="q_match"
+                  type="text"
+                  defaultValue={qMatchFilter}
+                  placeholder="Buscar por objeto, órgão..."
+                  className="w-full h-9 pl-9 pr-3 rounded-lg border border-border bg-secondary/50 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+              </div>
+              {/* Quick filters */}
+              <div className="flex flex-wrap gap-2 items-center">
+                <select name="score_min" defaultValue={scoreMinFilter > 0 ? String(scoreMinFilter) : ''} className="opp-filter-select">
+                  <option value="">Score: Config ({userMinScore}%)</option>
+                  {ALL_SCORE_OPTIONS.map((s) => <option key={s} value={s}>{s}%</option>)}
+                </select>
+                <select name="uf" defaultValue={ufFilter} className="opp-filter-select">
+                  <option value="">UF: Todas</option>
+                  {UF_LIST.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
+                </select>
+                <select name="fonte" defaultValue={fonteFilter} className="opp-filter-select">
+                  <option value="">Fonte: Todas</option>
+                  <option value="pncp">PNCP</option>
+                  <option value="comprasgov">Compras.gov</option>
+                  {hasAllPortals && <option value="bec_sp">BEC SP</option>}
+                  {hasAllPortals && <option value="compras_mg">Compras MG</option>}
+                </select>
+                <select name="esfera" defaultValue={esferaFilter} className="opp-filter-select">
+                  <option value="">Esfera: Todas</option>
+                  <option value="F">Federal</option>
+                  <option value="E">Estadual</option>
+                  <option value="M">Municipal</option>
+                </select>
+              </div>
+            </div>
+            {/* Submit + clear */}
+            <div className="flex items-center gap-2">
+              <button type="submit" className="h-8 px-4 text-xs font-medium rounded-lg bg-foreground/10 text-foreground border border-border hover:bg-foreground/15 transition-colors">
+                Aplicar filtros
+              </button>
+              {hasActiveFilters && (
+                <Link href="/opportunities?view=matches" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                  Limpar
+                </Link>
+              )}
+            </div>
+          </form>
+        </div>
+
+        {/* Table */}
+        {(matchResult.count ?? 0) === 0 ? (
+          <div className="bg-card border border-border rounded-xl p-12 text-center">
+            <p className="text-muted-foreground text-sm mb-1">A análise por IA está processando suas licitações.</p>
+            <p className="text-muted-foreground/60 text-xs">Os matches aparecerão aqui conforme as licitações forem analisadas.</p>
+          </div>
+        ) : (
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="opp-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: 52 }}>Score</th>
+                    <th style={{ minWidth: 280 }}>Oportunidade</th>
+                    <th style={{ width: 120 }} className="text-right">Valor</th>
+                    <th style={{ width: 140 }}>Prazo</th>
+                    <th style={{ width: 90 }}>Fonte</th>
+                    <th style={{ width: 100 }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {matchResult.matches?.map((match: any) => {
+                    const tender = (match.tenders as unknown) as Record<string, unknown> | null
+                    const cd = countdownText(tender?.data_encerramento as string | null)
+                    const statusInfo = MATCH_STATUS_MAP[match.status] || { label: match.status, cls: 'bg-foreground/5 text-muted-foreground border-border' }
+
+                    return (
+                      <tr key={match.id} className="opp-row">
+                        <td className="opp-col-score">
+                          <Link href={`/opportunities/${match.id}`}>
+                            <ScoreBadge score={match.score} matchSource={match.match_source} />
+                          </Link>
+                        </td>
+                        <td className="opp-col-main">
+                          <Link href={`/opportunities/${match.id}`} className="block group">
+                            <p className="opp-title group-hover:text-primary transition-colors">
+                              {(tender?.objeto as string) || 'N/A'}
+                            </p>
+                            <div className="opp-meta">
+                              <span>{truncateText((tender?.orgao_nome as string) || '', 40)}</span>
+                              <span className="opp-dot">·</span>
+                              <span>{(tender?.uf as string) || '-'}</span>
+                              {!!(tender?.modalidade_nome) && (
+                                <>
+                                  <span className="opp-dot">·</span>
+                                  <span>{truncateText(String(tender?.modalidade_nome), 20)}</span>
+                                </>
+                              )}
+                            </div>
+                          </Link>
+                        </td>
+                        <td className="opp-col-value">
+                          {tender?.valor_estimado ? (
+                            <span className="font-mono tabular-nums text-[13px] font-semibold text-foreground" title={formatCurrencyFull(tender.valor_estimado as number)}>
+                              {formatCompactBRL(tender.valor_estimado as number)}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground/40 text-xs">-</span>
+                          )}
+                        </td>
+                        <td className="opp-col-deadline">
+                          {tender?.data_encerramento ? (
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[13px] font-medium text-foreground font-mono tabular-nums">
+                                  {formatDate(tender.data_encerramento as string)}
+                                </span>
+                                {cd && (
+                                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${cd.urgent ? 'bg-red-500/10 text-red-400' : 'bg-amber-500/10 text-amber-400'}`}>
+                                    {cd.text}
+                                  </span>
+                                )}
+                              </div>
+                              {!!(tender?.data_abertura) && (
+                                <span className="text-[11px] text-muted-foreground/60">
+                                  Aberto em {formatDate(tender.data_abertura as string)}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                              Verificar prazo
+                            </span>
+                          )}
+                        </td>
+                        <td className="opp-col-source">
+                          <SourceBadge source={(tender?.source as string) || 'pncp'} />
+                        </td>
+                        <td className="opp-col-status">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium border ${statusInfo.cls}`}>
+                            {statusInfo.label}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            {matchResult.totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                <span className="text-xs text-muted-foreground font-mono tabular-nums">
+                  Página {page} de {matchResult.totalPages}
+                </span>
+                <div className="flex gap-1">
+                  {page > 1 && (
+                    <Link
+                      href={`/opportunities?page=${page - 1}&view=matches&${baseParams.toString()}`}
+                      className="px-3 py-1.5 text-xs font-medium rounded-lg border border-border bg-secondary text-foreground hover:bg-secondary/80 transition-colors"
+                    >
+                      Anterior
+                    </Link>
+                  )}
+                  {page < matchResult.totalPages && (
+                    <Link
+                      href={`/opportunities?page=${page + 1}&view=matches&${baseParams.toString()}`}
+                      className="px-3 py-1.5 text-xs font-medium rounded-lg border border-border bg-secondary text-foreground hover:bg-secondary/80 transition-colors"
+                    >
+                      Próxima
+                    </Link>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    )
   }
 
-  // PARALLEL: fetch tenders + both tab totals simultaneously
+  // ─── Tenders (Abertas) view ─────────────────────────────────────────────────
+
   const [tenderResult, matchCount, tenderTotalCount] = await Promise.all([
     getTenderList({
-      page,
-      pageSize,
-      uf: ufFilter || undefined,
-      modalidade: modalidadeFilter || undefined,
-      dataFrom: dataDeFilter || undefined,
-      dataTo: dataAteFilter || undefined,
-      fonte: fonteFilter || undefined,
-      esfera: esferaFilter || undefined,
-      search: searchQuery || undefined,
-      searchEdital: buscaEdital,
-      ordemValor: ordemValorFilter || undefined,
-      ordemData: ordemDataFilter || undefined,
+      page, pageSize,
+      uf: ufFilter || undefined, modalidade: modalidadeFilter || undefined,
+      dataFrom: dataDeFilter || undefined, dataTo: dataAteFilter || undefined,
+      fonte: fonteFilter || undefined, esfera: esferaFilter || undefined,
+      search: searchQuery || undefined, searchEdital: buscaEdital,
+      ordemValor: ordemValorFilter || undefined, ordemData: ordemDataFilter || undefined,
     }),
     companyId ? getMatchCount(companyId, userMinScore) : Promise.resolve(0),
     getTenderCount(),
@@ -156,7 +414,7 @@ export default async function OpportunitiesPage({
 
   const { tenders, count, totalPages } = tenderResult
 
-  // Fetch existing pipeline matches for tenders (to show PipelineTag)
+  // Fetch existing pipeline matches for tenders
   let matchMap = new Map<string, { id: string; status: string }>()
   if (companyId && tenders && tenders.length > 0) {
     const supabase = await createClient()
@@ -171,754 +429,224 @@ export default async function OpportunitiesPage({
 
   return (
     <div>
-      <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">Oportunidades</h1>
-
-      {/* View tabs */}
-      <div className="flex gap-2 mb-4 overflow-x-auto items-center">
-        <Link
-          href={`/opportunities?view=tenders`}
-          className={`px-3 sm:px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap ${
-            view === 'tenders'
-              ? 'bg-brand text-white'
-              : 'bg-[#2d2f33] text-gray-400 hover:bg-[#2d2f33]/80'
-          }`}
-        >
-          Abertas ({tenderTotalCount ?? 0})
-        </Link>
-        <Link
-          href={`/opportunities?view=matches`}
-          className={`px-3 sm:px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap ${
-            view === 'matches'
-              ? 'bg-brand text-white'
-              : 'bg-[#2d2f33] text-gray-400 hover:bg-[#2d2f33]/80'
-          }`}
-        >
-          Matches IA ({matchCount})
-        </Link>
-        <Link
-          href="/archive"
-          className="ml-auto text-xs text-gray-400 hover:text-gray-300 whitespace-nowrap"
-        >
-          Ver arquivo →
-        </Link>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-5">
+        <div>
+          <h1 className="text-xl font-semibold text-foreground tracking-tight">Oportunidades</h1>
+          <div className="flex gap-1 mt-3">
+            <Link
+              href="/opportunities?view=tenders"
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-[13px] font-medium transition-all duration-150 border bg-secondary border-border text-foreground"
+            >
+              Abertas
+              <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-primary/10 text-primary font-mono tabular-nums">{tenderTotalCount?.toLocaleString('pt-BR') ?? 0}</span>
+            </Link>
+            <Link
+              href="/opportunities?view=matches"
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-[13px] font-medium transition-all duration-150 border bg-transparent border-border text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+            >
+              Matches IA
+              <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-secondary text-muted-foreground font-mono tabular-nums">{matchCount?.toLocaleString('pt-BR') ?? 0}</span>
+            </Link>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground font-mono tabular-nums">
+            {count?.toLocaleString('pt-BR') ?? 0} licitações
+          </span>
+          {canExport && (
+            <a
+              href={`/api/export?view=tenders&uf=${ufFilter}&modalidade=${modalidadeFilter}&fonte=${fonteFilter}`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-border bg-secondary text-foreground hover:bg-secondary/80 transition-colors"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
+              Exportar Excel
+            </a>
+          )}
+        </div>
       </div>
 
       {/* Filters */}
-      <Card className="mb-6">
-        <CardContent className="pt-6">
-          <form className="space-y-4">
-            <input type="hidden" name="view" value={view} />
-            <div>
-              <label className="text-sm font-medium text-gray-400">Buscar</label>
+      <div className="bg-card border border-border rounded-xl p-4 mb-4">
+        <form className="space-y-3">
+          <input type="hidden" name="view" value={view} />
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1 max-w-sm">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+              </svg>
               <input
                 name="q"
                 type="text"
                 defaultValue={searchQuery}
-                placeholder="Buscar por palavra-chave..."
-                className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                placeholder="Buscar por objeto, órgão..."
+                className="w-full h-9 pl-9 pr-3 rounded-lg border border-border bg-secondary/50 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-ring"
               />
-              <label className="mt-1 flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="busca_edital"
-                  value="1"
-                  defaultChecked={buscaEdital}
-                  className="rounded border-[#2d2f33]"
-                />
-                Buscar no texto do edital
-              </label>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
-              <div>
-                <label className="text-sm font-medium text-gray-400">UF</label>
-                <select
-                  name="uf"
-                  defaultValue={ufFilter}
-                  className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="">Todas</option>
-                  {['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'].map(
-                    (uf) => (
-                      <option key={uf} value={uf}>{uf}</option>
-                    ),
-                  )}
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-400">Modalidade</label>
-                <select
-                  name="modalidade"
-                  defaultValue={modalidadeFilter}
-                  className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="">Todas</option>
-                  {Object.entries(PNCP_MODALITIES).map(([id, name]) => (
-                    <option key={id} value={id}>{name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-400">Fonte</label>
-                <select
-                  name="fonte"
-                  defaultValue={fonteFilter}
-                  className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="">Todas</option>
-                  <option value="pncp">PNCP</option>
-                  <option value="comprasgov">Compras.gov</option>
-                  {hasAllPortals && <option value="bec_sp">BEC SP</option>}
-                  {hasAllPortals && <option value="compras_mg">Compras MG</option>}
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-400">Esfera</label>
-                <select
-                  name="esfera"
-                  defaultValue={esferaFilter}
-                  className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="">Todas</option>
-                  <option value="F">Federal</option>
-                  <option value="E">Estadual</option>
-                  <option value="M">Municipal</option>
-                  <option value="D">Distrital</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-400">De</label>
-                <input
-                  name="data_de"
-                  type="date"
-                  defaultValue={dataDeFilter}
-                  className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-400">Até</label>
-                <input
-                  name="data_ate"
-                  type="date"
-                  defaultValue={dataAteFilter}
-                  className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-400">Valor</label>
-                <select
-                  name="ordem_valor"
-                  defaultValue={ordemValorFilter}
-                  className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="">Padrão</option>
-                  <option value="valor_desc">Maior</option>
-                  <option value="valor_asc">Menor</option>
-                </select>
-              </div>
             </div>
             <div className="flex flex-wrap gap-2 items-center">
-              <button
-                type="submit"
-                className="h-10 px-4 bg-brand text-white rounded-md hover:bg-brand-dark text-sm"
-              >
-                Filtrar
-              </button>
-              {(searchQuery || modalidadeFilter || dataDeFilter || dataAteFilter || fonteFilter || esferaFilter || ordemValorFilter || ordemDataFilter) && (
-                <Link
-                  href={`/opportunities?view=${view}&uf=${ufFilter}`}
-                  className="h-10 px-3 flex items-center text-sm text-gray-400 hover:text-white"
-                >
-                  Limpar filtros
-                </Link>
-              )}
+              <select name="uf" defaultValue={ufFilter} className="opp-filter-select">
+                <option value="">UF: Todas</option>
+                {UF_LIST.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
+              </select>
+              <select name="modalidade" defaultValue={modalidadeFilter} className="opp-filter-select">
+                <option value="">Modalidade: Todas</option>
+                {Object.entries(PNCP_MODALITIES).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+              </select>
+              <select name="fonte" defaultValue={fonteFilter} className="opp-filter-select">
+                <option value="">Fonte: Todas</option>
+                <option value="pncp">PNCP</option>
+                <option value="comprasgov">Compras.gov</option>
+                {hasAllPortals && <option value="bec_sp">BEC SP</option>}
+                {hasAllPortals && <option value="compras_mg">Compras MG</option>}
+              </select>
+              <select name="esfera" defaultValue={esferaFilter} className="opp-filter-select">
+                <option value="">Esfera: Todas</option>
+                <option value="F">Federal</option>
+                <option value="E">Estadual</option>
+                <option value="M">Municipal</option>
+              </select>
             </div>
-          </form>
-        </CardContent>
-      </Card>
-
-      {/* Table */}
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <CardTitle className="text-sm sm:text-base">
-              {count ?? 0} licitações
-              {searchQuery && (
-                <span className="text-sm font-normal text-gray-400 ml-2">
-                  para &quot;{searchQuery}&quot;
-                </span>
-              )}
-            </CardTitle>
-            {canExport && (
-              <a
-                href={`/api/export?view=tenders&uf=${ufFilter}&modalidade=${modalidadeFilter}&fonte=${fonteFilter}`}
-                className="px-3 py-1.5 bg-brand text-white rounded-md hover:bg-brand-dark text-xs sm:text-sm inline-flex items-center gap-1 w-fit"
-              >
-                Exportar Excel
-              </a>
+          </div>
+          <div className="flex items-center gap-2">
+            <button type="submit" className="h-8 px-4 text-xs font-medium rounded-lg bg-foreground/10 text-foreground border border-border hover:bg-foreground/15 transition-colors">
+              Aplicar filtros
+            </button>
+            {hasActiveFilters && (
+              <Link href={`/opportunities?view=${view}`} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                Limpar
+              </Link>
             )}
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="min-w-[250px]">Objeto</TableHead>
-                <TableHead className="min-w-[150px]">Órgão</TableHead>
-                <TableHead className="w-14">UF</TableHead>
-                <TableHead className="w-32 hidden lg:table-cell">Valor</TableHead>
-                <TableHead className="w-28 hidden md:table-cell">Abertura</TableHead>
-                <TableHead className="w-32 hidden md:table-cell">Encerramento</TableHead>
-                <TableHead className="w-28 hidden lg:table-cell">Publicação</TableHead>
-                <TableHead className="w-24 hidden lg:table-cell">Fonte</TableHead>
-                <TableHead className="w-20">Status</TableHead>
-                {companyId && <TableHead className="w-20">Pipeline</TableHead>}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {tenders && tenders.length > 0 ? (
-                tenders.map((tender) => (
-                  <TableRow key={tender.id} className="cursor-pointer hover:bg-[#2d2f33]">
-                    <TableCell>
-                      <Link
-                        href={`/opportunities/tender/${tender.id}`}
-                        className="text-sm font-medium hover:text-brand hover:underline"
-                      >
-                        {truncateText(tender.objeto || 'N/A', 100)}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="text-sm text-gray-400">
-                      {truncateText(tender.orgao_nome || '', 35)}
-                    </TableCell>
-                    <TableCell className="text-sm font-medium">{tender.uf || '-'}</TableCell>
-                    <TableCell className="text-sm hidden lg:table-cell">
-                      {tender.valor_estimado
-                        ? formatCurrency(tender.valor_estimado)
-                        : '-'}
-                    </TableCell>
-                    <TableCell className="text-sm hidden md:table-cell">
-                      {tender.data_abertura
-                        ? formatDate(tender.data_abertura)
-                        : '-'}
-                    </TableCell>
-                    <TableCell className="text-sm hidden md:table-cell">
-                      <EncerramentoBadge dataEncerramento={tender.data_encerramento} />
-                    </TableCell>
-                    <TableCell className="text-sm hidden lg:table-cell text-gray-400">
-                      {tender.data_publicacao
-                        ? formatDate(tender.data_publicacao)
-                        : '-'}
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell">
-                      <SourceBadge source={tender.source || 'pncp'} />
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge status={tender.status} />
-                    </TableCell>
-                    {companyId && (
-                      <TableCell>
-                        <PipelineTag
-                          tenderId={tender.id}
-                          companyId={companyId}
-                          matchId={matchMap.get(tender.id)?.id}
-                          currentStatus={matchMap.get(tender.id)?.status}
-                        />
-                      </TableCell>
-                    )}
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={companyId ? 10 : 9} className="text-center text-gray-400 py-8">
-                    Nenhuma licitação encontrada
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-          </div>
+        </form>
+      </div>
 
-          {/* Págination */}
-          {totalPages > 1 && (
-            <div className="flex justify-center gap-2 mt-4">
+      {/* Table */}
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="opp-table">
+            <thead>
+              <tr>
+                <th style={{ minWidth: 280 }}>Oportunidade</th>
+                <th style={{ width: 120 }} className="text-right">Valor</th>
+                <th style={{ width: 140 }}>Prazo</th>
+                <th style={{ width: 90 }}>Fonte</th>
+                <th style={{ width: 100 }}>Status</th>
+                {companyId && <th style={{ width: 80 }}>Pipeline</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {tenders && tenders.length > 0 ? (
+                tenders.map((tender: any) => {
+                  const cd = countdownText(tender.data_encerramento)
+                  const statusInfo = TENDER_STATUS_MAP[tender.status] || { label: tender.status, cls: 'bg-foreground/5 text-muted-foreground border-border' }
+
+                  return (
+                    <tr key={tender.id} className="opp-row">
+                      <td className="opp-col-main">
+                        <Link href={`/opportunities/tender/${tender.id}`} className="block group">
+                          <p className="opp-title group-hover:text-primary transition-colors">
+                            {tender.objeto || 'N/A'}
+                          </p>
+                          <div className="opp-meta">
+                            <span>{truncateText(tender.orgao_nome || '', 40)}</span>
+                            <span className="opp-dot">·</span>
+                            <span>{tender.uf || '-'}</span>
+                          </div>
+                        </Link>
+                      </td>
+                      <td className="opp-col-value">
+                        {tender.valor_estimado ? (
+                          <span className="font-mono tabular-nums text-[13px] font-semibold text-foreground" title={formatCurrencyFull(tender.valor_estimado)}>
+                            {formatCompactBRL(tender.valor_estimado)}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground/40 text-xs">-</span>
+                        )}
+                      </td>
+                      <td className="opp-col-deadline">
+                        {tender.data_encerramento ? (
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[13px] font-medium text-foreground font-mono tabular-nums">
+                                {formatDate(tender.data_encerramento)}
+                              </span>
+                              {cd && (
+                                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${cd.urgent ? 'bg-red-500/10 text-red-400' : 'bg-amber-500/10 text-amber-400'}`}>
+                                  {cd.text}
+                                </span>
+                              )}
+                            </div>
+                            {tender.data_abertura && (
+                              <span className="text-[11px] text-muted-foreground/60">
+                                Aberto em {formatDate(tender.data_abertura)}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                            Verificar prazo
+                          </span>
+                        )}
+                      </td>
+                      <td className="opp-col-source">
+                        <SourceBadge source={tender.source || 'pncp'} />
+                      </td>
+                      <td className="opp-col-status">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium border ${statusInfo.cls}`}>
+                          {statusInfo.label}
+                        </span>
+                      </td>
+                      {companyId && (
+                        <td className="align-middle">
+                          <PipelineTag
+                            tenderId={tender.id}
+                            companyId={companyId}
+                            matchId={matchMap.get(tender.id)?.id}
+                            currentStatus={matchMap.get(tender.id)?.status}
+                          />
+                        </td>
+                      )}
+                    </tr>
+                  )
+                })
+              ) : (
+                <tr>
+                  <td colSpan={companyId ? 6 : 5} className="text-center text-muted-foreground py-12 text-sm">
+                    Nenhuma licitação encontrada
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+            <span className="text-xs text-muted-foreground font-mono tabular-nums">
+              Página {page} de {totalPages}
+            </span>
+            <div className="flex gap-1">
               {page > 1 && (
                 <Link
                   href={`/opportunities?page=${page - 1}&view=${view}&${baseParams.toString()}`}
-                  className="px-3 py-1 border rounded text-sm hover:bg-[#2d2f33]"
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg border border-border bg-secondary text-foreground hover:bg-secondary/80 transition-colors"
                 >
                   Anterior
                 </Link>
               )}
-              <span className="px-3 py-1 text-sm text-gray-400">
-                Página {page} de {totalPages}
-              </span>
               {page < totalPages && (
                 <Link
                   href={`/opportunities?page=${page + 1}&view=${view}&${baseParams.toString()}`}
-                  className="px-3 py-1 border rounded text-sm hover:bg-[#2d2f33]"
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg border border-border bg-secondary text-foreground hover:bg-secondary/80 transition-colors"
                 >
                   Próxima
                 </Link>
               )}
             </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
-
-// ─── Matches View ────────────────────────────────────────────────────────────
-
-function renderMatchesView(props: {
-  matches: Array<Record<string, any>>
-  matchCount: number
-  filteredMatchCount: number
-  totalPages: number
-  tenderCount: number
-  page: number
-  ufFilter: string
-  modalidadeFilter: string
-  scoreMinFilter: number
-  dataDeFilter: string
-  dataAteFilter: string
-  fonteFilter: string
-  esferaFilter: string
-  ordemValorFilter: string
-  ordemDataFilter: string
-  userMinScore: number
-  baseParams: URLSearchParams
-  canExport: boolean
-  hasAllPortals: boolean
-  qMatchFilter: string
-}) {
-  const {
-    matches, matchCount, filteredMatchCount, totalPages, tenderCount, page,
-    ufFilter, modalidadeFilter, scoreMinFilter, dataDeFilter, dataAteFilter, fonteFilter, esferaFilter,
-    ordemValorFilter, ordemDataFilter, userMinScore, baseParams, canExport, hasAllPortals,
-    qMatchFilter,
-  } = props
-
-  const effectiveMinScore = scoreMinFilter > 0 ? scoreMinFilter : userMinScore
-
-  return (
-    <div>
-      <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">Oportunidades</h1>
-
-      <div className="flex gap-2 mb-4 overflow-x-auto items-center">
-        <Link
-          href={`/opportunities?view=tenders`}
-          className="px-3 sm:px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap bg-[#2d2f33] text-gray-400 hover:bg-[#2d2f33]/80"
-        >
-          Abertas ({tenderCount ?? 0})
-        </Link>
-        <Link
-          href={`/opportunities?view=matches`}
-          className="px-3 sm:px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap bg-brand text-white"
-        >
-          Matches IA ({matchCount ?? 0})
-        </Link>
-        <Link
-          href="/archive"
-          className="ml-auto text-xs text-gray-400 hover:text-gray-300 whitespace-nowrap"
-        >
-          Ver arquivo →
-        </Link>
-      </div>
-
-      <Card className="mb-6">
-        <CardContent className="pt-6">
-          <form className="space-y-4">
-            <input type="hidden" name="view" value="matches" />
-            <div className="relative">
-              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-              </svg>
-              <input
-                name="q_match"
-                type="text"
-                defaultValue={qMatchFilter}
-                placeholder="Buscar por objeto, órgão..."
-                className="flex h-10 w-full rounded-md border border-[#2d2f33] bg-[#2d2f33] pl-10 pr-3 py-2 text-sm text-white placeholder:text-gray-500"
-              />
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-              <div>
-                <label className="text-sm font-medium text-gray-400">Score Min</label>
-                <select
-                  name="score_min"
-                  defaultValue={scoreMinFilter > 0 ? String(scoreMinFilter) : ''}
-                  className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="">Config ({userMinScore}%)</option>
-                  {ALL_SCORE_OPTIONS.map((s) => (
-                    <option key={s} value={s}>{s}%{s === userMinScore ? ' (config)' : ''}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-400">UF</label>
-                <select
-                  name="uf"
-                  defaultValue={ufFilter}
-                  className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="">Todas</option>
-                  {['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'].map(
-                    (uf) => (
-                      <option key={uf} value={uf}>{uf}</option>
-                    ),
-                  )}
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-400">Modalidade</label>
-                <select
-                  name="modalidade"
-                  defaultValue={modalidadeFilter}
-                  className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="">Todas</option>
-                  {Object.entries(PNCP_MODALITIES).map(([id, name]) => (
-                    <option key={id} value={id}>{name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-400">Fonte</label>
-                <select
-                  name="fonte"
-                  defaultValue={fonteFilter}
-                  className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="">Todas</option>
-                  <option value="pncp">PNCP</option>
-                  <option value="comprasgov">Compras.gov</option>
-                  {hasAllPortals && <option value="bec_sp">BEC SP</option>}
-                  {hasAllPortals && <option value="compras_mg">Compras MG</option>}
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-400">Esfera</label>
-                <select
-                  name="esfera"
-                  defaultValue={esferaFilter}
-                  className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="">Todas</option>
-                  <option value="F">Federal</option>
-                  <option value="E">Estadual</option>
-                  <option value="M">Municipal</option>
-                  <option value="D">Distrital</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-400">De</label>
-                <input
-                  name="data_de"
-                  type="date"
-                  defaultValue={dataDeFilter}
-                  className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-400">Até</label>
-                <input
-                  name="data_ate"
-                  type="date"
-                  defaultValue={dataAteFilter}
-                  className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-400">Valor</label>
-                <select
-                  name="ordem_valor"
-                  defaultValue={ordemValorFilter}
-                  className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="">Padrão</option>
-                  <option value="valor_desc">Maior</option>
-                  <option value="valor_asc">Menor</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-400">Data</label>
-                <select
-                  name="ordem_data"
-                  defaultValue={ordemDataFilter}
-                  className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="">Padrão</option>
-                  <option value="data_desc">Recente</option>
-                  <option value="data_asc">Antiga</option>
-                </select>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2 items-center">
-              <button
-                type="submit"
-                className="h-10 px-4 bg-brand text-white rounded-md hover:bg-brand-dark text-sm"
-              >
-                Filtrar
-              </button>
-              {(qMatchFilter || modalidadeFilter || scoreMinFilter || dataDeFilter || dataAteFilter || fonteFilter || ordemValorFilter || ordemDataFilter) && (
-                <Link
-                  href="/opportunities?view=matches"
-                  className="h-10 px-3 flex items-center text-sm text-gray-400 hover:text-white"
-                >
-                  Limpar filtros
-                </Link>
-              )}
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <CardTitle className="text-sm sm:text-base">
-              {filteredMatchCount ?? 0} matches
-              <span className="text-sm font-normal text-gray-400 ml-2">
-                (score &ge; {effectiveMinScore}%)
-              </span>
-            </CardTitle>
-            {canExport && (
-              <a
-                href={`/api/export?view=matches&uf=${ufFilter}&modalidade=${modalidadeFilter}&fonte=${fonteFilter}&score_min=${effectiveMinScore}`}
-                className="px-3 py-1.5 bg-brand text-white rounded-md hover:bg-brand-dark text-xs sm:text-sm inline-flex items-center gap-1 w-fit"
-              >
-                Exportar Excel
-              </a>
-            )}
           </div>
-        </CardHeader>
-        <CardContent>
-          {(filteredMatchCount ?? 0) === 0 ? (
-            <div className="text-center py-8 text-gray-400">
-              <p className="mb-2">A análise por IA está processando suas licitações.</p>
-              <p className="text-sm">Os matches aparecerão aqui conforme as licitações forem analisadas.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-16">Score</TableHead>
-                  <TableHead className="min-w-[250px]">Objeto</TableHead>
-                  <TableHead className="min-w-[140px] hidden lg:table-cell">Órgão</TableHead>
-                  <TableHead className="w-14">UF</TableHead>
-                  <TableHead className="w-32 hidden md:table-cell">Valor</TableHead>
-                  <TableHead className="w-28 hidden lg:table-cell">Modalidade</TableHead>
-                  <TableHead className="w-28 hidden md:table-cell">Abertura</TableHead>
-                  <TableHead className="w-32 hidden md:table-cell">Encerramento</TableHead>
-                  <TableHead className="w-14 hidden lg:table-cell">Docs</TableHead>
-                  <TableHead className="w-24 hidden xl:table-cell">Fonte</TableHead>
-                  <TableHead className="w-28 hidden xl:table-cell">Rec. IA</TableHead>
-                  <TableHead className="w-20">Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {matches?.map((match: any) => {
-                  const tender = (match.tenders as unknown) as Record<string, unknown> | null
-                  const tenderDocs = (tender?.tender_documents as unknown as Array<{ id: string }>) || []
-                  const recomendacao = match.recomendacao as string | null
-                  return (
-                    <TableRow key={match.id} className="cursor-pointer hover:bg-[#2d2f33]">
-                      <TableCell>
-                        <Link href={`/opportunities/${match.id}`}>
-                          <ScoreBadge score={match.score} matchSource={match.match_source} />
-                        </Link>
-                      </TableCell>
-                      <TableCell>
-                        <Link
-                          href={`/opportunities/${match.id}`}
-                          className="hover:text-brand"
-                        >
-                          <p className="text-sm font-medium leading-snug">
-                            {truncateText((tender?.objeto as string) || 'N/A', 100)}
-                          </p>
-                        </Link>
-                      </TableCell>
-                      <TableCell className="text-sm text-gray-400 hidden lg:table-cell">
-                        {truncateText((tender?.orgao_nome as string) || '', 35)}
-                      </TableCell>
-                      <TableCell className="text-sm font-medium">{(tender?.uf as string) || '-'}</TableCell>
-                      <TableCell className="text-sm hidden md:table-cell">
-                        {tender?.valor_estimado
-                          ? formatCurrency(tender.valor_estimado as number)
-                          : '-'}
-                      </TableCell>
-                      <TableCell className="text-xs text-gray-400 hidden lg:table-cell">
-                        {truncateText((tender?.modalidade_nome as string) || '-', 25)}
-                      </TableCell>
-                      <TableCell className="text-sm hidden md:table-cell">
-                        {tender?.data_abertura
-                          ? formatDate(tender.data_abertura as string)
-                          : '-'}
-                      </TableCell>
-                      <TableCell className="text-sm hidden md:table-cell">
-                        <EncerramentoBadge dataEncerramento={tender?.data_encerramento as string | null} />
-                      </TableCell>
-                      <TableCell className="text-sm text-center hidden lg:table-cell">
-                        {tenderDocs.length > 0 ? (
-                          <Badge variant="outline" className="text-xs">{tenderDocs.length}</Badge>
-                        ) : '-'}
-                      </TableCell>
-                      <TableCell className="hidden xl:table-cell">
-                        <SourceBadge source={(tender?.source as string) || 'pncp'} />
-                      </TableCell>
-                      <TableCell className="hidden xl:table-cell">
-                        {recomendacao && (
-                          <Badge
-                            variant="outline"
-                            className={`text-xs ${
-                              recomendacao === 'participar'
-                                ? 'bg-emerald-900/20 text-emerald-400 border-emerald-800/30'
-                                : recomendacao === 'avaliar_melhor'
-                                  ? 'bg-amber-900/20 text-amber-400 border-amber-800/30'
-                                  : 'bg-red-900/20 text-red-400 border-red-800/30'
-                            }`}
-                          >
-                            {recomendacao === 'participar' ? 'Participar' : recomendacao === 'avaliar_melhor' ? 'Avaliar' : 'Não Rec.'}
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-xs">
-                          {match.status}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-            </div>
-          )}
-
-          {totalPages > 1 && (
-            <div className="flex justify-center gap-2 mt-4">
-              {page > 1 && (
-                <Link
-                  href={`/opportunities?page=${page - 1}&view=matches&${baseParams.toString()}`}
-                  className="px-3 py-1 border rounded text-sm hover:bg-[#2d2f33]"
-                >
-                  Anterior
-                </Link>
-              )}
-              <span className="px-3 py-1 text-sm text-gray-400">
-                Página {page} de {totalPages}
-              </span>
-              {page < totalPages && (
-                <Link
-                  href={`/opportunities?page=${page + 1}&view=matches&${baseParams.toString()}`}
-                  className="px-3 py-1 border rounded text-sm hover:bg-[#2d2f33]"
-                >
-                  Próxima
-                </Link>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        )}
+      </div>
     </div>
   )
-}
-
-// ─── Shared Components ───────────────────────────────────────────────────────
-
-function ScoreBadge({ score, matchSource }: { score: number; matchSource?: string }) {
-  const isAi = matchSource === 'ai' || matchSource === 'ai_triage'
-  const color =
-    score >= 80
-      ? 'bg-orange-900/20 text-orange-400'
-      : score >= 70
-        ? 'bg-emerald-900/20 text-emerald-400'
-        : score >= 50
-          ? 'bg-amber-900/20 text-amber-400'
-          : 'bg-red-900/20 text-red-400'
-
-  return (
-    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${color}`}>
-      {score}
-      {isAi && <span className="text-[10px] font-normal opacity-70">IA</span>}
-    </span>
-  )
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const colors: Record<string, string> = {
-    new: 'bg-brand/10 text-brand',
-    analyzed: 'bg-emerald-900/20 text-emerald-400',
-    error: 'bg-amber-900/20 text-amber-400',
-  }
-  const labels: Record<string, string> = {
-    new: 'Novo',
-    analyzed: 'Analisado',
-    analyzing: 'Analisando...',
-    error: '🤖 Analisar com IA',
-  }
-
-  return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colors[status] || 'bg-[#2d2f33] text-gray-400'}`}>
-      {labels[status] || status}
-    </span>
-  )
-}
-
-function SourceBadge({ source }: { source: string }) {
-  const config: Record<string, { label: string; color: string }> = {
-    pncp: { label: 'PNCP', color: 'bg-emerald-900/20 text-emerald-400 border-emerald-800/30' },
-    comprasgov: { label: 'Compras.gov', color: 'bg-blue-900/20 text-blue-400 border-blue-800/30' },
-    bec_sp: { label: 'BEC SP', color: 'bg-amber-900/20 text-amber-400 border-amber-800/30' },
-    portal_mg: { label: 'MG', color: 'bg-orange-900/20 text-orange-400 border-orange-800/30' },
-  }
-  const { label, color } = config[source] || { label: source, color: 'bg-[#2d2f33] text-gray-400 border-[#2d2f33]' }
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${color}`}>
-      {label}
-    </span>
-  )
-}
-
-function EncerramentoBadge({ dataEncerramento }: { dataEncerramento: string | null | undefined }) {
-  if (!dataEncerramento) {
-    return (
-      <span className="inline-flex items-center gap-1 text-xs text-amber-400 bg-amber-900/20 px-2 py-0.5 rounded" title="Data não informada pelo PNCP. Consulte o edital ou pergunte ao consultor IA.">
-        ⚠️ Verificar prazo
-      </span>
-    )
-  }
-
-  const now = new Date()
-  const enc = new Date(dataEncerramento)
-  const diffDays = Math.ceil((enc.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-
-  if (diffDays < 0) {
-    return (
-      <span className="text-xs text-red-500">
-        Encerrado
-      </span>
-    )
-  }
-
-  if (diffDays <= 3) {
-    return (
-      <span className="text-xs text-red-400 font-medium">
-        {formatDate(dataEncerramento)} ({diffDays === 0 ? 'HOJE' : `${diffDays}d`})
-      </span>
-    )
-  }
-
-  return (
-    <span className="text-xs text-gray-400">
-      {formatDate(dataEncerramento)}
-    </span>
-  )
-}
-
-function truncateText(text: string, max: number): string {
-  return text.length > max ? text.slice(0, max - 3) + '...' : text
 }
