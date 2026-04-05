@@ -225,18 +225,30 @@ export default async function DashboardPage() {
   // Match details for Valor, UFs, Modalidades
   const matchDetails = (matchesForStats.data || []) as Array<{ score: number; tenders: unknown }>
   let totalValueInAnalysis = 0
+  const allValues: number[] = []
   const ufCounts: Record<string, number> = {}
   const modalidadeCounts: Record<string, number> = {}
 
   for (const m of matchDetails) {
     const t = m.tenders as Record<string, unknown> | null
     if (!t) continue
-    if (t.valor_estimado) totalValueInAnalysis += Number(t.valor_estimado) || 0
+    const val = Number(t.valor_estimado) || 0
+    if (val > 0) {
+      totalValueInAnalysis += val
+      allValues.push(val)
+    }
     const uf = (t.uf as string) || 'N/I'
     const mod = (t.modalidade_nome as string) || 'N/I'
     ufCounts[uf] = (ufCounts[uf] || 0) + 1
     modalidadeCounts[mod] = (modalidadeCounts[mod] || 0) + 1
   }
+
+  // Value range for Ticket Médio
+  allValues.sort((a, b) => a - b)
+  const minValue = allValues.length > 0 ? allValues[0] : 0
+  const maxValue = allValues.length > 0 ? allValues[allValues.length - 1] : 0
+  const avgValue = allValues.length > 0 ? totalValueInAnalysis / allValues.length : 0
+  const avgPctInRange = maxValue > minValue ? ((avgValue - minValue) / (maxValue - minValue)) * 100 : 50
 
   const topUFs = Object.entries(ufCounts).sort((a, b) => b[1] - a[1]).slice(0, 5)
   const topModalidades = Object.entries(modalidadeCounts).sort((a, b) => b[1] - a[1]).slice(0, 5)
@@ -313,9 +325,20 @@ export default async function DashboardPage() {
           <h1 className="text-xl font-semibold text-white tracking-tight">Dashboard</h1>
           <p className="text-xs text-gray-500 mt-0.5">Visão geral das suas oportunidades</p>
         </div>
-        <p className="text-[10px] text-gray-500 bg-white/[0.04] px-3 py-1.5 rounded-full border border-white/[0.06]">
-          Atualizado: {new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-        </p>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/opportunities"
+            className="text-xs text-gray-400 hover:text-white transition-colors px-3 py-1.5 rounded-lg border border-white/[0.06] hover:border-white/[0.12]"
+          >
+            Ver oportunidades
+          </Link>
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.03] rounded-lg border border-white/[0.06]">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-[10px] text-gray-500">
+              Atualizado {new Date().toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* ─── KPI Row 1: Volume ─── */}
@@ -360,12 +383,21 @@ export default async function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
           <Card>
             <CardHeader><CardTitle className="text-sm font-semibold tracking-tight">Taxa de Vitória</CardTitle></CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <WinRateCircle rate={overallWinRate} won={totalWon} lost={totalLost} />
               {recentTotal >= 3 && Math.abs(winRateDiff) > 10 && (
-                <p className={`text-xs mt-3 font-medium ${winRateDiff > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                <p className={`text-xs font-medium ${winRateDiff > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                   {winRateDiff > 0 ? '↑' : '↓'} {Math.abs(winRateDiff)}% nos últimos 30 dias
                 </p>
+              )}
+              {/* CTA when losses exist */}
+              {totalLost > 0 && (
+                <div className="flex items-center justify-between pt-3 border-t border-white/[0.06]">
+                  <p className="text-[11px] text-gray-500">Analise licitações perdidas para gaps competitivos</p>
+                  <Link href="/opportunities?status=lost" className="text-[11px] text-gray-400 hover:text-white transition-colors whitespace-nowrap ml-2">
+                    Ver análise →
+                  </Link>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -375,12 +407,39 @@ export default async function DashboardPage() {
               <div className="space-y-4">
                 <div>
                   <p className="text-2xl font-bold text-white font-[family-name:var(--font-geist-mono)] tabular-nums">
-                    {totalValueInAnalysis > 0 && totalMatches > 0
-                      ? formatCompactValue(totalValueInAnalysis / totalMatches)
-                      : '—'}
+                    {avgValue > 0 ? formatCompactValue(avgValue) : '—'}
                   </p>
                   <p className="text-[10px] text-gray-600 mt-1">— sem histórico</p>
                 </div>
+
+                {/* Range bar */}
+                {allValues.length >= 3 && (
+                  <div>
+                    <div className="relative h-1.5 bg-white/[0.04] rounded-full">
+                      <div className="absolute inset-y-0 left-0 bg-brand/30 rounded-full" style={{ width: `${Math.min(100, avgPctInRange)}%` }} />
+                      {/* Avg marker */}
+                      <div
+                        className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-brand border-2 border-[#131316] shadow-[0_0_0_3px_hsl(18_95%_55%/0.2)]"
+                        style={{ left: `${Math.min(96, Math.max(4, avgPctInRange))}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between mt-2">
+                      <div>
+                        <p className="text-[9px] text-gray-600">Menor</p>
+                        <p className="text-[10px] text-gray-400 font-[family-name:var(--font-geist-mono)] tabular-nums">{formatCompactValue(minValue)}</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-[9px] text-brand">Médio</p>
+                        <p className="text-[10px] text-gray-300 font-[family-name:var(--font-geist-mono)] tabular-nums">{formatCompactValue(avgValue)}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[9px] text-gray-600">Maior</p>
+                        <p className="text-[10px] text-gray-400 font-[family-name:var(--font-geist-mono)] tabular-nums">{formatCompactValue(maxValue)}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-white/[0.03] rounded-lg p-3">
                     <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Em pipeline</p>
@@ -398,17 +457,30 @@ export default async function DashboardPage() {
       )}
 
       {/* ─── Section Divider ─── */}
-      <div className="flex items-center gap-5 my-10 mb-7">
-        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
-        <h2 className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.12em] whitespace-nowrap">Análise de Performance</h2>
-        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
+      <div className="flex items-center gap-6 mt-12 mb-7">
+        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/[0.10] to-transparent" />
+        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-[0.14em] whitespace-nowrap px-2">Análise de Performance</h2>
+        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-white/[0.10] to-transparent" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
         <Card>
-          <CardHeader><CardTitle className="text-sm font-semibold tracking-tight">Distribuição de Scores</CardTitle></CardHeader>
-          <CardContent>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold tracking-tight">Distribuição de Scores</CardTitle>
+              {highMatches > 0 && scores.length > 0 && (
+                <span className="text-[10px] text-emerald-400 font-medium font-[family-name:var(--font-geist-mono)]">
+                  {Math.round((highMatches / scores.length) * 100)}% score alto
+                </span>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
             <ScoreDonut distribution={scoreDistribution.map(d => ({ ...d, percentage: scores.length > 0 ? Math.round((d.count / scores.length) * 100) : 0 }))} />
+            <div className="flex items-center justify-between pt-3 border-t border-white/[0.06] text-[10px] text-gray-500">
+              <span>{scores.length.toLocaleString('pt-BR')} matches analisados</span>
+              <span>Score médio: <span className="text-white font-semibold font-[family-name:var(--font-geist-mono)]">{avgScore}</span></span>
+            </div>
           </CardContent>
         </Card>
 

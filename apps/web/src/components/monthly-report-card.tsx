@@ -36,6 +36,13 @@ export function MonthlyReportCard() {
   const primaryKpis = kpis.slice(0, 3)
   const secondaryKpis = kpis.slice(3, 6)
 
+  // Find "Tempo economizado" KPI and compute subtitle
+  const tempoKpi = kpis.find(k => k.label.toLowerCase().includes('tempo'))
+  const tempoHours = tempoKpi ? parseInt(String(tempoKpi.value)) : 0
+  const tempoDays = tempoHours > 0 ? Math.round(tempoHours / 24) : 0
+  const opportunitiesKpi = kpis.find(k => k.label.toLowerCase().includes('oportunidades'))
+  const opportunitiesCount = opportunitiesKpi ? Number(opportunitiesKpi.value) : 0
+
   return (
     <Card>
       <CardHeader>
@@ -73,14 +80,22 @@ export function MonthlyReportCard() {
             {/* Secondary KPIs */}
             {secondaryKpis.length > 0 && (
               <div className="grid grid-cols-3 gap-px bg-white/[0.06] rounded-lg overflow-hidden mt-3">
-                {secondaryKpis.map((kpi, i) => (
-                  <div key={i} className="bg-[#131316] py-4 px-4 text-center">
-                    <p className="text-lg font-bold text-white font-[family-name:var(--font-geist-mono)] tabular-nums">
-                      {kpi.value}
-                    </p>
-                    <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mt-1">{kpi.label}</p>
-                  </div>
-                ))}
+                {secondaryKpis.map((kpi, i) => {
+                  const isTempoKpi = kpi.label.toLowerCase().includes('tempo')
+                  return (
+                    <div key={i} className="bg-[#131316] py-4 px-4 text-center">
+                      <p className="text-lg font-bold text-white font-[family-name:var(--font-geist-mono)] tabular-nums">
+                        {kpi.value}
+                      </p>
+                      <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mt-1">{kpi.label}</p>
+                      {isTempoKpi && tempoDays > 0 && (
+                        <p className="text-[9px] text-gray-600 mt-0.5" title={`${opportunitiesCount.toLocaleString('pt-BR')} oportunidades × 15min de análise manual`}>
+                          ≈ {tempoDays} dias úteis economizados
+                        </p>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             )}
 

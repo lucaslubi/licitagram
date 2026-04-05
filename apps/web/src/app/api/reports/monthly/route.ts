@@ -2,6 +2,14 @@ import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserWithPlan } from '@/lib/auth-helpers'
 
+/** Truncate at word boundary */
+function truncateWords(text: string, maxLen: number): string {
+  if (text.length <= maxLen) return text
+  const trimmed = text.substring(0, maxLen)
+  const lastSpace = trimmed.lastIndexOf(' ')
+  return (lastSpace > maxLen * 0.6 ? trimmed.substring(0, lastSpace) : trimmed) + '…'
+}
+
 /**
  * GET /api/reports/monthly?month=2026-04
  * Returns KPIs for the specified month (defaults to previous month).
@@ -57,7 +65,7 @@ export async function GET(request: NextRequest) {
         id: m.id,
         score: m.score,
         status: m.status,
-        objeto: (m.tenders as any)?.objeto?.substring(0, 100),
+        objeto: truncateWords((m.tenders as any)?.objeto || '', 120),
         orgao: (m.tenders as any)?.orgao_nome,
         valor: (m.tenders as any)?.valor_estimado,
         uf: (m.tenders as any)?.uf,
