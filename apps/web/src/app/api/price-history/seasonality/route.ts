@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
       p_modalidade: modalidade || null,
       p_date_from: null,
       p_date_to: null,
-      p_limit: 50,
+      p_limit: 20,
     })
 
     if (error) {
