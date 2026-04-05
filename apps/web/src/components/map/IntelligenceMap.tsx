@@ -381,6 +381,64 @@ export function IntelligenceMap({
     return { count, totalValue, avgScore, maxScore }
   }, [selectedUfMarkers])
 
+  // Top municipalities for the selected UF
+  const topMunicipios = useMemo(() => {
+    if (!selectedUf) return []
+    const muniMap = new Map<string, { name: string; count: number; totalValue: number }>()
+    for (const m of selectedUfMarkers) {
+      const name = m.municipio || 'Sem município'
+      if (!muniMap.has(name)) muniMap.set(name, { name, count: 0, totalValue: 0 })
+      const d = muniMap.get(name)!
+      d.count++
+      d.totalValue += m.valor || 0
+    }
+    return Array.from(muniMap.values())
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5)
+  }, [selectedUf, selectedUfMarkers])
+
+  // Score distribution for the selected UF
+  const scoreDistribution = useMemo(() => {
+    if (!selectedUfMarkers.length) return null
+    const total = selectedUfMarkers.length
+    const ranges = [
+      { label: '90-100', count: 0, color: 'bg-emerald-500' },
+      { label: '80-89', count: 0, color: 'bg-lime-500' },
+      { label: '70-79', count: 0, color: 'bg-amber-500' },
+      { label: '50-69', count: 0, color: 'bg-slate-500' },
+    ]
+    for (const m of selectedUfMarkers) {
+      if (m.score >= 90) ranges[0].count++
+      else if (m.score >= 80) ranges[1].count++
+      else if (m.score >= 70) ranges[2].count++
+      else ranges[3].count++
+    }
+    return { ranges, total }
+  }, [selectedUfMarkers])
+
+  // CSV export for the selected UF
+  const exportStateCSV = useCallback(() => {
+    if (!selectedUfMarkers.length || !selectedUfData) return
+    const headers = ['Score', 'Objeto', 'Órgão', 'Município', 'Valor Estimado', 'Modalidade', 'Encerramento']
+    const rows = selectedUfMarkers.map((m) => [
+      m.score,
+      `"${(m.objeto || '').replace(/"/g, '""')}"`,
+      `"${(m.orgao || '').replace(/"/g, '""')}"`,
+      m.municipio || '',
+      m.valor || '',
+      m.modalidade || '',
+      m.dataEncerramento || '',
+    ].join(','))
+    const csv = [headers.join(','), ...rows].join('\n')
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `oportunidades-${selectedUfData.name.toLowerCase().replace(/\s+/g, '-')}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [selectedUfMarkers, selectedUfData])
+
   // ─── Mapbox GL layers ───────────────────────────────────────────────────
 
   /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -418,7 +476,7 @@ export function IntelligenceMap({
     },
   }
 
-  // Cluster circles — dark, neutral
+  // Cluster circles — warm gradation by density
   const clusterLayer: any = {
     id: 'clusters',
     type: 'circle',
@@ -428,25 +486,35 @@ export function IntelligenceMap({
       'circle-color': [
         'step',
         ['get', 'point_count'],
-        '#1C1C21',     // < 10: dark
-        10, '#27272A',  // 10-50: zinc-800
-        50, '#3F3F46',  // 50-100: zinc-700
-        100, '#52525B', // 100+: zinc-600
+        '#1C1C21',                          // < 10: dark neutral
+        10, 'rgba(255, 107, 53, 0.15)',     // 10-30: orange very subtle
+        30, 'rgba(255, 107, 53, 0.3)',      // 30-60: orange medium
+        60, 'rgba(255, 107, 53, 0.5)',      // 60-100: orange strong
+        100, 'rgba(255, 107, 53, 0.7)',     // 100+: orange intense
       ],
       'circle-radius': [
         'step',
         ['get', 'point_count'],
-        20,
-        10, 28,
-        50, 36,
-        100, 44,
+        22,
+        10, 30,
+        30, 38,
+        60, 46,
+        100, 54,
       ],
-      'circle-stroke-width': 1,
-      'circle-stroke-color': 'rgba(255, 255, 255, 0.1)',
+      'circle-stroke-width': 2,
+      'circle-stroke-color': [
+        'step',
+        ['get', 'point_count'],
+        'rgba(255, 255, 255, 0.1)',
+        10, 'rgba(255, 107, 53, 0.3)',
+        30, 'rgba(255, 107, 53, 0.5)',
+        60, 'rgba(255, 107, 53, 0.7)',
+        100, 'rgba(255, 107, 53, 0.9)',
+      ],
     },
   }
 
-  // Cluster count text
+  // Cluster count text — scaled by cluster size
   const clusterCountLayer: any = {
     id: 'cluster-count',
     type: 'symbol',
@@ -454,11 +522,21 @@ export function IntelligenceMap({
     filter: ['has', 'point_count'],
     layout: {
       'text-field': '{point_count_abbreviated}',
-      'text-font': ['DIN Pro Medium', 'Arial Unicode MS Bold'],
-      'text-size': 13,
+      'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
+      'text-size': [
+        'step',
+        ['get', 'point_count'],
+        13,
+        30, 14,
+        60, 15,
+        100, 16,
+      ],
+      'text-letter-spacing': -0.02,
     },
     paint: {
-      'text-color': '#FAFAFA',
+      'text-color': '#FFFFFF',
+      'text-halo-color': 'rgba(0, 0, 0, 0.3)',
+      'text-halo-width': 1,
     },
   }
 
@@ -480,10 +558,10 @@ export function IntelligenceMap({
         'interpolate',
         ['linear'],
         ['get', 'score'],
-        50, 5,
-        70, 7,
-        85, 9,
-        100, 12,
+        50, 6,
+        75, 9,
+        90, 12,
+        100, 14,
       ],
       'circle-stroke-width': 1.5,
       'circle-stroke-color': [
@@ -666,47 +744,105 @@ export function IntelligenceMap({
       <div className={isMobile ? 'p-3' : 'p-4'}>
         {selectedUf && selectedUfData ? (
           <div>
-            <button
-              onClick={resetView}
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors mb-3 flex items-center gap-1"
-            >
-              &larr; Voltar ao ranking
-            </button>
-
-            <h3 className="text-base font-semibold text-foreground mb-3">
-              {selectedUfData.name} ({selectedUf})
-            </h3>
+            {/* Breadcrumb navigation */}
+            <nav className="flex items-center gap-1.5 pb-3 mb-3 border-b border-border">
+              <button
+                onClick={resetView}
+                className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Ranking
+              </button>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/50 flex-shrink-0">
+                <path d="M9 18l6-6-6-6" />
+              </svg>
+              <span className="text-[11px] font-medium text-foreground">{selectedUfData.name}</span>
+            </nav>
 
             {selectedUfFilteredStats ? (
-              <div className="grid grid-cols-2 gap-2 mb-4">
-                <div className="bg-secondary/50 rounded-lg p-2.5">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Oportunidades</p>
-                  <p className="text-lg font-semibold text-foreground font-mono tabular-nums">{selectedUfFilteredStats.count}</p>
+              <>
+                {/* KPIs */}
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  <div className="bg-secondary/50 rounded-lg p-2.5">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Oportunidades</p>
+                    <p className="text-lg font-semibold text-foreground font-mono tabular-nums">{selectedUfFilteredStats.count}</p>
+                  </div>
+                  <div className="bg-secondary/50 rounded-lg p-2.5">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Valor Total</p>
+                    <p className="text-lg font-semibold text-foreground font-mono tabular-nums">{formatCompactBRL(selectedUfFilteredStats.totalValue)}</p>
+                  </div>
+                  <div className="bg-secondary/50 rounded-lg p-2.5">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Score Médio</p>
+                    <p className={`text-lg font-semibold font-mono tabular-nums ${getScoreColorClass(selectedUfFilteredStats.avgScore)}`}>
+                      {selectedUfFilteredStats.avgScore}
+                    </p>
+                  </div>
+                  <div className="bg-secondary/50 rounded-lg p-2.5">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Maior Score</p>
+                    <p className={`text-lg font-semibold font-mono tabular-nums ${getScoreColorClass(selectedUfFilteredStats.maxScore)}`}>
+                      {selectedUfFilteredStats.maxScore}
+                    </p>
+                  </div>
                 </div>
-                <div className="bg-secondary/50 rounded-lg p-2.5">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Valor Total</p>
-                  <p className="text-lg font-semibold text-foreground font-mono tabular-nums">{formatCompactBRL(selectedUfFilteredStats.totalValue)}</p>
-                </div>
-                <div className="bg-secondary/50 rounded-lg p-2.5">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Score Médio</p>
-                  <p className={`text-lg font-semibold font-mono tabular-nums ${getScoreColorClass(selectedUfFilteredStats.avgScore)}`}>
-                    {selectedUfFilteredStats.avgScore}
-                  </p>
-                </div>
-                <div className="bg-secondary/50 rounded-lg p-2.5">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Maior Score</p>
-                  <p className={`text-lg font-semibold font-mono tabular-nums ${getScoreColorClass(selectedUfFilteredStats.maxScore)}`}>
-                    {selectedUfFilteredStats.maxScore}
-                  </p>
-                </div>
-              </div>
+
+                {/* Score Distribution */}
+                {scoreDistribution && (
+                  <div className="mb-4">
+                    <h4 className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-2">Distribuição de Scores</h4>
+                    <div className="space-y-1.5">
+                      {scoreDistribution.ranges.map((r) => (
+                        <div key={r.label} className="flex items-center gap-2">
+                          <span className="text-[10px] text-muted-foreground w-10 font-mono tabular-nums flex-shrink-0">{r.label}</span>
+                          <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full ${r.color} transition-all duration-300`}
+                              style={{ width: `${scoreDistribution.total > 0 ? (r.count / scoreDistribution.total) * 100 : 0}%` }}
+                            />
+                          </div>
+                          <span className="text-[10px] text-foreground w-6 text-right font-mono tabular-nums flex-shrink-0">{r.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Top Municípios */}
+                {topMunicipios.length > 0 && topMunicipios[0].name !== 'Sem município' && (
+                  <div className="mb-4">
+                    <h4 className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium mb-2">Top Municípios</h4>
+                    <div className="space-y-1">
+                      {topMunicipios.map((muni, i) => (
+                        <div key={muni.name} className="flex items-center gap-2 py-1">
+                          <span className="text-[10px] text-muted-foreground w-3 font-mono tabular-nums">{i + 1}</span>
+                          <span className="text-xs text-foreground flex-1 truncate">{muni.name}</span>
+                          <span className="text-[10px] text-muted-foreground font-mono tabular-nums">{muni.count}</span>
+                          <span className="text-[10px] text-foreground font-mono tabular-nums">{formatCompactBRL(muni.totalValue)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
             ) : (
               <p className="text-sm text-muted-foreground mb-4">Nenhuma oportunidade com os filtros atuais</p>
             )}
 
-            <h4 className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">
-              {selectedUfMarkers.length} oportunidade{selectedUfMarkers.length !== 1 ? 's' : ''}
-            </h4>
+            {/* Opportunity list header + export */}
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">
+                {selectedUfMarkers.length} oportunidade{selectedUfMarkers.length !== 1 ? 's' : ''}
+              </h4>
+              {selectedUfMarkers.length > 0 && (
+                <button
+                  onClick={exportStateCSV}
+                  className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
+                  </svg>
+                  Exportar CSV
+                </button>
+              )}
+            </div>
             <div className="space-y-1.5">
               {selectedUfMarkers.map((m: MatchMarker) => (
                 <Link
@@ -716,12 +852,12 @@ export function IntelligenceMap({
                 >
                   <div className="flex items-start gap-2.5">
                     <span
-                      className={`inline-flex items-center justify-center w-8 h-8 rounded-lg text-xs font-bold border font-mono tabular-nums ${getScoreBadgeClass(m.score)}`}
+                      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-semibold border font-mono tabular-nums flex-shrink-0 ${getScoreBadgeClass(m.score)}`}
                     >
                       {m.score}
                     </span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-foreground leading-snug line-clamp-2">
+                      <p className="text-[13px] font-medium text-foreground leading-[1.4] line-clamp-2">
                         {m.objeto}
                       </p>
                       <p className="text-[10px] text-muted-foreground mt-1 truncate">{m.orgao}</p>
