@@ -6,299 +6,239 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { signOut } from '@/actions/auth'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { NotificationBell } from '@/components/notification-bell'
-
-interface NavItem {
-  href: string
-  label: string
-  separator?: boolean
-}
+import {
+  navigationGroups,
+  accountItems,
+  adminItem,
+  NAV_TOUR_IDS,
+  type NavItemConfig,
+} from '@/config/navigation'
+import type { PlanFeatureKey } from '@licitagram/shared'
+import { LogOut, ChevronsUpDown } from 'lucide-react'
 
 interface DashboardSidebarProps {
-  navItems: NavItem[]
   isAdmin: boolean
   userName: string
   userEmail: string
   userInitial: string
   planName: string | null
   companySwitcher?: React.ReactNode
-}
-
-const COLLAPSED_KEY = 'sidebar-collapsed'
-
-/** Map nav hrefs to element IDs used by the onboarding tour */
-const NAV_TOUR_IDS: Record<string, string> = {
-  '/map': 'nav-map',
-  '/opportunities': 'nav-opportunities',
-  '/pipeline': 'nav-pipeline',
-  '/dashboard': 'nav-dashboard',
-  '/competitors': 'nav-competitors',
-  '/price-history': 'nav-precos',
-  '/bot': 'nav-bot',
-  '/documents': 'nav-certidoes',
-  '/drive': 'nav-drive',
-  '/proposals': 'nav-propostas',
-  '/company': 'nav-empresa',
-  '/settings': 'nav-settings',
+  /** Plan features available to this user (for filtering nav items) */
+  enabledFeatures?: PlanFeatureKey[]
 }
 
 export function DashboardSidebar({
-  navItems,
   isAdmin,
   userName,
   userEmail,
   userInitial,
   planName,
   companySwitcher,
+  enabledFeatures = [],
 }: DashboardSidebarProps) {
-  const [open, setOpen] = useState(false)
-  const [collapsed, setCollapsed] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
   const pathname = usePathname()
-
-  // Restore collapsed state from localStorage
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(COLLAPSED_KEY)
-      if (stored === 'true') setCollapsed(true)
-    } catch {}
-  }, [])
-
-  // Persist collapsed state
-  function toggleCollapsed() {
-    setCollapsed((prev) => {
-      const next = !prev
-      try { localStorage.setItem(COLLAPSED_KEY, String(next)) } catch {}
-      return next
-    })
-  }
 
   // Close sidebar on route change (mobile)
   useEffect(() => {
-    setOpen(false)
+    setMobileOpen(false)
   }, [pathname])
 
   // Close sidebar on escape key
   useEffect(() => {
     function handleEscape(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false)
+      if (e.key === 'Escape') setMobileOpen(false)
     }
-    if (open) {
+    if (mobileOpen) {
       document.addEventListener('keydown', handleEscape)
       return () => document.removeEventListener('keydown', handleEscape)
     }
-  }, [open])
+  }, [mobileOpen])
 
   // Prevent body scroll when sidebar is open on mobile
   useEffect(() => {
-    if (open) {
+    if (mobileOpen) {
       document.body.style.overflow = 'hidden'
       return () => { document.body.style.overflow = '' }
     }
-  }, [open])
+  }, [mobileOpen])
 
-  // Get initials for collapsed nav items
-  function getInitial(label: string) {
-    return label.charAt(0).toUpperCase()
+  function isItemVisible(item: NavItemConfig): boolean {
+    if (!item.requiredFeature) return true
+    return enabledFeatures.includes(item.requiredFeature)
   }
 
+  function isActive(href: string): boolean {
+    if (href === '/dashboard') return pathname === '/dashboard'
+    return pathname === href || pathname.startsWith(href + '/')
+  }
+
+  // ─── Shared sidebar content ─────────────────────────────────────────────
+
   const sidebarContent = (
-    <>
-      <div className={`mx-3 mt-3 mb-2 rounded-xl bg-[#1a1c1f] border border-[#2d2f33] ${collapsed ? 'p-2 flex justify-center' : 'p-4 flex items-center justify-center'}`}>
-        {collapsed ? (
-          <Image src="/logo-only.png" alt="Licitagram" width={200} height={200} className="h-8 w-8 object-contain" />
-        ) : (
-          <Image src="/logo-login.png" alt="Licitagram" width={880} height={198} className="h-16 w-auto" />
-        )}
+    <div className="flex flex-col h-full">
+      {/* Logo — compact */}
+      <div className="flex items-center gap-2.5 px-4 pt-4 pb-2">
+        <Image src="/logo-only.png" alt="Licitagram" width={200} height={200} className="h-7 w-7 object-contain" />
+        <span className="text-[13px] font-bold tracking-[0.04em] text-foreground uppercase">Licitagram</span>
       </div>
 
-      {/* Notification Bell */}
-      <div className={`flex justify-end px-3 ${collapsed ? 'justify-center' : ''}`}>
+      {/* Company selector + notification bell */}
+      <div className="flex items-center gap-1.5 px-3 py-2">
+        {companySwitcher ? (
+          <div className="flex-1 min-w-0">{companySwitcher}</div>
+        ) : (
+          <div className="flex-1" />
+        )}
         <NotificationBell />
       </div>
 
-      {/* Company Switcher (Enterprise multi-CNPJ) */}
-      {companySwitcher && (
-        <>
-          {companySwitcher}
-          <div className="mx-4 h-px bg-[#2d2f33]" />
-        </>
-      )}
+      {/* Navigation groups */}
+      <nav className="flex-1 overflow-y-auto px-2 pb-2 sidebar-scrollbar">
+        {navigationGroups.map((group) => {
+          const visibleItems = group.items.filter(isItemVisible)
+          if (visibleItems.length === 0) return null
 
-      <nav className={`flex-1 ${collapsed ? 'p-1.5' : 'p-3'} space-y-0.5 mt-2`}>
-        {navItems.map((item) => {
-          const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
           return (
-            <div key={item.href}>
-              {item.separator && (
-                <div className="mx-1 my-2 h-px bg-[#2d2f33]" />
-              )}
-              <Link
-                href={item.href}
-                id={NAV_TOUR_IDS[item.href]}
-                title={collapsed ? item.label : undefined}
-                className={`flex items-center ${
-                  collapsed ? 'justify-center px-2 py-2.5' : 'px-3 py-2.5'
-                } rounded-lg text-[13px] font-medium transition-all duration-150 ${
-                  isActive
-                    ? 'bg-[#F43E01] text-white'
-                    : 'text-gray-500 hover:bg-[#1a1c1f] hover:text-white'
-                }`}
-              >
-                {collapsed ? (
-                  <span className="text-[13px] font-bold">{getInitial(item.label)}</span>
-                ) : (
-                  item.label
-                )}
-              </Link>
+            <div key={group.label} className="mb-5">
+              <span className="block px-2 mb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/60 select-none">
+                {group.label}
+              </span>
+              <ul className="space-y-px">
+                {visibleItems.map((item) => {
+                  const active = isActive(item.href)
+                  const Icon = item.icon
+                  return (
+                    <li key={item.id}>
+                      <Link
+                        href={item.href}
+                        id={NAV_TOUR_IDS[item.href]}
+                        className={`sidebar-nav-item ${active ? 'sidebar-nav-item-active' : ''}`}
+                      >
+                        <Icon size={16} className="sidebar-nav-icon" />
+                        <span className="sidebar-nav-label">{item.label}</span>
+                      </Link>
+                    </li>
+                  )
+                })}
+              </ul>
             </div>
           )
         })}
-
-        {isAdmin && (
-          <>
-            <div className="mx-1 my-2 h-px bg-[#2d2f33]" />
-            <Link
-              href="/admin"
-              title={collapsed ? 'Admin' : undefined}
-              className={`flex items-center ${
-                collapsed ? 'justify-center px-2 py-2.5' : 'px-3 py-2.5'
-              } rounded-lg text-[13px] font-medium transition-all duration-150 ${
-                pathname.startsWith('/admin')
-                  ? 'bg-[#1a1c1f] text-amber-300'
-                  : 'text-amber-400 hover:bg-[#1a1c1f] hover:text-amber-300'
-              }`}
-            >
-              {collapsed ? 'A' : 'Admin'}
-            </Link>
-          </>
-        )}
       </nav>
 
-      <div className="mx-4 h-px bg-[#2d2f33]" />
+      {/* Divider */}
+      <div className="mx-4 h-px bg-border" />
 
-      <div className={`p-4 ${collapsed ? 'px-2' : ''}`}>
-        {collapsed ? (
-          <div className="flex flex-col items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-brand/10 flex items-center justify-center" title={userName || userEmail}>
-              <span className="text-brand text-[13px] font-semibold">
-                {userInitial}
-              </span>
-            </div>
-            <form action={signOut}>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full justify-center text-gray-500 hover:text-gray-300 hover:bg-[#1a1c1f] px-2"
-                title="Sair"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-              </Button>
-            </form>
-          </div>
-        ) : (
-          <>
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-8 h-8 rounded-full bg-brand/10 flex items-center justify-center shrink-0">
-                <span className="text-brand text-[13px] font-semibold">
-                  {userInitial}
-                </span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-medium text-gray-300 truncate">
-                  {userName || userEmail}
-                </p>
-                {planName && (
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-[#2d2f33] text-gray-500 mt-0.5">
-                    {planName}
-                  </Badge>
-                )}
-              </div>
-            </div>
-            <form action={signOut}>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start text-gray-500 hover:text-gray-300 hover:bg-[#1a1c1f]"
-              >
-                Sair
-              </Button>
-            </form>
-          </>
-        )}
+      {/* Account section */}
+      <div className="px-2 py-2">
+        <ul className="space-y-px">
+          {accountItems.map((item) => {
+            const active = isActive(item.href)
+            const Icon = item.icon
+            return (
+              <li key={item.id}>
+                <Link
+                  href={item.href}
+                  id={NAV_TOUR_IDS[item.href]}
+                  className={`sidebar-nav-item ${active ? 'sidebar-nav-item-active' : ''}`}
+                >
+                  <Icon size={16} className="sidebar-nav-icon" />
+                  <span className="sidebar-nav-label">{item.label}</span>
+                </Link>
+              </li>
+            )
+          })}
+        </ul>
       </div>
-    </>
+
+      {/* Admin (conditional) */}
+      {isAdmin && (
+        <div className="px-2 pb-1">
+          <Link
+            href={adminItem.href}
+            className={`sidebar-nav-item ${pathname.startsWith('/admin') ? 'sidebar-nav-item-active' : ''}`}
+          >
+            <adminItem.icon size={16} className="sidebar-nav-icon" />
+            <span className="sidebar-nav-label">{adminItem.label}</span>
+          </Link>
+        </div>
+      )}
+
+      {/* User menu — footer */}
+      <div className="px-3 py-3 border-t border-border mt-auto">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0">
+            <span className="text-[11px] font-semibold text-primary">{userInitial}</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[12px] font-medium text-foreground truncate">{userName || userEmail}</p>
+            {planName && (
+              <p className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-[0.05em]">{planName}</p>
+            )}
+          </div>
+          <form action={signOut}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="w-7 h-7 text-muted-foreground hover:text-foreground opacity-0 group-hover/sidebar:opacity-100 transition-opacity"
+              title="Sair"
+            >
+              <LogOut size={14} />
+            </Button>
+          </form>
+        </div>
+      </div>
+    </div>
   )
 
   return (
     <>
       {/* Mobile top bar */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-40 h-14 bg-[#111214] border-b border-[#2d2f33] flex items-center px-4 gap-3">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-40 h-14 bg-background border-b border-border flex items-center px-4 gap-3">
         <button
-          onClick={() => setOpen(true)}
-          className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#1a1c1f] transition-colors"
+          onClick={() => setMobileOpen(true)}
+          className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
           aria-label="Abrir menu"
         >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
-        <Image src="/logo-login.png" alt="Licitagram" width={880} height={198} className="h-12 w-auto" />
+        <Image src="/logo-only.png" alt="Licitagram" width={200} height={200} className="h-7 w-7 object-contain" />
+        <span className="text-[13px] font-bold tracking-[0.04em] text-foreground uppercase">Licitagram</span>
       </div>
 
       {/* Mobile overlay */}
-      {open && (
+      {mobileOpen && (
         <div
           className="md:hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
-          onClick={() => setOpen(false)}
+          onClick={() => setMobileOpen(false)}
         />
       )}
 
       {/* Mobile sidebar (slide-in) */}
       <aside
-        className={`md:hidden fixed top-0 left-0 z-50 h-full w-72 bg-[#111214] flex flex-col transform transition-transform duration-300 ease-in-out ${
-          open ? 'translate-x-0' : '-translate-x-full'
+        className={`md:hidden fixed top-0 left-0 z-50 h-full w-[220px] bg-background flex flex-col transform transition-transform duration-300 ease-in-out ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        {/* Close button */}
         <button
-          onClick={() => setOpen(false)}
-          className="absolute top-4 right-4 p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#1a1c1f] transition-colors"
+          onClick={() => setMobileOpen(false)}
+          className="absolute top-3 right-3 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors z-10"
           aria-label="Fechar menu"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
         {sidebarContent}
       </aside>
 
-      {/* Desktop sidebar (collapsible) */}
-      <aside
-        className={`hidden md:flex border-r border-[#2d2f33] bg-[#111214] flex-col shrink-0 relative transition-all duration-300 ease-in-out ${
-          collapsed ? 'w-16' : 'w-64'
-        }`}
-      >
+      {/* Desktop sidebar — fixed 220px */}
+      <aside className="hidden md:flex group/sidebar w-[220px] shrink-0 border-r border-border bg-background flex-col h-screen sticky top-0">
         {sidebarContent}
-
-        {/* Collapse/Expand toggle button */}
-        <button
-          onClick={toggleCollapsed}
-          className="absolute -right-3 top-1/2 -translate-y-1/2 z-10 w-6 h-6 rounded-full bg-[#1a1c1f] border border-[#2d2f33] flex items-center justify-center text-gray-400 hover:text-white hover:bg-[#2d2f33] transition-colors shadow-md"
-          aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
-          title={collapsed ? 'Expandir menu' : 'Recolher menu'}
-        >
-          <svg
-            className={`w-3.5 h-3.5 transition-transform duration-300 ${collapsed ? 'rotate-0' : 'rotate-180'}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
       </aside>
     </>
   )

@@ -7,33 +7,8 @@ import { CompanyProvider } from '@/contexts/company-context'
 import { CompanySwitcher } from './company-switcher'
 import { getUserCompanies } from '@/actions/multi-company'
 import { MatchingProgressBanner } from '@/components/matching-progress-banner'
+import { navigationGroups, accountItems } from '@/config/navigation'
 import type { PlanFeatureKey } from '@licitagram/shared'
-
-interface NavItem {
-  href: string
-  label: string
-  requiredFeature?: PlanFeatureKey
-  separator?: boolean
-}
-
-const NAV_ITEMS: NavItem[] = [
-  { href: '/map', label: 'Mapa' },
-  { href: '/opportunities', label: 'Oportunidades' },
-  { href: '/pipeline', label: 'Pipeline' },
-  { href: '/dashboard', label: 'Dashboard' },
-  { href: '/competitors', label: 'Concorrentes', requiredFeature: 'competitive_intel' },
-  { href: '/price-history', label: 'Preços de Mercado' },
-  { href: '/bot', label: 'Robô', requiredFeature: 'bidding_bot' },
-  { href: '/documents', label: 'Certidões', requiredFeature: 'compliance_checker' },
-  { href: '/drive', label: 'Drive' },
-  { href: '/proposals', label: 'Propostas', requiredFeature: 'proposal_generator' },
-  { href: '/pricing-calculator', label: 'Calculadora', requiredFeature: 'proposal_generator' },
-  { href: '/calendar', label: 'Agenda' },
-  // --- separator ---
-  { href: '/company', label: 'Empresa', separator: true },
-  { href: '/billing', label: 'Plano' },
-  { href: '/settings', label: 'Configurações' },
-]
 
 export default async function DashboardLayout({
   children,
@@ -43,11 +18,15 @@ export default async function DashboardLayout({
   const user = await getUserWithPlan()
   if (!user) redirect('/login')
 
-  // Filter nav items based on plan features
-  const visibleNavItems = NAV_ITEMS.filter((item) => {
-    if (!item.requiredFeature) return true
-    return hasFeature(user, item.requiredFeature)
-  }).map(({ href, label, separator }) => ({ href, label, separator }))
+  // Collect all required features that this user's plan enables
+  const allFeatures = [
+    ...navigationGroups.flatMap((g) => g.items),
+    ...accountItems,
+  ]
+    .filter((item) => item.requiredFeature)
+    .map((item) => item.requiredFeature!)
+
+  const enabledFeatures = allFeatures.filter((f) => hasFeature(user, f))
 
   const planName = user.plan?.name || null
   const userName = user.fullName || ''
@@ -55,7 +34,6 @@ export default async function DashboardLayout({
   const userInitial = (user.fullName || user.email || 'U')[0].toUpperCase()
 
   // ── Parallel data fetching ─────────────────────────────────────────────
-  // Run all independent queries concurrently to avoid sequential waterfalls
   const supabase = await createClient()
 
   const whatsappPromise = !user.onboardingCompleted
@@ -107,19 +85,19 @@ export default async function DashboardLayout({
       maxCompanies={maxCompanies}
       multiCnpjEnabled={multiCnpjEnabled}
     >
-      <div className="flex h-screen bg-[#111214] font-roboto">
+      <div className="flex h-screen bg-background">
         <DashboardSidebar
-          navItems={visibleNavItems}
           isAdmin={!!user.isPlatformAdmin}
           userName={userName}
           userEmail={userEmail}
           userInitial={userInitial}
           planName={planName}
+          enabledFeatures={enabledFeatures}
           companySwitcher={showSwitcher ? <CompanySwitcher /> : undefined}
         />
 
         {/* Main content — add top padding on mobile for the fixed top bar */}
-        <main className="flex-1 overflow-y-auto min-h-0 bg-[#111214]">
+        <main className="flex-1 overflow-y-auto min-h-0 bg-background">
           <div className="pt-14 md:pt-0 min-h-full">
             {matchingStatus && matchingStatus !== 'ready' && (
               <MatchingProgressBanner

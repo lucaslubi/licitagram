@@ -218,3 +218,80 @@
 .mapboxgl-marker {
   z-index: 1 !important;
 }
+
+/* ─── Sidebar — Design System ─────────────────────────────────────────────── */
+
+/* Scrollbar */
+.sidebar-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.sidebar-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+}
+.sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Nav item */
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 450;
+  color: hsl(240 4% 46%);
+  text-decoration: none;
+  transition: all 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  position: relative;
+}
+
+.sidebar-nav-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: hsl(240 5% 96%);
+}
+
+.sidebar-nav-icon {
+  flex-shrink: 0;
+  color: hsl(240 4% 34%);
+  transition: color 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sidebar-nav-item:hover .sidebar-nav-icon {
+  color: hsl(240 4% 46%);
+}
+
+.sidebar-nav-label {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Active state — subtle bg + left accent bar + brand icon */
+.sidebar-nav-item-active {
+  background: rgba(255, 107, 53, 0.08);
+  color: hsl(240 5% 96%);
+  font-weight: 500;
+}
+
+.sidebar-nav-item-active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 1px;
+  background: hsl(18 95% 55%);
+}
+
+.sidebar-nav-item-active .sidebar-nav-icon {
+  color: hsl(18 95% 55%);
+}
