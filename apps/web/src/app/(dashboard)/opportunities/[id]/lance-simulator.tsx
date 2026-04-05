@@ -79,7 +79,7 @@ export function LanceSimulator({ matchId, tenderId, valorEstimado }: { matchId: 
         </div>
 
         {/* Preview */}
-        <div className="bg-[#111214] rounded-lg p-3 flex justify-between items-center">
+        <div className="bg-[#0a0a0b] rounded-lg p-3 flex justify-between items-center">
           <div>
             <p className="text-[10px] text-gray-500 uppercase">Valor Estimado</p>
             <p className="text-sm text-gray-300 font-mono">{formatBRL(valorEstimado)}</p>
@@ -124,7 +124,7 @@ export function LanceSimulator({ matchId, tenderId, valorEstimado }: { matchId: 
 
             {/* Recommendation buttons */}
             <div className="grid grid-cols-3 gap-2">
-              <button onClick={() => applyRecommendation(result.recomendacao.lanceMinimo)} className="p-2 rounded-lg bg-[#111214] text-center hover:bg-[#2d2f33] transition-colors">
+              <button onClick={() => applyRecommendation(result.recomendacao.lanceMinimo)} className="p-2 rounded-lg bg-[#0a0a0b] text-center hover:bg-white/[0.06] transition-colors">
                 <p className="text-[10px] text-gray-500">Conservador</p>
                 <p className="text-xs text-white font-mono">{formatBRL(result.recomendacao.lanceMinimo)}</p>
               </button>
@@ -132,7 +132,7 @@ export function LanceSimulator({ matchId, tenderId, valorEstimado }: { matchId: 
                 <p className="text-[10px] text-emerald-400">Sugerido</p>
                 <p className="text-xs text-white font-mono">{formatBRL(result.recomendacao.lanceSugerido)}</p>
               </button>
-              <button onClick={() => applyRecommendation(result.recomendacao.lanceAgressivo)} className="p-2 rounded-lg bg-[#111214] text-center hover:bg-[#2d2f33] transition-colors">
+              <button onClick={() => applyRecommendation(result.recomendacao.lanceAgressivo)} className="p-2 rounded-lg bg-[#0a0a0b] text-center hover:bg-white/[0.06] transition-colors">
                 <p className="text-[10px] text-gray-500">Agressivo</p>
                 <p className="text-xs text-white font-mono">{formatBRL(result.recomendacao.lanceAgressivo)}</p>
               </button>
@@ -175,7 +175,7 @@ export function LanceSimulator({ matchId, tenderId, valorEstimado }: { matchId: 
                 <p className="text-xs text-gray-400 mb-2">Principais concorrentes</p>
                 <div className="space-y-1">
                   {result.concorrentes.slice(0, 5).map((c, i) => (
-                    <div key={i} className="flex items-center justify-between p-2 rounded bg-[#111214] text-xs">
+                    <div key={i} className="flex items-center justify-between p-2 rounded bg-[#0a0a0b] text-xs">
                       <div className="min-w-0">
                         <p className="text-white truncate">{c.nome?.substring(0, 30)}</p>
                         <p className="text-[10px] text-gray-500">{c.totalParticipacoes} participações | {c.winRate}% win</p>

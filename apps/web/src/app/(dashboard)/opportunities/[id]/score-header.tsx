@@ -27,38 +27,65 @@ interface ScoreHeaderProps {
 }
 
 function ScoreBadgeLarge({ score, verified, keywordScore }: { score: number; verified: boolean; keywordScore: number | null }) {
-  const color =
-    score >= 80
-      ? 'bg-orange-900/20 text-orange-400 border-orange-900/30'
-      : score >= 70
-        ? 'bg-emerald-900/20 text-emerald-400 border-emerald-900/30'
-        : score >= 50
-          ? 'bg-amber-900/20 text-amber-400 border-amber-900/30'
-          : 'bg-red-900/20 text-red-400 border-red-900/30'
+  // Score-based gradient colors
+  const colors = score >= 80
+    ? { start: '#10B981', end: '#84CC16' }
+    : score >= 60
+      ? { start: '#84CC16', end: '#F59E0B' }
+      : score >= 40
+        ? { start: '#F59E0B', end: '#F97316' }
+        : { start: '#EF4444', end: '#F97316' }
 
-  // Show keyword score when AI score differs significantly (more than 10 points)
+  const circumference = 2 * Math.PI * 40
+  const dashArray = `${(score / 100) * circumference} ${circumference}`
+
   const showKeywordDiff = verified && keywordScore !== null && Math.abs(keywordScore - score) > 10
 
+  const sublabel = score >= 80 ? 'Altamente recomendado'
+    : score >= 60 ? 'Recomendado'
+    : score >= 40 ? 'Avaliar com atenção'
+    : 'Baixa compatibilidade'
+
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-3">
       {showKeywordDiff && (
-        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-[#2d2f33] text-gray-400 border border-[#2d2f33] line-through">
-          {keywordScore}
-          <span className="text-[10px] font-normal no-underline">est.</span>
-        </span>
+        <>
+          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-white/[0.04] text-[#52525b] border border-white/[0.06] line-through font-mono">
+            {keywordScore}
+            <span className="text-[10px] font-normal no-underline">est.</span>
+          </span>
+          <span className="text-[#52525b]">→</span>
+        </>
       )}
-      {showKeywordDiff && (
-        <span className="text-gray-300">→</span>
-      )}
-      <span
-        className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-lg font-bold border ${color}`}
-        title="Pontuação consolidada considerando CNAE, competitividade, valor e histórico"
-      >
-        Score IA: {score}
-        {!verified && (
-          <span className="text-xs font-normal opacity-50">estimado</span>
-        )}
-      </span>
+      <div className="flex items-center gap-3">
+        <div className="relative w-14 h-14 shrink-0">
+          <svg viewBox="0 0 90 90" className="w-full h-full -rotate-90">
+            <circle cx="45" cy="45" r="40" stroke="rgba(255,255,255,0.06)" strokeWidth="5" fill="none" />
+            <circle
+              cx="45" cy="45" r="40"
+              stroke="url(#headerScoreGrad)"
+              strokeWidth="5"
+              fill="none"
+              strokeDasharray={dashArray}
+              strokeLinecap="round"
+              style={{ transition: 'stroke-dasharray 1.2s cubic-bezier(0.4, 0, 0.2, 1)' }}
+            />
+            <defs>
+              <linearGradient id="headerScoreGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor={colors.start} />
+                <stop offset="100%" stopColor={colors.end} />
+              </linearGradient>
+            </defs>
+          </svg>
+          <div className="absolute inset-1 rounded-full bg-[#0a0a0b] flex items-center justify-center">
+            <span className="text-lg font-bold font-mono tracking-tight text-white">{score}</span>
+          </div>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-[10px] uppercase tracking-wider text-[#71717a] font-medium">Score IA</span>
+          <span className="text-xs text-[#a1a1aa]">{sublabel}</span>
+        </div>
+      </div>
     </div>
   )
 }

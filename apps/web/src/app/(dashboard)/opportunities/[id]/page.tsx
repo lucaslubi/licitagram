@@ -227,7 +227,7 @@ export default async function OpportunityDetailPage({
               {Boolean(tender?.resumo) && (
                 <div>
                   <label className="text-sm font-medium text-gray-400">Resumo</label>
-                  <p className="text-sm bg-[#111214] p-3 rounded-md">{tender.resumo as string}</p>
+                  <p className="text-sm bg-[#0a0a0b] p-3 rounded-md">{tender.resumo as string}</p>
                 </div>
               )}
             </CardContent>
@@ -265,11 +265,11 @@ export default async function OpportunityDetailPage({
               {/* Factor breakdown */}
               {match.competition_score != null && (
                 <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="bg-[#111214] rounded p-2">
+                  <div className="bg-[#0a0a0b] rounded p-2">
                     <div className="text-gray-400">Concorrentes no nicho</div>
                     <div className="font-medium">{nicheCompetitors.length}</div>
                   </div>
-                  <div className="bg-[#111214] rounded p-2">
+                  <div className="bg-[#0a0a0b] rounded p-2">
                     <div className="text-gray-400">Competitividade</div>
                     <div className={`font-medium ${
                       nicheCompetitors.length <= 3 ? 'text-emerald-400' :
@@ -293,7 +293,7 @@ export default async function OpportunityDetailPage({
                 <div className="space-y-1">
                   <div className="text-xs text-gray-400 font-medium">Principais concorrentes:</div>
                   {nicheCompetitors.slice(0, 5).map((c, i) => (
-                    <div key={i} className="flex items-center justify-between text-xs py-1.5 border-b border-[#2d2f33] last:border-0">
+                    <div key={i} className="flex items-center justify-between text-xs py-1.5 border-b border-white/[0.06] last:border-0">
                       <div className="flex flex-col gap-0.5">
                         <span className="font-medium">{(c.razao_social as string) || 'N/I'}</span>
                         <FraudAlertBadges tenderId={tender?.id as string || id} cnpj={(c.cnpj as string) || ''} />
@@ -442,7 +442,7 @@ export default async function OpportunityDetailPage({
             />
           ) : (
             <Card className="relative overflow-hidden">
-              <div className="absolute inset-0 bg-[#1a1c1f]/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center p-6 text-center">
+              <div className="absolute inset-0 bg-[#131316]/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center p-6 text-center">
                 <div className="w-12 h-12 bg-amber-500/15 rounded-lg flex items-center justify-center mb-3">
                   <span className="text-2xl">🔒</span>
                 </div>
@@ -462,9 +462,9 @@ export default async function OpportunityDetailPage({
               </CardHeader>
               <CardContent className="filter blur-sm pointer-events-none">
                 <div className="grid grid-cols-3 gap-3">
-                  <div className="bg-[#111214] rounded-lg p-3"><div className="h-4 bg-[#2d2f33] rounded w-20 mb-2" /><div className="h-6 bg-[#2d2f33] rounded w-24" /></div>
-                  <div className="bg-[#111214] rounded-lg p-3"><div className="h-4 bg-[#2d2f33] rounded w-20 mb-2" /><div className="h-6 bg-[#2d2f33] rounded w-24" /></div>
-                  <div className="bg-[#111214] rounded-lg p-3"><div className="h-4 bg-[#2d2f33] rounded w-20 mb-2" /><div className="h-6 bg-[#2d2f33] rounded w-24" /></div>
+                  <div className="bg-[#0a0a0b] rounded-lg p-3"><div className="h-4 bg-white/[0.06] rounded w-20 mb-2" /><div className="h-6 bg-white/[0.06] rounded w-24" /></div>
+                  <div className="bg-[#0a0a0b] rounded-lg p-3"><div className="h-4 bg-white/[0.06] rounded w-20 mb-2" /><div className="h-6 bg-white/[0.06] rounded w-24" /></div>
+                  <div className="bg-[#0a0a0b] rounded-lg p-3"><div className="h-4 bg-white/[0.06] rounded w-20 mb-2" /><div className="h-6 bg-white/[0.06] rounded w-24" /></div>
                 </div>
               </CardContent>
             </Card>
@@ -479,7 +479,7 @@ export default async function OpportunityDetailPage({
             />
           ) : (
             <Card className="relative overflow-hidden">
-              <div className="absolute inset-0 bg-[#1a1c1f]/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center p-6 text-center">
+              <div className="absolute inset-0 bg-[#131316]/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center p-6 text-center">
                 <div className="w-12 h-12 bg-amber-500/15 rounded-lg flex items-center justify-center mb-3">
                   <span className="text-2xl">🔒</span>
                 </div>
@@ -498,10 +498,10 @@ export default async function OpportunityDetailPage({
                 <CardTitle className="text-base">Histórico de Preços Similares</CardTitle>
               </CardHeader>
               <CardContent className="filter blur-sm pointer-events-none">
-                <div className="grid grid-cols-3 gap-3 p-3 bg-[#2d2f33] rounded-lg">
-                  <div className="text-center"><div className="h-3 bg-[#111214] rounded w-16 mx-auto mb-1" /><div className="h-5 bg-[#111214] rounded w-20 mx-auto" /></div>
-                  <div className="text-center"><div className="h-3 bg-[#111214] rounded w-16 mx-auto mb-1" /><div className="h-5 bg-[#111214] rounded w-20 mx-auto" /></div>
-                  <div className="text-center"><div className="h-3 bg-[#111214] rounded w-16 mx-auto mb-1" /><div className="h-5 bg-[#111214] rounded w-20 mx-auto" /></div>
+                <div className="grid grid-cols-3 gap-3 p-3 bg-white/[0.06] rounded-lg">
+                  <div className="text-center"><div className="h-3 bg-[#0a0a0b] rounded w-16 mx-auto mb-1" /><div className="h-5 bg-[#0a0a0b] rounded w-20 mx-auto" /></div>
+                  <div className="text-center"><div className="h-3 bg-[#0a0a0b] rounded w-16 mx-auto mb-1" /><div className="h-5 bg-[#0a0a0b] rounded w-20 mx-auto" /></div>
+                  <div className="text-center"><div className="h-3 bg-[#0a0a0b] rounded w-16 mx-auto mb-1" /><div className="h-5 bg-[#0a0a0b] rounded w-20 mx-auto" /></div>
                 </div>
               </CardContent>
             </Card>
@@ -518,21 +518,21 @@ export default async function OpportunityDetailPage({
               <StatusChanger matchId={match.id} currentStatus={match.status} />
               <Link
                 href={`/proposals/generate/${match.id}`}
-                className="block w-full text-center px-4 py-2 rounded-lg bg-[#F43E01] hover:bg-[#d63600] text-white text-sm font-medium transition-colors"
+                className="block w-full text-center px-4 py-2 rounded-lg bg-brand hover:bg-brand-dark text-white text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-[0_4px_12px_0_rgba(255,107,53,0.25)] hover:-translate-y-px"
               >
                 Gerar Proposta
               </Link>
               {isEnterprise ? (
                 <Link
                   href={`/price-history?q=${encodeURIComponent((tender?.objeto as string) || '')}`}
-                  className="block w-full text-center px-4 py-2 rounded-lg bg-[#1a1c1f] hover:bg-[#2d2f33] border border-[#2d2f33] text-gray-300 hover:text-white text-sm font-medium transition-colors"
+                  className="block w-full text-center px-4 py-2 rounded-lg bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.09] text-gray-300 hover:text-white text-sm font-medium transition-colors"
                 >
                   Preços de Mercado
                 </Link>
               ) : (
                 <Link
                   href="/settings?tab=billing&upgrade=enterprise&source=market_prices"
-                  className="block w-full text-center px-4 py-2 rounded-lg bg-[#1a1c1f] hover:bg-[#2d2f33] border border-[#2d2f33] text-gray-500 text-sm font-medium transition-colors"
+                  className="block w-full text-center px-4 py-2 rounded-lg bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.09] text-gray-500 text-sm font-medium transition-colors"
                 >
                   🔒 Preços de Mercado (Enterprise)
                 </Link>

@@ -126,7 +126,7 @@ export function HabilitacaoChecklist({ matchId }: { matchId: string }) {
                 )?.[1]
 
                 return (
-                  <div key={i} className="flex items-start gap-2 p-2 rounded-lg bg-[#111214]">
+                  <div key={i} className="flex items-start gap-2 p-2 rounded-lg bg-[#0a0a0b]">
                     <span className="text-sm shrink-0">{cfg.icon}</span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">

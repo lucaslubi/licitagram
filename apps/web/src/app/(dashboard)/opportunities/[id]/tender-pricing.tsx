@@ -80,7 +80,7 @@ export function TenderPricing({ objeto, valorEstimado, uf, modalidade }: TenderP
 
   if (!recommendations.length && !loading && !error) {
     return (
-      <Card className="bg-[#23262a] border-[#2d2f33]">
+      <Card className="bg-[#131316] border-white/[0.06]">
         <CardContent className="py-4 flex items-center justify-between">
           <div>
             <p className="text-white text-sm font-medium">✨ Precificador Inteligente</p>
@@ -100,7 +100,7 @@ export function TenderPricing({ objeto, valorEstimado, uf, modalidade }: TenderP
 
   if (loading) {
     return (
-      <Card className="bg-[#23262a] border-[#2d2f33]">
+      <Card className="bg-[#131316] border-white/[0.06]">
         <CardContent className="py-6 text-center">
           <div className="w-6 h-6 border-2 border-[#F43E01] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
           <p className="text-xs text-gray-400">Analisando licitações similares...</p>
@@ -111,7 +111,7 @@ export function TenderPricing({ objeto, valorEstimado, uf, modalidade }: TenderP
 
   if (error) {
     return (
-      <Card className="bg-[#23262a] border-red-500/30">
+      <Card className="bg-[#131316] border-red-500/30">
         <CardContent className="py-4 text-center">
           <p className="text-red-400 text-xs">{error}</p>
           <Button variant="ghost" size="sm" onClick={fetchPricing} className="text-gray-400 text-xs mt-1">
@@ -123,7 +123,7 @@ export function TenderPricing({ objeto, valorEstimado, uf, modalidade }: TenderP
   }
 
   return (
-    <Card className="bg-[#23262a] border-[#2d2f33]">
+    <Card className="bg-[#131316] border-white/[0.06]">
       <CardHeader className="pb-2 flex flex-row items-center justify-between">
         <div>
           <CardTitle className="text-sm text-white">✨ Precificador Inteligente</CardTitle>
@@ -147,7 +147,7 @@ export function TenderPricing({ objeto, valorEstimado, uf, modalidade }: TenderP
             return (
               <div
                 key={rec.strategy}
-                className={`rounded-lg border ${colors.border} bg-[#1a1c1f] p-3 space-y-2`}
+                className={`rounded-lg border ${colors.border} bg-[#0a0a0b] p-3 space-y-2`}
               >
                 <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${colors.badge}`}>
                   {colors.icon} {rec.strategy.charAt(0).toUpperCase() + rec.strategy.slice(1)}
@@ -160,7 +160,7 @@ export function TenderPricing({ objeto, valorEstimado, uf, modalidade }: TenderP
                     <span className="text-gray-500">P(vitória)</span>
                     <span className="text-white font-mono">{rec.win_probability.toFixed(0)}%</span>
                   </div>
-                  <div className="h-1 bg-[#2d2f33] rounded-full overflow-hidden">
+                  <div className="h-1 bg-white/[0.06] rounded-full overflow-hidden">
                     <div className={`h-full rounded-full ${colors.bar}`} style={{ width: `${rec.win_probability}%` }} />
                   </div>
                 </div>

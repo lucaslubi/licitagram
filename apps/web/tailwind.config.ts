@@ -18,7 +18,8 @@ const config: Config = {
     },
     extend: {
       fontFamily: {
-        sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
+        sans: ['Inter', 'Inter Display', 'system-ui', 'sans-serif'],
+        display: ['var(--font-sans)', 'system-ui', 'sans-serif'],
         roboto: ['var(--font-roboto)', 'system-ui', 'sans-serif'],
         mono: ['var(--font-mono)', 'monospace'],
       },
@@ -67,22 +68,18 @@ const config: Config = {
           darker: 'hsl(var(--surface-darker))',
           warm: 'hsl(var(--surface-warm))',
         },
-        // Design system grayscale — single source of truth
         gray: {
           50:  '#fafafa',
-          100: '#f5f5f5',
-          150: '#f0f0f0',
-          200: '#e5e5e5',
-          300: '#aaaaaa',
-          350: '#a0a4ab',
-          400: '#999999',
-          450: '#888888',
-          500: '#666666',
-          550: '#555555',
-          600: '#3a3d42',
-          700: '#2d2f33',
-          800: '#26292e',
-          900: '#1a1c1f',
+          100: '#f4f4f5',
+          200: '#e4e4e7',
+          300: '#a1a1aa',
+          400: '#71717a',
+          500: '#52525b',
+          600: '#3f3f46',
+          700: '#2c2c33',
+          800: '#1c1c21',
+          900: '#131316',
+          950: '#0a0a0b',
         },
       },
       borderRadius: {
@@ -122,13 +119,29 @@ const config: Config = {
           '0%': { opacity: '0', transform: 'translateX(16px)' },
           '100%': { opacity: '1', transform: 'translateX(0)' },
         },
+        'shimmer': {
+          '0%': { backgroundPosition: '-200% 0' },
+          '100%': { backgroundPosition: '200% 0' },
+        },
+        'score-fill': {
+          from: { strokeDasharray: '0 282.7' },
+        },
+        'glow-pulse': {
+          '0%, 100%': { boxShadow: '0 0 0 3px rgba(16, 185, 129, 0.15)' },
+          '50%': { boxShadow: '0 0 0 5px rgba(16, 185, 129, 0.25)' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 0.4s ease-out forwards',
         'slide-in-right': 'slide-in-right 0.3s ease-out forwards',
+        'shimmer': 'shimmer 1.5s infinite',
+        'score-fill': 'score-fill 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards',
+        'glow-pulse': 'glow-pulse 2s infinite',
       },
       transitionTimingFunction: {
         'brand': 'cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+        'ease-out-premium': 'cubic-bezier(0.4, 0, 0.2, 1)',
+        'ease-spring': 'cubic-bezier(0.34, 1.56, 0.64, 1)',
       },
       transitionDuration: {
         'fast': '150ms',

@@ -711,10 +711,10 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
   // ── State 0: No access (plan upgrade required) ──────────────────
   if (!hasAccess) {
     return (
-      <Card className="border-[#2d2f33] opacity-80">
+      <Card className="border-white/[0.06] opacity-80">
         <CardContent className="py-6">
           <div className="text-center space-y-3">
-            <div className="w-12 h-12 bg-[#2d2f33] rounded-full flex items-center justify-center mx-auto">
+            <div className="w-12 h-12 bg-white/[0.06] rounded-full flex items-center justify-center mx-auto">
               <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
@@ -746,7 +746,7 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
   // ── State 1: Not started ──────────────────────────────────────────
   if (!started) {
     return (
-      <Card className={`border-brand/30 bg-gradient-to-br from-[#1a1c1f] to-brand/5 shadow-lg relative ${dragOver ? 'ring-2 ring-brand' : ''}`} {...dragProps}>
+      <Card className={`border-brand/30 bg-gradient-to-br from-[#131316] to-brand/5 shadow-lg relative ${dragOver ? 'ring-2 ring-brand' : ''}`} {...dragProps}>
         {dropOverlay}
         <CardContent className="py-8 px-6">
           {fileInput}
@@ -847,7 +847,7 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
         {docChips}
 
         {/* Messages — tall area for primary feature */}
-        <div ref={messagesContainerRef} onScroll={handleContainerScroll} className="h-[350px] md:h-[500px] overflow-y-auto overscroll-contain space-y-4 border rounded-xl p-4 bg-[#2d2f33]/50">
+        <div ref={messagesContainerRef} onScroll={handleContainerScroll} className="h-[350px] md:h-[500px] overflow-y-auto overscroll-contain space-y-4 border rounded-xl p-4 bg-white/[0.03]">
           {messages.map((msg, i) => {
             const isAssistant = msg.role === 'assistant'
             const isLastAssistant = isAssistant && i === messages.length - 1
@@ -862,7 +862,7 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
                   className={`max-w-[90%] rounded-xl text-sm ${
                     msg.role === 'user'
                       ? 'bg-brand text-white px-4 py-2.5 whitespace-pre-wrap'
-                      : 'bg-[#1a1c1f] border border-[#2d2f33] shadow-sm px-4 py-3 text-white'
+                      : 'bg-[#131316] border border-white/[0.06] shadow-sm px-4 py-3 text-white'
                   }`}
                 >
                   {msg.role === 'user' && msg.content === INITIAL_PROMPT ? (
@@ -873,7 +873,7 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
                       Análise estratégica do edital
                     </span>
                   ) : isAssistant && msg.content ? (
-                    <div className="prose prose-sm prose-invert max-w-none prose-headings:text-white prose-headings:font-semibold prose-headings:mt-4 prose-headings:mb-2 prose-p:text-gray-300 prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:text-gray-300 prose-li:my-0.5 prose-strong:text-white prose-a:text-brand prose-table:text-xs prose-th:bg-[#2d2f33] prose-th:text-gray-200 prose-th:px-2 prose-th:py-1 prose-td:text-gray-300 prose-td:px-2 prose-td:py-1 prose-th:border prose-td:border prose-td:border-[#2d2f33] prose-th:border-[#2d2f33]">
+                    <div className="prose prose-sm prose-invert max-w-none prose-headings:text-white prose-headings:font-semibold prose-headings:mt-4 prose-headings:mb-2 prose-p:text-gray-300 prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:text-gray-300 prose-li:my-0.5 prose-strong:text-white prose-a:text-brand prose-table:text-xs prose-th:bg-white/[0.06] prose-th:text-gray-200 prose-th:px-2 prose-th:py-1 prose-td:text-gray-300 prose-td:px-2 prose-td:py-1 prose-th:border prose-td:border prose-td:border-white/[0.06] prose-th:border-white/[0.06]">
                       <ReactMarkdown
                         components={{
                           // Fix list items with emoji overlap
@@ -907,7 +907,7 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
                           {PROGRESS_MESSAGES[progressStep]}
                         </span>
                       </div>
-                      <div className="w-full bg-[#2d2f33] rounded-full h-1.5 overflow-hidden">
+                      <div className="w-full bg-white/[0.06] rounded-full h-1.5 overflow-hidden">
                         <div
                           className="bg-gradient-to-r from-brand to-orange-400 h-full rounded-full transition-all duration-1000 ease-out"
                           style={{ width: `${Math.min(((progressStep + 1) / PROGRESS_MESSAGES.length) * 100, 95)}%` }}
@@ -921,11 +921,11 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
 
                   {/* Action buttons for completed assistant messages */}
                   {isAssistant && msg.content && !loading && (
-                    <div className="flex items-center gap-1 mt-2 pt-2 border-t border-[#2d2f33]">
+                    <div className="flex items-center gap-1 mt-2 pt-2 border-t border-white/[0.06]">
                       <button
                         onClick={() => handleExportPdf(msg.content, i)}
                         disabled={pdfExporting === i}
-                        className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-400 hover:text-brand bg-[#2d2f33] hover:bg-brand/5 border border-[#2d2f33] hover:border-brand/20 rounded-md px-2 py-1 transition-colors disabled:opacity-50"
+                        className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-400 hover:text-brand bg-white/[0.06] hover:bg-brand/5 border border-white/[0.06] hover:border-brand/20 rounded-md px-2 py-1 transition-colors disabled:opacity-50"
                         title="Exportar como PDF"
                       >
                         {pdfExporting === i ? (
@@ -941,7 +941,7 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
                       <button
                         onClick={() => handleSaveToDrive(msg.content, i)}
                         disabled={driveSaving === i}
-                        className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-400 hover:text-brand bg-[#2d2f33] hover:bg-brand/5 border border-[#2d2f33] hover:border-brand/20 rounded-md px-2 py-1 transition-colors disabled:opacity-50"
+                        className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-400 hover:text-brand bg-white/[0.06] hover:bg-brand/5 border border-white/[0.06] hover:border-brand/20 rounded-md px-2 py-1 transition-colors disabled:opacity-50"
                         title="Salvar no Drive"
                       >
                         {driveSaving === i ? (
@@ -958,7 +958,7 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
                       </button>
                       <button
                         onClick={() => handleCopy(msg.content, i)}
-                        className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-400 hover:text-brand bg-[#2d2f33] hover:bg-brand/5 border border-[#2d2f33] hover:border-brand/20 rounded-md px-2 py-1 transition-colors"
+                        className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-400 hover:text-brand bg-white/[0.06] hover:bg-brand/5 border border-white/[0.06] hover:border-brand/20 rounded-md px-2 py-1 transition-colors"
                         title="Copiar texto"
                       >
                         {copiedIndex === i ? (
@@ -1017,7 +1017,7 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Pergunte sobre requisitos, riscos, estratégias..."
-            className="flex-1 h-10 rounded-lg border border-[#2d2f33] px-4 text-sm text-white bg-[#1a1c1f] placeholder:text-gray-500 focus:ring-2 focus:ring-brand/20 focus:border-brand/40 transition-all"
+            className="flex-1 h-10 rounded-lg border border-white/[0.06] px-4 text-sm text-white bg-[#131316] placeholder:text-gray-500 focus:ring-2 focus:ring-brand/20 focus:border-brand/40 transition-all"
             disabled={loading}
           />
           <button

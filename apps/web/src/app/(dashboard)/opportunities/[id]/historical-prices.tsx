@@ -299,7 +299,7 @@ export function HistoricalPrices({
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Summary stats */}
-        <div className="grid grid-cols-3 gap-3 p-3 bg-[#2d2f33] rounded-lg">
+        <div className="grid grid-cols-3 gap-3 p-3 bg-white/[0.04] rounded-lg">
           <div className="text-center">
             <p className="text-xs text-gray-400">Valor Estimado Medio</p>
             <p className="text-sm font-bold text-white">
@@ -345,7 +345,7 @@ export function HistoricalPrices({
             return (
               <div
                 key={t.id}
-                className="flex items-start justify-between gap-3 p-2.5 border rounded-md text-xs hover:bg-[#2d2f33]"
+                className="flex items-start justify-between gap-3 p-2.5 border rounded-md text-xs hover:bg-white/[0.04]"
               >
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-white line-clamp-1">{t.objeto}</p>

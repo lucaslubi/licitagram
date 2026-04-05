@@ -71,10 +71,10 @@ export function ImpugnationCard({ matchId, dataAbertura }: { matchId: string; da
       {/* Main Card — prominent design */}
       <div className={`rounded-xl border-2 overflow-hidden ${
         isUrgent
-          ? 'border-red-500/40 bg-gradient-to-br from-red-950/20 to-[#1a1c1f]'
+          ? 'border-red-500/40 bg-gradient-to-br from-red-950/20 to-[#131316]'
           : isExpired
-            ? 'border-zinc-700/50 bg-[#1a1c1f]'
-            : 'border-amber-500/30 bg-gradient-to-br from-amber-950/10 to-[#1a1c1f]'
+            ? 'border-white/[0.06] bg-[#131316]'
+            : 'border-amber-500/30 bg-gradient-to-br from-amber-950/10 to-[#131316]'
       }`}>
         {/* Header with icon strip */}
         <div className={`px-5 py-3 flex items-center justify-between ${
@@ -128,7 +128,7 @@ export function ImpugnationCard({ matchId, dataAbertura }: { matchId: string; da
                   { icon: '🏛️', text: 'Jurisprudência do TCU' },
                   { icon: '💡', text: 'Redação substitutiva' },
                 ].map((f) => (
-                  <div key={f.text} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[#111214]/60 border border-zinc-800/50">
+                  <div key={f.text} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[#0a0a0b]/60 border border-white/[0.06]">
                     <span className="text-xs">{f.icon}</span>
                     <span className="text-[10px] text-gray-400">{f.text}</span>
                   </div>
@@ -158,7 +158,7 @@ export function ImpugnationCard({ matchId, dataAbertura }: { matchId: string; da
               )}
 
               {/* Full text */}
-              <div className="bg-[#111214] rounded-lg p-4 max-h-[500px] overflow-y-auto border border-zinc-800">
+              <div className="bg-[#0a0a0b] rounded-lg p-4 max-h-[500px] overflow-y-auto border border-white/[0.06]">
                 <pre className="text-xs text-gray-300 whitespace-pre-wrap font-sans leading-relaxed">{result.texto_completo}</pre>
               </div>
 
@@ -183,7 +183,7 @@ export function ImpugnationCard({ matchId, dataAbertura }: { matchId: string; da
       {/* Modal — reason input */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="bg-[#1a1c1f] border border-zinc-700 rounded-xl p-6 max-w-lg mx-4 w-full shadow-2xl">
+          <div className="bg-[#131316] border border-white/[0.08] rounded-xl p-6 max-w-lg mx-4 w-full shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-lg bg-amber-500/15 flex items-center justify-center">
                 <span className="text-xl">⚖️</span>
@@ -198,10 +198,10 @@ export function ImpugnationCard({ matchId, dataAbertura }: { matchId: string; da
               value={motivo}
               onChange={e => setMotivo(e.target.value)}
               placeholder={"Exemplos:\n• Exigência de atestado com quantitativo de 100% restringe competitividade\n• Indicação de marca sem justificativa técnica (cláusula 5.3)\n• Capital social mínimo exigido acima de 10% do valor estimado\n• Prazo de execução insuficiente para o porte do objeto"}
-              className="w-full h-40 bg-[#111214] border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder:text-gray-600 focus:border-amber-600 focus:outline-none resize-none"
+              className="w-full h-40 bg-[#0a0a0b] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white placeholder:text-gray-600 focus:border-amber-600 focus:outline-none resize-none"
             />
 
-            <div className="bg-[#111214] rounded-lg px-3 py-2 mt-3 border border-zinc-800">
+            <div className="bg-[#0a0a0b] rounded-lg px-3 py-2 mt-3 border border-white/[0.06]">
               <p className="text-[10px] text-gray-500">
                 💡 <span className="text-gray-400">Dica:</span> Quanto mais específico o motivo (citando cláusulas e valores), mais precisa será a impugnação. A IA analisará o edital completo e pode identificar vícios adicionais.
               </p>
