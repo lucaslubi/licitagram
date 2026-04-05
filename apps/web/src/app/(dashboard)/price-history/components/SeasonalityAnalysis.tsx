@@ -452,7 +452,7 @@ export function SeasonalityAnalysis({
                       Ano
                     </th>
                     <th className="text-right py-2.5 px-3 text-xs font-medium text-gray-400 uppercase tracking-wider">
-                      Preco Medio
+                      Preço Médio
                     </th>
                     <th className="text-right py-2.5 px-3 text-xs font-medium text-gray-400 uppercase tracking-wider">
                       Volume

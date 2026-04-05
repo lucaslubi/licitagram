@@ -349,17 +349,17 @@ export function CompetitorProfile({ query }: CompetitorProfileProps) {
           {/* 3. Stats Grid (3x3)                                            */}
           {/* -------------------------------------------------------------- */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <StatCard label="Total Participacoes" value={formatNumber(data.stats.total_participacoes)} />
-            <StatCard label="Vitorias" value={formatNumber(data.stats.vitorias)} />
-            <StatCard label="Taxa de Vitoria" value={formatPercent(data.stats.taxa_vitoria)} />
-            <StatCard label="Desconto Medio" value={formatPercent(data.stats.desconto_medio)} />
+            <StatCard label="Total Participações" value={formatNumber(data.stats.total_participacoes)} />
+            <StatCard label="Vitórias" value={formatNumber(data.stats.vitorias)} />
+            <StatCard label="Taxa de Vitória" value={formatPercent(data.stats.taxa_vitoria)} />
+            <StatCard label="Desconto Médio" value={formatPercent(data.stats.desconto_medio)} />
             <StatCard label="Desconto Mediano" value={formatPercent(data.stats.desconto_mediano)} />
             <BadgeStatCard
-              label="Consistencia"
+              label="Consistência"
               value={data.stats.consistencia}
               badgeClass="bg-blue-500/15 text-blue-400 border-blue-500/30"
             />
-            <StatCard label="Lance Medio" value={formatBRL(data.stats.lance_medio)} />
+            <StatCard label="Lance Médio" value={formatBRL(data.stats.lance_medio)} />
             <StatCard label="Lance Mediano" value={formatBRL(data.stats.lance_mediano)} />
             <BadgeStatCard
               label="Agressividade"
@@ -386,7 +386,7 @@ export function CompetitorProfile({ query }: CompetitorProfileProps) {
                   </span>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-400 mb-1">Consistencia</p>
+                  <p className="text-xs text-gray-400 mb-1">Consistência</p>
                   <span className="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold bg-blue-500/15 text-blue-400 border-blue-500/30">
                     {data.behavior.consistencia}
                   </span>

@@ -250,7 +250,7 @@ function DataQualityFooter({ quality }: { quality: DataQuality }) {
       <span
         className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border ${conf.className}`}
       >
-        Confianca: {conf.label}
+        Confiança: {conf.label}
       </span>
 
       <span className="text-[#2d2f33]">|</span>
@@ -320,7 +320,7 @@ export function SmartPricing({ query, uf, modalidade }: SmartPricingProps) {
                 Precificador Inteligente
               </h2>
               <p className="text-sm text-gray-400 mt-1">
-                Recomendacoes baseadas em IA e dados de mercado
+                Recomendações baseadas em IA e dados de mercado
               </p>
             </div>
             <Button
@@ -388,8 +388,8 @@ export function SmartPricing({ query, uf, modalidade }: SmartPricingProps) {
                 Precificacao inteligente com IA
               </p>
               <p className="text-xs text-gray-500 mt-1 max-w-md mx-auto">
-                Clique em &quot;Gerar Recomendacoes&quot; para receber 3 estrategias de preco
-                baseadas em dados historicos de licitacoes similares.
+                Clique em &quot;Gerar Recomendações&quot; para receber 3 estratégias de preço
+                baseadas em dados históricos de licitações similares.
               </p>
             </div>
           </CardContent>

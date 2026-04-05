@@ -87,7 +87,7 @@ function describeThreshold(type: string, value: number | null): string {
     case 'below_value':
       return `Quando preco ficar abaixo de ${formatBRL(value || 0)}`
     case 'variation_pct':
-      return `Quando variacao exceder ${value || 0}%`
+      return `Quando variação exceder ${value || 0}%`
     default:
       return type
   }
@@ -242,7 +242,7 @@ export function PriceWatch() {
             <BellIcon className="h-5 w-5 text-[#F43E01]" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-white">Alertas de Preco</h2>
+            <h2 className="text-lg font-semibold text-white">Alertas de Preço</h2>
             <p className="text-sm text-gray-400">
               {watches.length} alerta{watches.length !== 1 ? 's' : ''} configurado{watches.length !== 1 ? 's' : ''}
             </p>
@@ -279,16 +279,16 @@ export function PriceWatch() {
       {showForm && (
         <Card className="border-[#F43E01]/20 bg-[#23262a]">
           <CardHeader className="pb-4">
-            <CardTitle className="text-base">Novo Alerta de Preco</CardTitle>
+            <CardTitle className="text-base">Novo Alerta de Preço</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Query */}
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-gray-300">
-                Produto ou servico a monitorar <span className="text-red-400">*</span>
+                Produto ou serviço a monitorar <span className="text-red-400">*</span>
               </label>
               <Input
-                placeholder="Ex: notebook, toner, servico de limpeza..."
+                placeholder="Ex: notebook, toner, serviço de limpeza..."
                 value={formData.query}
                 onChange={(e) => setFormData((f) => ({ ...f, query: e.target.value }))}
               />
@@ -343,7 +343,7 @@ export function PriceWatch() {
 
             {/* Notification Channels */}
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-gray-300">Canais de notificacao</label>
+              <label className="text-sm font-medium text-gray-300">Canais de notificação</label>
               <div className="flex items-center gap-6">
                 <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-300">
                   <input

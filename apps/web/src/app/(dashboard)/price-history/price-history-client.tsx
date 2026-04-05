@@ -216,12 +216,12 @@ export function PriceHistoryClient() {
       {/* Header + Data freshness */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Precos de Mercado</h1>
-          <p className="text-sm text-gray-400 mt-1">Pesquise precos praticados em licitacoes anteriores</p>
+          <h1 className="text-2xl font-bold text-white">Preços de Mercado</h1>
+          <p className="text-sm text-gray-400 mt-1">Pesquise preços praticados em licitações anteriores</p>
         </div>
         {result && (
           <p className="text-[10px] text-gray-500 bg-[#1a1c1f] px-3 py-1.5 rounded-full border border-[#2d2f33] whitespace-nowrap shrink-0">
-            Ultima atualizacao: agora | {result.total_count.toLocaleString('pt-BR')} licitacoes indexadas
+            Última atualização: agora | {result.total_count.toLocaleString('pt-BR')} licitações indexadas
           </p>
         )}
       </div>
@@ -262,7 +262,7 @@ export function PriceHistoryClient() {
                   value={query}
                   onChange={(e) => { setQuery(e.target.value); setShowSuggestions(true) }}
                   onFocus={() => setShowSuggestions(true)}
-                  placeholder="Buscar produto ou servico..."
+                  placeholder="Buscar produto ou serviço..."
                   className="pl-10 bg-[#1a1c1f] border-[#2d2f33] text-white placeholder:text-gray-500"
                   onKeyDown={(e) => { if (e.key === 'Enter') { setShowSuggestions(false); doSearch(1) } }}
                   autoComplete="off"
@@ -419,14 +419,14 @@ export function PriceHistoryClient() {
             </div>
           </div>
 
-          {/* Tab content: Tendencia */}
+          {/* Tab content: Tendência */}
           {activeTab === 'tendencia' && (
             <div className="space-y-6">
               {/* Stats cards */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <Card className="bg-[#23262a] border-[#2d2f33]">
                   <CardContent className="pt-6">
-                    <p className="text-xs text-gray-400 uppercase tracking-wide">Preco Mediano</p>
+                    <p className="text-xs text-gray-400 uppercase tracking-wide">Preço Mediano</p>
                     <p className="text-2xl font-bold text-white mt-1">
                       {formatBRL(result.statistics.median)}
                     </p>
@@ -446,13 +446,13 @@ export function PriceHistoryClient() {
                     <p className="text-2xl font-bold text-white mt-1">
                       {result.total_count.toLocaleString('pt-BR')}
                     </p>
-                    <p className="text-xs text-gray-400 mt-1">licitacoes encontradas</p>
+                    <p className="text-xs text-gray-400 mt-1">licitações encontradas</p>
                   </CardContent>
                 </Card>
 
                 <Card className="bg-[#23262a] border-[#2d2f33]">
                   <CardContent className="pt-6">
-                    <p className="text-xs text-gray-400 uppercase tracking-wide">Variacao</p>
+                    <p className="text-xs text-gray-400 uppercase tracking-wide">Variação</p>
                     <p className={`text-2xl font-bold mt-1 ${
                       result.trend.variation_12m_percent != null
                         ? result.trend.variation_12m_percent > 0
@@ -472,7 +472,7 @@ export function PriceHistoryClient() {
 
                 <Card className="bg-[#23262a] border-[#2d2f33]">
                   <CardContent className="pt-6">
-                    <p className="text-xs text-gray-400 uppercase tracking-wide">Confianca</p>
+                    <p className="text-xs text-gray-400 uppercase tracking-wide">Confiança</p>
                     <p className={`text-2xl font-bold mt-1 ${
                       result.statistics.confidence === 'alta' ? 'text-emerald-400' :
                       result.statistics.confidence === 'media' ? 'text-amber-400' : 'text-red-400'
@@ -489,7 +489,7 @@ export function PriceHistoryClient() {
               {result.trend.points.length > 0 && (
                 <Card className="bg-[#23262a] border-[#2d2f33]">
                   <CardHeader>
-                    <CardTitle className="text-white text-base">Tendencia de Precos</CardTitle>
+                    <CardTitle className="text-white text-base">Tendência de Preços</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <PriceTrendChart
@@ -513,17 +513,17 @@ export function PriceHistoryClient() {
               {/* Statistics card */}
               <Card className="bg-[#23262a] border-[#2d2f33]">
                 <CardHeader>
-                  <CardTitle className="text-white text-base">Estatisticas</CardTitle>
+                  <CardTitle className="text-white text-base">Estatísticas</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     {([
-                      ['Media', result.statistics.mean],
+                      ['Média', result.statistics.mean],
                       ['Mediana', result.statistics.median],
                       ['Menor', result.statistics.min],
                       ['Maior', result.statistics.max],
                       ['CV%', null],
-                      ['Desvio Padrao', result.statistics.std_deviation],
+                      ['Desvio Padrão', result.statistics.std_deviation],
                       ['P25', result.statistics.percentile_25],
                       ['P75', result.statistics.percentile_75],
                     ] as [string, number | null][]).map(([label, value]) => (
@@ -547,7 +547,7 @@ export function PriceHistoryClient() {
                     <CardTitle className="text-white text-base">Registros</CardTitle>
                     {result.records.some((r) => !r.is_valid) && (
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-900/20 text-amber-400 border border-amber-900/30">
-                        {result.records.filter((r) => !r.is_valid).length} outliers excluidos das estatisticas
+                        {result.records.filter((r) => !r.is_valid).length} outliers excluídos das estatísticas
                       </span>
                     )}
                   </div>
@@ -567,7 +567,7 @@ export function PriceHistoryClient() {
                               records: result?.records?.slice(0, 20),
                             }),
                           })
-                          if (!res.ok) { alert('Erro ao gerar relatorio'); return }
+                          if (!res.ok) { alert('Erro ao gerar relatório'); return }
                           const blob = await res.blob()
                           const url = URL.createObjectURL(blob)
                           const a = document.createElement('a')
@@ -575,12 +575,12 @@ export function PriceHistoryClient() {
                           a.download = `relatorio_in65_${query.replace(/\s+/g, '_').substring(0, 30)}.docx`
                           a.click()
                           URL.revokeObjectURL(url)
-                        } catch { alert('Erro ao gerar relatorio') }
+                        } catch { alert('Erro ao gerar relatório') }
                       }}
                       disabled={!result || (result.records?.length || 0) < 3}
                       className="border-[#2d2f33] text-gray-300 hover:bg-[#2d2f33] hover:text-white"
                     >
-                      Relatorio IN 65
+                      Relatório IN 65
                     </Button>
                     <Button
                       variant="outline"
@@ -599,7 +599,7 @@ export function PriceHistoryClient() {
                       <thead>
                         <tr className="border-b border-[#2d2f33]">
                           <th className="text-left py-2 text-gray-400 font-medium">Data</th>
-                          <th className="text-left py-2 text-gray-400 font-medium">Orgao</th>
+                          <th className="text-left py-2 text-gray-400 font-medium">Órgão</th>
                           <th className="text-left py-2 text-gray-400 font-medium">UF</th>
                           <th className="text-left py-2 text-gray-400 font-medium max-w-[200px]">Objeto</th>
                           <th className="text-right py-2 text-gray-400 font-medium">Valor</th>
@@ -680,7 +680,7 @@ export function PriceHistoryClient() {
                   {totalPages > 1 && (
                     <div className="flex items-center justify-between mt-4 pt-4 border-t border-[#2d2f33]">
                       <p className="text-xs text-gray-400">
-                        Pagina {currentPage} de {totalPages} ({result.total_count.toLocaleString('pt-BR')} resultados)
+                        Página {currentPage} de {totalPages} ({result.total_count.toLocaleString('pt-BR')} resultados)
                       </p>
                       <div className="flex gap-2">
                         <Button
@@ -699,13 +699,15 @@ export function PriceHistoryClient() {
                           onClick={() => doSearch(currentPage + 1)}
                           className="border-[#2d2f33] text-gray-300 hover:bg-[#2d2f33] hover:text-white disabled:opacity-50"
                         >
-                          Proxima
+                          Próxima
                         </Button>
                       </div>
                     </div>
                   )}
                 </CardContent>
               </Card>
+              <SmartPricing query={query} uf={uf} modalidade={modalidade} />
+              <PriceWatch />
             </div>
           )}
 
@@ -714,7 +716,7 @@ export function PriceHistoryClient() {
             <DiscountAnalysis query={query} uf={uf} modalidade={modalidade} dateFrom={dateFrom} dateTo={dateTo} />
           )}
 
-          {/* Tab content: Segmentacao */}
+          {/* Tab content: Segmentação */}
           {activeTab === 'segmentacao' && result && (
             <div className="space-y-6">
               {/* Existing breakdowns grid */}
@@ -814,8 +816,6 @@ export function PriceHistoryClient() {
             <CompetitorProfile query={query} />
           )}
 
-          {/* Smart Pricing - always visible after search */}
-          <SmartPricing query={query} uf={uf} modalidade={modalidade} />
         </div>
       )}
 
@@ -825,16 +825,13 @@ export function PriceHistoryClient() {
           <svg className="w-16 h-16 text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
-          <h3 className="text-lg font-medium text-gray-300 mb-2">Pesquise precos de mercado</h3>
+          <h3 className="text-lg font-medium text-gray-300 mb-2">Pesquise preços de mercado</h3>
           <p className="text-sm text-gray-500 max-w-md">
-            Digite o nome do produto ou servico para consultar precos praticados em licitacoes anteriores.
-            Os dados vem de mais de 185 mil editais indexados.
+            Digite o nome do produto ou serviço para consultar preços praticados em licitações anteriores.
+            Os dados vêm de mais de 185 mil editais indexados.
           </p>
         </div>
       )}
-
-      {/* Price Watch - always at bottom */}
-      <PriceWatch />
     </div>
   )
 }

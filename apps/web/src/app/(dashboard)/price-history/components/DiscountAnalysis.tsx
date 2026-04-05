@@ -295,10 +295,10 @@ export function DiscountAnalysis({
       {/* 1. Summary Stats Row                                             */}
       {/* ---------------------------------------------------------------- */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard label="Desconto Medio" value={formatPercent(summary.mean)} />
+        <StatCard label="Desconto Médio" value={formatPercent(summary.mean)} />
         <StatCard label="Desconto Mediano" value={formatPercent(summary.median)} />
         <StatCard label="Total Registros" value={formatNumber(summary.total)} />
-        <StatCard label="Desvio Padrao" value={formatPercent(summary.std_dev)} />
+        <StatCard label="Desvio Padrão" value={formatPercent(summary.std_dev)} />
       </div>
 
       {/* ---------------------------------------------------------------- */}
@@ -509,7 +509,7 @@ export function DiscountAnalysis({
         <Card className="bg-[#23262a]">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-gray-300">
-              Tendencia de Desconto
+              Tendência de Desconto
             </CardTitle>
           </CardHeader>
           <CardContent>
