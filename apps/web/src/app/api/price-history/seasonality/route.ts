@@ -102,7 +102,7 @@ export async function GET(req: NextRequest) {
 
     query = query
       .order('data_encerramento', { ascending: false })
-      .limit(5000)
+      .limit(300)
 
     const { data, error } = await query
 

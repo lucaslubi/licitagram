@@ -17,7 +17,7 @@ interface SmartPricingProps {
 interface Recommendation {
   strategy: 'agressivo' | 'competitivo' | 'seguro'
   price: number
-  win_probability: number
+  win_probability_estimate: number
   risk_level: string
   rationale: string
 }
@@ -35,7 +35,8 @@ interface DataQuality {
 
 interface SmartPricingData {
   recommendations: Recommendation[]
-  market_analysis: MarketAnalysis
+  market_summary: string
+  key_insights: string[]
   data_quality: DataQuality
 }
 
@@ -150,7 +151,7 @@ function LoadingSkeleton() {
 
 function RecommendationCard({ rec }: { rec: Recommendation }) {
   const config = STRATEGY_CONFIG[rec.strategy]
-  const clampedProb = Math.min(Math.max(rec.win_probability, 0), 100)
+  const clampedProb = Math.min(Math.max(rec.win_probability_estimate ?? 0, 0), 100)
 
   return (
     <Card className={`bg-[#1a1c1f] border-l-4 ${config.borderClass} hover:border-[#2d2f33]`}>
@@ -410,8 +411,8 @@ export function SmartPricing({ query, uf, modalidade }: SmartPricingProps) {
           {/* -------------------------------------------------------------- */}
           {/* Market Analysis                                                 */}
           {/* -------------------------------------------------------------- */}
-          {data.market_analysis && (
-            <MarketAnalysisCard analysis={data.market_analysis} />
+          {(data.market_summary || data.key_insights) && (
+            <MarketAnalysisCard analysis={{ market_summary: data.market_summary || '', key_insights: data.key_insights || [] }} />
           )}
 
           {/* -------------------------------------------------------------- */}
