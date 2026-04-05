@@ -3,15 +3,9 @@ import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
 import { buildImpugnationSystemPrompt, buildImpugnationUserPrompt } from '@/lib/impugnation-prompt'
-import OpenAI from 'openai'
+import { callAIWithFallback } from '@/lib/ai-client'
 
 export const maxDuration = 60
-
-const openrouter = new OpenAI({
-  apiKey: process.env.OPENROUTER_API_KEY || '',
-  baseURL: 'https://openrouter.ai/api/v1',
-  defaultHeaders: { 'HTTP-Referer': 'https://licitagram.com', 'X-Title': 'Licitagram' },
-})
 
 function addBusinessDays(date: Date, days: number): Date {
   const result = new Date(date)
@@ -85,8 +79,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate impugnation text via LLM (specialist prompt)
-    const response = await openrouter.chat.completions.create({
-      model: 'google/gemini-2.5-flash',
+    const response = await callAIWithFallback({
       messages: [
         { role: 'system', content: buildImpugnationSystemPrompt() },
         {

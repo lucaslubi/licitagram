@@ -1,17 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-import OpenAI from 'openai'
 import { CNAE_GROUPS } from '@licitagram/shared'
-
-const openrouter = new OpenAI({
-  apiKey: process.env.OPENROUTER_API_KEY || '',
-  baseURL: 'https://openrouter.ai/api/v1',
-  defaultHeaders: {
-    'HTTP-Referer': 'https://licitagram.com',
-    'X-Title': 'Licitagram',
-  },
-  timeout: 45_000,
-})
+import { callAIWithFallback } from '@/lib/ai-client'
 
 function buildCnaeDescriptions(cnaes: string[]): string[] {
   const descriptions: string[] = []
@@ -68,8 +58,7 @@ Retorne APENAS a descricao, sem formatacao, sem markdown, sem aspas.`
 
     try {
       console.log('[GENERATE] Description request for:', razao_social, '| CNAEs:', cnaeDescriptions.length)
-      const response = await openrouter.chat.completions.create({
-        model: 'google/gemini-2.5-flash',
+      const response = await callAIWithFallback({
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 600,
         temperature: 0.4,
@@ -116,8 +105,7 @@ INSTRUCOES:
 Retorne APENAS os termos, um por linha, sem numeracao, sem explicacao, sem marcadores.`
 
     try {
-      const response = await openrouter.chat.completions.create({
-        model: 'google/gemini-2.5-flash',
+      const response = await callAIWithFallback({
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 800,
         temperature: 0.4,

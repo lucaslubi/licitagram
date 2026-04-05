@@ -12,7 +12,7 @@ import {
 } from '@licitagram/price-history'
 import { getPriceHistoryCacheAdapter, checkRedisRateLimit } from '@/lib/price-history-cache'
 import crypto from 'crypto'
-import OpenAI from 'openai'
+import { callAIWithFallback } from '@/lib/ai-client'
 
 export const maxDuration = 60
 
@@ -36,21 +36,6 @@ interface SmartPricingResult {
     date_range: string
   }
 }
-
-// ─── AI Client ───────────────────────────────────────────────────────────────
-
-const apiKey = process.env.OPENROUTER_API_KEY || process.env.GROQ_API_KEY
-const baseUrl = process.env.OPENROUTER_API_KEY
-  ? 'https://openrouter.ai/api/v1'
-  : 'https://api.groq.com/openai/v1'
-
-const ai = new OpenAI({
-  apiKey: apiKey || '',
-  baseURL: baseUrl,
-  defaultHeaders: process.env.OPENROUTER_API_KEY
-    ? { 'HTTP-Referer': 'https://licitagram.com', 'X-Title': 'Licitagram' }
-    : {},
-})
 
 // ─── System Prompt ───────────────────────────────────────────────────────────
 
@@ -415,12 +400,7 @@ export async function POST(request: NextRequest) {
     let aiResult: Omit<SmartPricingResult, 'data_quality'> | null = null
 
     try {
-      const model = process.env.OPENROUTER_API_KEY
-        ? 'google/gemini-2.5-flash'
-        : 'llama-3.1-70b-versatile'
-
-      const response = await ai.chat.completions.create({
-        model,
+      const response = await callAIWithFallback({
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: userMessage },

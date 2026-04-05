@@ -4,48 +4,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import pdf from 'pdf-parse'
 import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
 import { buildTenderAnalysisPrompt } from '@/lib/tender-analysis-prompt'
-import OpenAI from 'openai'
+import { streamAIWithFallback } from '@/lib/ai-client'
 
 export const maxDuration = 120
 
-// ── AI Providers ────────────────────────────────────────────────────────────
-// Primary: Gemini 2.5 Flash via OpenRouter (1M token context)
-// Fallback: Groq Llama 3.3 70B (32K context, if OpenRouter fails)
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || ''
-const GROQ_API_KEY = process.env.GROQ_API_KEY || ''
 
-const openrouter = new OpenAI({
-  apiKey: OPENROUTER_API_KEY,
-  baseURL: 'https://openrouter.ai/api/v1',
-  defaultHeaders: {
-    'HTTP-Referer': 'https://licitagram.com',
-    'X-Title': 'Licitagram',
-  },
-})
-
-const groq = new OpenAI({
-  apiKey: GROQ_API_KEY,
-  baseURL: 'https://api.groq.com/openai/v1',
-})
-
-// Groq fallback limit: ~64K tokens ≈ ~150K chars
-const DEEPSEEK_MAX_CONTEXT = 150_000
-
-/**
- * Smart truncation for Groq fallback only.
- * Gemini 2.5 Flash has 1M tokens — no truncation needed.
- */
-function smartTruncate(text: string, maxChars: number): string {
-  if (text.length <= maxChars) return text
-  const keepStart = Math.floor(maxChars * 0.65)
-  const keepEnd = Math.floor(maxChars * 0.30)
-  const omitted = ((text.length - keepStart - keepEnd) / 1000).toFixed(0)
-  return (
-    text.slice(0, keepStart) +
-    `\n\n[... ${omitted}K caracteres omitidos por limite de contexto — início e fim preservados ...]\n\n` +
-    text.slice(-keepEnd)
-  )
-}
 
 /**
  * SSRF Protection: block private/internal IPs only.
@@ -169,10 +132,6 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = await createClient()
-
-  if (!OPENROUTER_API_KEY && !GROQ_API_KEY) {
-    return NextResponse.json({ error: 'Chat AI not configured' }, { status: 503 })
-  }
 
   const body = await request.json()
   const { tenderId, question, messages: chatHistory, uploadedDocsText } = body as {
@@ -432,111 +391,28 @@ ${context}`
 
   messages.push({ role: 'user', content: question })
 
-  // ── Try Gemini 2.5 Flash via OpenRouter (primary) ───────────────────
-  const useOpenRouter = !!OPENROUTER_API_KEY
-
-  if (useOpenRouter) {
-    try {
-      console.log(`[Chat] Using Gemini 2.5 Flash via OpenRouter — ${context.length} chars context`)
-
-      const completion = await openrouter.chat.completions.create({
-        model: 'google/gemini-2.5-flash',
-        messages,
-        max_tokens: 16384,
-        temperature: 0.2,
-        stream: true,
-      })
-
-      const encoder = new TextEncoder()
-      const readable = new ReadableStream({
-        async start(controller) {
-          try {
-            for await (const chunk of completion) {
-              const content = chunk.choices?.[0]?.delta?.content
-              if (content) {
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`))
-              }
-            }
-          } catch (streamErr) {
-            console.error('[Chat] OpenRouter stream error:', streamErr)
-            controller.enqueue(
-              encoder.encode(
-                `data: ${JSON.stringify({ content: '\n\n⚠️ Erro durante a geração da resposta.' })}\n\n`,
-              ),
-            )
-          } finally {
-            controller.enqueue(encoder.encode('data: [DONE]\n\n'))
-            controller.close()
-          }
-        },
-      })
-
-      return new NextResponse(readable, {
-        headers: {
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-          Connection: 'keep-alive',
-        },
-      })
-    } catch (error) {
-      const errMsg = error instanceof Error ? error.message : String(error)
-      console.error('[Chat] OpenRouter/Gemini failed, falling back to Groq:', errMsg)
-      // Fall through to Groq fallback
-    }
-  }
-
-  // ── Fallback: Groq V3 ──────────────────────────────────────────
-  if (!GROQ_API_KEY) {
-    return NextResponse.json({ error: 'Serviço de chat indisponível. Tente novamente mais tarde.' }, { status: 503 })
-  }
-
-  // Truncate context for Groq's 64K limit
-  const wasTruncated = context.length > DEEPSEEK_MAX_CONTEXT
-  const dsContext = wasTruncated ? smartTruncate(context, DEEPSEEK_MAX_CONTEXT) : context
-
-  if (wasTruncated) {
-    console.log(`[Chat] Groq fallback — context truncated: ${context.length} → ${dsContext.length} chars`)
-  }
-
-  // Rebuild messages with truncated context for Groq
-  const dsMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
-    {
-      role: 'system',
-      content: systemPrompt.replace(context, dsContext) +
-        (wasTruncated ? '\n\nNOTA: O texto do edital foi parcialmente truncado. Responda com base no que está disponível.' : ''),
-    },
-  ]
-
-  if (chatHistory && chatHistory.length > 0) {
-    for (const msg of chatHistory.slice(-10)) {
-      if (msg.content) dsMessages.push({ role: msg.role, content: msg.content })
-    }
-  }
-  dsMessages.push({ role: 'user', content: question })
-
+  // ── Stream with automatic fallback: Google AI (free) → OpenRouter → Groq ──
   try {
-    console.log(`[Chat] Using Groq V3 fallback — ${dsContext.length} chars context`)
-
-    const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: dsMessages,
+    const { stream, provider } = await streamAIWithFallback({
+      messages,
       max_tokens: 8192,
       temperature: 0.2,
-      stream: true,
     })
+
+    console.log(`[Chat] Streaming via ${provider} — ${context.length} chars context`)
 
     const encoder = new TextEncoder()
     const readable = new ReadableStream({
       async start(controller) {
         try {
-          for await (const chunk of completion) {
+          for await (const chunk of stream) {
             const content = chunk.choices?.[0]?.delta?.content
             if (content) {
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`))
             }
           }
-        } catch (err) {
-          console.error('[Chat] Groq stream error:', err)
+        } catch (streamErr) {
+          console.error(`[Chat] ${provider} stream error:`, streamErr)
           controller.enqueue(
             encoder.encode(
               `data: ${JSON.stringify({ content: '\n\n⚠️ Erro durante a geração da resposta.' })}\n\n`,
@@ -558,8 +434,8 @@ ${context}`
     })
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)
-    console.error('[Chat] Groq error:', { message: msg, contextLen: dsContext.length })
-    return NextResponse.json({ error: `Falha ao processar: ${msg.slice(0, 200)}` }, { status: 500 })
+    console.error('[Chat] All providers failed:', msg)
+    return NextResponse.json({ error: 'Serviço de IA indisponível. Tente novamente mais tarde.' }, { status: 503 })
   }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)

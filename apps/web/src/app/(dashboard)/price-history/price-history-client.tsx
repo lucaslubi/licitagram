@@ -476,15 +476,13 @@ export function PriceHistoryClient() {
 
                 <Card className="bg-[#23262a] border-[#2d2f33]">
                   <CardContent className="pt-6">
-                    <p className="text-xs text-gray-400 uppercase tracking-wide">Confiança</p>
-                    <p className={`text-2xl font-bold mt-1 ${
-                      result.statistics.confidence === 'alta' ? 'text-emerald-400' :
-                      result.statistics.confidence === 'media' ? 'text-amber-400' : 'text-red-400'
-                    }`}>
-                      {result.statistics.confidence === 'alta' ? 'Alta' :
-                       result.statistics.confidence === 'media' ? 'Média' : 'Baixa'}
+                    <p className="text-xs text-gray-400 uppercase tracking-wide">Desvio Padrão</p>
+                    <p className="text-2xl font-bold mt-1 text-white">
+                      {result.statistics.std_deviation
+                        ? `R$ ${result.statistics.std_deviation.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                        : 'N/D'}
                     </p>
-                    <p className="text-xs text-gray-400 mt-1">CV {result.statistics.cv_percent.toFixed(1)}%</p>
+                    <p className="text-xs text-gray-400 mt-1">dispersão dos preços</p>
                   </CardContent>
                 </Card>
               </div>

@@ -2,15 +2,9 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
-import OpenAI from 'openai'
+import { callAIWithFallback } from '@/lib/ai-client'
 
 export const maxDuration = 60
-
-const openrouter = new OpenAI({
-  apiKey: process.env.OPENROUTER_API_KEY || '',
-  baseURL: 'https://openrouter.ai/api/v1',
-  defaultHeaders: { 'HTTP-Referer': 'https://licitagram.com', 'X-Title': 'Licitagram' },
-})
 
 /**
  * POST /api/habilitacao-checklist
@@ -51,8 +45,7 @@ export async function POST(request: NextRequest) {
       .eq('company_id', user.companyId)
 
     // Call LLM to extract requirements
-    const response = await openrouter.chat.completions.create({
-      model: 'google/gemini-2.5-flash',
+    const response = await callAIWithFallback({
       messages: [
         {
           role: 'system',

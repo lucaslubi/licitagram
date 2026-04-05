@@ -15,7 +15,9 @@ import OpenAI from 'openai'
 
 export const maxDuration = 30
 
-const openrouter = new OpenAI({
+import { callAIWithFallback } from '@/lib/ai-client'
+
+const _openrouter = new OpenAI({
   apiKey: process.env.OPENROUTER_API_KEY || '',
   baseURL: 'https://openrouter.ai/api/v1',
   defaultHeaders: { 'HTTP-Referer': 'https://licitagram.com', 'X-Title': 'Licitagram' },
@@ -190,8 +192,7 @@ export async function POST(req: NextRequest) {
     let keyInsights: string[] = []
 
     try {
-      const llmPromise = openrouter.chat.completions.create({
-        model: 'google/gemini-2.5-flash',
+      const llmPromise = callAIWithFallback({
         messages: [
           {
             role: 'system',
