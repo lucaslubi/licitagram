@@ -12,7 +12,7 @@ import OpenAI from 'openai'
  * so we can reuse the same OpenAI SDK everywhere.
  */
 
-const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY || ''
+const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY || ''
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || ''
 const GROQ_API_KEY = process.env.GROQ_API_KEY || ''
 
