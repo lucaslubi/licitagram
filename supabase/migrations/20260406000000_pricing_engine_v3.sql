@@ -108,7 +108,7 @@ AS $$
         WHEN t.valor_estimado < 200000 THEN 'medio'
         WHEN t.valor_estimado < 1000000 THEN 'grande'
         ELSE 'mega'
-      END AS band
+      END AS price_band
     FROM tenders t
     INNER JOIN competitors c ON c.tender_id = t.id
     WHERE
@@ -120,22 +120,22 @@ AS $$
       AND (p_modalidade IS NULL OR t.modalidade_nome = p_modalidade)
   )
   SELECT
-    bd.band AS band_id,
-    CASE bd.band
+    price_band AS band_id,
+    CASE price_band
       WHEN 'micro' THEN 'Até R$ 10 mil'
       WHEN 'pequeno' THEN 'R$ 10 mil - 50 mil'
       WHEN 'medio' THEN 'R$ 50 mil - 200 mil'
       WHEN 'grande' THEN 'R$ 200 mil - 1 milhão'
       WHEN 'mega' THEN 'Acima de R$ 1 milhão'
     END AS band_label,
-    CASE bd.band
+    CASE price_band
       WHEN 'micro' THEN 0
       WHEN 'pequeno' THEN 10000
       WHEN 'medio' THEN 50000
       WHEN 'grande' THEN 200000
       WHEN 'mega' THEN 1000000
     END::numeric AS band_min,
-    CASE bd.band
+    CASE price_band
       WHEN 'micro' THEN 10000
       WHEN 'pequeno' THEN 50000
       WHEN 'medio' THEN 200000
@@ -143,16 +143,16 @@ AS $$
       WHEN 'mega' THEN 999999999
     END::numeric AS band_max,
     COUNT(*) AS total_bids,
-    COUNT(*) FILTER (WHERE bd.is_winner) AS total_wins,
-    ROUND(AVG(bd.ratio)::numeric, 4) AS avg_discount_ratio,
-    ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY bd.ratio)::numeric, 4) AS median_discount_ratio,
-    ROUND(AVG(bd.ratio) FILTER (WHERE bd.is_winner)::numeric, 4) AS winner_avg_discount_ratio,
-    ROUND(AVG(bd.valor_estimado)::numeric, 2) AS avg_valor_estimado
-  FROM (SELECT *, band AS band FROM bid_data) bd
-  GROUP BY bd.band
+    COUNT(*) FILTER (WHERE is_winner) AS total_wins,
+    ROUND(AVG(ratio)::numeric, 4) AS avg_discount_ratio,
+    ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ratio)::numeric, 4) AS median_discount_ratio,
+    ROUND(AVG(ratio) FILTER (WHERE is_winner)::numeric, 4) AS winner_avg_discount_ratio,
+    ROUND(AVG(valor_estimado)::numeric, 2) AS avg_valor_estimado
+  FROM bid_data
+  GROUP BY price_band
   HAVING COUNT(*) >= 3
   ORDER BY
-    CASE bd.band
+    CASE price_band
       WHEN 'micro' THEN 1
       WHEN 'pequeno' THEN 2
       WHEN 'medio' THEN 3
