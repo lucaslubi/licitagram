@@ -707,6 +707,7 @@ export function PriceHistoryClient() {
                   )}
                 </CardContent>
               </Card>
+              <BenchmarkGauge query={query} uf={uf} modalidade={modalidade} dateFrom={dateFrom} dateTo={dateTo} />
               <SmartPricing query={query} uf={uf} modalidade={modalidade} />
               <PriceWatch />
             </div>
@@ -803,7 +804,6 @@ export function PriceHistoryClient() {
                 </Card>
               </div>
 
-              <BenchmarkGauge query={query} uf={uf} modalidade={modalidade} dateFrom={dateFrom} dateTo={dateTo} />
             </div>
           )}
 

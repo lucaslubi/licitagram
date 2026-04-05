@@ -177,7 +177,7 @@ export function SeasonalityAnalysis({
     setError(null)
 
     try {
-      const params = new URLSearchParams({ query })
+      const params = new URLSearchParams({ q: query })
       if (uf) params.set('uf', uf)
       if (modalidade) params.set('modalidade', modalidade)
 

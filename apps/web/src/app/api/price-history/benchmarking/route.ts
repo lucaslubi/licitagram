@@ -159,10 +159,10 @@ export async function GET(req: NextRequest) {
       query = query.lte('data_encerramento', dateTo)
     }
 
-    // Limit to 2000 records for computation
+    // Limit to 500 records for computation (reduces query time significantly)
     query = query
       .order('data_encerramento', { ascending: false })
-      .limit(2000)
+      .limit(500)
 
     const { data, error } = await query
 

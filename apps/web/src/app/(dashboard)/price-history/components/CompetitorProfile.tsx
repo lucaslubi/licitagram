@@ -252,7 +252,7 @@ export function CompetitorProfile({ query }: CompetitorProfileProps) {
 
     try {
       const params = new URLSearchParams({ cnpj: digits })
-      if (query) params.set('query', query)
+      if (query) params.set('q', query)
 
       const res = await fetch(`/api/price-history/competitor-profile?${params.toString()}`)
 
