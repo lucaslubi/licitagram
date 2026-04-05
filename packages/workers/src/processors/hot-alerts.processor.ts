@@ -370,7 +370,7 @@ async function handleUrgencyCheck() {
     .eq('is_hot', true)
     .lt('tenders.data_encerramento', nowISO)
 
-  const expiredIds = (hotMatches || []).map((m) => m.id)
+  const expiredIds = (hotMatches || []).map((m: { id: string }) => m.id)
   let expiredCount = 0
   if (expiredIds.length > 0) {
     const { data: expiredRows } = await supabase
@@ -439,7 +439,7 @@ async function handleUrgencyCheck() {
     ]) {
       if (tierMatches.length === 0) continue
 
-      const matchItems: UrgencyMatchItem[] = tierMatches.map((m) => {
+      const matchItems: UrgencyMatchItem[] = tierMatches.map((m: any) => {
         const t = m.tenders as unknown as Record<string, unknown>
         return {
           id: m.id,
@@ -484,7 +484,7 @@ async function handleUrgencyCheck() {
 
       // Mark urgency sent
       const sentField = tier === 'urgency_24h' ? 'urgency_24h_sent' : 'urgency_48h_sent'
-      const matchIds = tierMatches.map((m) => m.id)
+      const matchIds = tierMatches.map((m: any) => m.id)
       await supabase
         .from('matches')
         .update({ [sentField]: true })
@@ -530,7 +530,7 @@ async function handleNewMatchesDigest() {
 
     if (!matches || matches.length === 0) continue
 
-    const matchItems: UrgencyMatchItem[] = matches.map((m) => {
+    const matchItems: UrgencyMatchItem[] = matches.map((m: any) => {
       const t = m.tenders as unknown as Record<string, unknown>
       return {
         id: m.id,
@@ -570,7 +570,7 @@ async function handleNewMatchesDigest() {
     }
 
     // Mark as notified so they don't get sent again
-    const matchIds = matches.map((m) => m.id)
+    const matchIds = matches.map((m: any) => m.id)
     await supabase
       .from('matches')
       .update({ status: 'notified', notified_at: new Date().toISOString() })

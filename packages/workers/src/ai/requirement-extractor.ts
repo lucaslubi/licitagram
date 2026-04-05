@@ -52,7 +52,7 @@ export async function extractRequirements(tenderId: string): Promise<TenderRequi
     .eq('status', 'done')
 
   const documentText = (docs || [])
-    .map((d) => d.texto_extraido)
+    .map((d: any) => d.texto_extraido)
     .filter(Boolean)
     .join('\n\n')
 

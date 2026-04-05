@@ -236,7 +236,7 @@ export async function batchClassifyTenders(limit: number = 200): Promise<number>
   for (let i = 0; i < tenders.length; i += CONCURRENCY) {
     const chunk = tenders.slice(i, i + CONCURRENCY)
     const results = await Promise.allSettled(
-      chunk.map(async (tender) => {
+      chunk.map(async (tender: any) => {
         const result = await classifyTenderCNAEs(tender.id)
         return result.length > 0
       }),

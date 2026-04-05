@@ -47,6 +47,7 @@ export async function GET(req: NextRequest) {
   const modalidade = url.searchParams.get('modalidade') || undefined
   const dateFrom = url.searchParams.get('date_from') || undefined
   const dateTo = url.searchParams.get('date_to') || undefined
+  const winOnly = url.searchParams.get('win_only') === 'true'
   const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10))
   const pageSize = Math.min(100, Math.max(1, parseInt(url.searchParams.get('page_size') || '20', 10)))
 
@@ -60,7 +61,7 @@ export async function GET(req: NextRequest) {
 
     // Cache keys: stats ignores page/page_size (shared), data includes them
     const filterHash = crypto.createHash('md5').update(
-      JSON.stringify({ q: q.toLowerCase(), uf, modalidade, dateFrom, dateTo })
+      JSON.stringify({ q: q.toLowerCase(), uf, modalidade, dateFrom, dateTo, winOnly })
     ).digest('hex').slice(0, 12)
 
     const statsCacheKey = `stats:${filterHash}`
@@ -119,6 +120,9 @@ export async function GET(req: NextRequest) {
     }
     if (dateTo) {
       query = query.lte('data_encerramento', dateTo)
+    }
+    if (winOnly) {
+      query = query.in('competitors.situacao', ['Informado', 'Homologado'])
     }
 
     // Order and paginate

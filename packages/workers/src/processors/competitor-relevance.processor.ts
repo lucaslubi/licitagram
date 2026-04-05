@@ -213,7 +213,7 @@ async function analyzeCompanyCompetitors(company: {
     return
   }
 
-  const companyTenderIds = [...new Set(companyMatches.map(m => m.tender_id))]
+  const companyTenderIds = [...new Set(companyMatches.map((m: { tender_id: string }) => m.tender_id))]
 
   // Step B: Get all competitors that participated in those same tenders
   // Paginate to handle large result sets
@@ -298,7 +298,8 @@ async function analyzeCompanyCompetitors(company: {
     }
   }
 
-  const statsMap = new Map((competitorStats || []).map((s) => [s.cnpj, s]))
+  type CompetitorStat = { cnpj: string; razao_social: string | null; cnae_divisao: string | null; cnae_grupo: string | null; porte: string | null; uf: string | null }
+  const statsMap = new Map((competitorStats as CompetitorStat[] || []).map((s) => [s.cnpj, s]))
 
   // Track which CNPJs came from CNAE discovery
   const cnaeDiscoveryCnpjs = new Set(cnaeDiscoveries.map(d => d.cnpj))
@@ -332,14 +333,14 @@ async function analyzeCompanyCompetitors(company: {
     .select('id, objeto')
     .in('id', tenderIdList)
 
-  const tenderObjectMap = new Map((tenders || []).map((t) => [t.id, t.objeto || '']))
+  const tenderObjectMap = new Map((tenders || []).map((t: { id: string; objeto: string | null }) => [t.id, t.objeto || '']))
 
   // Build map: cnpj -> shared tender objects
   const sharedTenderObjectsMap: Record<string, string[]> = {}
   for (const [cnpj, data] of topCnpjs) {
-    sharedTenderObjectsMap[cnpj] = data.tenderIds
-      .map((tid) => tenderObjectMap.get(tid) || '')
-      .filter((o) => o.length > 0)
+    sharedTenderObjectsMap[cnpj] = (data.tenderIds as string[])
+      .map((tid: string) => tenderObjectMap.get(tid) || '')
+      .filter((o) => (o as string).length > 0) as string[]
   }
 
   // 6. Call AI engine

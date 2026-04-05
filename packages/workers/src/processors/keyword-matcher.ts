@@ -702,16 +702,16 @@ export async function runKeywordMatchingSweep() {
     if (page === 0) logger.info({ count: tenders.length }, 'Sweep: first page of tenders fetched')
 
     // Filter to only tenders without any matches (batch check)
-    const tenderIds = tenders.map((t) => t.id)
+    const tenderIds = tenders.map((t: any) => t.id)
     const { data: existingMatches } = await supabase
       .from('matches')
       .select('tender_id')
       .in('tender_id', tenderIds)
 
     const tendersWithMatches = new Set(
-      (existingMatches || []).map((m) => m.tender_id),
+      (existingMatches || []).map((m: { tender_id: string }) => m.tender_id),
     )
-    const unmatchedTenders = tenders.filter((t) => !tendersWithMatches.has(t.id))
+    const unmatchedTenders = tenders.filter((t: any) => !tendersWithMatches.has(t.id))
 
     for (const tender of unmatchedTenders) {
       try {

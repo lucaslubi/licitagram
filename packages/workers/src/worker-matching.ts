@@ -149,7 +149,7 @@ async function setupRedisEvents() {
                 .in('match_source', ['keyword', 'semantic'])
                 .range(offset, offset + PAGE - 1)
               if (!page || page.length === 0) break
-              allMatchIds.push(...page.map(m => m.id))
+              allMatchIds.push(...page.map((m: { id: string }) => m.id))
               if (page.length < PAGE) break
               offset += PAGE
             }

@@ -180,8 +180,8 @@ async function triageBatch(
 
   // Build items
   const items = matches
-    .filter((m) => m.tenders)
-    .map((m) => {
+    .filter((m: any) => m.tenders)
+    .map((m: any) => {
       const t = m.tenders as unknown as Record<string, unknown>
       return {
         matchId: m.id as string,
@@ -199,7 +199,7 @@ async function triageBatch(
 
   // Build batch prompt with richer context per item
   const tenderList = items
-    .map((item, i) => {
+    .map((item: any, i: number) => {
       const valor = item.valorEstimado
         ? `R$ ${item.valorEstimado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
         : 'N/I'
@@ -251,7 +251,7 @@ LEMBRE: score 0-15 para objetos TOTALMENTE fora do escopo da empresa. Avalie TOD
     try {
       if (!item.matchId || typeof item.score !== 'number') continue
       let safeScore = Math.min(100, Math.max(0, Math.round(item.score)))
-      const match = items.find((m) => m.matchId === item.matchId)
+      const match = items.find((m: any) => m.matchId === item.matchId)
       if (!match) continue
 
       // Post-AI CNAE validation gate

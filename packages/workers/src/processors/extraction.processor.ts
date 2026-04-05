@@ -66,7 +66,7 @@ const extractionWorker = new Worker<ExtractionJobData>(
         .eq('status', 'done')
 
       const allText = (extractedDocs || [])
-        .map(d => d.texto_extraido || '')
+        .map((d: { texto_extraido: string | null }) => d.texto_extraido || '')
         .join(' ')
         .slice(0, 50000)
 

@@ -100,7 +100,7 @@ const pendingNotificationsWorker = new Worker(
     }
 
     // ── Fetch ALL user_companies with notifications_enabled in ONE query ──
-    const userIds = users.map((u) => u.id)
+    const userIds = users.map((u: { id: string }) => u.id)
     const { data: allUserCompanies } = await supabase
       .from('user_companies')
       .select('user_id, company_id, notifications_enabled')

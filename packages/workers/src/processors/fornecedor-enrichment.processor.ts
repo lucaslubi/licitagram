@@ -36,7 +36,7 @@ async function processFornecedorEnrichment(job: Job<FornecedorEnrichmentJobData>
     }
 
     // Get unique CNPJs to avoid duplicate API calls
-    const uniqueCnpjs = [...new Set(competitors.map((c) => c.cnpj).filter(Boolean))]
+    const uniqueCnpjs = [...new Set((competitors as Array<{ cnpj: string | null }>).map((c) => c.cnpj).filter((v): v is string => Boolean(v)))]
 
     // Process CNPJs in parallel chunks
     for (let i = 0; i < uniqueCnpjs.length; i += PARALLEL) {

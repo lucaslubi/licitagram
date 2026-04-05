@@ -38,7 +38,7 @@ async function processCompetitionAnalysis(job: Job<CompetitionAnalysisJobData>) 
     }
 
     // Deduplicate
-    cnpjs = [...new Set((data || []).map((r) => r.cnpj).filter(Boolean))]
+    cnpjs = [...new Set((data || []).map((r: { cnpj: string }) => r.cnpj).filter(Boolean))] as string[]
 
     if (cnpjs.length === 0) {
       logger.info('No new competitor data since last run — skipping materialization')
@@ -59,7 +59,8 @@ async function processCompetitionAnalysis(job: Job<CompetitionAnalysisJobData>) 
         .select('cnpj')
         .not('cnpj', 'is', null)
 
-      cnpjs = [...new Set((fallback || []).map((r) => r.cnpj).filter(Boolean))]
+      const fallbackRows = (fallback || []) as Array<{ cnpj: string | null }>
+      cnpjs = [...new Set(fallbackRows.map((r) => r.cnpj).filter((v): v is string => Boolean(v)))]
     } else {
       cnpjs = (data || []).map((r: { cnpj: string }) => r.cnpj)
     }

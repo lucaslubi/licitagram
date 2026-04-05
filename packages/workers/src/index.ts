@@ -577,14 +577,14 @@ async function backfillComprasgovDocuments() {
   }
 
   // Filter to only those missing documents
-  const tenderIds = tenders.map(t => t.id)
+  const tenderIds = tenders.map((t: any) => t.id)
   const { data: existingDocs } = await supabase
     .from('tender_documents')
     .select('tender_id')
     .in('tender_id', tenderIds)
 
-  const tendersWithDocs = new Set((existingDocs || []).map(d => d.tender_id))
-  const tendersToBackfill = tenders.filter(t => !tendersWithDocs.has(t.id))
+  const tendersWithDocs = new Set((existingDocs || []).map((d: any) => d.tender_id))
+  const tendersToBackfill = tenders.filter((t: any) => !tendersWithDocs.has(t.id))
 
   if (tendersToBackfill.length === 0) {
     logger.info('All comprasgov tenders already have documents (or none available)')
@@ -733,7 +733,7 @@ async function main() {
                 .in('match_source', ['keyword', 'semantic'])
                 .range(offset, offset + PAGE - 1)
               if (!page || page.length === 0) break
-              allMatchIds.push(...page.map(m => m.id))
+              allMatchIds.push(...page.map((m: { id: string }) => m.id))
               if (page.length < PAGE) break
               offset += PAGE
             }
@@ -827,7 +827,7 @@ async function main() {
 
           const CHUNK = 50
           for (let i = 0; i < untriaged.length; i += CHUNK) {
-            const chunk = untriaged.slice(i, i + CHUNK).map(m => m.id)
+            const chunk = untriaged.slice(i, i + CHUNK).map((m: { id: string }) => m.id)
             await triageQueue.add(
               `sweep-triage-${company.id}-${i}`,
               { companyId: company.id, matchIds: chunk },

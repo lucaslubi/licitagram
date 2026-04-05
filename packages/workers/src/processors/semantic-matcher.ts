@@ -372,8 +372,9 @@ export async function runSemanticMatching(companyId: string): Promise<{
     .eq('company_id', companyId)
     .in('tender_id', tenderIds)
 
+  const typedExisting = (existingMatches || []) as Array<{ id: string; tender_id: string; score: number; match_source: string }>
   const existingMap = new Map(
-    (existingMatches || []).map((m) => [m.tender_id, m]),
+    typedExisting.map((m) => [m.tender_id, m]),
   )
 
   // Create/update matches

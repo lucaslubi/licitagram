@@ -256,12 +256,12 @@ export async function batchEmbedTenders(limit: number = 200): Promise<{ embedded
   logger.info({ count: tenders.length }, 'Embedding tenders without vectors')
 
   // Build texts for batch embedding
-  const texts = tenders.map((t) => buildTenderText(t as Record<string, unknown>))
+  const texts = tenders.map((t: any) => buildTenderText(t as Record<string, unknown>))
 
   // Filter out too-short texts
   const validPairs = tenders
-    .map((t, i) => ({ tender: t, text: texts[i] }))
-    .filter((p) => p.text.length >= 20)
+    .map((t: any, i: number) => ({ tender: t, text: texts[i] }))
+    .filter((p: any) => p.text.length >= 20)
 
   if (validPairs.length === 0) {
     return { embedded: 0, failed: 0 }
@@ -273,7 +273,7 @@ export async function batchEmbedTenders(limit: number = 200): Promise<{ embedded
 
   for (let i = 0; i < validPairs.length; i += BATCH) {
     const batch = validPairs.slice(i, i + BATCH)
-    const batchTexts = batch.map((p) => p.text)
+    const batchTexts = batch.map((p: { tender: any; text: string }) => p.text)
 
     try {
       const { generateEmbeddings } = await import('../ai/embedding-client')

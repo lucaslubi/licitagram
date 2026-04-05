@@ -69,7 +69,7 @@ async function processContactEnrichment(job: Job<ContactEnrichmentJobData>) {
       const chunk = rows.slice(i, i + PARALLEL)
 
       await Promise.allSettled(
-        chunk.map(async (row) => {
+        chunk.map(async (row: any) => {
           try {
             const data = await fetchBrasilAPI(row.cnpj)
 

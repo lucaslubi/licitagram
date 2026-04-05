@@ -37,14 +37,18 @@ async function processResultsJob(job: Job<ResultsScrapingJobData>) {
     }
 
     // Batch-check which tenders already have competitors (single query instead of N queries)
-    const tenderIds = tenders.map((t) => t.id)
+    const tenderIds = tenders.map((t: { id: string; pncp_id: string | null }) => t.id)
     const { data: existingCompetitors } = await supabase
       .from('competitors')
       .select('tender_id')
       .in('tender_id', tenderIds)
 
-    const tendersWithCompetitors = new Set((existingCompetitors || []).map((c) => c.tender_id))
-    const tendersToProcess = tenders.filter((t) => !tendersWithCompetitors.has(t.id))
+    const tendersWithCompetitors = new Set(
+      (existingCompetitors || []).map((c: { tender_id: string }) => c.tender_id),
+    )
+    const tendersToProcess = tenders.filter(
+      (t: { id: string; pncp_id: string | null }) => !tendersWithCompetitors.has(t.id),
+    )
 
     totalSkipped += tenders.length - tendersToProcess.length
 
@@ -65,7 +69,7 @@ async function processResultsJob(job: Job<ResultsScrapingJobData>) {
       const chunk = tendersToProcess.slice(i, i + PARALLEL_TENDERS)
 
       const results = await Promise.allSettled(
-        chunk.map(async (tender) => {
+        chunk.map(async (tender: { id: string; pncp_id: string | null }) => {
           const competitorResults = await fetchTenderResults(tender.pncp_id!)
           if (competitorResults.length === 0) return 0
 

@@ -249,9 +249,9 @@ const notificationWorker = new Worker<NotificationJobData>(
           await createNotification({
             userId,
             companyId,
-            type: match.score >= 85 ? 'hot_match' : 'new_match',
+            type: (match.score as number) >= 85 ? 'hot_match' : 'new_match',
             title: `Nova oportunidade (Score ${match.score})`,
-            body: (tender.objeto || '').substring(0, 200),
+            body: ((tender.objeto as string) || '').substring(0, 200),
             link: `/opportunities/${matchId}`,
             metadata: { score: match.score, orgao: tender.orgao_nome },
           })
