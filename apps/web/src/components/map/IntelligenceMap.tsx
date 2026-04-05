@@ -264,16 +264,58 @@ export function IntelligenceMap({
     if (!feature || !mapRef.current) return
 
     const clusterId = feature.properties?.cluster_id
-    const source = mapRef.current.getSource('opportunities')
+    const pointCount = feature.properties?.point_count || 0
+    const coordinates = (feature.geometry as GeoJSON.Point).coordinates as [number, number]
+    const map = mapRef.current.getMap()
+    const source = map.getSource('opportunities')
     if (!source || !('getClusterExpansionZoom' in source)) return
 
-    ;(source as any).getClusterExpansionZoom(clusterId, (err: Error | null, zoom: number) => {
+    const currentZoom = map.getZoom()
+
+    ;(source as any).getClusterExpansionZoom(clusterId, (err: Error | null, expansionZoom: number) => {
       if (err) return
-      mapRef.current?.easeTo({
-        center: (feature.geometry as GeoJSON.Point).coordinates as [number, number],
-        zoom: Math.min(zoom, 14),
-        duration: 500,
-      })
+
+      const MAX_USEFUL_ZOOM = 16
+      const shouldShowLeaves = expansionZoom >= MAX_USEFUL_ZOOM || expansionZoom <= currentZoom
+
+      if (shouldShowLeaves) {
+        // Can't zoom further — show all cluster leaves in popup
+        ;(source as any).getClusterLeaves(clusterId, pointCount, 0, (err2: Error | null, leaves: any[]) => {
+          if (err2 || !leaves?.length) return
+
+          const matches: MatchMarker[] = leaves.map((leaf: any) => {
+            const p = leaf.properties || {}
+            const c = leaf.geometry?.coordinates || coordinates
+            return {
+              matchId: p.matchId || '',
+              tenderId: '',
+              objeto: p.objeto || '',
+              orgao: p.orgao || '',
+              uf: p.uf || '',
+              municipio: p.municipio || null,
+              score: p.score || 0,
+              matchSource: '',
+              valor: p.valor || null,
+              modalidade: p.modalidade || null,
+              recomendacao: null,
+              lat: c[1],
+              lng: c[0],
+              isHot: (p.score || 0) >= 80,
+              competitionScore: null,
+              dataEncerramento: p.dataEncerramento || null,
+            }
+          }).sort((a: MatchMarker, b: MatchMarker) => b.score - a.score)
+
+          setPopupInfo({ longitude: coordinates[0], latitude: coordinates[1], matches })
+        })
+      } else {
+        // Zoom in with easing
+        map.easeTo({
+          center: coordinates,
+          zoom: Math.min(expansionZoom + 0.3, MAX_USEFUL_ZOOM),
+          duration: 600,
+        })
+      }
     })
   }, [])
 
@@ -540,7 +582,34 @@ export function IntelligenceMap({
     },
   }
 
-  // Individual unclustered points — color by score, size by score
+  // Halo/glow layer — renders BEHIND the pin for visibility
+  const pointHaloLayer: any = {
+    id: 'unclustered-point-halo',
+    type: 'circle',
+    source: 'opportunities',
+    filter: ['!', ['has', 'point_count']],
+    paint: {
+      'circle-radius': [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        8, 10,
+        12, 14,
+        16, 18,
+      ],
+      'circle-color': [
+        'case',
+        ['>=', ['get', 'score'], 90], '#10B981',
+        ['>=', ['get', 'score'], 80], '#84CC16',
+        ['>=', ['get', 'score'], 70], '#F59E0B',
+        '#64748B',
+      ],
+      'circle-opacity': 0.15,
+      'circle-blur': 0.4,
+    },
+  }
+
+  // Individual unclustered points — zoom-based size, white stroke, no text inside
   const unclusteredPointLayer: any = {
     id: 'unclustered-point',
     type: 'circle',
@@ -557,46 +626,21 @@ export function IntelligenceMap({
       'circle-radius': [
         'interpolate',
         ['linear'],
-        ['get', 'score'],
-        50, 6,
-        75, 9,
-        90, 12,
-        100, 14,
+        ['zoom'],
+        8, 6,
+        12, 8,
+        14, 10,
+        16, 12,
       ],
-      'circle-stroke-width': 1.5,
-      'circle-stroke-color': [
-        'case',
-        ['>=', ['get', 'score'], 90], 'rgba(16, 185, 129, 0.3)',
-        ['>=', ['get', 'score'], 80], 'rgba(132, 204, 22, 0.3)',
-        ['>=', ['get', 'score'], 70], 'rgba(245, 158, 11, 0.3)',
-        'rgba(100, 116, 139, 0.3)',
-      ],
-    },
-  }
-
-  // Score label on unclustered points (only at higher zoom)
-  const unclusteredLabelLayer: any = {
-    id: 'unclustered-label',
-    type: 'symbol',
-    source: 'opportunities',
-    filter: ['!', ['has', 'point_count']],
-    minzoom: 8,
-    layout: {
-      'text-field': ['to-string', ['get', 'score']],
-      'text-font': ['DIN Pro Medium', 'Arial Unicode MS Bold'],
-      'text-size': 10,
-      'text-allow-overlap': true,
-    },
-    paint: {
-      'text-color': '#FFFFFF',
-      'text-halo-color': 'rgba(0, 0, 0, 0.6)',
-      'text-halo-width': 1,
+      'circle-stroke-width': 2,
+      'circle-stroke-color': 'rgba(255, 255, 255, 0.9)',
+      'circle-opacity': 0.95,
     },
   }
 
   /* eslint-enable @typescript-eslint/no-explicit-any */
 
-  // ─── Cursor handling ────────────────────────────────────────────────────
+  // ─── Cursor handling (pointer on clusters + pins) ────────────────────────
 
   const onMouseEnter = useCallback(() => {
     const canvas = mapRef.current?.getCanvas()
@@ -970,13 +1014,13 @@ export function IntelligenceMap({
               type="geojson"
               data={clusterGeoJson}
               cluster={true}
-              clusterMaxZoom={14}
-              clusterRadius={50}
+              clusterMaxZoom={11}
+              clusterRadius={40}
             >
               <Layer {...clusterLayer} />
               <Layer {...clusterCountLayer} />
+              <Layer {...pointHaloLayer} />
               <Layer {...unclusteredPointLayer} />
-              <Layer {...unclusteredLabelLayer} />
             </Source>
 
             {/* Popup */}
