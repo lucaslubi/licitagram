@@ -58,17 +58,20 @@ function ScoreBadgeLarge({ score, verified, keywordScore }: { score: number; ver
         </>
       )}
       <div className="flex items-center gap-3">
-        <div className="relative w-14 h-14 shrink-0">
+        <div className="relative w-[60px] h-[60px] shrink-0" style={{ filter: `drop-shadow(0 0 12px ${colors.start}30)` }}>
           <svg viewBox="0 0 90 90" className="w-full h-full -rotate-90">
-            <circle cx="45" cy="45" r="40" stroke="rgba(255,255,255,0.06)" strokeWidth="5" fill="none" />
+            <circle cx="45" cy="45" r="40" stroke="rgba(255,255,255,0.06)" strokeWidth="7" fill="none" />
             <circle
               cx="45" cy="45" r="40"
               stroke="url(#headerScoreGrad)"
-              strokeWidth="5"
+              strokeWidth="7"
               fill="none"
               strokeDasharray={dashArray}
               strokeLinecap="round"
-              style={{ transition: 'stroke-dasharray 1.2s cubic-bezier(0.4, 0, 0.2, 1)' }}
+              style={{
+                transition: 'stroke-dasharray 1.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                animation: 'score-fill 1.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              }}
             />
             <defs>
               <linearGradient id="headerScoreGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -77,13 +80,13 @@ function ScoreBadgeLarge({ score, verified, keywordScore }: { score: number; ver
               </linearGradient>
             </defs>
           </svg>
-          <div className="absolute inset-1 rounded-full bg-[#0a0a0b] flex items-center justify-center">
-            <span className="text-lg font-bold font-mono tracking-tight text-white">{score}</span>
+          <div className="absolute inset-[5px] rounded-full bg-[#0a0a0b] flex items-center justify-center">
+            <span className="text-xl font-bold font-[family-name:var(--font-geist-mono)] tabular-nums tracking-tight text-white">{score}</span>
           </div>
         </div>
         <div className="flex flex-col">
-          <span className="text-[10px] uppercase tracking-wider text-[#71717a] font-medium">Score IA</span>
-          <span className="text-xs text-[#a1a1aa]">{sublabel}</span>
+          <span className="text-[10px] uppercase tracking-wider text-gray-500 font-medium">Score IA</span>
+          <span className="text-xs text-gray-400">{sublabel}</span>
         </div>
       </div>
     </div>

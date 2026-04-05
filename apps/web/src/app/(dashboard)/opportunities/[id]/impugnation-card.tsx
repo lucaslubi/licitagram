@@ -78,11 +78,11 @@ export function ImpugnationCard({ matchId, dataAbertura }: { matchId: string; da
       }`}>
         {/* Header with icon strip */}
         <div className={`px-5 py-3 flex items-center justify-between ${
-          isUrgent ? 'bg-red-500/10' : isExpired ? 'bg-zinc-800/50' : 'bg-amber-500/5'
+          isUrgent ? 'bg-red-500/10' : isExpired ? 'bg-white/[0.03]' : 'bg-amber-500/5'
         }`}>
           <div className="flex items-center gap-3">
             <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
-              isUrgent ? 'bg-red-500/20' : isExpired ? 'bg-zinc-700' : 'bg-amber-500/15'
+              isUrgent ? 'bg-red-500/20' : isExpired ? 'bg-white/[0.06]' : 'bg-amber-500/15'
             }`}>
               <span className="text-lg">⚖️</span>
             </div>

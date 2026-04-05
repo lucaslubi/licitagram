@@ -138,17 +138,17 @@ export function SmartPricingV2({ query, valorEstimado, uf, modalidade, bandLabel
 
   if (!data && !loading && !error) {
     return (
-      <Card className="bg-[#23262a] border-[#2d2f33]">
+      <Card className="bg-[#131316] border-white/[0.06]">
         <CardContent className="py-8 text-center space-y-3">
           <div className="text-3xl">✨</div>
           <h3 className="text-white font-semibold">Precificador Inteligente</h3>
           <p className="text-sm text-gray-400 max-w-md mx-auto">
             Análise contextual baseada em {bandLabel ? `licitações na faixa ${bandLabel}` : 'licitações similares'}.
-            Recomendações com probabilidade de vitória calculada estatisticamente.
+            Recomendações com competitividade calculada estatisticamente.
           </p>
           <Button
             onClick={fetchPricing}
-            className="bg-[#F43E01] hover:bg-[#d63600] text-white"
+            className="bg-brand hover:bg-brand-dark text-white"
           >
             ✨ Gerar Recomendações
           </Button>
@@ -159,10 +159,10 @@ export function SmartPricingV2({ query, valorEstimado, uf, modalidade, bandLabel
 
   if (loading) {
     return (
-      <Card className="bg-[#23262a] border-[#2d2f33]">
+      <Card className="bg-[#131316] border-white/[0.06]">
         <CardContent className="py-12">
           <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 border-2 border-[#F43E01] border-t-transparent rounded-full animate-spin" />
+            <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
             <p className="text-sm text-gray-400">Analisando {bandLabel || 'mercado'}...</p>
             <p className="text-xs text-gray-600">Buscando licitações similares na faixa de valor</p>
           </div>
@@ -214,7 +214,7 @@ export function SmartPricingV2({ query, valorEstimado, uf, modalidade, bandLabel
           return (
             <Card
               key={rec.strategy}
-              className={`bg-gradient-to-br ${config.bgColor} to-[#1a1c1f] border ${config.color} overflow-hidden`}
+              className={`bg-gradient-to-br ${config.bgColor} to-[#131316] border ${config.color} overflow-hidden`}
             >
               <CardContent className="p-4 space-y-3">
                 {/* Strategy badge */}
@@ -235,10 +235,10 @@ export function SmartPricingV2({ query, valorEstimado, uf, modalidade, bandLabel
                 {/* Win probability bar */}
                 <div className="space-y-1">
                   <div className="flex justify-between text-xs">
-                    <span className="text-gray-400">Probabilidade de vitória</span>
+                    <span className="text-gray-400">Competitividade</span>
                     <span className="text-white font-mono font-medium">{rec.win_probability.toFixed(0)}%</span>
                   </div>
-                  <div className="h-2 bg-[#1a1c1f] rounded-full overflow-hidden">
+                  <div className="h-2 bg-[#0a0a0b] rounded-full overflow-hidden">
                     <div
                       className={`h-full rounded-full ${config.probBarColor}`}
                       style={{ width: `${Math.min(100, rec.win_probability)}%` }}
@@ -247,7 +247,7 @@ export function SmartPricingV2({ query, valorEstimado, uf, modalidade, bandLabel
                 </div>
 
                 {/* Risk badge */}
-                <span className="inline-block text-[10px] text-gray-500 bg-[#1a1c1f] px-2 py-0.5 rounded">
+                <span className="inline-block text-[10px] text-gray-500 bg-[#0a0a0b] px-2 py-0.5 rounded">
                   RISCO: {rec.risk_level.toUpperCase()}
                 </span>
 
@@ -261,11 +261,11 @@ export function SmartPricingV2({ query, valorEstimado, uf, modalidade, bandLabel
 
       {/* Win Probability Curve */}
       {data.win_curve && data.win_curve.length > 0 && (
-        <Card className="bg-[#23262a] border-[#2d2f33]">
+        <Card className="bg-[#131316] border-white/[0.06]">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-white">Curva de Probabilidade de Vitória</CardTitle>
+            <CardTitle className="text-sm text-white">Curva de Competitividade</CardTitle>
             <p className="text-[10px] text-gray-500">
-              Probabilidade de vencer vs. desconto sobre valor estimado
+              Competitividade vs. desconto sobre valor estimado
               {data.model_type === 'logistic' ? ' (regressão logística)' : ' (modelo empírico)'}
             </p>
           </CardHeader>
@@ -285,7 +285,7 @@ export function SmartPricingV2({ query, valorEstimado, uf, modalidade, bandLabel
 
       {/* Market Analysis (from LLM) */}
       {(data.market_summary || (data.key_insights && data.key_insights.length > 0)) && (
-        <Card className="bg-[#23262a] border-[#2d2f33]">
+        <Card className="bg-[#131316] border-white/[0.06]">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-white">Análise de Mercado</CardTitle>
           </CardHeader>

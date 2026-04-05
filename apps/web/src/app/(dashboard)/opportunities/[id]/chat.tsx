@@ -746,13 +746,15 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
   // ── State 1: Not started ──────────────────────────────────────────
   if (!started) {
     return (
-      <Card className={`border-brand/30 bg-gradient-to-br from-[#131316] to-brand/5 shadow-lg relative ${dragOver ? 'ring-2 ring-brand' : ''}`} {...dragProps}>
+      <Card className={`border-brand/30 bg-gradient-to-b from-brand/[0.04] via-brand/[0.01] to-transparent shadow-lg relative overflow-hidden ${dragOver ? 'ring-2 ring-brand' : ''}`} {...dragProps}>
+        {/* Shine line */}
+        <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-brand/60 to-transparent" />
         {dropOverlay}
         <CardContent className="py-8 px-6">
           {fileInput}
           <div className="text-center space-y-4">
-            <div className="w-14 h-14 bg-brand/10 rounded-2xl flex items-center justify-center mx-auto">
-              <svg className="w-7 h-7 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <div className="w-14 h-14 bg-brand/10 rounded-2xl flex items-center justify-center mx-auto shadow-[0_0_20px_hsl(18_95%_55%/0.25)]">
+              <svg className="w-7 h-7 text-brand drop-shadow-[0_0_6px_hsl(18_95%_55%/0.5)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
               </svg>
             </div>

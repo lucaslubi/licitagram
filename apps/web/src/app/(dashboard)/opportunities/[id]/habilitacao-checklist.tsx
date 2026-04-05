@@ -69,13 +69,13 @@ export function HabilitacaoChecklist({ matchId }: { matchId: string }) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">Checklist de Habilitação</CardTitle>
+          <CardTitle className="text-sm font-semibold tracking-tight">Checklist de Habilitação</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-gray-400 text-xs mb-3">
             Analise os documentos exigidos no edital e cruze com os documentos da sua empresa.
           </p>
-          <Button onClick={analyze} disabled={loading} size="sm">
+          <Button onClick={analyze} disabled={loading} size="sm" variant="secondary" className="border border-white/[0.06]">
             {loading ? 'Analisando edital...' : 'Verificar Habilitação'}
           </Button>
           {error && <p className="text-red-400 text-xs mt-2">{error}</p>}
@@ -97,7 +97,7 @@ export function HabilitacaoChecklist({ matchId }: { matchId: string }) {
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="text-sm">Checklist de Habilitação</CardTitle>
+          <CardTitle className="text-sm font-semibold tracking-tight">Checklist de Habilitação</CardTitle>
           <Badge variant="outline" className={aprovado ? 'bg-emerald-900/20 text-emerald-400 border-emerald-900/30' : 'bg-red-900/20 text-red-400 border-red-900/30'}>
             {resumo.ok}/{resumo.total} OK
           </Badge>

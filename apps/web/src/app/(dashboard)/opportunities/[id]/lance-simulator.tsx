@@ -61,7 +61,7 @@ export function LanceSimulator({ matchId, tenderId, valorEstimado }: { matchId: 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm">Simulador de Lance</CardTitle>
+        <CardTitle className="text-sm font-semibold tracking-tight">Simulador de Lance</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Slider */}
@@ -81,19 +81,19 @@ export function LanceSimulator({ matchId, tenderId, valorEstimado }: { matchId: 
         {/* Preview */}
         <div className="bg-[#0a0a0b] rounded-lg p-3 flex justify-between items-center">
           <div>
-            <p className="text-[10px] text-gray-500 uppercase">Valor Estimado</p>
-            <p className="text-sm text-gray-300 font-mono">{formatBRL(valorEstimado)}</p>
+            <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Valor Estimado</p>
+            <p className="text-sm text-gray-300 font-[family-name:var(--font-geist-mono)] tabular-nums">{formatBRL(valorEstimado)}</p>
           </div>
           <span className="text-gray-500">→</span>
           <div className="text-right">
-            <p className="text-[10px] text-gray-500 uppercase">Seu Lance</p>
-            <p className="text-sm text-emerald-400 font-mono font-bold">{formatBRL(meuLance)}</p>
+            <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Seu Lance</p>
+            <p className="text-sm text-emerald-400 font-[family-name:var(--font-geist-mono)] tabular-nums font-bold">{formatBRL(meuLance)}</p>
           </div>
         </div>
 
         {error && <p className="text-red-400 text-xs">{error}</p>}
 
-        <Button onClick={() => simulate()} disabled={loading} size="sm" className="w-full">
+        <Button onClick={() => simulate()} disabled={loading} size="sm" variant="secondary" className="w-full border border-white/[0.06]">
           {loading ? 'Simulando...' : 'Simular'}
         </Button>
 
@@ -105,7 +105,7 @@ export function LanceSimulator({ matchId, tenderId, valorEstimado }: { matchId: 
               <p className={`text-3xl font-bold font-mono ${result.probabilidadeVitoria >= 70 ? 'text-emerald-400' : result.probabilidadeVitoria >= 40 ? 'text-amber-400' : 'text-red-400'}`}>
                 {result.probabilidadeVitoria}%
               </p>
-              <p className="text-xs text-gray-400">probabilidade de vitória</p>
+              <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Competitividade</p>
             </div>
 
             {/* Data source indicator */}

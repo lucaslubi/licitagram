@@ -133,7 +133,7 @@ export default async function OpportunityDetailPage({
         <Link href="/opportunities" className="text-sm text-gray-400 hover:text-white">
           ← Voltar
         </Link>
-        <h1 className="text-xl sm:text-2xl font-bold flex-1">Detalhes da Oportunidade</h1>
+        <h1 className="text-xs sm:text-sm font-medium uppercase tracking-wider text-gray-400 flex-1">Detalhes da Oportunidade</h1>
         <ScoreBadgeSlot />
       </div>
 
@@ -143,81 +143,108 @@ export default async function OpportunityDetailPage({
           {/* Tender info */}
           <Card>
             <CardHeader>
-              <CardTitle>Informações do Edital</CardTitle>
+              <CardTitle className="text-sm font-semibold tracking-tight">Informações do Edital</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div>
-                <label className="text-sm font-medium text-gray-400">Objeto</label>
+                <label className="text-[11px] font-medium uppercase tracking-wider text-gray-500">Objeto</label>
                 <p className="text-sm">{(tender?.objeto as string) || 'N/A'}</p>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-400">Órgão</label>
+                  <label className="text-[11px] font-medium uppercase tracking-wider text-gray-500">Órgão</label>
                   <p className="text-sm">{(tender?.orgao_nome as string) || ''}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-400">CNPJ do Órgão</label>
+                  <label className="text-[11px] font-medium uppercase tracking-wider text-gray-500">CNPJ do Órgão</label>
                   <p className="text-sm">{(tender?.orgao_cnpj as string) || ''}</p>
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-400">Modalidade</label>
+                  <label className="text-[11px] font-medium uppercase tracking-wider text-gray-500">Modalidade</label>
                   <p className="text-sm">{(tender?.modalidade_nome as string) || '-'}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-400">UF</label>
+                  <label className="text-[11px] font-medium uppercase tracking-wider text-gray-500">UF</label>
                   <p className="text-sm">{(tender?.uf as string) || ''}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-400">Município</label>
+                  <label className="text-[11px] font-medium uppercase tracking-wider text-gray-500">Município</label>
                   <p className="text-sm">{(tender?.municipio as string) || '-'}</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-400">Valor Estimado</label>
-                  <p className="text-sm font-medium text-emerald-400">
+                  <label className="text-[11px] font-medium uppercase tracking-wider text-gray-500">Valor Estimado</label>
+                  <p className="text-sm font-semibold text-emerald-400 font-[family-name:var(--font-geist-mono)] tabular-nums">
                     {tender?.valor_estimado
                       ? formatCurrency(tender.valor_estimado as number)
                       : 'Não informado'}
                   </p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-400">Valor Homologado</label>
-                  <p className="text-sm font-medium">
+                  <label className="text-[11px] font-medium uppercase tracking-wider text-gray-500">Valor Homologado</label>
+                  <p className="text-sm font-semibold font-[family-name:var(--font-geist-mono)] tabular-nums">
                     {tender?.valor_homologado
                       ? formatCurrency(tender.valor_homologado as number)
                       : '-'}
                   </p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-400">Situação</label>
+                  <label className="text-[11px] font-medium uppercase tracking-wider text-gray-500">Situação</label>
                   <p className="text-sm">{(tender?.situacao_nome as string) || '-'}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-400">Data Publicação</label>
+                  <label className="text-[11px] font-medium uppercase tracking-wider text-gray-500">Data Publicação</label>
                   <p className="text-sm">
                     {tender?.data_publicacao ? formatDate(tender.data_publicacao as string) : '-'}
                   </p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-400">Data Abertura</label>
+                  <label className="text-[11px] font-medium uppercase tracking-wider text-gray-500">Data Abertura</label>
                   <p className="text-sm">
                     {tender?.data_abertura ? formatDate(tender.data_abertura as string) : '-'}
                   </p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-400">Data Encerramento</label>
-                  {tender?.data_encerramento ? (
-                    <p className={`text-sm font-medium ${
-                      new Date(tender.data_encerramento as string) < new Date()
-                        ? 'text-red-400'
-                        : 'text-emerald-400'
-                    }`}>
-                      {formatDate(tender.data_encerramento as string)}
-                    </p>
-                  ) : (
+                  <label className="text-[11px] font-medium uppercase tracking-wider text-gray-500">Data Encerramento</label>
+                  {tender?.data_encerramento ? (() => {
+                    const encDate = new Date(tender.data_encerramento as string)
+                    const now = new Date()
+                    const diffDays = Math.ceil((encDate.getTime() - now.getTime()) / 86400000)
+                    const isPast = diffDays < 0
+                    const isToday = diffDays === 0
+                    const isUrgent = diffDays >= 1 && diffDays <= 3
+                    const isNear = diffDays >= 4 && diffDays <= 7
+                    return (
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <p className={`text-sm font-medium ${isPast ? 'text-red-400' : 'text-emerald-400'}`}>
+                          {formatDate(tender.data_encerramento as string)}
+                        </p>
+                        {isToday && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-red-500/20 text-red-400 border border-red-500/25 animate-pulse">
+                            Hoje
+                          </span>
+                        )}
+                        {isUrgent && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-red-500/20 text-red-400 border border-red-500/25">
+                            D-{diffDays} Urgente
+                          </span>
+                        )}
+                        {isNear && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide bg-amber-500/20 text-amber-400 border border-amber-500/25">
+                            D-{diffDays}
+                          </span>
+                        )}
+                        {isPast && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide bg-white/[0.04] text-gray-500 border border-white/[0.06]">
+                            Encerrado
+                          </span>
+                        )}
+                      </div>
+                    )
+                  })() : (
                     <p className="text-sm font-medium text-amber-400 flex items-center gap-1">
                       ⚠️ Não informada — Pergunte ao consultor IA
                     </p>
@@ -226,7 +253,7 @@ export default async function OpportunityDetailPage({
               </div>
               {Boolean(tender?.resumo) && (
                 <div>
-                  <label className="text-sm font-medium text-gray-400">Resumo</label>
+                  <label className="text-[11px] font-medium uppercase tracking-wider text-gray-500">Resumo</label>
                   <p className="text-sm bg-[#0a0a0b] p-3 rounded-md">{tender.resumo as string}</p>
                 </div>
               )}
@@ -248,7 +275,7 @@ export default async function OpportunityDetailPage({
           {/* Competition Analysis Section */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-sm font-semibold tracking-tight">
                 Análise Competitiva
                 {match.competition_score != null && (
                   <span className={`text-xs px-2 py-0.5 rounded-full ${
@@ -544,24 +571,25 @@ export default async function OpportunityDetailPage({
           {recomendacao && (
             <Card>
               <CardContent className="pt-6">
-                <div className="text-center">
-                  <p className="text-xs font-medium text-gray-400 uppercase mb-2">Recomendação IA</p>
-                  <Badge
-                    className={`text-sm px-3 py-1 ${
-                      recomendacao === 'participar'
-                        ? 'bg-emerald-900/20 text-emerald-400 border-emerald-800/30'
-                        : recomendacao === 'avaliar_melhor'
-                          ? 'bg-amber-900/20 text-amber-400 border-amber-800/30'
-                          : 'bg-red-900/20 text-red-400 border-red-800/30'
-                    }`}
-                    variant="outline"
-                  >
+                <div className="text-center space-y-2">
+                  <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Recomendação IA</p>
+                  <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border ${
+                    recomendacao === 'participar'
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                      : recomendacao === 'avaliar_melhor'
+                        ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                        : 'bg-red-500/10 text-red-400 border-red-500/20'
+                  }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${
+                      recomendacao === 'participar' ? 'bg-emerald-400' :
+                      recomendacao === 'avaliar_melhor' ? 'bg-amber-400' : 'bg-red-400'
+                    }`} />
                     {recomendacao === 'participar'
                       ? 'Participar'
                       : recomendacao === 'avaliar_melhor'
                         ? 'Avaliar Melhor'
                         : 'Não Recomendado'}
-                  </Badge>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -585,9 +613,9 @@ export default async function OpportunityDetailPage({
                       href={linkPncp}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="block text-sm text-brand hover:underline"
+                      className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors group"
                     >
-                      Ver no PNCP →
+                      Ver no PNCP <span className="transition-transform group-hover:translate-x-0.5">→</span>
                     </a>
                   )}
                   {externalUrl && (
@@ -595,9 +623,9 @@ export default async function OpportunityDetailPage({
                       href={externalUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="block text-sm text-brand hover:underline"
+                      className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors group"
                     >
-                      Acessar Sistema de Origem →
+                      Acessar Sistema de Origem <span className="transition-transform group-hover:translate-x-0.5">→</span>
                     </a>
                   )}
                 </CardContent>

@@ -89,7 +89,7 @@ export function TenderPricing({ objeto, valorEstimado, uf, modalidade }: TenderP
           <Button
             size="sm"
             onClick={fetchPricing}
-            className="bg-[#F43E01] hover:bg-[#d63600] text-white text-xs"
+            className="bg-secondary hover:bg-white/[0.09] text-gray-300 text-xs border border-white/[0.06]"
           >
             Analisar preços
           </Button>
@@ -102,7 +102,7 @@ export function TenderPricing({ objeto, valorEstimado, uf, modalidade }: TenderP
     return (
       <Card className="bg-[#131316] border-white/[0.06]">
         <CardContent className="py-6 text-center">
-          <div className="w-6 h-6 border-2 border-[#F43E01] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+          <div className="w-6 h-6 border-2 border-brand border-t-transparent rounded-full animate-spin mx-auto mb-2" />
           <p className="text-xs text-gray-400">Analisando licitações similares...</p>
         </CardContent>
       </Card>
@@ -157,7 +157,7 @@ export function TenderPricing({ objeto, valorEstimado, uf, modalidade }: TenderP
                 </p>
                 <div className="space-y-0.5">
                   <div className="flex justify-between text-[10px]">
-                    <span className="text-gray-500">P(vitória)</span>
+                    <span className="text-gray-500">Competitividade</span>
                     <span className="text-white font-mono">{rec.win_probability.toFixed(0)}%</span>
                   </div>
                   <div className="h-1 bg-white/[0.06] rounded-full overflow-hidden">

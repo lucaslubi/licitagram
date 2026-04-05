@@ -151,6 +151,12 @@ export function PriceHistoryClient() {
     setShowSuggestions(false)
     saveRecentSearch(q)
 
+    // Reset pricing state when query changes
+    if (page === 1) {
+      setValorEstimado(null)
+      setSelectedBandLabel(null)
+    }
+
     try {
       const params = new URLSearchParams({ q, page: String(page), page_size: '20' })
       if (uf) params.set('uf', uf)

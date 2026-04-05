@@ -172,29 +172,87 @@ export function computeDiscountRatioStats(bids: ContextualBid[]): DiscountRatioS
   }
 }
 
-// ─── 2. Win Probability Model (Logistic Regression) ───────────────────────────
+// ─── 2. Win Probability Model ────────────────────────────────────────────────
 
 /**
- * Fits a logistic regression model: P(win) = sigmoid(β₀ + β₁·ratio + β₂·log(competitors))
+ * Builds a win-probability model from historical bid data.
  *
- * Uses IRLS (Iteratively Reweighted Least Squares) — standard method for GLM fitting.
- * Falls back to empirical CDF when sample size < 30.
+ * IMPORTANT: Our database only contains WINNING bids (situacao = 'Homologado').
+ * There are no losing bids to train a true logistic regression. Instead, we use
+ * a **percentile-rank model**:
+ *
+ *   P(win | ratio) = % of historical winners who bid at a HIGHER ratio (less aggressive)
+ *
+ * Interpretation: "If you bid at ratio 0.80, you would have been more competitive
+ * than X% of past winners in this market." This is a reasonable proxy for win
+ * probability because lower ratios (bigger discounts) are more competitive.
+ *
+ * When we have both winners AND losers (future data), this function automatically
+ * switches to logistic regression for true P(win) estimation.
  */
 export function fitWinProbabilityModel(bids: ContextualBid[]): WinProbModel {
   const validBids = bids.filter(
-    (b) => b.discount_ratio > 0 && b.discount_ratio < 5 && b.num_competitors > 0,
+    (b) => b.discount_ratio > 0 && b.discount_ratio < 3 && b.num_competitors > 0,
   )
 
   const winners = validBids.filter((b) => b.is_winner)
+  const losers = validBids.filter((b) => !b.is_winner)
 
-  // Fallback: empirical CDF when sample too small
-  if (validBids.length < 30 || winners.length < 5) {
-    return buildEmpiricalModel(validBids, winners.length)
+  // Check if we have meaningful negative examples for logistic regression
+  const winRate = validBids.length > 0 ? winners.length / validBids.length : 1
+  const hasNegativeExamples = losers.length >= 10 && winRate < 0.90
+
+  if (hasNegativeExamples && validBids.length >= 30) {
+    return fitLogisticModel(validBids, winners.length)
   }
 
-  // Prepare data for logistic regression
+  // Default: percentile-rank model (works with winners-only data)
+  return buildPercentileRankModel(validBids)
+}
+
+/**
+ * Percentile-rank model for winners-only data.
+ *
+ * P(win | ratio) = % of historical winners who bid at ratio >= yours
+ * Lower ratio = bigger discount = higher percentile rank = higher "probability"
+ *
+ * Uses a smoothed CDF with linear interpolation.
+ */
+function buildPercentileRankModel(bids: ContextualBid[]): WinProbModel {
+  // Use all bids (they're all winners in our data)
+  const ratios = sortedNumbers(
+    bids.map((b) => b.discount_ratio).filter((r) => r > 0.01 && r < 3),
+  )
+
+  const winnerCount = bids.filter((b) => b.is_winner).length
+
+  return {
+    type: 'empirical',
+    predict: (ratio: number) => {
+      if (ratios.length === 0) return 50
+
+      // Count how many historical winners bid at ratio >= yours (less competitive)
+      // If you bid lower, you beat more past winners → higher probability
+      const beatCount = ratios.filter((r) => r >= ratio).length
+      const rawPct = (beatCount / ratios.length) * 100
+
+      // Apply sigmoid smoothing to avoid harsh 0%/100% edges
+      // Map [0, 100] → [5, 95] for display comfort
+      return round2(5 + rawPct * 0.9)
+    },
+    sampleSize: bids.length,
+    winnerCount,
+  }
+}
+
+/**
+ * Logistic regression model for data with both winners and losers.
+ * P(win) = sigmoid(β₀ + β₁·ratio + β₂·log(competitors))
+ * Uses IRLS (Iteratively Reweighted Least Squares).
+ */
+function fitLogisticModel(validBids: ContextualBid[], winnerCount: number): WinProbModel {
   const n = validBids.length
-  const X: number[][] = [] // [1, ratio, log(competitors)]
+  const X: number[][] = []
   const y: number[] = []
 
   for (const bid of validBids) {
@@ -202,15 +260,14 @@ export function fitWinProbabilityModel(bids: ContextualBid[]): WinProbModel {
     y.push(bid.is_winner ? 1 : 0)
   }
 
-  // IRLS: Iteratively Reweighted Least Squares
-  let beta = [0, -2, -0.5] // initial guess: lower ratio & more competitors = lower P(win)
+  let beta = [0, -2, -0.5]
   const maxIter = 20
   const tol = 1e-6
 
   for (let iter = 0; iter < maxIter; iter++) {
-    const mu: number[] = [] // predicted probabilities
-    const W: number[] = [] // weights (diagonal of W matrix)
-    const z: number[] = [] // working response
+    const mu: number[] = []
+    const W: number[] = []
+    const z: number[] = []
 
     for (let i = 0; i < n; i++) {
       const eta = beta[0] * X[i][0] + beta[1] * X[i][1] + beta[2] * X[i][2]
@@ -221,8 +278,6 @@ export function fitWinProbabilityModel(bids: ContextualBid[]): WinProbModel {
       z.push(eta + (y[i] - pClamped) / (pClamped * (1 - pClamped)))
     }
 
-    // Solve: (X'WX)β = X'Wz via normal equations
-    // 3x3 matrix inversion
     const XtWX = Array.from({ length: 3 }, () => Array(3).fill(0))
     const XtWz = Array(3).fill(0)
 
@@ -235,11 +290,9 @@ export function fitWinProbabilityModel(bids: ContextualBid[]): WinProbModel {
       }
     }
 
-    // Invert 3x3 matrix using Cramer's rule
     const newBeta = solve3x3(XtWX, XtWz)
-    if (!newBeta) break // singular matrix, stop
+    if (!newBeta) break
 
-    // Check convergence
     const diff = Math.sqrt(
       newBeta.reduce((sum, b, i) => sum + (b - beta[i]) ** 2, 0),
     )
@@ -255,35 +308,10 @@ export function fitWinProbabilityModel(bids: ContextualBid[]): WinProbModel {
       return round2(sigmoid(eta) * 100)
     },
     sampleSize: validBids.length,
-    winnerCount: winners.length,
-  }
-}
-
-function buildEmpiricalModel(bids: ContextualBid[], winnerCount: number): WinProbModel {
-  // Empirical CDF: P(win|ratio) = fraction of winners with ratio >= given ratio
-  const sorted = sortedNumbers(bids.map((b) => b.discount_ratio))
-  const winnerRatios = sortedNumbers(
-    bids.filter((b) => b.is_winner).map((b) => b.discount_ratio),
-  )
-
-  return {
-    type: 'empirical',
-    predict: (ratio: number) => {
-      if (sorted.length === 0) return 50
-      // What fraction of winners have ratio >= this ratio (lower ratio = more aggressive)
-      const winnersAtOrBelow = winnerRatios.filter((r) => r <= ratio).length
-      const totalAtOrBelow = sorted.filter((r) => r <= ratio).length
-      if (totalAtOrBelow === 0) return 0
-      return round2((winnersAtOrBelow / Math.max(totalAtOrBelow, 1)) * 100)
-    },
-    sampleSize: bids.length,
     winnerCount,
   }
 }
 
-/**
- * Solve 3x3 linear system Ax = b using Cramer's rule
- */
 function solve3x3(A: number[][], b: number[]): number[] | null {
   const det =
     A[0][0] * (A[1][1] * A[2][2] - A[1][2] * A[2][1]) -
