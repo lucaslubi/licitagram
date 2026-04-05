@@ -1,11 +1,10 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import MapGL, { Source, Layer, Marker, Popup, NavigationControl } from 'react-map-gl/mapbox'
+import MapGL, { Source, Layer, Popup, NavigationControl } from 'react-map-gl/mapbox'
 import type { MapRef } from 'react-map-gl/mapbox'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import Link from 'next/link'
-import { Card } from '@/components/ui/card'
 import { UF_CENTERS, REGIONS } from '@/lib/geo/uf-centers'
 import { BRAZIL_GEOJSON_URL, STATE_NAME_TO_UF } from '@/lib/geo/brazil-states'
 import {
@@ -13,7 +12,6 @@ import {
   type MatchMarker,
   formatCompactBRL,
 } from '@/lib/geo/map-utils'
-import { getScoreBgClass, getScoreHex, isSuperHot } from '@/lib/score-colors'
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
 
@@ -22,29 +20,50 @@ interface IntelligenceMapProps {
   matchMarkers: MatchMarker[]
 }
 
-// ─── Pure helpers (no state/props dependency) ───────────────────────────────
-// Score colors: use centralized getScoreBgClass, getScoreHex, isSuperHot from @/lib/score-colors
-const getMatchColor = getScoreHex
-
-/** Whether the match was scored by AI (as opposed to keyword-only estimate) */
-function isAiMatch(m: MatchMarker): boolean {
-  return m.matchSource === 'ai' || m.matchSource === 'ai_triage' || m.matchSource === 'semantic'
+// ─── Score → color (new palette: green → lime → amber → slate) ──────────────
+function getScoreColor(score: number): string {
+  if (score >= 90) return '#10B981' // emerald — excellent
+  if (score >= 80) return '#84CC16' // lime — good
+  if (score >= 70) return '#F59E0B' // amber — moderate
+  return '#64748B'                  // slate — low
 }
 
-/** Days until tender closes. Negative = already closed, null = no date */
+function getScoreLabel(score: number): string {
+  if (score >= 90) return 'Excelente'
+  if (score >= 80) return 'Bom'
+  if (score >= 70) return 'Moderado'
+  return 'Baixo'
+}
+
+function getScoreColorClass(score: number): string {
+  if (score >= 90) return 'text-emerald-400'
+  if (score >= 80) return 'text-lime-400'
+  if (score >= 70) return 'text-amber-400'
+  return 'text-slate-400'
+}
+
+function getScoreBadgeClass(score: number): string {
+  if (score >= 90) return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+  if (score >= 80) return 'bg-lime-500/10 text-lime-400 border-lime-500/20'
+  if (score >= 70) return 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+  return 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+}
+
+/** Days until tender closes */
 function daysUntilClose(dataEncerramento: string | null): number | null {
   if (!dataEncerramento) return null
   return Math.ceil((new Date(dataEncerramento).getTime() - Date.now()) / 86400000)
 }
 
-/** Render a deadline badge if closing soon or missing */
-function DeadlineBadge({ dataEncerramento, className = '' }: { dataEncerramento: string | null; className?: string }) {
+function DeadlineBadge({ dataEncerramento }: { dataEncerramento: string | null }) {
   const days = daysUntilClose(dataEncerramento)
-  if (days !== null && days > 3) return null
-  if (days !== null) {
-    return <span className={`text-red-400 font-medium ${className}`}>⏰ {days <= 0 ? 'HOJE' : `${days}d`}</span>
-  }
-  return <span className={`text-amber-400 ${className}`}>⚠️ Prazo</span>
+  if (days === null) return null
+  if (days > 3) return null
+  return (
+    <span className="text-[10px] font-medium text-red-400">
+      {days <= 0 ? 'Encerra hoje' : `${days}d restantes`}
+    </span>
+  )
 }
 
 type SheetPosition = 'collapsed' | 'half' | 'full'
@@ -58,26 +77,28 @@ export function IntelligenceMap({
   const mapRef = useRef<MapRef>(null)
   const [geoJson, setGeoJson] = useState<GeoJSON.FeatureCollection | null>(null)
   const [selectedUf, setSelectedUf] = useState<string | null>(null)
-  const [selectedMatch, setSelectedMatch] = useState<MatchMarker | null>(null)
-  const [selectedGroup, setSelectedGroup] = useState<MatchMarker[] | null>(null)
+  const [popupInfo, setPopupInfo] = useState<{
+    longitude: number
+    latitude: number
+    matches: MatchMarker[]
+  } | null>(null)
   const [scoreFilter, setScoreFilter] = useState(50)
   const [minValor, setMinValor] = useState(0)
   const [regionFilter, setRegionFilter] = useState<Set<string>>(new Set(REGIONS))
 
-  // Mobile detection
+  // Mobile
   const [isMobile, setIsMobile] = useState(false)
   const [sheetPosition, setSheetPosition] = useState<SheetPosition>('half')
   const touchStartY = useRef<number>(0)
   const touchStartSheetPos = useRef<SheetPosition>('half')
 
   useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768)
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
-    return () => window.removeEventListener('resize', checkMobile)
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
   }, [])
 
-  // Sheet height calculation (account for 56px mobile header)
   const sheetHeight = useMemo(() => {
     switch (sheetPosition) {
       case 'collapsed': return '80px'
@@ -86,7 +107,6 @@ export function IntelligenceMap({
     }
   }, [sheetPosition])
 
-  // Touch handlers for drag
   const onTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartY.current = e.touches[0].clientY
     touchStartSheetPos.current = sheetPosition
@@ -95,35 +115,41 @@ export function IntelligenceMap({
   const onTouchEnd = useCallback((e: React.TouchEvent) => {
     const deltaY = touchStartY.current - e.changedTouches[0].clientY
     const threshold = 50
-
     if (deltaY > threshold) {
-      // Swiped up — expand
       if (touchStartSheetPos.current === 'collapsed') setSheetPosition('half')
       else if (touchStartSheetPos.current === 'half') setSheetPosition('full')
     } else if (deltaY < -threshold) {
-      // Swiped down — collapse
       if (touchStartSheetPos.current === 'full') setSheetPosition('half')
       else if (touchStartSheetPos.current === 'half') setSheetPosition('collapsed')
     }
   }, [])
 
-  // Matches are pre-triaged by the background AI worker — use directly
   const matchMarkers = initialMarkers
 
-  // Build lookup
+  // UF data lookup
   const ufDataMap = useMemo(() => {
     const map = new Map<string, UfMapData>()
     for (const d of ufData) map.set(d.uf, d)
     return map
   }, [ufData])
 
-  // Filter markers independently by their own score + region
+  // Build lookup for markers by coordinate key (for popup enrichment)
+  const markerLookup = useMemo(() => {
+    const map = new Map<string, MatchMarker[]>()
+    for (const m of matchMarkers) {
+      // Round to 3 decimals (~110m) to group nearby markers
+      const key = `${m.lat.toFixed(3)},${m.lng.toFixed(3)}`
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(m)
+    }
+    return map
+  }, [matchMarkers])
+
+  // Filter markers
   const filteredMarkers = useMemo(() => {
-    const activeRegions = regionFilter
-    // Build set of UFs in active regions
     const regionUfs = new Set<string>()
     for (const d of ufData) {
-      if (activeRegions.has(d.region)) regionUfs.add(d.uf)
+      if (regionFilter.has(d.region)) regionUfs.add(d.uf)
     }
     return matchMarkers.filter((m) => {
       if (m.score < scoreFilter) return false
@@ -133,49 +159,46 @@ export function IntelligenceMap({
     })
   }, [matchMarkers, scoreFilter, minValor, regionFilter, ufData])
 
-  // Group markers at the same coordinates to handle overlapping pins
-  const groupedMarkers = useMemo(() => {
-    const groups = new Map<string, MatchMarker[]>()
-    for (const m of filteredMarkers) {
-      // Round to 3 decimals (~110m) to group nearby markers
-      const key = `${m.lat.toFixed(3)},${m.lng.toFixed(3)}`
-      if (!groups.has(key)) groups.set(key, [])
-      groups.get(key)!.push(m)
-    }
-    // Sort each group by score descending (best score first)
-    const result: { best: MatchMarker; count: number; all: MatchMarker[] }[] = []
-    for (const markers of groups.values()) {
-      markers.sort((a, b) => b.score - a.score)
-      result.push({ best: markers[0], count: markers.length, all: markers })
-    }
-    // Sort: low score first (bottom layer), high score last (top layer), hot on top
-    // DOM order = render order in Mapbox GL — last rendered = visually on top
-    result.sort((a, b) => {
-      // Hot markers always on top
-      if (a.best.isHot && !b.best.isHot) return 1
-      if (!a.best.isHot && b.best.isHot) return -1
-      // Then by score ascending (low scores rendered first = behind)
-      return a.best.score - b.best.score
-    })
-    return result
-  }, [filteredMarkers])
+  // ─── GeoJSON for Mapbox GL native clustering ────────────────────────────
+  const clusterGeoJson = useMemo<GeoJSON.FeatureCollection>(() => ({
+    type: 'FeatureCollection',
+    features: filteredMarkers.map((m) => ({
+      type: 'Feature' as const,
+      geometry: {
+        type: 'Point' as const,
+        coordinates: [m.lng, m.lat],
+      },
+      properties: {
+        matchId: m.matchId,
+        score: m.score,
+        valor: m.valor || 0,
+        uf: m.uf,
+        orgao: m.orgao,
+        objeto: m.objeto,
+        municipio: m.municipio || '',
+        modalidade: m.modalidade || '',
+        dataEncerramento: m.dataEncerramento || '',
+        lat: m.lat,
+        lng: m.lng,
+      },
+    })),
+  }), [filteredMarkers])
 
-  // Recompute UF stats based on filtered markers (so sidebar reflects actual visible data)
+  // Recompute UF stats from filtered markers
   const filteredUfStats = useMemo(() => {
     const statsMap = new Map<string, {
       uf: string; name: string; region: string;
-      count: number; totalValue: number; avgScore: number;
-      maxScore: number; scoreSum: number;
+      count: number; totalValue: number; scoreSum: number;
+      avgScore: number; maxScore: number;
     }>()
 
     for (const m of filteredMarkers) {
       const ufInfo = ufDataMap.get(m.uf)
       if (!ufInfo) continue
-
       if (!statsMap.has(m.uf)) {
         statsMap.set(m.uf, {
           uf: m.uf, name: ufInfo.name, region: ufInfo.region,
-          count: 0, totalValue: 0, avgScore: 0, maxScore: 0, scoreSum: 0,
+          count: 0, totalValue: 0, scoreSum: 0, avgScore: 0, maxScore: 0,
         })
       }
       const s = statsMap.get(m.uf)!
@@ -185,19 +208,16 @@ export function IntelligenceMap({
       s.maxScore = Math.max(s.maxScore, m.score)
     }
 
-    // Compute averages
     for (const s of statsMap.values()) {
       s.avgScore = s.count > 0 ? Math.round(s.scoreSum / s.count) : 0
     }
 
     return Array.from(statsMap.values()).sort((a, b) => {
-      // Sort by: count desc, then avgScore desc
       if (b.count !== a.count) return b.count - a.count
       return b.avgScore - a.avgScore
     })
   }, [filteredMarkers, ufDataMap])
 
-  // Also keep full UF data for detail panel
   const filteredUfData = useMemo(() => {
     return ufData.filter((d) => regionFilter.has(d.region))
   }, [ufData, regionFilter])
@@ -206,7 +226,7 @@ export function IntelligenceMap({
     return Math.max(1, ...filteredUfData.map((d) => d.totalMatches))
   }, [filteredUfData])
 
-  // Load GeoJSON and enrich with uf data
+  // Load Brazil states GeoJSON
   useEffect(() => {
     const controller = new AbortController()
     fetch(BRAZIL_GEOJSON_URL, { signal: controller.signal })
@@ -225,8 +245,6 @@ export function IntelligenceMap({
                 uf,
                 opportunityScore: ufInfo?.opportunityScore || 0,
                 totalMatches: ufInfo?.totalMatches || 0,
-                totalValue: ufInfo?.totalValue || 0,
-                avgScore: ufInfo?.avgScore || 0,
               },
             }
           }),
@@ -239,49 +257,97 @@ export function IntelligenceMap({
     return () => controller.abort()
   }, [ufDataMap])
 
-  // GeoJSON for individual match points (used by heatmap layer)
-  const matchPointsGeoJson = useMemo<GeoJSON.FeatureCollection>(() => {
-    return {
-      type: 'FeatureCollection',
-      features: filteredMarkers.map((m) => ({
-        type: 'Feature' as const,
-        geometry: {
-          type: 'Point' as const,
-          coordinates: [m.lng, m.lat],
-        },
-        properties: {
-          matchId: m.matchId,
-          score: m.score,
-          valor: m.valor || 0,
-          uf: m.uf,
-          weight: m.score / 100,
-        },
-      })),
-    }
-  }, [filteredMarkers])
+  // ─── Map click handlers ─────────────────────────────────────────────────
 
-  // Handle click on UF
-  const selectUf = useCallback(
-    (uf: string) => {
-      setSelectedUf(uf)
-      setSelectedMatch(null)
-      setSelectedGroup(null)
-      const center = UF_CENTERS[uf]
-      if (center && mapRef.current) {
-        mapRef.current.flyTo({
-          center: [center.lng, center.lat],
-          zoom: 5.5,
-          duration: 1200,
-        })
-      }
-    },
-    [],
-  )
+  const onClusterClick = useCallback((e: any) => {
+    const feature = e.features?.[0]
+    if (!feature || !mapRef.current) return
+
+    const clusterId = feature.properties?.cluster_id
+    const source = mapRef.current.getSource('opportunities')
+    if (!source || !('getClusterExpansionZoom' in source)) return
+
+    ;(source as any).getClusterExpansionZoom(clusterId, (err: Error | null, zoom: number) => {
+      if (err) return
+      mapRef.current?.easeTo({
+        center: (feature.geometry as GeoJSON.Point).coordinates as [number, number],
+        zoom: Math.min(zoom, 14),
+        duration: 500,
+      })
+    })
+  }, [])
+
+  const onPointClick = useCallback((e: any) => {
+    const feature = e.features?.[0]
+    if (!feature) return
+
+    const coords = (feature.geometry as GeoJSON.Point).coordinates as [number, number]
+    const props = feature.properties || {}
+
+    // Find all markers near this point
+    const key = `${parseFloat(props.lat).toFixed(3)},${parseFloat(props.lng).toFixed(3)}`
+    const nearbyMarkers = markerLookup.get(key) || []
+
+    // If we have detailed markers, use those; otherwise build from feature props
+    const matches: MatchMarker[] = nearbyMarkers.length > 0
+      ? nearbyMarkers.filter((m) => m.score >= scoreFilter)
+      : [{
+          matchId: props.matchId || '',
+          tenderId: '',
+          objeto: props.objeto || '',
+          orgao: props.orgao || '',
+          uf: props.uf || '',
+          municipio: props.municipio || null,
+          score: props.score || 0,
+          matchSource: '',
+          valor: props.valor || null,
+          modalidade: props.modalidade || null,
+          recomendacao: null,
+          lat: coords[1],
+          lng: coords[0],
+          isHot: (props.score || 0) >= 80,
+          competitionScore: null,
+          dataEncerramento: props.dataEncerramento || null,
+        }]
+
+    if (matches.length > 0) {
+      setPopupInfo({
+        longitude: coords[0],
+        latitude: coords[1],
+        matches: matches.sort((a, b) => b.score - a.score),
+      })
+    }
+  }, [markerLookup, scoreFilter])
+
+  const onMapClick = useCallback((e: any) => {
+    const features = e.features
+    if (!features?.length) {
+      setPopupInfo(null)
+      return
+    }
+    const layerId = features[0].layer?.id
+    if (layerId === 'clusters') onClusterClick(e)
+    else if (layerId === 'unclustered-point') onPointClick(e)
+  }, [onClusterClick, onPointClick])
+
+  // ─── UF navigation ──────────────────────────────────────────────────────
+
+  const selectUf = useCallback((uf: string) => {
+    setSelectedUf(uf)
+    setPopupInfo(null)
+    const center = UF_CENTERS[uf]
+    if (center && mapRef.current) {
+      mapRef.current.flyTo({
+        center: [center.lng, center.lat],
+        zoom: 5.5,
+        duration: 1200,
+      })
+    }
+  }, [])
 
   const resetView = useCallback(() => {
     setSelectedUf(null)
-    setSelectedMatch(null)
-    setSelectedGroup(null)
+    setPopupInfo(null)
     mapRef.current?.flyTo({
       center: [-52, -14],
       zoom: 3.8,
@@ -289,7 +355,6 @@ export function IntelligenceMap({
     })
   }, [])
 
-  // Toggle region filter
   const toggleRegion = useCallback((region: string) => {
     setRegionFilter((prev) => {
       const next = new Set(prev)
@@ -302,28 +367,25 @@ export function IntelligenceMap({
   const selectedUfData = selectedUf ? ufDataMap.get(selectedUf) : null
   const selectedUfMarkers = useMemo(() => {
     if (!selectedUf) return []
-    const ufMatches = filteredMarkers.filter((m) => m.uf === selectedUf)
-    // Hot matches first, then by score descending
-    return ufMatches.sort((a, b) => {
-      if (a.isHot !== b.isHot) return a.isHot ? -1 : 1
-      return b.score - a.score
-    })
+    return filteredMarkers
+      .filter((m) => m.uf === selectedUf)
+      .sort((a, b) => b.score - a.score)
   }, [selectedUf, filteredMarkers])
 
-  // Stats for the selected UF based on filtered markers (not original data)
   const selectedUfFilteredStats = useMemo(() => {
     if (!selectedUfMarkers.length) return null
     const count = selectedUfMarkers.length
     const totalValue = selectedUfMarkers.reduce((s, m) => s + (m.valor || 0), 0)
     const avgScore = Math.round(selectedUfMarkers.reduce((s, m) => s + m.score, 0) / count)
     const maxScore = Math.max(...selectedUfMarkers.map((m) => m.score))
-    const hotCount = selectedUfMarkers.filter((m) => m.isHot).length
-    return { count, totalValue, avgScore, maxScore, hotCount }
+    return { count, totalValue, avgScore, maxScore }
   }, [selectedUfMarkers])
 
-  // ─── Layer styles ─────────────────────────────────────────────────────────
+  // ─── Mapbox GL layers ───────────────────────────────────────────────────
 
   /* eslint-disable @typescript-eslint/no-explicit-any */
+
+  // State choropleth fill (very subtle)
   const fillLayer: any = {
     id: 'uf-fill',
     type: 'fill',
@@ -331,89 +393,180 @@ export function IntelligenceMap({
       'fill-color': [
         'step',
         ['get', 'opportunityScore'],
-        '#6B7280',   // 0-49: cinza (sem matches relevantes)
-        50, '#FBBF24', // 50-69: amarelo
-        70, '#10B981', // 70-79: verde
-        80, '#F97316', // 80+: super quente (laranja)
+        'rgba(100, 116, 139, 0.08)',  // 0-49: barely visible slate
+        50, 'rgba(245, 158, 11, 0.08)', // 50-69: faint amber
+        70, 'rgba(132, 204, 22, 0.08)', // 70-79: faint lime
+        80, 'rgba(16, 185, 129, 0.10)', // 80+: faint emerald
       ],
       'fill-opacity': [
         'interpolate',
         ['linear'],
         ['get', 'totalMatches'],
-        0, 0.15,
-        maxMatches, 0.5,
+        0, 0.3,
+        maxMatches, 1,
       ],
     },
   }
 
+  // State borders — very subtle
   const lineLayer: any = {
     id: 'uf-line',
     type: 'line',
     paint: {
-      'line-color': '#ffffff',
-      'line-width': 1,
-      'line-opacity': 0.3,
+      'line-color': 'rgba(255, 255, 255, 0.08)',
+      'line-width': 0.5,
     },
   }
 
-  const heatmapLayer: any = {
-    id: 'match-heatmap',
-    type: 'heatmap',
-    maxzoom: 7,
+  // Cluster circles — dark, neutral
+  const clusterLayer: any = {
+    id: 'clusters',
+    type: 'circle',
+    source: 'opportunities',
+    filter: ['has', 'point_count'],
     paint: {
-      'heatmap-weight': ['get', 'weight'],
-      'heatmap-intensity': [
-        'interpolate', ['linear'], ['zoom'],
-        3, 0.8,
-        7, 1.5,
+      'circle-color': [
+        'step',
+        ['get', 'point_count'],
+        '#1C1C21',     // < 10: dark
+        10, '#27272A',  // 10-50: zinc-800
+        50, '#3F3F46',  // 50-100: zinc-700
+        100, '#52525B', // 100+: zinc-600
       ],
-      'heatmap-radius': [
-        'interpolate', ['linear'], ['zoom'],
-        3, 25,
-        5, 40,
-        7, 60,
+      'circle-radius': [
+        'step',
+        ['get', 'point_count'],
+        20,
+        10, 28,
+        50, 36,
+        100, 44,
       ],
-      'heatmap-color': [
-        'interpolate', ['linear'], ['heatmap-density'],
-        0, 'rgba(0,0,0,0)',
-        0.15, 'rgba(59,130,246,0.4)',
-        0.3, 'rgba(139,92,246,0.5)',
-        0.5, 'rgba(245,158,11,0.6)',
-        0.7, 'rgba(239,68,68,0.7)',
-        1, 'rgba(220,38,38,0.8)',
+      'circle-stroke-width': 1,
+      'circle-stroke-color': 'rgba(255, 255, 255, 0.1)',
+    },
+  }
+
+  // Cluster count text
+  const clusterCountLayer: any = {
+    id: 'cluster-count',
+    type: 'symbol',
+    source: 'opportunities',
+    filter: ['has', 'point_count'],
+    layout: {
+      'text-field': '{point_count_abbreviated}',
+      'text-font': ['DIN Pro Medium', 'Arial Unicode MS Bold'],
+      'text-size': 13,
+    },
+    paint: {
+      'text-color': '#FAFAFA',
+    },
+  }
+
+  // Individual unclustered points — color by score, size by score
+  const unclusteredPointLayer: any = {
+    id: 'unclustered-point',
+    type: 'circle',
+    source: 'opportunities',
+    filter: ['!', ['has', 'point_count']],
+    paint: {
+      'circle-color': [
+        'case',
+        ['>=', ['get', 'score'], 90], '#10B981', // emerald
+        ['>=', ['get', 'score'], 80], '#84CC16', // lime
+        ['>=', ['get', 'score'], 70], '#F59E0B', // amber
+        '#64748B',                                // slate
       ],
-      'heatmap-opacity': [
-        'interpolate', ['linear'], ['zoom'],
-        5, 0.6,
-        8, 0,
+      'circle-radius': [
+        'interpolate',
+        ['linear'],
+        ['get', 'score'],
+        50, 5,
+        70, 7,
+        85, 9,
+        100, 12,
+      ],
+      'circle-stroke-width': 1.5,
+      'circle-stroke-color': [
+        'case',
+        ['>=', ['get', 'score'], 90], 'rgba(16, 185, 129, 0.3)',
+        ['>=', ['get', 'score'], 80], 'rgba(132, 204, 22, 0.3)',
+        ['>=', ['get', 'score'], 70], 'rgba(245, 158, 11, 0.3)',
+        'rgba(100, 116, 139, 0.3)',
       ],
     },
   }
+
+  // Score label on unclustered points (only at higher zoom)
+  const unclusteredLabelLayer: any = {
+    id: 'unclustered-label',
+    type: 'symbol',
+    source: 'opportunities',
+    filter: ['!', ['has', 'point_count']],
+    minzoom: 8,
+    layout: {
+      'text-field': ['to-string', ['get', 'score']],
+      'text-font': ['DIN Pro Medium', 'Arial Unicode MS Bold'],
+      'text-size': 10,
+      'text-allow-overlap': true,
+    },
+    paint: {
+      'text-color': '#FFFFFF',
+      'text-halo-color': 'rgba(0, 0, 0, 0.6)',
+      'text-halo-width': 1,
+    },
+  }
+
   /* eslint-enable @typescript-eslint/no-explicit-any */
 
-  // ─── Sidebar content (shared between desktop sidebar and mobile sheet) ───
+  // ─── Cursor handling ────────────────────────────────────────────────────
+
+  const onMouseEnter = useCallback(() => {
+    const canvas = mapRef.current?.getCanvas()
+    if (canvas) canvas.style.cursor = 'pointer'
+  }, [])
+
+  const onMouseLeave = useCallback(() => {
+    const canvas = mapRef.current?.getCanvas()
+    if (canvas) canvas.style.cursor = ''
+  }, [])
+
+  // ─── Sidebar ────────────────────────────────────────────────────────────
+
+  const totalValue = useMemo(() =>
+    filteredMarkers.reduce((s, m) => s + (m.valor || 0), 0),
+  [filteredMarkers])
 
   const sidebarContent = (
     <>
-      {/* Header metrics — always reflect filtered data */}
-      <div className={`border-b border-[#2d2f33] ${isMobile ? 'p-3' : 'p-5 pb-4'}`}>
-        <h2 className={`font-bold text-white tracking-tight ${isMobile ? 'text-base mb-3' : 'text-lg mb-4'}`}>Mapa de Inteligência</h2>
+      {/* Header */}
+      <div className={`border-b border-border ${isMobile ? 'p-3' : 'p-5 pb-4'}`}>
+        <h2 className={`font-semibold text-foreground tracking-tight ${isMobile ? 'text-sm mb-3' : 'text-base mb-4'}`}>
+          Mapa de Inteligência
+        </h2>
+
+        {/* KPI row — neutral, no colored borders */}
         <div className="grid grid-cols-3 gap-2">
-          <div className="text-center bg-[#1a1c1f] rounded-lg p-2.5">
-            <p className={`font-bold text-[#F43E01] ${isMobile ? 'text-base' : 'text-xl'}`}>{filteredMarkers.length}</p>
-            <p className="text-[9px] text-gray-400 uppercase tracking-wider font-medium mt-0.5">Oportunidades</p>
-          </div>
-          <div className="text-center bg-[#1a1c1f] rounded-lg p-2.5">
-            <p className={`font-bold text-emerald-400 ${isMobile ? 'text-base' : 'text-xl'}`}>
-              {formatCompactBRL(filteredMarkers.reduce((s, m) => s + (m.valor || 0), 0))}
+          <div className="bg-secondary/50 rounded-lg p-2.5 text-center">
+            <p className={`font-semibold text-foreground font-mono tabular-nums ${isMobile ? 'text-base' : 'text-lg'}`}>
+              {filteredMarkers.length.toLocaleString('pt-BR')}
             </p>
-            <p className="text-[9px] text-gray-400 uppercase tracking-wider font-medium mt-0.5">Valor Total</p>
+            <p className="text-[9px] text-muted-foreground uppercase tracking-wider font-medium mt-0.5">
+              Oportunidades
+            </p>
           </div>
-          <div className="text-center bg-[#1a1c1f] rounded-lg p-2.5">
-            <p className={`font-bold text-white ${isMobile ? 'text-base' : 'text-xl'}`}>
+          <div className="bg-secondary/50 rounded-lg p-2.5 text-center">
+            <p className={`font-semibold text-foreground font-mono tabular-nums ${isMobile ? 'text-base' : 'text-lg'}`}>
+              {formatCompactBRL(totalValue)}
+            </p>
+            <p className="text-[9px] text-muted-foreground uppercase tracking-wider font-medium mt-0.5">
+              Valor Total
+            </p>
+          </div>
+          <div className="bg-secondary/50 rounded-lg p-2.5 text-center">
+            <p className={`font-semibold text-foreground font-mono tabular-nums ${isMobile ? 'text-base' : 'text-lg'}`}>
               {filteredUfStats.length > 0 ? filteredUfStats[0].uf : '-'}
             </p>
-            <p className="text-[9px] text-gray-400 uppercase tracking-wider font-medium mt-0.5">
+            <p className="text-[9px] text-muted-foreground uppercase tracking-wider font-medium mt-0.5">
               {filteredUfStats.length > 0 ? `${filteredUfStats[0].count} matches` : 'Melhor UF'}
             </p>
           </div>
@@ -421,16 +574,17 @@ export function IntelligenceMap({
       </div>
 
       {/* Filters */}
-      <div className={`border-b border-[#2d2f33] ${isMobile ? 'p-3' : 'px-5 py-4'}`}>
+      <div className={`border-b border-border ${isMobile ? 'p-3' : 'px-5 py-4'}`}>
+        {/* Score slider */}
         <div className="mb-4">
           <div className="flex items-center justify-between mb-1.5">
-            <label className="text-xs font-semibold text-gray-300 tracking-wide">
-              Score mínimo: {scoreFilter > 0 ? scoreFilter : 'Todos'}
+            <label className="text-xs font-medium text-muted-foreground">
+              Score mínimo: <span className="text-foreground font-mono tabular-nums">{scoreFilter}</span>
             </label>
             {scoreFilter > 60 && (
               <button
                 onClick={() => setScoreFilter(50)}
-                className="text-[10px] text-brand hover:underline"
+                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
               >
                 Resetar
               </button>
@@ -443,26 +597,27 @@ export function IntelligenceMap({
             step={5}
             value={scoreFilter}
             onChange={(e) => setScoreFilter(Number(e.target.value))}
-            className="w-full h-1.5 bg-[#2d2f33] rounded-lg appearance-none cursor-pointer accent-brand"
+            className="w-full h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer accent-foreground"
           />
-          <div className="flex justify-between text-[9px] text-gray-400 mt-0.5">
-            <span>50</span>
-            <span>60</span>
-            <span>70</span>
-            <span>80</span>
-            <span>90</span>
-            <span>100</span>
+          <div className="flex justify-between text-[9px] text-muted-foreground mt-0.5 font-mono tabular-nums">
+            <span>50</span><span>60</span><span>70</span><span>80</span><span>90</span><span>100</span>
           </div>
         </div>
+
+        {/* Value filter */}
         <div className="mb-3">
           <div className="flex items-center justify-between mb-1">
-            <label className="text-xs font-medium text-gray-400">
-              Valor minimo: {minValor > 0 ? `R$ ${(minValor >= 1_000_000 ? (minValor / 1_000_000).toFixed(1) + 'M' : minValor >= 1_000 ? (minValor / 1_000).toFixed(0) + 'K' : minValor.toString())}` : 'Todos'}
+            <label className="text-xs font-medium text-muted-foreground">
+              Valor mínimo: <span className="text-foreground font-mono tabular-nums">
+                {minValor > 0
+                  ? `R$ ${minValor >= 1_000_000 ? (minValor / 1_000_000).toFixed(1) + 'M' : minValor >= 1_000 ? (minValor / 1_000).toFixed(0) + 'K' : minValor.toString()}`
+                  : 'Todos'}
+              </span>
             </label>
             {minValor > 0 && (
               <button
                 onClick={() => setMinValor(0)}
-                className="text-[10px] text-brand hover:underline"
+                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
               >
                 Resetar
               </button>
@@ -471,7 +626,7 @@ export function IntelligenceMap({
           <select
             value={minValor}
             onChange={(e) => setMinValor(Number(e.target.value))}
-            className="w-full text-xs border border-[#2d2f33] rounded-lg px-3 py-2 bg-[#1a1c1f] text-gray-300 focus:outline-none focus:ring-1 focus:ring-[#F43E01]"
+            className="w-full text-xs border border-border rounded-lg px-3 py-2 bg-secondary/50 text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           >
             <option value={0}>Todos os valores</option>
             <option value={10000}>Acima de R$ 10K</option>
@@ -485,17 +640,19 @@ export function IntelligenceMap({
             <option value={100000000}>Acima de R$ 100M</option>
           </select>
         </div>
+
+        {/* Region chips — monochromatic */}
         <div>
-          <label className="text-xs font-medium text-gray-400 mb-1 block">Regiões</label>
+          <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Regiões</label>
           <div className="flex flex-wrap gap-1.5">
             {REGIONS.map((r) => (
               <button
                 key={r}
                 onClick={() => toggleRegion(r)}
-                className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-150 border ${
                   regionFilter.has(r)
-                    ? 'bg-brand text-white'
-                    : 'bg-[#1a1c1f] text-gray-400'
+                    ? 'bg-foreground/10 border-foreground/20 text-foreground'
+                    : 'bg-transparent border-border text-muted-foreground hover:border-foreground/20 hover:text-foreground/80'
                 }`}
               >
                 {r}
@@ -505,180 +662,129 @@ export function IntelligenceMap({
         </div>
       </div>
 
-      {/* Content: ranking or detail */}
+      {/* Content: ranking or UF detail */}
       <div className={isMobile ? 'p-3' : 'p-4'}>
         {selectedUf && selectedUfData ? (
-          /* UF Detail Panel */
           <div>
             <button
               onClick={resetView}
-              className="text-xs text-brand hover:underline mb-3 flex items-center gap-1"
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors mb-3 flex items-center gap-1"
             >
               &larr; Voltar ao ranking
             </button>
 
-            <h3 className="text-lg font-bold mb-3">{selectedUfData.name} ({selectedUf})</h3>
+            <h3 className="text-base font-semibold text-foreground mb-3">
+              {selectedUfData.name} ({selectedUf})
+            </h3>
 
-            {/* Metrics grid — uses filtered stats so numbers match the list below */}
             {selectedUfFilteredStats ? (
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <div className="bg-[#1a1c1f] rounded-lg p-2.5">
-                  <p className="text-xs text-gray-400">Oportunidades</p>
-                  <p className="text-lg font-bold text-white">{selectedUfFilteredStats.count}</p>
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                <div className="bg-secondary/50 rounded-lg p-2.5">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Oportunidades</p>
+                  <p className="text-lg font-semibold text-foreground font-mono tabular-nums">{selectedUfFilteredStats.count}</p>
                 </div>
-                <div className="bg-[#1a1c1f] rounded-lg p-2.5">
-                  <p className="text-xs text-gray-400">Valor Total</p>
-                  <p className="text-lg font-bold text-white">{formatCompactBRL(selectedUfFilteredStats.totalValue)}</p>
+                <div className="bg-secondary/50 rounded-lg p-2.5">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Valor Total</p>
+                  <p className="text-lg font-semibold text-foreground font-mono tabular-nums">{formatCompactBRL(selectedUfFilteredStats.totalValue)}</p>
                 </div>
-                <div className="bg-[#1a1c1f] rounded-lg p-2.5">
-                  <p className="text-xs text-gray-400">Score Medio</p>
-                  <p className="text-lg font-bold">
-                    <span className={selectedUfFilteredStats.avgScore >= 70 ? 'text-emerald-400' : selectedUfFilteredStats.avgScore >= 50 ? 'text-amber-400' : 'text-red-400'}>
-                      {selectedUfFilteredStats.avgScore}
-                    </span>
+                <div className="bg-secondary/50 rounded-lg p-2.5">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Score Médio</p>
+                  <p className={`text-lg font-semibold font-mono tabular-nums ${getScoreColorClass(selectedUfFilteredStats.avgScore)}`}>
+                    {selectedUfFilteredStats.avgScore}
                   </p>
                 </div>
-                <div className={`rounded-lg p-2.5 ${selectedUfFilteredStats.hotCount > 0 ? 'bg-orange-900/20 border border-orange-800/30' : 'bg-[#1a1c1f]'}`}>
-                  <p className={`text-xs ${selectedUfFilteredStats.hotCount > 0 ? 'text-orange-400' : 'text-gray-400'}`}>
-                    {selectedUfFilteredStats.hotCount > 0 ? '🔥 Super Quentes' : 'Maior Score'}
-                  </p>
-                  <p className="text-lg font-bold">
-                    {selectedUfFilteredStats.hotCount > 0 ? (
-                      <span className="text-orange-400">{selectedUfFilteredStats.hotCount}</span>
-                    ) : (
-                      <span className={selectedUfFilteredStats.maxScore >= 70 ? 'text-emerald-400' : selectedUfFilteredStats.maxScore >= 50 ? 'text-amber-400' : 'text-red-400'}>
-                        {selectedUfFilteredStats.maxScore}
-                      </span>
-                    )}
+                <div className="bg-secondary/50 rounded-lg p-2.5">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Maior Score</p>
+                  <p className={`text-lg font-semibold font-mono tabular-nums ${getScoreColorClass(selectedUfFilteredStats.maxScore)}`}>
+                    {selectedUfFilteredStats.maxScore}
                   </p>
                 </div>
               </div>
             ) : (
-              <p className="text-sm text-gray-400 mb-4">Nenhuma oportunidade com os filtros atuais</p>
+              <p className="text-sm text-muted-foreground mb-4">Nenhuma oportunidade com os filtros atuais</p>
             )}
 
-            {/* List all matches in this UF */}
-            <h4 className="text-sm font-semibold text-gray-300 mb-2">
+            <h4 className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">
               {selectedUfMarkers.length} oportunidade{selectedUfMarkers.length !== 1 ? 's' : ''}
             </h4>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {selectedUfMarkers.map((m: MatchMarker) => (
                 <Link
                   key={m.matchId}
                   href={`/opportunities/${m.matchId}`}
-                  className={`block p-3 rounded-lg transition-colors ${
-                    m.isHot
-                      ? 'bg-orange-900/20 border border-orange-800/30 hover:bg-orange-900/30 ring-1 ring-orange-500/20'
-                      : 'bg-[#1a1c1f] hover:bg-[#2d2f33]'
-                  }`}
-                  onMouseEnter={() => setSelectedMatch(m)}
+                  className="block p-3 rounded-lg bg-secondary/30 hover:bg-secondary/60 transition-colors border border-transparent hover:border-border"
                 >
-                  {m.isHot && (
-                    <div className="flex items-center gap-1 mb-1.5">
-                      <span className="text-[10px] font-bold text-orange-400 bg-orange-900/30 px-1.5 py-0.5 rounded-full">
-                        🔥 SUPER QUENTE
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex items-start gap-2">
-                    <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
-                      <span
-                        className={`inline-flex items-center justify-center w-9 h-9 rounded-full text-xs font-bold text-white ${
-                          m.isHot
-                            ? 'ring-2 ring-orange-400'
-                            : isAiMatch(m) ? 'ring-2 ring-blue-400' : ''
-                        }`}
-                        style={{
-                          background: m.isHot
-                            ? 'linear-gradient(135deg, #f97316, #ef4444)'
-                            : getMatchColor(m.score),
-                        }}
-                      >
-                        {m.isHot ? '🔥' : m.score}
-                      </span>
-                      <span className={`text-[8px] font-medium ${
-                        m.isHot ? 'text-orange-400' :
-                        isAiMatch(m) ? 'text-blue-400' : 'text-gray-400'
-                      }`}>
-                        {m.isHot && m.competitionScore != null ? `C:${m.competitionScore}` : isAiMatch(m) ? 'IA' : 'est.'}
-                      </span>
-                    </div>
+                  <div className="flex items-start gap-2.5">
+                    <span
+                      className={`inline-flex items-center justify-center w-8 h-8 rounded-lg text-xs font-bold border font-mono tabular-nums ${getScoreBadgeClass(m.score)}`}
+                    >
+                      {m.score}
+                    </span>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-xs font-medium leading-snug line-clamp-2 ${m.isHot ? 'text-orange-300' : 'text-white'}`}>
+                      <p className="text-xs font-medium text-foreground leading-snug line-clamp-2">
                         {m.objeto}
                       </p>
-                      {m.isHot && m.competitionScore != null && (
-                        <span className={`inline-block text-[9px] font-medium px-1.5 py-0.5 rounded-full mt-0.5 ${
-                          m.competitionScore >= 75 ? 'bg-emerald-900/20 text-emerald-400' :
-                          m.competitionScore >= 50 ? 'bg-amber-900/20 text-amber-400' :
-                          'bg-red-900/20 text-red-400'
-                        }`}>
-                          {m.competitionScore >= 75 ? 'Baixa competicao' :
-                           m.competitionScore >= 50 ? 'Competição moderada' :
-                           'Mercado disputado'}
-                        </span>
-                      )}
-                      <p className="text-[10px] text-gray-400 mt-1 truncate">{m.orgao}</p>
-                      <div className="flex items-center gap-2 mt-1">
+                      <p className="text-[10px] text-muted-foreground mt-1 truncate">{m.orgao}</p>
+                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                         {m.municipio && (
-                          <span className="text-[10px] text-blue-400">{m.municipio}</span>
+                          <span className="text-[10px] text-muted-foreground">{m.municipio}</span>
                         )}
-                        {m.valor && (
-                          <span className={`text-[10px] font-medium ${m.isHot ? 'text-orange-400 font-bold' : 'text-emerald-400'}`}>
-                            {m.isHot
-                              ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(m.valor)
-                              : formatCompactBRL(m.valor)}
+                        {m.valor != null && m.valor > 0 && (
+                          <span className="text-[10px] font-medium text-foreground font-mono tabular-nums">
+                            {formatCompactBRL(m.valor)}
                           </span>
                         )}
                         {m.modalidade && (
-                          <span className="text-[10px] text-gray-400">{m.modalidade}</span>
+                          <span className="text-[10px] text-muted-foreground">{m.modalidade}</span>
                         )}
-                        <DeadlineBadge dataEncerramento={m.dataEncerramento} className="text-[10px]" />
+                        <DeadlineBadge dataEncerramento={m.dataEncerramento} />
                       </div>
                     </div>
                   </div>
                 </Link>
               ))}
               {selectedUfMarkers.length === 0 && (
-                <p className="text-sm text-gray-400 text-center py-4">
+                <p className="text-sm text-muted-foreground text-center py-4">
                   Nenhuma oportunidade encontrada com os filtros atuais
                 </p>
               )}
             </div>
           </div>
         ) : (
-          /* Ranking by UF — computed from filtered markers */
+          /* Ranking by UF — avgScore computed per-state from filtered markers */
           <div>
-            <h3 className="text-sm font-semibold text-gray-300 mb-3">
+            <h3 className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">
               Ranking por Estado ({filteredUfStats.length} UFs)
             </h3>
-            <div className="space-y-1.5">
+            <div className="space-y-0.5">
               {filteredUfStats.slice(0, 15).map((d, index) => (
                 <button
                   key={d.uf}
                   onClick={() => selectUf(d.uf)}
-                  className="w-full flex items-center gap-2 p-2.5 rounded-lg hover:bg-[#1a1c1f] transition-colors text-left"
+                  className="w-full flex items-center gap-2.5 p-2.5 rounded-lg hover:bg-secondary/50 transition-colors text-left group"
                 >
-                  <span className="text-xs text-gray-400 w-4">{index + 1}</span>
-                  <span className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 bg-gray-700">
+                  <span className="text-[10px] text-muted-foreground w-4 font-mono tabular-nums">
+                    {index + 1}
+                  </span>
+                  <span className="w-8 h-8 rounded-lg flex items-center justify-center text-foreground text-[11px] font-bold flex-shrink-0 bg-secondary border border-border">
                     {d.uf}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white">{d.name}</p>
-                    <p className="text-[10px] text-gray-400">
-                      {d.count} oportunidade{d.count !== 1 ? 's' : ''} &middot; {formatCompactBRL(d.totalValue)}
+                    <p className="text-sm font-medium text-foreground">{d.name}</p>
+                    <p className="text-[10px] text-muted-foreground font-mono tabular-nums">
+                      {d.count} oportunidade{d.count !== 1 ? 's' : ''} · {formatCompactBRL(d.totalValue)}
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="text-xs font-bold" style={{ color: getMatchColor(d.avgScore) }}>
+                    <p className={`text-xs font-bold font-mono tabular-nums ${getScoreColorClass(d.avgScore)}`}>
                       {d.avgScore}
                     </p>
-                    <p className="text-[9px] text-gray-400">score medio</p>
+                    <p className="text-[9px] text-muted-foreground">score médio</p>
                   </div>
                 </button>
               ))}
               {filteredUfStats.length === 0 && (
-                <p className="text-sm text-gray-400 text-center py-8">
+                <p className="text-sm text-muted-foreground text-center py-8">
                   Nenhuma oportunidade encontrada com os filtros atuais
                 </p>
               )}
@@ -689,11 +795,12 @@ export function IntelligenceMap({
     </>
   )
 
+  // ─── Render ─────────────────────────────────────────────────────────────
+
   return (
     <div className="flex flex-col md:flex-row h-full w-full relative">
-      {/* Map — full viewport on mobile, flex-1 on desktop */}
+      {/* Map */}
       <div className={`relative flex-1 ${isMobile ? 'h-full' : 'min-h-0'} overflow-hidden`}>
-        {/* Negative bottom hides the Mapbox attribution bar behind the bottom sheet on mobile */}
         <div className="absolute inset-0" style={{ bottom: '-30px' }}>
           <MapGL
             ref={mapRef}
@@ -706,10 +813,14 @@ export function IntelligenceMap({
             }}
             dragRotate={false}
             style={{ width: '100%', height: '100%' }}
+            interactiveLayerIds={['clusters', 'unclustered-point']}
+            onClick={onMapClick}
+            onMouseEnter={onMouseEnter}
+            onMouseLeave={onMouseLeave}
           >
-            <NavigationControl position={isMobile ? 'top-left' : 'top-right'} />
+            <NavigationControl position={isMobile ? 'top-left' : 'top-right'} showCompass={false} />
 
-            {/* Choropleth base (subtle) */}
+            {/* State choropleth (subtle) */}
             {geoJson && (
               <Source id="brazil-states" type="geojson" data={geoJson}>
                 <Layer {...fillLayer} />
@@ -717,147 +828,88 @@ export function IntelligenceMap({
               </Source>
             )}
 
-            {/* Heatmap layer for density visualization */}
-            <Source id="match-points" type="geojson" data={matchPointsGeoJson}>
-              <Layer {...heatmapLayer} />
+            {/* Clustered point source */}
+            <Source
+              id="opportunities"
+              type="geojson"
+              data={clusterGeoJson}
+              cluster={true}
+              clusterMaxZoom={14}
+              clusterRadius={50}
+            >
+              <Layer {...clusterLayer} />
+              <Layer {...clusterCountLayer} />
+              <Layer {...unclusteredPointLayer} />
+              <Layer {...unclusteredLabelLayer} />
             </Source>
 
-            {/* Individual match markers — grouped by location */}
-            {groupedMarkers.map(({ best: m, count, all }) => {
-              const ai = isAiMatch(m)
-              const hot = m.isHot
-              return (
-              <Marker
-                key={`match-${m.matchId}`}
-                longitude={m.lng}
-                latitude={m.lat}
-                anchor="center"
-                style={{ zIndex: selectedMatch ? 1 : m.score }}
-                onClick={(e: { originalEvent: MouseEvent }) => {
-                  e.originalEvent.stopPropagation()
-                  setSelectedMatch(m)
-                  setSelectedUf(m.uf)
-                  setSelectedGroup(count > 1 ? all : null)
-                }}
-              >
-                <div className="relative">
-                  {hot && (
-                    <span
-                      className="absolute left-1/2 -translate-x-1/2 text-base drop-shadow-lg pointer-events-none"
-                      style={{ top: -16, filter: 'drop-shadow(0 0 4px rgba(255,100,0,0.8))' }}
-                    >
-                      🔥
-                    </span>
-                  )}
-                  <div
-                    className={`flex items-center justify-center rounded-full cursor-pointer shadow-lg transition-transform hover:scale-125 hover:z-40 ${
-                      hot
-                        ? 'border-2 border-yellow-400'
-                        : ai
-                          ? 'border-2 border-blue-400/80'
-                          : 'border-2 border-white/50'
-                    }`}
-                    style={{
-                      width: hot ? 36 : 32,
-                      height: hot ? 36 : 32,
-                      background: hot
-                        ? 'linear-gradient(135deg, #f97316, #ef4444)'
-                        : getMatchColor(m.score),
-                      animation: hot ? 'pulse-hot 1.5s ease-in-out infinite' : undefined,
-                    }}
-                    title={`${m.objeto} — Score: ${m.score}${hot ? ' 🔥 SUPER QUENTE' : ''}${ai ? ' (IA)' : ' (estimado)'}${count > 1 ? ` (+${count - 1} mais)` : ''}`}
-                  >
-                    <span className="text-white font-bold text-[11px] leading-none drop-shadow-sm">
-                      {m.score}
-                    </span>
-                  </div>
-                  {count > 1 && (
-                    <div className="absolute -top-1.5 -right-1.5 bg-[#1a1c1f] text-white rounded-full min-w-[18px] h-[18px] flex items-center justify-center text-[9px] font-bold shadow-md border border-[#2d2f33] px-0.5">
-                      {count}
-                    </div>
-                  )}
-                </div>
-              </Marker>
-              )
-            })}
-
-            {/* Popup when a match marker is clicked */}
-            {selectedMatch && (
+            {/* Popup */}
+            {popupInfo && (
               <Popup
-                longitude={selectedMatch.lng}
-                latitude={selectedMatch.lat}
+                longitude={popupInfo.longitude}
+                latitude={popupInfo.latitude}
                 closeButton={true}
                 closeOnClick={false}
-                onClose={() => { setSelectedMatch(null); setSelectedGroup(null) }}
+                onClose={() => setPopupInfo(null)}
                 anchor="bottom"
                 offset={15}
-                className="!p-0"
-                maxWidth={isMobile ? '240px' : '300px'}
-                style={{ zIndex: 9999 }}
+                className="intelligence-map-popup"
+                maxWidth={isMobile ? '260px' : '320px'}
               >
-                <div className={`bg-[#1a1c1f] text-white rounded-lg ${isMobile ? 'min-w-[200px]' : 'min-w-[260px]'}`}>
-                  {selectedMatch.isHot && (
-                    <div className="bg-gradient-to-r from-orange-500 via-red-500 to-orange-600 px-4 py-2.5">
-                      <p className={`font-bold text-white tracking-wide ${isMobile ? 'text-xs' : 'text-sm'}`}>🔥 SUPER QUENTE</p>
-                    </div>
-                  )}
-                  {selectedGroup && selectedGroup.length > 1 && (
-                    <div className={`px-4 py-2.5 border-b border-[#2d2f33] ${selectedMatch.isHot ? '' : 'pt-3'}`}>
-                      <p className={`font-semibold text-white ${isMobile ? 'text-xs' : 'text-sm'}`}>
-                        {selectedGroup.length} oportunidades em {selectedMatch.municipio || selectedMatch.uf}
+                <div className="min-w-[220px]">
+                  {popupInfo.matches.length > 1 && (
+                    <div className="px-4 py-2.5 border-b border-border">
+                      <p className="text-xs font-medium text-foreground">
+                        {popupInfo.matches.length} oportunidades neste local
                       </p>
                     </div>
                   )}
                   <div className={isMobile ? 'p-3' : 'p-4'}>
-                    {(selectedGroup && selectedGroup.length > 1 ? selectedGroup.slice(0, 5) : [selectedMatch]).map((match, idx) => (
-                      <div key={match.matchId} className={idx > 0 ? 'mt-3 pt-3 border-t border-[#2d2f33]' : ''}>
+                    {popupInfo.matches.slice(0, 5).map((match, idx) => (
+                      <div key={match.matchId} className={idx > 0 ? 'mt-3 pt-3 border-t border-border' : ''}>
                         <div className="flex items-center gap-2 mb-2">
                           <span
-                            className={`inline-flex items-center justify-center w-9 h-9 rounded-xl font-bold text-sm shadow-sm ${getScoreBgClass(match.score)}`}
+                            className={`inline-flex items-center justify-center w-8 h-8 rounded-lg text-xs font-bold border font-mono tabular-nums ${getScoreBadgeClass(match.score)}`}
                           >
                             {match.score}
                           </span>
-                          <div className="flex flex-col">
-                            <span className={`font-medium px-1.5 py-0.5 rounded-md text-[10px] w-fit ${
-                              isAiMatch(match)
-                                ? 'bg-blue-500/10 text-blue-400'
-                                : 'bg-gray-500/20 text-gray-400'
-                            }`}>
-                              {isAiMatch(match) ? '✦ IA' : 'est.'}
+                          <div>
+                            <span className={`text-[10px] font-medium ${getScoreColorClass(match.score)}`}>
+                              {getScoreLabel(match.score)}
                             </span>
-                            {!selectedGroup && (
-                              <span className="text-gray-400 text-[10px] mt-0.5">
-                                {match.municipio ? `${match.municipio}/${match.uf}` : match.uf}
-                              </span>
-                            )}
+                            <span className="text-muted-foreground text-[10px] ml-1.5">
+                              {match.municipio ? `${match.municipio}/${match.uf}` : match.uf}
+                            </span>
                           </div>
                         </div>
-                        <p className={`font-semibold text-white leading-snug line-clamp-2 mb-1.5 ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                        <p className={`font-medium text-foreground leading-snug line-clamp-2 mb-1.5 ${isMobile ? 'text-xs' : 'text-sm'}`}>
                           {match.objeto}
                         </p>
-                        <p className={`text-gray-400 truncate mb-2 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>{match.orgao}</p>
+                        <p className={`text-muted-foreground truncate mb-2 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
+                          {match.orgao}
+                        </p>
                         <div className={`flex items-center gap-3 mb-3 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
-                          {match.valor && (
-                            <span className="font-bold text-emerald-400">
+                          {match.valor != null && match.valor > 0 && (
+                            <span className="font-medium text-foreground font-mono tabular-nums">
                               {formatCompactBRL(match.valor)}
                             </span>
                           )}
                           {match.modalidade && (
-                            <span className="text-gray-400">{match.modalidade}</span>
+                            <span className="text-muted-foreground">{match.modalidade}</span>
                           )}
                           <DeadlineBadge dataEncerramento={match.dataEncerramento} />
                         </div>
                         <Link
                           href={`/opportunities/${match.matchId}`}
-                          className={`inline-flex items-center gap-1 font-medium text-white bg-[#F43E01] hover:bg-[#D63500] rounded-full transition-colors duration-150 ${isMobile ? 'text-[10px] px-3 py-1' : 'text-xs px-4 py-1.5'}`}
+                          className="inline-flex items-center gap-1 text-xs font-medium text-foreground bg-secondary hover:bg-secondary/80 border border-border rounded-lg px-3 py-1.5 transition-colors"
                         >
-                          Ver detalhes <span>&rarr;</span>
+                          Ver detalhes <span className="text-muted-foreground">&rarr;</span>
                         </Link>
                       </div>
                     ))}
-                    {selectedGroup && selectedGroup.length > 5 && (
-                      <p className={`mt-3 pt-3 border-t border-[#2d2f33] text-gray-400 text-center ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
-                        +{selectedGroup.length - 5} mais — clique no estado para ver todas
+                    {popupInfo.matches.length > 5 && (
+                      <p className="mt-3 pt-3 border-t border-border text-muted-foreground text-center text-xs">
+                        +{popupInfo.matches.length - 5} mais — clique no estado para ver todas
                       </p>
                     )}
                   </div>
@@ -867,51 +919,51 @@ export function IntelligenceMap({
           </MapGL>
         </div>
 
-        {/* Legend — hidden on mobile when sheet is open, bottom-left otherwise */}
+        {/* Legend — refined, no emojis */}
         <div className={`absolute z-[5] transition-opacity duration-200 ${
           isMobile && sheetPosition !== 'collapsed'
             ? 'opacity-0 pointer-events-none'
             : ''
         } ${
-          isMobile
-            ? 'bottom-24 left-2'
-            : 'bottom-2 left-4'
+          isMobile ? 'bottom-24 left-2' : 'bottom-2 left-4'
         }`}>
-          <Card className={`bg-black/70 border-white/10 text-white ${isMobile ? 'p-2' : 'p-3'}`}>
-            <p className={`font-semibold mb-2 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>Score do Match</p>
-            <div className="flex items-center gap-1 mb-1">
+          <div className={`bg-black/80 backdrop-blur-sm border border-white/[0.06] rounded-xl text-white ${isMobile ? 'p-2.5' : 'p-3.5'}`}>
+            <p className={`font-medium mb-2.5 text-white/80 ${isMobile ? 'text-[10px]' : 'text-[11px]'}`}>
+              Score do Match
+            </p>
+            <div className="space-y-1.5">
               {[
-                { color: '#F97316', label: '80+ 🔥' },
-                { color: '#10B981', label: '70-79' },
-                { color: '#FBBF24', label: '50-69' },
+                { color: '#10B981', label: '90-100', sublabel: 'Excelente' },
+                { color: '#84CC16', label: '80-89', sublabel: 'Bom' },
+                { color: '#F59E0B', label: '70-79', sublabel: 'Moderado' },
+                { color: '#64748B', label: '50-69', sublabel: 'Baixo' },
               ].map((item) => (
-                <div key={item.label} className="flex items-center gap-1">
+                <div key={item.label} className="flex items-center gap-2">
                   <div
-                    className={`rounded-full border border-white/30 ${isMobile ? 'w-2.5 h-2.5' : 'w-3 h-3'}`}
+                    className={`rounded-full ${isMobile ? 'w-2 h-2' : 'w-2.5 h-2.5'}`}
                     style={{ backgroundColor: item.color }}
                   />
-                  <span className={`text-gray-300 ${isMobile ? 'text-[8px]' : 'text-[10px]'}`}>{item.label}</span>
+                  <span className={`text-white/70 font-mono tabular-nums ${isMobile ? 'text-[8px]' : 'text-[10px]'}`}>
+                    {item.label}
+                  </span>
+                  <span className={`text-white/40 ${isMobile ? 'text-[8px]' : 'text-[10px]'}`}>
+                    {item.sublabel}
+                  </span>
                 </div>
               ))}
             </div>
-            <div className="flex items-center gap-1.5 mt-1.5">
-              <div className={`rounded-full border-2 border-blue-400 bg-gray-500 ${isMobile ? 'w-2.5 h-2.5' : 'w-3 h-3'}`} />
-              <span className={`text-gray-300 ${isMobile ? 'text-[8px]' : 'text-[9px]'}`}>Verificado por IA</span>
+            <div className="mt-2.5 pt-2 border-t border-white/[0.06]">
+              <span className={`text-white/30 font-mono tabular-nums ${isMobile ? 'text-[8px]' : 'text-[9px]'}`}>
+                {filteredMarkers.length.toLocaleString('pt-BR')} oportunidades no mapa
+              </span>
             </div>
-            <div className="flex items-center gap-1.5 mt-1">
-              <div className={`rounded-full border-2 border-yellow-400 ${isMobile ? 'w-2.5 h-2.5' : 'w-3 h-3'}`} style={{ background: 'linear-gradient(135deg, #f97316, #ef4444)' }} />
-              <span className={`text-gray-300 ${isMobile ? 'text-[8px]' : 'text-[9px]'}`}>🔥 Super Quente</span>
-            </div>
-            <p className={`text-gray-400 mt-1 ${isMobile ? 'text-[8px]' : 'text-[9px]'}`}>
-              {filteredMarkers.length} matches no mapa
-            </p>
-          </Card>
+          </div>
         </div>
       </div>
 
       {/* Desktop Sidebar */}
       {!isMobile && (
-        <div className="w-full md:w-[30%] md:min-w-[320px] md:max-w-[400px] h-full overflow-y-auto bg-[#111214] border-l border-[#2d2f33]">
+        <div className="w-full md:w-[30%] md:min-w-[320px] md:max-w-[400px] h-full overflow-y-auto bg-background border-l border-border">
           {sidebarContent}
         </div>
       )}
@@ -919,51 +971,47 @@ export function IntelligenceMap({
       {/* Mobile Bottom Sheet */}
       {isMobile && (
         <div
-          className="fixed bottom-0 left-0 right-0 z-[35] bg-[#111214] rounded-t-2xl shadow-[0_-4px_20px_rgba(0,0,0,0.4)] flex flex-col"
+          className="fixed bottom-0 left-0 right-0 z-[35] bg-background rounded-t-2xl shadow-xl flex flex-col"
           style={{
             height: sheetHeight,
             transition: 'height 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
             maxHeight: 'calc(100vh - 60px)',
           }}
         >
-          {/* Drag handle */}
           <div
             className="flex-shrink-0 flex items-center justify-center py-2 cursor-grab active:cursor-grabbing"
             onTouchStart={onTouchStart}
             onTouchEnd={onTouchEnd}
             style={{ touchAction: 'none' }}
           >
-            <div className="w-10 h-1 rounded-full bg-gray-600" />
+            <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
           </div>
-
-          {/* Scrollable content */}
           <div className="flex-1 overflow-y-auto overscroll-contain">
             {sidebarContent}
           </div>
         </div>
       )}
 
-      {/* Mobile floating toggle button */}
+      {/* Mobile floating toggle */}
       {isMobile && (
         <button
           onClick={() => {
             setSheetPosition((prev) => prev === 'full' ? 'collapsed' : 'full')
           }}
-          className="fixed z-[36] bottom-24 right-4 w-12 h-12 rounded-full bg-brand text-white shadow-lg flex items-center justify-center active:scale-95 transition-transform"
+          className="fixed z-[36] w-11 h-11 rounded-xl bg-secondary border border-border text-foreground shadow-lg flex items-center justify-center active:scale-95 transition-transform"
           style={{
+            right: '12px',
             bottom: sheetPosition === 'collapsed' ? '96px' : sheetPosition === 'half' ? 'calc(50vh + 12px)' : 'calc(100vh - 60px - 56px)',
             transition: 'bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s',
           }}
           aria-label={sheetPosition === 'full' ? 'Ver mapa' : 'Ver lista'}
         >
           {sheetPosition === 'full' ? (
-            // Map icon
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
             </svg>
           ) : (
-            // List icon
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
             </svg>
           )}

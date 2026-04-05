@@ -43,12 +43,13 @@ export interface UfMapData {
   }>
 }
 
-/** Cor baseada no opportunityScore (0-100) — segue regra global */
+/** Cor baseada no opportunityScore (0-100) — escala emerald→lime→amber→slate */
 export function getHeatColor(score: number): string {
-  if (score >= 80) return '#F97316' // Super Quente
-  if (score >= 70) return '#10B981' // Verde
-  if (score >= 50) return '#FBBF24' // Amarelo
-  return '#EF4444'                  // Vermelho
+  if (score >= 90) return '#10B981' // Emerald — Excelente
+  if (score >= 80) return '#84CC16' // Lime — Bom
+  if (score >= 70) return '#F59E0B' // Amber — Moderado
+  if (score >= 50) return '#64748B' // Slate — Baixo
+  return '#EF4444'                  // Red — Fraco
 }
 
 /** Opacidade proporcional ao volume */
@@ -87,12 +88,12 @@ export function formatCompactBRL(value: number): string {
 
 /** Label de dificuldade */
 export function getDifficultyLabel(avgCompetitors: number | null): {
-  label: string; color: string; emoji: string
+  label: string; color: string
 } {
-  if (avgCompetitors === null) return { label: 'Sem dados', color: 'gray', emoji: '?' }
-  if (avgCompetitors <= 2) return { label: 'Muito Fácil', color: 'green', emoji: 'green' }
-  if (avgCompetitors <= 4) return { label: 'Fácil', color: 'emerald', emoji: 'green' }
-  if (avgCompetitors <= 7) return { label: 'Moderado', color: 'yellow', emoji: 'yellow' }
-  if (avgCompetitors <= 12) return { label: 'Competitivo', color: 'orange', emoji: 'orange' }
-  return { label: 'Muito Competitivo', color: 'red', emoji: 'red' }
+  if (avgCompetitors === null) return { label: 'Sem dados', color: 'slate' }
+  if (avgCompetitors <= 2) return { label: 'Muito Fácil', color: 'emerald' }
+  if (avgCompetitors <= 4) return { label: 'Fácil', color: 'lime' }
+  if (avgCompetitors <= 7) return { label: 'Moderado', color: 'amber' }
+  if (avgCompetitors <= 12) return { label: 'Competitivo', color: 'orange' }
+  return { label: 'Muito Competitivo', color: 'red' }
 }
