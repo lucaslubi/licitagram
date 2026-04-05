@@ -99,10 +99,6 @@ export function ImpugnationCard({ matchId, dataAbertura }: { matchId: string; da
             }`}>
               {isUrgent ? `🔴 URGENTE — ${diasRestantes}d restante${diasRestantes > 1 ? 's' : ''}` : `⏰ ${diasRestantes} dias úteis`}
             </Badge>
-          ) : prazoDate ? (
-            <Badge variant="outline" className="bg-zinc-800 text-gray-500 border-zinc-700 text-[11px]">
-              Prazo encerrado
-            </Badge>
           ) : null}
         </div>
 
@@ -141,7 +137,6 @@ export function ImpugnationCard({ matchId, dataAbertura }: { matchId: string; da
 
               <Button
                 onClick={() => setShowModal(true)}
-                disabled={isExpired}
                 className={`w-full font-medium ${
                   isUrgent
                     ? 'bg-red-600 hover:bg-red-700 text-white'
