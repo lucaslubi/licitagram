@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { AddWatchlistForm } from './watchlist-form'
 import { DeleteWatchlistButton } from './delete-watchlist-button'
 import { MercadoSummaryCards, MercadoTable, type MercadoCompetitor } from './mercado-table'
+import { IntelOverview, type OverviewData } from './intel-overview'
 
 export default async function CompetitorsPage({
   searchParams,
@@ -23,7 +24,7 @@ export default async function CompetitorsPage({
     .eq('id', user.id)
     .single()
 
-  const tab = params.tab || 'mercado'
+  const tab = params.tab || 'overview'
   const searchQuery = params.q || ''
 
   // Fetch AI relevance data for active company
@@ -741,13 +742,119 @@ export default async function CompetitorsPage({
     }
   }
 
+  // ── Overview data computation ──────────────────────────────────────────────
+  let overviewData: OverviewData | null = null
+  if (tab === 'overview') {
+    // Fetch competitor stats for overview
+    let overviewCompetitors: Array<Record<string, unknown>> = []
+    if (companyCnaeDivisions.length > 0) {
+      const { data } = await supabase
+        .from('competitor_stats')
+        .select('cnpj, razao_social, porte, uf, total_participacoes, total_vitorias, win_rate, valor_total_ganho, ufs_atuacao, nivel_ameaca')
+        .in('cnae_grupo', companyCnaeDivisions)
+        .gte('total_participacoes', 3)
+        .order('total_participacoes', { ascending: false })
+        .limit(200)
+      if (data) overviewCompetitors = data
+    }
+    // Fallback to 2-digit
+    if (overviewCompetitors.length < 10 && companyCnaeDivisions2.length > 0) {
+      const existing = new Set(overviewCompetitors.map(r => r.cnpj as string))
+      const { data } = await supabase
+        .from('competitor_stats')
+        .select('cnpj, razao_social, porte, uf, total_participacoes, total_vitorias, win_rate, valor_total_ganho, ufs_atuacao, nivel_ameaca')
+        .in('cnae_divisao', companyCnaeDivisions2)
+        .gte('total_participacoes', 3)
+        .order('total_participacoes', { ascending: false })
+        .limit(200)
+      if (data) {
+        for (const r of data) {
+          if (!existing.has(r.cnpj as string)) overviewCompetitors.push(r)
+        }
+      }
+    }
+
+    // Classify by relevance
+    let directCount = 0, indirectCount = 0, partnerCount = 0
+    let relevanceSum = 0, relevanceCount = 0
+    for (const c of overviewCompetitors) {
+      const rel = relevanceMap[c.cnpj as string]
+      if (rel) {
+        relevanceSum += rel.score
+        relevanceCount++
+        if (rel.type === 'concorrente_direto') directCount++
+        else if (rel.type === 'concorrente_indireto') indirectCount++
+        else if (rel.type === 'potencial_parceiro') partnerCount++
+      }
+    }
+
+    // Top rivals
+    const topRivals = overviewCompetitors
+      .sort((a, b) => Number(b.total_participacoes || 0) - Number(a.total_participacoes || 0))
+      .slice(0, 10)
+      .map((c) => {
+        const ufsObj = (c.ufs_atuacao as Record<string, boolean>) || {}
+        return {
+          cnpj: c.cnpj as string,
+          name: (c.razao_social as string) || 'N/I',
+          participations: Number(c.total_participacoes || 0),
+          wins: Number(c.total_vitorias || 0),
+          winRate: Number(c.win_rate || 0),
+          totalValue: Number(c.valor_total_ganho || 0),
+          porte: (c.porte as string) || null,
+          uf: (c.uf as string) || null,
+          threatLevel: (c.nivel_ameaca as string) || null,
+          ufs: Object.keys(ufsObj).slice(0, 5),
+        }
+      })
+
+    // UF heatmap from competitor data
+    const ufAgg: Record<string, { editals: number; competitors: Set<string>; winRateSum: number; winRateCount: number }> = {}
+    for (const c of overviewCompetitors) {
+      const ufsObj = (c.ufs_atuacao as Record<string, boolean>) || {}
+      for (const uf of Object.keys(ufsObj)) {
+        if (!ufAgg[uf]) ufAgg[uf] = { editals: 0, competitors: new Set(), winRateSum: 0, winRateCount: 0 }
+        ufAgg[uf].editals += Number(c.total_participacoes || 0)
+        ufAgg[uf].competitors.add(c.cnpj as string)
+        ufAgg[uf].winRateSum += Number(c.win_rate || 0)
+        ufAgg[uf].winRateCount++
+      }
+    }
+    const ufHeatmap = Object.entries(ufAgg)
+      .map(([uf, data]) => {
+        const competitorCount = data.competitors.size
+        const editalCount = Math.round(data.editals / Math.max(competitorCount, 1))
+        const avgWinRate = data.winRateCount > 0 ? data.winRateSum / data.winRateCount : 0
+        const opportunityScore = Math.min(100, Math.round(
+          (editalCount * 2) + (100 / Math.max(competitorCount, 1))
+        ))
+        return { uf, editalCount, competitorCount, avgWinRate, opportunityScore }
+      })
+      .sort((a, b) => b.opportunityScore - a.opportunityScore)
+
+    overviewData = {
+      totalCompetitors: overviewCompetitors.length,
+      directCompetitors: directCount,
+      indirectCompetitors: indirectCount,
+      potentialPartners: partnerCount,
+      avgRelevanceScore: relevanceCount > 0 ? Math.round(relevanceSum / relevanceCount) : 0,
+      topRivals,
+      ufHeatmap,
+      watchedCount: watchlist?.length || 0,
+    }
+  }
+
   return (
     <div>
-      <h1 className="text-xl sm:text-2xl font-bold mb-6">Inteligência Competitiva</h1>
+      <div className="mb-5">
+        <h1 className="text-xl font-semibold text-foreground tracking-tight">Inteligência Competitiva</h1>
+        <p className="text-xs text-muted-foreground mt-1">Análise de mercado, benchmarking e oportunidades</p>
+      </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-4 overflow-x-auto">
+      <div className="flex gap-1 mb-5 overflow-x-auto">
         {[
+          { key: 'overview', label: 'Visão Geral' },
           { key: 'mercado', label: 'Mercado' },
           { key: 'panorama', label: 'Panorama' },
           { key: 'ranking', label: 'Ranking' },
@@ -758,14 +865,21 @@ export default async function CompetitorsPage({
           <Link
             key={t.key}
             href={`/competitors?tab=${t.key}`}
-            className={`px-3 sm:px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap ${
-              tab === t.key ? 'bg-brand text-white' : 'bg-[#2d2f33] text-gray-400 hover:bg-[#2d2f33]/80'
+            className={`px-3 py-1.5 rounded-lg text-[13px] font-medium whitespace-nowrap transition-all duration-150 border ${
+              tab === t.key
+                ? 'bg-secondary border-border text-foreground'
+                : 'bg-transparent border-transparent text-muted-foreground hover:text-foreground hover:bg-secondary/50'
             }`}
           >
             {t.label}
           </Link>
         ))}
       </div>
+
+      {/* Overview tab */}
+      {tab === 'overview' && overviewData && (
+        <IntelOverview data={overviewData} />
+      )}
 
       {tab === 'watchlist' && (
         <div className="space-y-4">
