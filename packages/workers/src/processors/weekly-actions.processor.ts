@@ -97,10 +97,15 @@ async function detectOpportunityWindows(
       }
     }
 
-    // Find UFs with few competitors AND significant volume
+    // Find UFs with relatively low competition AND meaningful volume
     const windows = Object.entries(ufAgg)
-      .filter(([, d]) => d.competitors.size <= 5 && d.editals >= 10)
-      .sort((a, b) => a[1].competitors.size - b[1].competitors.size)
+      .filter(([, d]) => d.competitors.size <= 15 && d.editals >= 5)
+      .sort((a, b) => {
+        // Sort by ratio: editals per competitor (higher = better opportunity)
+        const ratioA = a[1].editals / Math.max(a[1].competitors.size, 1)
+        const ratioB = b[1].editals / Math.max(b[1].competitors.size, 1)
+        return ratioB - ratioA
+      })
       .slice(0, 3)
 
     for (const [uf, data] of windows) {
@@ -139,15 +144,15 @@ async function detectNewRivals(
 
   const actions: WeeklyActionInsert[] = []
   const weekOf = getMonday()
-  const lastWeek = new Date(Date.now() - 7 * 86400000).toISOString()
+  const recentWindow = new Date(Date.now() - 30 * 86400000).toISOString()
 
   try {
     const { data: newCompetitors } = await supabase
       .from('competitor_stats')
       .select('cnpj, razao_social, uf, total_participacoes, win_rate, valor_total_ganho')
       .in('cnae_divisao', cnaeDivisions)
-      .gte('ultima_participacao', lastWeek)
-      .gte('total_participacoes', 3)
+      .gte('ultima_participacao', recentWindow)
+      .gte('total_participacoes', 1)
       .order('total_participacoes', { ascending: false })
       .limit(5)
 
@@ -210,8 +215,8 @@ async function detectWeakeningRivals(
       .from('competitor_stats')
       .select('cnpj, razao_social, uf, total_participacoes, total_vitorias, win_rate, valor_total_ganho')
       .in('cnae_divisao', cnaeDivisions)
-      .gte('total_participacoes', 10)
-      .lte('win_rate', 0.15) // less than 15% win rate
+      .gte('total_participacoes', 5)
+      .lte('win_rate', 0.30) // less than 30% win rate — struggling competitors
       .order('total_participacoes', { ascending: false })
       .limit(5)
 
@@ -277,6 +282,7 @@ async function handleGenerateWeeklyActions() {
       }
 
       const cnaeDivisions = getCnaeDivisions(company)
+      logger.info({ companyId: company.id, name: company.razao_social, cnaeDivisions }, 'Processing company')
 
       // Run all detection functions in parallel
       const [windows, newRivals, weakRivals] = await Promise.all([
@@ -286,6 +292,7 @@ async function handleGenerateWeeklyActions() {
       ])
 
       const allActions = [...windows, ...newRivals, ...weakRivals]
+      logger.info({ companyId: company.id, windows: windows.length, newRivals: newRivals.length, weakRivals: weakRivals.length, total: allActions.length }, 'Detection results')
 
       if (allActions.length === 0) continue
 
