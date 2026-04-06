@@ -66,7 +66,8 @@ async function loadWorkers(): Promise<Worker[]> {
     const { outcomeCheckWorker } = await import('./processors/outcome-check.processor')
     const { dailyAuditWorker } = await import('./processors/daily-audit.processor')
     const { aiHealingWorker } = await import('./processors/ai-healing.processor')
-    workers.push(pendingNotificationsWorker, hotAlertsWorker, mapCacheWorker, pipelineHealthWorker, outcomeCheckWorker, dailyAuditWorker, aiHealingWorker)
+    const { weeklyActionsWorker } = await import('./processors/weekly-actions.processor')
+    workers.push(pendingNotificationsWorker, hotAlertsWorker, mapCacheWorker, pipelineHealthWorker, outcomeCheckWorker, dailyAuditWorker, aiHealingWorker, weeklyActionsWorker)
   }
 
   if (selectedGroups.includes('telegram')) {
@@ -134,6 +135,7 @@ import { competitorRelevanceQueue } from './queues/competitor-relevance.queue'
 import { dailyAuditQueue } from './queues/daily-audit.queue'
 import { certidoesQueue } from './queues/certidoes.queue'
 import { aiHealingQueue } from './queues/ai-healing.queue'
+import { weeklyActionsQueue } from './queues/weekly-actions.queue'
 
 async function setupRepeatableJobs() {
   const today = formatDatePNCP(new Date())
@@ -398,6 +400,20 @@ async function setupRepeatableJobs() {
     },
   )
   logger.info('Proactive supplier scraping scheduled (every 4h)')
+
+  // Weekly actions: generate every Monday at 00:00 BRT (03:00 UTC)
+  await weeklyActionsQueue.add(
+    'generate-weekly-actions', {},
+    { repeat: { pattern: '0 3 * * 1' }, jobId: 'weekly-actions-monday-repeat' },
+  )
+  logger.info('Weekly actions scheduled (Monday 00:00 BRT / 03:00 UTC)')
+
+  // Watchlist activity check every 3h
+  await weeklyActionsQueue.add(
+    'watchlist-activity-check', {},
+    { repeat: { every: 3 * 60 * 60 * 1000 }, jobId: 'watchlist-activity-3h-repeat' },
+  )
+  logger.info('Watchlist activity check scheduled (every 3h)')
 
   // Schedule certidoes poller every 15 seconds (polls certidao_jobs table for pending work)
   await certidoesQueue.add(
