@@ -349,7 +349,7 @@ export default async function LandingPage() {
                   <img
                     src="/logo-branca.png"
                     alt="Licitagram"
-                    className="absolute bottom-3 left-3 h-8 opacity-80 drop-shadow-lg pointer-events-none"
+                    className="absolute bottom-2 left-2 h-14 opacity-95 drop-shadow-lg pointer-events-none"
                   />
                 </div>
                 <p className="text-center text-sm text-[#69695D] mt-4">Mapa de Inteligência — Oportunidades geolocalizadas com score de compatibilidade em tempo real</p>
