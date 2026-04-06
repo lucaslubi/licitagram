@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getUserWithPlan } from '@/lib/auth-helpers'
 import { sendVerificationCode } from '@/lib/evolution-api'
+import { randomInt } from 'crypto'
 
 export async function POST(request: NextRequest) {
   const userCtx = await getUserWithPlan()
@@ -25,7 +26,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Número inválido' }, { status: 400 })
   }
 
-  const code = Math.floor(100000 + Math.random() * 900000).toString()
+  const code = randomInt(100000, 999999).toString()
 
   const supabase = await createClient()
 

@@ -550,7 +550,7 @@ if (bot) {
     const outcomeMap: Record<string, string> = { won: 'won', lost: 'lost', skip: 'did_not_participate' }
     const outcomeValue = outcomeMap[outcome]
 
-    const chatId = ctx.chat?.id?.toString()
+    const chatId = ctx.chat?.id
     const { data: user } = await supabase
       .from('users')
       .select('id, company_id')
@@ -562,10 +562,12 @@ if (bot) {
       return
     }
 
+    // Scope match lookup to user's company
     const { data: match } = await supabase
       .from('matches')
       .select('id, tender_id')
       .eq('id', matchId)
+      .eq('company_id', user.company_id)
       .single()
 
     if (!match) {
@@ -603,13 +605,25 @@ if (bot) {
     logger.info({ matchId, outcome: outcomeValue, userId: user.id }, 'Outcome reported via Telegram')
   })
 
-  // Handle match action callbacks
+  // Handle match action callbacks — scoped to user's company
   bot.callbackQuery(/^match_(interested|dismiss)_(.+)$/, async (ctx) => {
     const action = ctx.match[1]
     const matchId = ctx.match[2]
 
+    // Verify caller owns this match via their company
+    const { data: user } = await supabase
+      .from('users')
+      .select('company_id')
+      .eq('telegram_chat_id', ctx.chat?.id)
+      .single()
+
+    if (!user) {
+      await ctx.answerCallbackQuery({ text: 'Conta não vinculada' })
+      return
+    }
+
     const status = action === 'interested' ? 'interested' : 'dismissed'
-    await supabase.from('matches').update({ status }).eq('id', matchId)
+    await supabase.from('matches').update({ status }).eq('id', matchId).eq('company_id', user.company_id)
 
     const emoji = action === 'interested' ? '✅' : '❌'
     const label = action === 'interested' ? 'Interesse registrado' : 'Licitação descartada'

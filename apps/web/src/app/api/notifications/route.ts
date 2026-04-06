@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
 
     const { data: notifications, count, error } = await query
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) return NextResponse.json({ error: 'Failed to fetch notifications' }, { status: 500 })
 
     // Get unread count
     const { count: unreadCount } = await supabase

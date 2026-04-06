@@ -18,7 +18,7 @@ interface CreateNotificationParams {
 
 export async function createNotification(params: CreateNotificationParams): Promise<void> {
   try {
-    await supabase.supabase
+    const { error } = await supabase.supabase
       .from('notifications')
       .insert({
         user_id: params.userId,
@@ -30,6 +30,10 @@ export async function createNotification(params: CreateNotificationParams): Prom
         metadata: params.metadata || {},
         read: false,
       })
+
+    if (error) {
+      logger.warn({ err: error.message, code: error.code, type: params.type }, 'Failed to insert notification')
+    }
   } catch (err: any) {
     logger.warn({ err: err.message, type: params.type }, 'Failed to create notification (non-blocking)')
   }

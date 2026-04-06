@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
   // Validate Evolution API webhook secret (required in production)
   const apiKey = request.headers.get('apikey') || request.headers.get('x-api-key')
   const expectedKey = process.env.EVOLUTION_WEBHOOK_SECRET || process.env.EVOLUTION_API_KEY
-  if (expectedKey && apiKey !== expectedKey) {
+  if (!expectedKey || apiKey !== expectedKey) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

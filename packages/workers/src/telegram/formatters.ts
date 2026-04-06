@@ -30,7 +30,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 }
 
 function scoreBar(score: number): string {
-  const filled = Math.round(score / 10)
+  const filled = Math.max(0, Math.min(10, Math.round(score / 10)))
   return '█'.repeat(filled) + '░'.repeat(10 - filled)
 }
 

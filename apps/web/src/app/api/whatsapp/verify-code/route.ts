@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getUserWithPlan } from '@/lib/auth-helpers'
+import { timingSafeEqual } from 'crypto'
 
 export async function POST(request: NextRequest) {
   const userCtx = await getUserWithPlan()
@@ -46,11 +47,15 @@ export async function POST(request: NextRequest) {
     .update({ attempts: newAttempts })
     .eq('id', verification.id)
 
-  if (newAttempts > 5) {
+  if (newAttempts >= 5) {
     return NextResponse.json({ error: 'Máximo de tentativas atingido. Solicite um novo código.' }, { status: 400 })
   }
 
-  if (verification.code !== String(code)) {
+  // Constant-time comparison to prevent timing attacks
+  const codeStr = String(code).padEnd(6, '0')
+  const storedCode = String(verification.code).padEnd(6, '0')
+  const isValid = timingSafeEqual(Buffer.from(codeStr), Buffer.from(storedCode))
+  if (!isValid) {
     return NextResponse.json({ error: 'Código incorreto' }, { status: 400 })
   }
 

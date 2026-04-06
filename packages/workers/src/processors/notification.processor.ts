@@ -278,18 +278,26 @@ const notificationWorker = new Worker<NotificationJobData>(
 
       // Insert into unified notifications table
       if (match && tender) {
-        const userId = (job.data as any).userId
         const companyId = (match as any).company_id
-        if (userId && companyId) {
-          await createNotification({
-            userId,
-            companyId,
-            type: (match.score as number) >= 85 ? 'hot_match' : 'new_match',
-            title: `Nova oportunidade (Score ${match.score})`,
-            body: ((tender.objeto as string) || '').substring(0, 200),
-            link: `/opportunities/${matchId}`,
-            metadata: { score: match.score, orgao: tender.orgao_nome },
-          })
+        if (companyId) {
+          // Resolve userId from telegramChatId since it's not in the job data
+          const { data: notifUser } = await supabase
+            .from('users')
+            .select('id')
+            .eq('telegram_chat_id', telegramChatId)
+            .single()
+
+          if (notifUser) {
+            await createNotification({
+              userId: notifUser.id,
+              companyId,
+              type: (match.score as number) >= 85 ? 'hot_match' : 'new_match',
+              title: `Nova oportunidade (Score ${match.score})`,
+              body: ((tender.objeto as string) || '').substring(0, 200),
+              link: `/opportunities/${matchId}`,
+              metadata: { score: match.score, orgao: tender.orgao_nome },
+            })
+          }
         }
       }
     } catch (err) {
