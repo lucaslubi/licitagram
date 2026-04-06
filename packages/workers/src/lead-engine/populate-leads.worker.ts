@@ -334,7 +334,7 @@ export async function populateLeads(options: {
   }
 
   // 3. Fetch all competitor_stats CNPJs from Supabase (paginated)
-  const allCnpjs: CompetitorStatsRow[] = []
+  let allCnpjs: CompetitorStatsRow[] = []
   let page = 0
   const pageSize = 1000
 
@@ -360,7 +360,20 @@ export async function populateLeads(options: {
     }
   }
 
-  logger.info({ totalCnpjs: allCnpjs.length }, 'CNPJs carregados de competitor_stats')
+  // 3b. Deduplicate CNPJs (pad to 14 and take first occurrence)
+  const seenCnpjs = new Set<string>()
+  allCnpjs = allCnpjs.filter(row => {
+    if (!row.cnpj) return false
+    const clean = row.cnpj.replace(/\D/g, '')
+    if (clean.length < 8 || clean.length > 14) return false
+    const padded = clean.padStart(14, '0')
+    if (seenCnpjs.has(padded)) return false
+    seenCnpjs.add(padded)
+    row.cnpj = padded
+    return true
+  })
+
+  logger.info({ totalCnpjs: allCnpjs.length }, 'CNPJs carregados de competitor_stats (deduplicados)')
 
   // 4. Process in batches
   for (let i = 0; i < allCnpjs.length; i += BATCH_SIZE) {
@@ -395,13 +408,7 @@ export async function populateLeads(options: {
 
     for (const stat of batch) {
       if (!stat.cnpj) continue
-      // Sanitize CNPJ: keep only digits, pad to 14, truncate if longer
-      const cnpjClean = stat.cnpj.replace(/\D/g, '')
-      if (cnpjClean.length < 8 || cnpjClean.length > 14) {
-        logger.warn({ cnpj: stat.cnpj, len: cnpjClean.length }, 'CNPJ inválido, pulando')
-        continue
-      }
-      stat.cnpj = cnpjClean.padStart(14, '0')
+      // CNPJ already sanitized and deduped in step 3b
       metrics.totalProcessado++
 
       const rfb = empresasRfb[stat.cnpj]
