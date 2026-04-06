@@ -39,7 +39,11 @@ export default async function CompetitorsPage({
 
     if (relevanceData) {
       for (const r of relevanceData) {
-        relevanceMap[r.competitor_cnpj] = {
+        // Normalize CNPJ: remove formatting chars (some records have "XX.XXX.XXX/XXXX-XX")
+        const normalizedCnpj = r.competitor_cnpj?.replace(/\D/g, '') || r.competitor_cnpj
+        // Skip irrelevant entries — they pollute the counts
+        if (r.relationship_type === 'irrelevante' && r.relevance_score === 0) continue
+        relevanceMap[normalizedCnpj] = {
           score: r.relevance_score,
           type: r.relationship_type || '',
           reason: r.reason || '',
@@ -747,7 +751,12 @@ export default async function CompetitorsPage({
   let overviewData: OverviewData | null = null
   if (tab === 'overview') {
     // Fetch competitor stats for overview
+    // Strategy: always use BOTH 4-digit CNAE groups AND 2-digit divisions
+    // because ~85% of competitor_stats have cnae_grupo = NULL
     let overviewCompetitors: Array<Record<string, unknown>> = []
+    const seenCnpjs = new Set<string>()
+
+    // Step 1: Query by precise 4-digit CNAE groups (best match)
     if (companyCnaeDivisions.length > 0) {
       const { data } = await supabase
         .from('competitor_stats')
@@ -756,21 +765,28 @@ export default async function CompetitorsPage({
         .gte('total_participacoes', 3)
         .order('total_participacoes', { ascending: false })
         .limit(200)
-      if (data) overviewCompetitors = data
+      if (data) {
+        for (const r of data) {
+          seenCnpjs.add(r.cnpj as string)
+          overviewCompetitors.push(r)
+        }
+      }
     }
-    // Fallback to 2-digit
-    if (overviewCompetitors.length < 10 && companyCnaeDivisions2.length > 0) {
-      const existing = new Set(overviewCompetitors.map(r => r.cnpj as string))
+    // Step 2: Always also query by 2-digit division to catch records with NULL cnae_grupo
+    if (companyCnaeDivisions2.length > 0) {
       const { data } = await supabase
         .from('competitor_stats')
         .select('cnpj, razao_social, porte, uf, total_participacoes, total_vitorias, win_rate, valor_total_ganho, ufs_atuacao, nivel_ameaca')
         .in('cnae_divisao', companyCnaeDivisions2)
         .gte('total_participacoes', 3)
         .order('total_participacoes', { ascending: false })
-        .limit(200)
+        .limit(500)
       if (data) {
         for (const r of data) {
-          if (!existing.has(r.cnpj as string)) overviewCompetitors.push(r)
+          if (!seenCnpjs.has(r.cnpj as string)) {
+            seenCnpjs.add(r.cnpj as string)
+            overviewCompetitors.push(r)
+          }
         }
       }
     }
@@ -860,9 +876,11 @@ export default async function CompetitorsPage({
       .filter(([, d]) => d.competitors.size >= 3) // minimum 3 competitors for statistical relevance
       .map(([uf, d]) => {
         const competitorCount = d.competitors.size
-        const editalCount = Math.round(d.editals / Math.max(competitorCount, 1))
+        // Show total participations in this UF (not an average)
+        const editalCount = d.editals
         const avgWinRate = d.winRateCount > 0 ? d.winRateSum / d.winRateCount : 0
-        const editalWeight = Math.min(40, editalCount * 3)
+        // Opportunity score: more editais + fewer competitors = higher score
+        const editalWeight = Math.min(40, Math.log10(Math.max(editalCount, 1)) * 12)
         const competitionPenalty = Math.max(0, 35 - competitorCount * 4)
         const valueBonus = Math.min(25, d.totalValue > 0 ? Math.log10(d.totalValue / 100000) * 5 : 0)
         const opportunityScore = Math.min(99, Math.round(editalWeight + competitionPenalty + valueBonus))

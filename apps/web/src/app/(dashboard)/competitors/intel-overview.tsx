@@ -72,7 +72,7 @@ export function IntelOverview({ data }: { data: OverviewData }) {
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M12 8v8M8 12h8" /></svg>
             </div>
             <p className="intel-insight-label">Oportunidade de Arbitragem</p>
-            <p className="intel-insight-headline">{bestUf.uf} — {bestUf.competitorCount} concorrente{bestUf.competitorCount !== 1 ? 's' : ''}, {bestUf.editalCount} editais</p>
+            <p className="intel-insight-headline">{bestUf.uf} — {bestUf.competitorCount} concorrente{bestUf.competitorCount !== 1 ? 's' : ''}, {bestUf.editalCount} participações</p>
             <p className="intel-insight-detail">
               Score de oportunidade {bestUf.opportunityScore}/100. Win rate médio {bestUf.avgWinRate.toFixed(1)}%.
             </p>
@@ -218,7 +218,7 @@ export function IntelOverview({ data }: { data: OverviewData }) {
               </div>
               <div>
                 <h3 className="card-refined-title">Oportunidades por UF</h3>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Editais ÷ concorrentes = oportunidade</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Participações × concorrentes = oportunidade</p>
               </div>
             </div>
           </div>
@@ -232,7 +232,7 @@ export function IntelOverview({ data }: { data: OverviewData }) {
                   <span className="w-7 h-5 rounded bg-secondary border border-border flex items-center justify-center text-[10px] font-bold text-foreground">{uf.uf}</span>
                   <div className="flex-1 grid grid-cols-3 gap-2 text-[11px]">
                     <div>
-                      <span className="text-muted-foreground">Editais </span>
+                      <span className="text-muted-foreground">Part. </span>
                       <span className="font-semibold text-foreground font-mono tabular-nums">{uf.editalCount}</span>
                     </div>
                     <div>
