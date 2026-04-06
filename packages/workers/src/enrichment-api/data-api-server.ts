@@ -63,84 +63,63 @@ function parseUrl(url: string): { pathname: string; query: Record<string, string
 async function handleEmpresa(cnpj: string): Promise<{ status: number; body: unknown }> {
   const cnpj14 = formatCnpj14(cnpj)
   const cnpjBasico = cnpj14.substring(0, 8)
-  const cnpjOrdem = cnpj14.substring(8, 12)
-  const cnpjDv = cnpj14.substring(12, 14)
 
+  // Check if enrichment_cache has consolidated data
+  const cached = await pgPool.query(
+    'SELECT data FROM enrichment_cache WHERE cnpj = $1 LIMIT 1',
+    [cnpj14],
+  ).catch(() => ({ rows: [] }))
+
+  if (cached.rows.length > 0 && cached.rows[0].data?.razao_social) {
+    return { status: 200, body: { cnpj: cnpj14, ...cached.rows[0].data } }
+  }
+
+  // Try empresas + estabelecimentos JOIN
+  const hasEstab = await pgPool.query('SELECT EXISTS(SELECT 1 FROM estabelecimentos LIMIT 1)').then(r => r.rows[0].exists).catch(() => false)
+
+  if (hasEstab) {
+    const cnpjOrdem = cnpj14.substring(8, 12)
+    const cnpjDv = cnpj14.substring(12, 14)
+
+    const result = await pgPool.query(
+      `SELECT
+        e.cnpj_basico || est.cnpj_ordem || est.cnpj_dv AS cnpj,
+        e.razao_social, est.nome_fantasia, est.cnae_fiscal,
+        est.cnae_fiscal_secundaria, e.porte_empresa, e.capital_social,
+        est.data_inicio_atividade, e.natureza_juridica,
+        est.situacao_cadastral, est.uf, est.municipio,
+        est.logradouro, est.numero, est.bairro, est.cep,
+        est.telefone1 AS telefone_1, est.email
+      FROM empresas e
+      JOIN estabelecimentos est ON e.cnpj_basico = est.cnpj_basico
+      WHERE e.cnpj_basico = $1 AND est.cnpj_ordem = $2 AND est.cnpj_dv = $3
+      LIMIT 1`,
+      [cnpjBasico, cnpjOrdem, cnpjDv],
+    )
+    if (result.rows.length > 0) return { status: 200, body: result.rows[0] }
+  }
+
+  // Fallback: empresas-only
   const result = await pgPool.query(
-    `SELECT
-      e.cnpj_basico || est.cnpj_ordem || est.cnpj_dv AS cnpj,
-      e.razao_social,
-      est.nome_fantasia,
-      est.cnae_fiscal,
-      est.cnae_fiscal_secundaria,
-      e.porte_empresa,
-      e.capital_social,
-      est.data_inicio_atividade,
-      e.natureza_juridica,
-      est.situacao_cadastral,
-      est.data_situacao_cadastral,
-      est.motivo_situacao_cadastral,
-      est.uf,
-      est.municipio,
-      est.tipo_logradouro,
-      est.logradouro,
-      est.numero,
-      est.complemento,
-      est.bairro,
-      est.cep,
-      est.telefone1 AS telefone_1,
-      est.telefone2 AS telefone_2,
-      est.email
-    FROM empresas e
-    JOIN estabelecimentos est ON e.cnpj_basico = est.cnpj_basico
-    WHERE e.cnpj_basico = $1
-      AND est.cnpj_ordem = $2
-      AND est.cnpj_dv = $3
-    LIMIT 1`,
-    [cnpjBasico, cnpjOrdem, cnpjDv],
+    `SELECT cnpj_basico, razao_social, porte_empresa, capital_social, natureza_juridica
+     FROM empresas WHERE cnpj_basico = $1 LIMIT 1`,
+    [cnpjBasico],
   )
 
   if (result.rows.length === 0) {
-    // Fallback: try just cnpj_basico with matriz (0001)
-    const fallback = await pgPool.query(
-      `SELECT
-        e.cnpj_basico || est.cnpj_ordem || est.cnpj_dv AS cnpj,
-        e.razao_social,
-        est.nome_fantasia,
-        est.cnae_fiscal,
-        est.cnae_fiscal_secundaria,
-        e.porte_empresa,
-        e.capital_social,
-        est.data_inicio_atividade,
-        e.natureza_juridica,
-        est.situacao_cadastral,
-        est.data_situacao_cadastral,
-        est.motivo_situacao_cadastral,
-        est.uf,
-        est.municipio,
-        est.tipo_logradouro,
-        est.logradouro,
-        est.numero,
-        est.complemento,
-        est.bairro,
-        est.cep,
-        est.telefone1 AS telefone_1,
-        est.telefone2 AS telefone_2,
-        est.email
-      FROM empresas e
-      JOIN estabelecimentos est ON e.cnpj_basico = est.cnpj_basico
-      WHERE e.cnpj_basico = $1
-        AND est.identificador_matriz_filial = '1'
-      LIMIT 1`,
-      [cnpjBasico],
-    )
-    if (fallback.rows.length === 0) {
-      return { status: 404, body: { error: 'CNPJ not found' } }
-    }
-    return { status: 200, body: fallback.rows[0] }
+    return { status: 404, body: { error: 'CNPJ not found' } }
   }
 
-  return { status: 200, body: result.rows[0] }
+  return {
+    status: 200,
+    body: {
+      cnpj: cnpj14,
+      razao_social: result.rows[0].razao_social?.trim(),
+      porte_empresa: result.rows[0].porte_empresa?.trim(),
+      capital_social: result.rows[0].capital_social,
+      natureza_juridica: result.rows[0].natureza_juridica?.trim(),
+    },
+  }
 }
 
 async function handleSocios(cnpj: string): Promise<{ status: number; body: unknown }> {
@@ -305,62 +284,92 @@ async function handleBatchEmpresas(cnpjs: string[]): Promise<{ status: number; b
   const cnpjs14 = cnpjs.map(c => formatCnpj14(c)).slice(0, 100)
   const cnpjsBasico = [...new Set(cnpjs14.map(c => c.substring(0, 8)))]
 
-  const result = await pgPool.query(
-    `SELECT
-      e.cnpj_basico,
-      e.razao_social,
-      e.capital_social,
-      e.porte_empresa,
-      e.natureza_juridica,
-      est.cnpj_ordem,
-      est.cnpj_dv,
-      est.nome_fantasia,
-      est.cnae_fiscal,
-      est.cnae_fiscal_secundaria,
-      est.data_inicio_atividade,
-      est.situacao_cadastral,
-      est.tipo_logradouro,
-      est.logradouro,
-      est.numero,
-      est.complemento,
-      est.bairro,
-      est.cep,
-      est.uf,
-      est.municipio,
-      est.telefone1 AS telefone_1,
-      est.telefone2 AS telefone_2,
-      est.email
-    FROM empresas e
-    JOIN estabelecimentos est ON e.cnpj_basico = est.cnpj_basico
-      AND est.identificador_matriz_filial = '1'
-    WHERE e.cnpj_basico = ANY($1)`,
-    [cnpjsBasico],
-  )
+  // Try with estabelecimentos JOIN first, fall back to empresas-only
+  const hasEstab = await pgPool.query('SELECT EXISTS(SELECT 1 FROM estabelecimentos LIMIT 1)').then(r => r.rows[0].exists).catch(() => false)
+
+  let result: any
+
+  if (hasEstab) {
+    result = await pgPool.query(
+      `SELECT
+        e.cnpj_basico,
+        e.razao_social,
+        e.capital_social,
+        e.porte_empresa,
+        e.natureza_juridica,
+        est.cnpj_ordem,
+        est.cnpj_dv,
+        est.nome_fantasia,
+        est.cnae_fiscal,
+        est.cnae_fiscal_secundaria,
+        est.data_inicio_atividade,
+        est.situacao_cadastral,
+        est.tipo_logradouro,
+        est.logradouro,
+        est.numero,
+        est.complemento,
+        est.bairro,
+        est.cep,
+        est.uf,
+        est.municipio,
+        est.telefone1 AS telefone_1,
+        est.telefone2 AS telefone_2,
+        est.email
+      FROM empresas e
+      JOIN estabelecimentos est ON e.cnpj_basico = est.cnpj_basico
+        AND est.identificador_matriz_filial = '1'
+      WHERE e.cnpj_basico = ANY($1)`,
+      [cnpjsBasico],
+    )
+  } else {
+    // Fallback: empresas-only (estabelecimentos not imported yet)
+    result = await pgPool.query(
+      `SELECT
+        cnpj_basico,
+        razao_social,
+        capital_social,
+        porte_empresa,
+        natureza_juridica
+      FROM empresas
+      WHERE cnpj_basico = ANY($1)`,
+      [cnpjsBasico],
+    )
+  }
+
+  // Map cnpj_basico back to full 14-digit CNPJ
+  const basicoToFull: Record<string, string> = {}
+  for (const c14 of cnpjs14) {
+    basicoToFull[c14.substring(0, 8)] = c14
+  }
 
   const grouped: Record<string, any> = {}
   for (const row of result.rows) {
-    const fullCnpj = (row.cnpj_basico.trim() + (row.cnpj_ordem || '0001').trim() + (row.cnpj_dv || '00').trim()).padStart(14, '0')
+    const basico = row.cnpj_basico.trim()
+    const fullCnpj = hasEstab
+      ? (basico + (row.cnpj_ordem || '0001').trim() + (row.cnpj_dv || '00').trim()).padStart(14, '0')
+      : (basicoToFull[basico] || basico.padEnd(14, '0'))
+
     grouped[fullCnpj] = {
       cnpj: fullCnpj,
-      razao_social: row.razao_social,
-      nome_fantasia: row.nome_fantasia,
+      razao_social: row.razao_social?.trim() || null,
+      nome_fantasia: row.nome_fantasia?.trim() || null,
       capital_social: row.capital_social,
-      porte_empresa: row.porte_empresa,
-      natureza_juridica: row.natureza_juridica,
-      cnae_fiscal: row.cnae_fiscal,
-      cnae_fiscal_secundaria: row.cnae_fiscal_secundaria,
-      data_inicio_atividade: row.data_inicio_atividade,
-      situacao_cadastral: row.situacao_cadastral,
+      porte_empresa: row.porte_empresa?.trim() || null,
+      natureza_juridica: row.natureza_juridica?.trim() || null,
+      cnae_fiscal: row.cnae_fiscal?.trim() || null,
+      cnae_fiscal_secundaria: row.cnae_fiscal_secundaria || null,
+      data_inicio_atividade: row.data_inicio_atividade || null,
+      situacao_cadastral: row.situacao_cadastral || null,
       logradouro: row.logradouro ? `${row.tipo_logradouro || ''} ${row.logradouro}`.trim() : null,
-      numero: row.numero,
-      complemento: row.complemento,
-      bairro: row.bairro,
-      cep: row.cep,
-      uf: row.uf,
-      municipio: row.municipio,
-      telefone_1: row.telefone_1,
-      telefone_2: row.telefone_2,
-      email: row.email,
+      numero: row.numero || null,
+      complemento: row.complemento || null,
+      bairro: row.bairro || null,
+      cep: row.cep || null,
+      uf: row.uf?.trim() || null,
+      municipio: row.municipio?.trim() || null,
+      telefone_1: row.telefone_1 || null,
+      telefone_2: row.telefone_2 || null,
+      email: row.email?.trim() || null,
     }
   }
 
