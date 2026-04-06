@@ -38,6 +38,9 @@ export interface OverviewData {
 
   // Watched count
   watchedCount: number
+
+  // Fallback for when AI classification hasn't run
+  porteDistribution: Array<{ porte: string; count: number }>
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -182,10 +185,24 @@ export function IntelOverview({ data }: { data: OverviewData }) {
               </div>
             </div>
           </div>
-          <div className="bg-background rounded-lg p-6 text-center">
-            <p className="text-sm text-muted-foreground mb-1">{data.totalCompetitors} concorrentes identificados no nicho</p>
-            <p className="text-xs text-muted-foreground/60">A classificação em diretos, indiretos e parceiros será gerada pela IA automaticamente.</p>
-          </div>
+          {data.porteDistribution.length > 0 ? (
+            <div>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-border rounded-lg overflow-hidden border border-border mb-3">
+                {data.porteDistribution.slice(0, 4).map((p) => (
+                  <div key={p.porte} className="bg-card p-4">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1.5">{p.porte || 'Outros'}</p>
+                    <p className="text-2xl font-bold text-foreground font-mono tabular-nums tracking-tight">{p.count}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] text-muted-foreground/60 text-center">Distribuição por porte — classificação detalhada (direto/indireto/parceiro) será gerada pela IA.</p>
+            </div>
+          ) : (
+            <div className="bg-background rounded-lg p-6 text-center">
+              <p className="text-sm text-muted-foreground mb-1">{data.totalCompetitors} concorrentes identificados no nicho</p>
+              <p className="text-xs text-muted-foreground/60">A classificação será gerada automaticamente.</p>
+            </div>
+          )}
         </div>
       )}
 

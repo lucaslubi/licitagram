@@ -830,9 +830,21 @@ export default async function CompetitorsPage({
         }
       })
 
-    // UF heatmap from competitor data
+    // UF heatmap — use ALL competitors in CNAE (not just filtered top rivals)
+    // This prevents the sampling bias where top-10-by-value all have ~100% win rate
+    let allNicheCompetitors: Array<Record<string, unknown>> = []
+    if (companyCnaeDivisions2.length > 0) {
+      const { data } = await supabase
+        .from('competitor_stats')
+        .select('cnpj, total_participacoes, total_vitorias, win_rate, valor_total_ganho, ufs_atuacao')
+        .in('cnae_divisao', companyCnaeDivisions2)
+        .gte('total_participacoes', 3)
+        .limit(500)
+      if (data) allNicheCompetitors = data
+    }
+
     const ufAgg: Record<string, { editals: number; totalValue: number; competitors: Set<string>; winRateSum: number; winRateCount: number }> = {}
-    for (const c of overviewCompetitors) {
+    for (const c of allNicheCompetitors) {
       const ufsObj = (c.ufs_atuacao as Record<string, boolean>) || {}
       for (const uf of Object.keys(ufsObj)) {
         if (!ufAgg[uf]) ufAgg[uf] = { editals: 0, totalValue: 0, competitors: new Set(), winRateSum: 0, winRateCount: 0 }
@@ -840,16 +852,16 @@ export default async function CompetitorsPage({
         ufAgg[uf].totalValue += Number(c.valor_total_ganho || 0)
         ufAgg[uf].competitors.add(c.cnpj as string)
         const wr = Number(c.win_rate || 0)
-        ufAgg[uf].winRateSum += (wr > 1 ? wr : wr * 100) // normalize to pct
+        ufAgg[uf].winRateSum += (wr > 1 ? wr : wr * 100)
         ufAgg[uf].winRateCount++
       }
     }
     const ufHeatmap = Object.entries(ufAgg)
+      .filter(([, d]) => d.competitors.size >= 3) // minimum 3 competitors for statistical relevance
       .map(([uf, d]) => {
         const competitorCount = d.competitors.size
         const editalCount = Math.round(d.editals / Math.max(competitorCount, 1))
         const avgWinRate = d.winRateCount > 0 ? d.winRateSum / d.winRateCount : 0
-        // Opportunity score with desempate: editals weight + competition penalty + value bonus
         const editalWeight = Math.min(40, editalCount * 3)
         const competitionPenalty = Math.max(0, 35 - competitorCount * 4)
         const valueBonus = Math.min(25, d.totalValue > 0 ? Math.log10(d.totalValue / 100000) * 5 : 0)
@@ -857,10 +869,19 @@ export default async function CompetitorsPage({
         return { uf, editalCount, competitorCount, avgWinRate, opportunityScore }
       })
       .sort((a, b) => {
-        // Sort by opportunity score DESC, then by editalCount DESC for desempate
         if (b.opportunityScore !== a.opportunityScore) return b.opportunityScore - a.opportunityScore
         return b.editalCount - a.editalCount
       })
+
+    // Porte distribution fallback (for when AI classification hasn't run)
+    const porteAgg: Record<string, number> = {}
+    for (const c of overviewCompetitors) {
+      const porte = (c.porte as string) || 'Outros'
+      porteAgg[porte] = (porteAgg[porte] || 0) + 1
+    }
+    const porteDistribution = Object.entries(porteAgg)
+      .map(([porte, count]) => ({ porte, count }))
+      .sort((a, b) => b.count - a.count)
 
     overviewData = {
       totalCompetitors: overviewCompetitors.length,
@@ -871,6 +892,7 @@ export default async function CompetitorsPage({
       topRivals,
       ufHeatmap,
       watchedCount: watchlist?.length || 0,
+      porteDistribution,
     }
   }
 
