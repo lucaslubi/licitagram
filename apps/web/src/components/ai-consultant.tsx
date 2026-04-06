@@ -276,7 +276,7 @@ export function AiConsultant() {
         <button
           id="ai-consultant-button"
           onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-[9999] w-12 h-12 rounded-xl bg-card border border-border text-foreground shadow-lg hover:shadow-xl hover:bg-secondary transition-all duration-200 flex items-center justify-center group overflow-hidden fab-shimmer"
+          className="fixed bottom-6 right-6 z-[9999] w-12 h-12 rounded-xl bg-card border border-[hsl(18_80%_40%/0.35)] text-foreground shadow-lg hover:shadow-xl hover:bg-secondary hover:border-[hsl(18_80%_40%/0.5)] transition-all duration-200 flex items-center justify-center group overflow-hidden fab-shimmer"
           aria-label="Abrir Consultor IA"
         >
           <Sparkles className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors relative z-[1]" />
