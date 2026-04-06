@@ -28,7 +28,7 @@ import pino from 'pino'
 const logger = pino({ name: 'populate-leads-worker', level: process.env.LOG_LEVEL || 'info' })
 
 const BATCH_SIZE = 10_000
-const DATA_API_URL = process.env.DATA_API_URL || 'http://85.31.60.53:3998'
+const DATA_API_URL = process.env.DATA_API_URL || 'http://127.0.0.1:3999'
 const BATCH_API_SIZE = 100 // Max CNPJs per Data API batch call
 
 // ─── Types ──────────────────────────────────────────────────

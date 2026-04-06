@@ -16,6 +16,8 @@ const ADMIN_NAV = [
   { href: '/admin/system', label: 'System Health', section: 'dashboard' },
   { href: '/admin/monitoring', label: 'Monitoramento', section: 'dashboard' },
   { href: '/admin/intelligence', label: 'Inteligencia', section: 'dashboard' },
+  { href: '/admin/leads', label: 'Lead Engine', section: 'dashboard' },
+  { href: '/admin/leads/dashboard', label: 'Leads Dashboard', section: 'dashboard' },
 ]
 
 export default async function AdminLayout({
