@@ -1,15 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { createBrowserClient } from '@supabase/ssr'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-
-const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-)
+import { updateMatchStatus } from '@/actions/update-match-status'
 
 const STATUSES = [
   { value: 'new', label: 'Nova', color: 'bg-white/[0.06] text-gray-300' },
@@ -31,21 +26,18 @@ export function StatusChanger({
   const [status, setStatus] = useState(currentStatus)
   const [updating, setUpdating] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+  const [, startTransition] = useTransition()
 
   async function updateStatus(newStatus: string) {
     setUpdating(true)
     setErrorMsg('')
-    const { error } = await supabase
-      .from('matches')
-      .update({ status: newStatus })
-      .eq('id', matchId)
+    const result = await updateMatchStatus(matchId, newStatus)
 
-    if (error) {
+    if (result.error) {
       setErrorMsg('Erro ao atualizar status. Tente novamente.')
     } else {
       setStatus(newStatus)
-      // Invalidate server cache so pipeline/opportunities pages reflect the change
-      router.refresh()
+      startTransition(() => { router.refresh() })
     }
     setUpdating(false)
   }

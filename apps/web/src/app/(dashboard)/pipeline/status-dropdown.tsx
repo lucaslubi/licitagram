@@ -1,13 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { createBrowserClient } from '@supabase/ssr'
-
-const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-)
+import { updateMatchStatus } from '@/actions/update-match-status'
 
 const STATUSES = [
   { value: 'new', label: 'Nova' },
@@ -28,17 +23,14 @@ export function StatusDropdown({
   const [open, setOpen] = useState(false)
   const [updating, setUpdating] = useState(false)
   const router = useRouter()
+  const [, startTransition] = useTransition()
 
   async function updateStatus(newStatus: string) {
     if (newStatus === currentStatus) return
     setUpdating(true)
-    const { error } = await supabase
-      .from('matches')
-      .update({ status: newStatus })
-      .eq('id', matchId)
-
-    if (!error) {
-      router.refresh()
+    const result = await updateMatchStatus(matchId, newStatus)
+    if (!result.error) {
+      startTransition(() => { router.refresh() })
     }
     setUpdating(false)
     setOpen(false)

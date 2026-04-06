@@ -1,6 +1,7 @@
 'use server'
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { invalidateCache } from '@/lib/redis'
 
 export async function reportOutcome(
   matchId: string,
@@ -34,6 +35,10 @@ export async function reportOutcome(
   const { error: updateErr } = await supabase.from('matches').update({ status: statusMap[outcome] }).eq('id', matchId)
   if (updateErr) throw new Error(`Failed to update match status: ${updateErr.message}`)
 
+  // Invalidate match caches for this company
+  await invalidateCache(`cache:matches:${dbUser.company_id}:*`)
+
   revalidatePath('/dashboard')
   revalidatePath('/pipeline')
+  revalidatePath('/opportunities')
 }

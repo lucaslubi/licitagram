@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   DndContext,
   DragOverlay,
@@ -13,7 +14,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core'
-import { createClient } from '@/lib/supabase/client'
+import { updateMatchStatus } from '@/actions/update-match-status'
 
 interface Match {
   id: string
@@ -241,7 +242,8 @@ export function KanbanBoard({ initialMatches }: { initialMatches: Match[] }) {
   const [matches, setMatches] = useState(initialMatches)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState('')
-  const supabase = createClient()
+  const router = useRouter()
+  const [, startTransition] = useTransition()
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -279,22 +281,28 @@ export function KanbanBoard({ initialMatches }: { initialMatches: Match[] }) {
     const match = matches.find((m) => m.id === matchId)
     if (!match || match.status === newStatus) return
 
-    // Optimistic update
+    const oldStatus = match.status
+
+    // Optimistic update — instant visual feedback
     setMatches((prev) =>
       prev.map((m) => (m.id === matchId ? { ...m, status: newStatus } : m)),
     )
 
-    const { error } = await supabase
-      .from('matches')
-      .update({ status: newStatus })
-      .eq('id', matchId)
+    // Server action: updates DB + invalidates cache + revalidates dashboard/pipeline
+    const result = await updateMatchStatus(matchId, newStatus)
 
-    if (error) {
+    if (result.error) {
+      // Revert on error
       setMatches((prev) =>
-        prev.map((m) => (m.id === matchId ? { ...m, status: match.status } : m)),
+        prev.map((m) => (m.id === matchId ? { ...m, status: oldStatus } : m)),
       )
       setErrorMsg('Erro ao mover card. Tente novamente.')
       setTimeout(() => setErrorMsg(''), 4000)
+    } else {
+      // Refresh server data so dashboard/pipeline stay in sync
+      startTransition(() => {
+        router.refresh()
+      })
     }
   }
 
