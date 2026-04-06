@@ -346,10 +346,12 @@ export default async function LandingPage() {
                     <source src="/mapa-demo.webm" type="video/webm" />
                   </video>
                   {/* Logo watermark — bottom-left */}
+                  {/* Black bar to cover username + logo on top */}
+                  <div className="absolute bottom-0 left-0 w-48 h-10 bg-black pointer-events-none" />
                   <img
                     src="/logo-branca.png"
                     alt="Licitagram"
-                    className="absolute bottom-2 left-8 h-14 opacity-95 drop-shadow-lg pointer-events-none"
+                    className="absolute bottom-1 left-2 h-8 opacity-95 drop-shadow-lg pointer-events-none z-10"
                   />
                 </div>
                 <p className="text-center text-sm text-[#69695D] mt-4">Mapa de Inteligência — Oportunidades geolocalizadas com score de compatibilidade em tempo real</p>
