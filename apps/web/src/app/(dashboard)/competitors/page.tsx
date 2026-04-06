@@ -774,6 +774,13 @@ export default async function CompetitorsPage({
       }
     }
 
+    // FILTER: remove competitors with zero value (not real rivals)
+    overviewCompetitors = overviewCompetitors.filter((c) => {
+      const val = Number(c.valor_total_ganho || 0)
+      const part = Number(c.total_participacoes || 0)
+      return val > 0 || part >= 5 // keep if has any value OR significant participation
+    })
+
     // Classify by relevance
     let directCount = 0, indirectCount = 0, partnerCount = 0
     let relevanceSum = 0, relevanceCount = 0
@@ -788,49 +795,71 @@ export default async function CompetitorsPage({
       }
     }
 
-    // Top rivals
+    // Top rivals — sorted by total value (not just participations), filter R$0
     const topRivals = overviewCompetitors
-      .sort((a, b) => Number(b.total_participacoes || 0) - Number(a.total_participacoes || 0))
+      .filter((c) => Number(c.valor_total_ganho || 0) > 0)
+      .sort((a, b) => Number(b.valor_total_ganho || 0) - Number(a.valor_total_ganho || 0))
       .slice(0, 10)
       .map((c) => {
         const ufsObj = (c.ufs_atuacao as Record<string, boolean>) || {}
+        const participations = Number(c.total_participacoes || 0)
+        const wins = Number(c.total_vitorias || 0)
+        // win_rate from DB is decimal (0-1), convert to percentage
+        const rawWinRate = Number(c.win_rate || 0)
+        const winRatePct = rawWinRate > 1 ? rawWinRate : rawWinRate * 100
+
+        // Compute threat level from data (not trust DB field)
+        const volumeScore = Math.min(10, participations / 3)
+        const winScore = (winRatePct / 100) * 10
+        const valueScore = Math.min(10, Math.log10(Math.max(Number(c.valor_total_ganho || 1), 1) / 100000) * 3)
+        const threatTotal = volumeScore + winScore + valueScore
+        const computedThreat = threatTotal >= 18 ? 'alto' : threatTotal >= 10 ? 'medio' : 'baixo'
+
         return {
           cnpj: c.cnpj as string,
           name: (c.razao_social as string) || 'N/I',
-          participations: Number(c.total_participacoes || 0),
-          wins: Number(c.total_vitorias || 0),
-          winRate: Number(c.win_rate || 0),
+          participations,
+          wins,
+          winRate: winRatePct,
           totalValue: Number(c.valor_total_ganho || 0),
           porte: (c.porte as string) || null,
           uf: (c.uf as string) || null,
-          threatLevel: (c.nivel_ameaca as string) || null,
+          threatLevel: computedThreat,
           ufs: Object.keys(ufsObj).slice(0, 5),
         }
       })
 
     // UF heatmap from competitor data
-    const ufAgg: Record<string, { editals: number; competitors: Set<string>; winRateSum: number; winRateCount: number }> = {}
+    const ufAgg: Record<string, { editals: number; totalValue: number; competitors: Set<string>; winRateSum: number; winRateCount: number }> = {}
     for (const c of overviewCompetitors) {
       const ufsObj = (c.ufs_atuacao as Record<string, boolean>) || {}
       for (const uf of Object.keys(ufsObj)) {
-        if (!ufAgg[uf]) ufAgg[uf] = { editals: 0, competitors: new Set(), winRateSum: 0, winRateCount: 0 }
+        if (!ufAgg[uf]) ufAgg[uf] = { editals: 0, totalValue: 0, competitors: new Set(), winRateSum: 0, winRateCount: 0 }
         ufAgg[uf].editals += Number(c.total_participacoes || 0)
+        ufAgg[uf].totalValue += Number(c.valor_total_ganho || 0)
         ufAgg[uf].competitors.add(c.cnpj as string)
-        ufAgg[uf].winRateSum += Number(c.win_rate || 0)
+        const wr = Number(c.win_rate || 0)
+        ufAgg[uf].winRateSum += (wr > 1 ? wr : wr * 100) // normalize to pct
         ufAgg[uf].winRateCount++
       }
     }
     const ufHeatmap = Object.entries(ufAgg)
-      .map(([uf, data]) => {
-        const competitorCount = data.competitors.size
-        const editalCount = Math.round(data.editals / Math.max(competitorCount, 1))
-        const avgWinRate = data.winRateCount > 0 ? data.winRateSum / data.winRateCount : 0
-        const opportunityScore = Math.min(100, Math.round(
-          (editalCount * 2) + (100 / Math.max(competitorCount, 1))
-        ))
+      .map(([uf, d]) => {
+        const competitorCount = d.competitors.size
+        const editalCount = Math.round(d.editals / Math.max(competitorCount, 1))
+        const avgWinRate = d.winRateCount > 0 ? d.winRateSum / d.winRateCount : 0
+        // Opportunity score with desempate: editals weight + competition penalty + value bonus
+        const editalWeight = Math.min(40, editalCount * 3)
+        const competitionPenalty = Math.max(0, 35 - competitorCount * 4)
+        const valueBonus = Math.min(25, d.totalValue > 0 ? Math.log10(d.totalValue / 100000) * 5 : 0)
+        const opportunityScore = Math.min(99, Math.round(editalWeight + competitionPenalty + valueBonus))
         return { uf, editalCount, competitorCount, avgWinRate, opportunityScore }
       })
-      .sort((a, b) => b.opportunityScore - a.opportunityScore)
+      .sort((a, b) => {
+        // Sort by opportunity score DESC, then by editalCount DESC for desempate
+        if (b.opportunityScore !== a.opportunityScore) return b.opportunityScore - a.opportunityScore
+        return b.editalCount - a.editalCount
+      })
 
     overviewData = {
       totalCompetitors: overviewCompetitors.length,

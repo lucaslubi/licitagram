@@ -51,33 +51,45 @@ function threatBadge(level: string | null) {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function IntelOverview({ data }: { data: OverviewData }) {
+  const hasSignificantData = data.totalCompetitors >= 3
+  const hasRivals = data.topRivals.length > 0
+  const hasUfData = data.ufHeatmap.length > 0
+  // Find best UF with meaningful data (at least 3 editais)
+  const bestUf = data.ufHeatmap.find(uf => uf.editalCount >= 3) || data.ufHeatmap[0]
+
   return (
     <div className="space-y-5">
 
       {/* ━━━ STRATEGIC INSIGHTS ROW ━━━ */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Insight 1: Opportunity */}
-        {data.ufHeatmap.length > 0 && (() => {
-          const best = data.ufHeatmap[0]
-          return (
-            <div className="intel-insight-card intel-insight-opportunity">
-              <div className="intel-insight-icon intel-insight-icon-opportunity">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M12 8v8M8 12h8" /></svg>
-              </div>
-              <p className="intel-insight-label">Oportunidade de Arbitragem</p>
-              <p className="intel-insight-headline">{best.uf} tem apenas {best.competitorCount} concorrente{best.competitorCount !== 1 ? 's' : ''}</p>
-              <p className="intel-insight-detail">
-                {best.editalCount} editais nos últimos 12 meses com score de oportunidade {best.opportunityScore}/100.
-              </p>
-              <Link href={`/opportunities?uf=${best.uf}&view=matches`} className="intel-insight-action">
-                Ver editais de {best.uf} &rarr;
-              </Link>
+        {hasUfData && bestUf ? (
+          <div className="intel-insight-card intel-insight-opportunity">
+            <div className="intel-insight-icon intel-insight-icon-opportunity">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M12 8v8M8 12h8" /></svg>
             </div>
-          )
-        })()}
+            <p className="intel-insight-label">Oportunidade de Arbitragem</p>
+            <p className="intel-insight-headline">{bestUf.uf} — {bestUf.competitorCount} concorrente{bestUf.competitorCount !== 1 ? 's' : ''}, {bestUf.editalCount} editais</p>
+            <p className="intel-insight-detail">
+              Score de oportunidade {bestUf.opportunityScore}/100. Win rate médio {bestUf.avgWinRate.toFixed(1)}%.
+            </p>
+            <Link href={`/opportunities?uf=${bestUf.uf}&view=matches`} className="intel-insight-action">
+              Ver editais de {bestUf.uf} &rarr;
+            </Link>
+          </div>
+        ) : (
+          <div className="intel-insight-card">
+            <div className="intel-insight-icon" style={{ background: 'hsl(240 4% 12%)', border: '1px solid hsl(240 4% 16%)' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground"><circle cx="12" cy="12" r="10" /><path d="M12 8v8M8 12h8" /></svg>
+            </div>
+            <p className="intel-insight-label">Oportunidades Geográficas</p>
+            <p className="intel-insight-headline">Dados sendo coletados</p>
+            <p className="intel-insight-detail">Análise geográfica requer pelo menos 90 dias de histórico no seu nicho.</p>
+          </div>
+        )}
 
         {/* Insight 2: Top threat */}
-        {data.topRivals.length > 0 && (() => {
+        {hasRivals ? (() => {
           const threat = data.topRivals[0]
           return (
             <div className="intel-insight-card intel-insight-threat">
@@ -87,14 +99,23 @@ export function IntelOverview({ data }: { data: OverviewData }) {
               <p className="intel-insight-label">Principal Rival</p>
               <p className="intel-insight-headline">{threat.name?.slice(0, 40) || 'N/I'}</p>
               <p className="intel-insight-detail">
-                Win rate {Math.round(threat.winRate)}% com {threat.participations} participações. Valor total: {formatCompactBRL(threat.totalValue)}.
+                Win rate {threat.winRate.toFixed(1)}% com {threat.participations} participações. Valor: {formatCompactBRL(threat.totalValue)}.
               </p>
               <Link href="/competitors?tab=ranking" className="intel-insight-action">
                 Ver ranking completo &rarr;
               </Link>
             </div>
           )
-        })()}
+        })() : (
+          <div className="intel-insight-card">
+            <div className="intel-insight-icon" style={{ background: 'hsl(240 4% 12%)', border: '1px solid hsl(240 4% 16%)' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /></svg>
+            </div>
+            <p className="intel-insight-label">Rivais</p>
+            <p className="intel-insight-headline">Identificando concorrentes</p>
+            <p className="intel-insight-detail">A análise de rivais aparecerá aqui quando houver dados suficientes.</p>
+          </div>
+        )}
 
         {/* Insight 3: Market summary */}
         <div className="intel-insight-card intel-insight-neutral">
@@ -114,39 +135,59 @@ export function IntelOverview({ data }: { data: OverviewData }) {
       </div>
 
       {/* ━━━ COMPETITIVE POSITION ━━━ */}
-      <div className="card-refined">
-        <div className="card-refined-header">
-          <div className="flex items-center gap-2.5">
-            <div className="card-refined-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20V10M18 20V4M6 20v-4" /></svg>
+      {(data.directCompetitors > 0 || data.indirectCompetitors > 0 || data.avgRelevanceScore > 0) ? (
+        <div className="card-refined">
+          <div className="card-refined-header">
+            <div className="flex items-center gap-2.5">
+              <div className="card-refined-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20V10M18 20V4M6 20v-4" /></svg>
+              </div>
+              <div>
+                <h3 className="card-refined-title">Posição Competitiva</h3>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Baseado em {data.totalCompetitors} concorrentes ativos</p>
+              </div>
             </div>
-            <div>
-              <h3 className="card-refined-title">Posição Competitiva</h3>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Baseado em {data.totalCompetitors} concorrentes ativos</p>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-border rounded-lg overflow-hidden border border-border">
+            <div className="bg-card p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1.5">Concorrentes Diretos</p>
+              <p className="text-2xl font-bold text-foreground font-mono tabular-nums tracking-tight">{data.directCompetitors}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">de {data.totalCompetitors} no nicho</p>
+            </div>
+            <div className="bg-card p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1.5">Concorrentes Indiretos</p>
+              <p className="text-2xl font-bold text-foreground font-mono tabular-nums tracking-tight">{data.indirectCompetitors}</p>
+            </div>
+            <div className="bg-card p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1.5">Potenciais Parceiros</p>
+              <p className="text-2xl font-bold text-foreground font-mono tabular-nums tracking-tight">{data.potentialPartners}</p>
+            </div>
+            <div className="bg-card p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1.5">Score Relevância Médio</p>
+              <p className="text-2xl font-bold text-foreground font-mono tabular-nums tracking-tight">{data.avgRelevanceScore}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">de 100</p>
             </div>
           </div>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-border rounded-lg overflow-hidden border border-border">
-          <div className="bg-card p-4">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1.5">Concorrentes Diretos</p>
-            <p className="text-2xl font-bold text-foreground font-mono tabular-nums tracking-tight">{data.directCompetitors}</p>
-            <p className="text-[11px] text-muted-foreground mt-1">de {data.totalCompetitors} no nicho</p>
+      ) : (
+        <div className="card-refined">
+          <div className="card-refined-header">
+            <div className="flex items-center gap-2.5">
+              <div className="card-refined-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20V10M18 20V4M6 20v-4" /></svg>
+              </div>
+              <div>
+                <h3 className="card-refined-title">Posição Competitiva</h3>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Classificação de concorrentes pendente</p>
+              </div>
+            </div>
           </div>
-          <div className="bg-card p-4">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1.5">Concorrentes Indiretos</p>
-            <p className="text-2xl font-bold text-foreground font-mono tabular-nums tracking-tight">{data.indirectCompetitors}</p>
-          </div>
-          <div className="bg-card p-4">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1.5">Potenciais Parceiros</p>
-            <p className="text-2xl font-bold text-foreground font-mono tabular-nums tracking-tight">{data.potentialPartners}</p>
-          </div>
-          <div className="bg-card p-4">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1.5">Score Relevância Médio</p>
-            <p className="text-2xl font-bold text-foreground font-mono tabular-nums tracking-tight">{data.avgRelevanceScore}</p>
-            <p className="text-[11px] text-muted-foreground mt-1">de 100</p>
+          <div className="bg-background rounded-lg p-6 text-center">
+            <p className="text-sm text-muted-foreground mb-1">{data.totalCompetitors} concorrentes identificados no nicho</p>
+            <p className="text-xs text-muted-foreground/60">A classificação em diretos, indiretos e parceiros será gerada pela IA automaticamente.</p>
           </div>
         </div>
-      </div>
+      )}
 
       {/* ━━━ TWO COLUMNS: HEATMAP + TOP RIVALS ━━━ */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -230,7 +271,7 @@ export function IntelOverview({ data }: { data: OverviewData }) {
                       <p className="text-[12px] font-medium text-foreground truncate">{rival.name || 'N/I'}</p>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-[10px] text-muted-foreground font-mono tabular-nums">{rival.participations} part.</span>
-                        <span className="text-[10px] text-muted-foreground font-mono tabular-nums">WR {Math.round(rival.winRate)}%</span>
+                        <span className="text-[10px] text-muted-foreground font-mono tabular-nums">WR {rival.winRate.toFixed(1)}%</span>
                         {rival.porte && <span className="text-[10px] text-muted-foreground">{rival.porte}</span>}
                       </div>
                     </div>
