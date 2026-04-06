@@ -6,7 +6,7 @@
 import { NextResponse } from 'next/server'
 import { getUserWithPlan } from '@/lib/auth-helpers'
 
-const DATA_API_URL = process.env.DATA_API_URL || 'http://85.31.60.53:3999'
+const DATA_API_URL = process.env.DATA_API_URL || 'http://187.77.241.93:3999'
 
 export async function GET() {
   const user = await getUserWithPlan()

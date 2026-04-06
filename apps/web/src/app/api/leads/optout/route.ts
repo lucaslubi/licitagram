@@ -10,7 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 
-const DATA_API_URL = process.env.DATA_API_URL || 'http://85.31.60.53:3999'
+const DATA_API_URL = process.env.DATA_API_URL || 'http://187.77.241.93:3999'
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
