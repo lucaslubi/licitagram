@@ -132,7 +132,7 @@ export default async function PipelinePage() {
         <div className="bg-card border border-border rounded-xl p-3.5">
           <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1">Taxa de Conversão</p>
           <p className="text-xl font-semibold text-foreground font-mono tabular-nums tracking-tight">{conversionRate}%</p>
-          <p className="text-[11px] text-muted-foreground mt-1">{wonCount} ganha{wonCount !== 1 ? 's' : ''} / {totalDecided} decidida{totalDecided !== 1 ? 's' : ''}</p>
+          <p className="text-[11px] text-muted-foreground mt-1">{wonCount} ganha{wonCount !== 1 ? 's' : ''} / {totalDecided} decidida{totalDecided !== 1 ? 's' : ''} · {lostCount} perdida{lostCount !== 1 ? 's' : ''}</p>
         </div>
         <div className="bg-card border border-border rounded-xl p-3.5">
           <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1">Ticket Médio</p>

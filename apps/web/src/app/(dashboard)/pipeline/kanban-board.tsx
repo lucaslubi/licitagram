@@ -32,11 +32,11 @@ interface Match {
 }
 
 const COLUMNS = [
-  { key: 'new', label: 'Nova' },
-  { key: 'interested', label: 'Interesse' },
-  { key: 'applied', label: 'Participando' },
-  { key: 'won', label: 'Venceu' },
-  { key: 'lost', label: 'Perdeu' },
+  { key: 'new', label: 'Nova', dot: 'bg-zinc-500' },
+  { key: 'interested', label: 'Interesse', dot: 'bg-amber-400' },
+  { key: 'applied', label: 'Participando', dot: 'bg-blue-400' },
+  { key: 'won', label: 'Venceu', dot: 'bg-emerald-400' },
+  { key: 'lost', label: 'Perdeu', dot: 'bg-red-400' },
 ]
 
 const INITIAL_DISPLAY = 20
@@ -71,11 +71,13 @@ function truncateText(text: string, max: number): string {
 function DroppableColumn({
   columnKey,
   label,
+  dot,
   allMatches,
   activeId,
 }: {
   columnKey: string
   label: string
+  dot: string
   allMatches: Match[]
   activeId: string | null
 }) {
@@ -93,6 +95,7 @@ function DroppableColumn({
       {/* Header — neutral, no colored top border */}
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-border flex-shrink-0">
         <div className="flex items-center gap-2">
+          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dot}`} />
           <h3 className="font-semibold text-[13px] text-foreground">{label}</h3>
           <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-secondary text-muted-foreground font-mono tabular-nums">
             {allMatches.length}
@@ -313,6 +316,7 @@ export function KanbanBoard({ initialMatches }: { initialMatches: Match[] }) {
             key={col.key}
             columnKey={col.key}
             label={col.label}
+            dot={col.dot}
             allMatches={grouped[col.key] || []}
             activeId={activeId}
           />
