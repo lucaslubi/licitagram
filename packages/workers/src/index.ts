@@ -44,7 +44,8 @@ async function loadWorkers(): Promise<Worker[]> {
     const { matchingWorker } = await import('./processors/matching.processor')
     const { aiTriageWorker } = await import('./processors/ai-triage.processor')
     const { semanticMatchingWorker } = await import('./processors/semantic-matching.processor')
-    workers.push(matchingWorker, aiTriageWorker, semanticMatchingWorker)
+    const { weeklyActionsWorker: weeklyActionsWorkerMatching } = await import('./processors/weekly-actions.processor')
+    workers.push(matchingWorker, aiTriageWorker, semanticMatchingWorker, weeklyActionsWorkerMatching)
   }
 
   // Legacy 'notification' group loads everything (backward compatible)
