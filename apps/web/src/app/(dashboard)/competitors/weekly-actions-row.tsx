@@ -62,10 +62,44 @@ export function WeeklyActionsRow() {
   }
 
   if (actions.length === 0) {
+    const now = new Date()
+    const day = now.getDay()
+    const daysUntilMonday = day === 0 ? 1 : (8 - day) % 7 || 7
+    const next = new Date(now)
+    next.setDate(now.getDate() + daysUntilMonday)
+    const nextMonday = next.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })
+
     return (
-      <div className="bg-card border border-border rounded-xl p-6 text-center">
-        <p className="text-sm text-muted-foreground">Nenhuma ação estratégica esta semana</p>
-        <p className="text-xs text-muted-foreground/60 mt-1">Insights são gerados toda segunda-feira com base na atividade do mercado.</p>
+      <div className="bg-card border border-border rounded-xl p-8">
+        <div className="flex flex-col items-center text-center max-w-md mx-auto">
+          <div className="w-10 h-10 rounded-lg bg-secondary/50 border border-border flex items-center justify-center mb-4">
+            <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h4 className="text-sm font-semibold mb-2">
+            Próxima análise: {nextMonday}
+          </h4>
+          <p className="text-xs text-muted-foreground mb-6 leading-relaxed">
+            Toda segunda-feira geramos insights estratégicos baseados em 130K+ editais:
+            janelas de oportunidade, novos concorrentes entrando no seu nicho,
+            rivais enfraquecendo, e mudanças de preço no mercado.
+          </p>
+          <div className="grid grid-cols-3 gap-2 w-full text-left">
+            <div className="bg-secondary/30 border border-border rounded-md p-3">
+              <div className="text-[9px] font-semibold uppercase tracking-wider text-emerald-500/80 mb-1">Exemplo</div>
+              <div className="text-[11px] text-muted-foreground leading-tight">Janela em SP com 2 concorrentes</div>
+            </div>
+            <div className="bg-secondary/30 border border-border rounded-md p-3">
+              <div className="text-[9px] font-semibold uppercase tracking-wider text-red-500/80 mb-1">Exemplo</div>
+              <div className="text-[11px] text-muted-foreground leading-tight">Novo rival com 80% win rate</div>
+            </div>
+            <div className="bg-secondary/30 border border-border rounded-md p-3">
+              <div className="text-[9px] font-semibold uppercase tracking-wider text-amber-500/80 mb-1">Exemplo</div>
+              <div className="text-[11px] text-muted-foreground leading-tight">Desconto médio subiu 8pp</div>
+            </div>
+          </div>
+        </div>
       </div>
     )
   }

@@ -290,7 +290,7 @@ async function handleGenerateWeeklyActions() {
       if (allActions.length === 0) continue
 
       // Persist to weekly_actions table
-      const { error: insertErr } = await supabase.supabase
+      const { error: insertErr } = await supabase
         .from('weekly_actions')
         .insert(allActions)
 
@@ -357,7 +357,7 @@ async function handleWatchlistActivityCheck() {
   logger.info('Checking watchlist activity')
 
   // Get all watchlist entries with notify_on_win enabled
-  const { data: watchlistEntries } = await supabase.supabase
+  const { data: watchlistEntries } = await supabase
     .from('competitor_watchlist')
     .select('id, company_id, competitor_cnpj, competitor_nome, last_activity_seen_at, notify_on_win')
     .eq('notify_on_win', true)
@@ -384,13 +384,13 @@ async function handleWatchlistActivityCheck() {
       if (!recentWins || recentWins.length === 0) continue
 
       // Update last_activity_seen_at
-      await supabase.supabase
+      await supabase
         .from('competitor_watchlist')
         .update({ last_activity_seen_at: new Date().toISOString() })
         .eq('id', entry.id)
 
       // Create weekly action
-      await supabase.supabase
+      await supabase
         .from('weekly_actions')
         .insert({
           company_id: entry.company_id,

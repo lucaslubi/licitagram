@@ -901,12 +901,21 @@ export default async function CompetitorsPage({
       .map(([porte, count]) => ({ porte, count }))
       .sort((a, b) => b.count - a.count)
 
+    // Compute niche-wide win rate average from overviewCompetitors
+    let nicheWinRateSum = 0, nicheWinRateCount = 0
+    for (const c of overviewCompetitors) {
+      const wr = Number(c.win_rate || 0)
+      nicheWinRateSum += (wr > 1 ? wr : wr * 100)
+      nicheWinRateCount++
+    }
+
     overviewData = {
       totalCompetitors: overviewCompetitors.length,
       directCompetitors: directCount,
       indirectCompetitors: indirectCount,
       potentialPartners: partnerCount,
       avgRelevanceScore: relevanceCount > 0 ? Math.round(relevanceSum / relevanceCount) : 0,
+      avgNicheWinRate: nicheWinRateCount > 0 ? nicheWinRateSum / nicheWinRateCount : 0,
       topRivals,
       ufHeatmap,
       watchedCount: watchlist?.length || 0,

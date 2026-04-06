@@ -39,6 +39,9 @@ export interface OverviewData {
   // Watched count
   watchedCount: number
 
+  // Niche-wide average win rate
+  avgNicheWinRate: number
+
   // Fallback for when AI classification hasn't run
   porteDistribution: Array<{ porte: string; count: number }>
 }
@@ -172,6 +175,53 @@ export function IntelOverview({ data }: { data: OverviewData }) {
             </div>
           </div>
         </div>
+      ) : data.totalCompetitors > 0 ? (
+        <div className="card-refined">
+          <div className="card-refined-header">
+            <div className="flex items-center gap-2.5">
+              <div className="card-refined-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20V10M18 20V4M6 20v-4" /></svg>
+              </div>
+              <div>
+                <h3 className="card-refined-title">Posição Competitiva</h3>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Panorama do nicho — {data.totalCompetitors} concorrentes</p>
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-border rounded-lg overflow-hidden border border-border mb-3">
+            <div className="bg-card p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1.5">Concorrentes</p>
+              <p className="text-2xl font-bold text-foreground font-mono tabular-nums tracking-tight">{data.totalCompetitors}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">ativos no nicho</p>
+            </div>
+            <div className="bg-card p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1.5">Win Rate Médio</p>
+              <p className="text-2xl font-bold text-foreground font-mono tabular-nums tracking-tight">{data.avgNicheWinRate.toFixed(1)}%</p>
+              <p className="text-[11px] text-muted-foreground mt-1">taxa do setor</p>
+            </div>
+            {data.porteDistribution.slice(0, 2).map((p) => (
+              <div key={p.porte} className="bg-card p-4">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1.5">{p.porte || 'Outros'}</p>
+                <p className="text-2xl font-bold text-foreground font-mono tabular-nums tracking-tight">{p.count}</p>
+                <p className="text-[11px] text-muted-foreground mt-1">empresas</p>
+              </div>
+            ))}
+          </div>
+          {data.porteDistribution.length > 2 && (
+            <div className="flex flex-wrap gap-2 mb-3">
+              {data.porteDistribution.slice(2).map((p) => (
+                <span key={p.porte} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-secondary/50 border border-border rounded-md text-[11px]">
+                  <span className="text-muted-foreground">{p.porte || 'Outros'}</span>
+                  <span className="font-semibold font-mono tabular-nums">{p.count}</span>
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="flex items-center gap-2 px-3 py-2 bg-blue-500/5 border border-blue-500/20 rounded-md">
+            <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+            <p className="text-[11px] text-blue-400">Classificação IA (diretos/indiretos/parceiros) sendo processada — disponível em breve</p>
+          </div>
+        </div>
       ) : (
         <div className="card-refined">
           <div className="card-refined-header">
@@ -181,28 +231,14 @@ export function IntelOverview({ data }: { data: OverviewData }) {
               </div>
               <div>
                 <h3 className="card-refined-title">Posição Competitiva</h3>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Classificação de concorrentes pendente</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Configure seu CNAE para ver a análise</p>
               </div>
             </div>
           </div>
-          {data.porteDistribution.length > 0 ? (
-            <div>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-border rounded-lg overflow-hidden border border-border mb-3">
-                {data.porteDistribution.slice(0, 4).map((p) => (
-                  <div key={p.porte} className="bg-card p-4">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1.5">{p.porte || 'Outros'}</p>
-                    <p className="text-2xl font-bold text-foreground font-mono tabular-nums tracking-tight">{p.count}</p>
-                  </div>
-                ))}
-              </div>
-              <p className="text-[11px] text-muted-foreground/60 text-center">Distribuição por porte — classificação detalhada (direto/indireto/parceiro) será gerada pela IA.</p>
-            </div>
-          ) : (
-            <div className="bg-background rounded-lg p-6 text-center">
-              <p className="text-sm text-muted-foreground mb-1">{data.totalCompetitors} concorrentes identificados no nicho</p>
-              <p className="text-xs text-muted-foreground/60">A classificação será gerada automaticamente.</p>
-            </div>
-          )}
+          <div className="bg-background rounded-lg p-6 text-center">
+            <p className="text-sm text-muted-foreground mb-1">Para ver análise competitiva, preencha seu CNAE</p>
+            <a href="/company" className="text-xs text-blue-400 hover:text-blue-300 transition-colors">Ir para Empresa &rarr;</a>
+          </div>
         </div>
       )}
 
