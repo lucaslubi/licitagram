@@ -3,11 +3,12 @@
  *
  * Stack (all free, cascading fallback):
  *   1. Groq (llama-3.3-70b)       — free tier, fastest
- *   2. OpenRouter/DeepSeek-V3     — free, excellent general-purpose
- *   3. OpenRouter/Qwen3.6-Plus    — free, #1 Finance/Academia, 1M context
+ *   2. OpenRouter/Qwen3.6-Plus    — free, #1 Finance/Academia, 1M context
+ *   3. OpenRouter/Nemotron-120B   — free, NVIDIA 120B MoE
  *   4. OpenRouter/Llama-3.3-70B   — free, strong general-purpose
- *   5. OpenRouter/Qwen3-235B      — free, massive model
+ *   5. OpenRouter/Hermes-405B     — free, largest open model
  *   6. OpenRouter/Gemma-3-27B     — free, good classification
+ *   7. OpenRouter/GPT-OSS-120B    — free, OpenAI open-source
  *
  * Multi-key: set OPENROUTER_API_KEY=key1,key2,key3 for round-robin
  * across multiple accounts, multiplying rate limits.
@@ -91,11 +92,12 @@ const PROVIDERS: Provider[] = [
   // Groq — fastest, 100K TPD free
   { client: groqClient, model: 'llama-3.3-70b-versatile', label: 'Groq/Llama-3.3-70B' },
   // OpenRouter free models — round-robin across all configured keys
-  { get client() { return nextORClient() }, model: 'deepseek/deepseek-chat-v3-0324:free',    label: 'OR/DeepSeek-V3' },
   { get client() { return nextORClient() }, model: 'qwen/qwen3.6-plus:free',                 label: 'OR/Qwen3.6-Plus' },
+  { get client() { return nextORClient() }, model: 'nvidia/nemotron-3-super-120b-a12b:free',  label: 'OR/Nemotron-120B' },
   { get client() { return nextORClient() }, model: 'meta-llama/llama-3.3-70b-instruct:free', label: 'OR/Llama-3.3-70B' },
-  { get client() { return nextORClient() }, model: 'qwen/qwen3-235b-a22b:free',              label: 'OR/Qwen3-235B' },
+  { get client() { return nextORClient() }, model: 'nousresearch/hermes-3-llama-3.1-405b:free', label: 'OR/Hermes-405B' },
   { get client() { return nextORClient() }, model: 'google/gemma-3-27b-it:free',             label: 'OR/Gemma-3-27B' },
+  { get client() { return nextORClient() }, model: 'openai/gpt-oss-120b:free',               label: 'OR/GPT-OSS-120B' },
 ]
 
 // ─── Concurrency Limiter (prevent free tier rate limit flooding) ─────────────
