@@ -1,6 +1,5 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import { WeeklyActionsRow } from './weekly-actions-row'
 
 export function RadarTab() {

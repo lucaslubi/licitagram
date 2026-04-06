@@ -98,7 +98,7 @@ export function WeeklyActionsRow() {
           <h4 className="text-[14px] font-semibold text-foreground leading-snug mb-1.5">{action.headline}</h4>
           <p className="text-[12px] text-muted-foreground leading-relaxed mb-3">{action.detail}</p>
 
-          {action.metrics.length > 0 && (
+          {action.metrics?.length > 0 && (
             <div className="flex gap-3 mb-3">
               {action.metrics.map((m, i) => (
                 <div key={i} className="text-center">

@@ -34,7 +34,7 @@ function getMonday(): string {
   const d = new Date()
   const day = d.getDay()
   const diff = d.getDate() - day + (day === 0 ? -6 : 1)
-  const monday = new Date(d.setDate(diff))
+  const monday = new Date(d.getFullYear(), d.getMonth(), diff)
   return monday.toISOString().split('T')[0]
 }
 
@@ -78,20 +78,20 @@ async function detectOpportunityWindows(
   try {
     const { data: stats } = await supabase
       .from('competitor_stats')
-      .select('uf, total_participacoes, total_vitorias, win_rate, valor_total_ganho, ufs_atuacao')
+      .select('cnpj, uf, total_participacoes, total_vitorias, win_rate, valor_total_ganho, ufs_atuacao')
       .in('cnae_divisao', cnaeDivisions)
       .gte('total_participacoes', 3)
       .limit(500)
 
     if (!stats || stats.length === 0) return []
 
-    // Aggregate by UF
+    // Aggregate by UF — track unique competitors by CNPJ
     const ufAgg: Record<string, { competitors: Set<string>; editals: number; value: number }> = {}
     for (const s of stats) {
       const ufsObj = (s.ufs_atuacao as Record<string, boolean>) || {}
       for (const uf of Object.keys(ufsObj)) {
         if (!ufAgg[uf]) ufAgg[uf] = { competitors: new Set(), editals: 0, value: 0 }
-        ufAgg[uf].competitors.add(s.uf || 'unknown')
+        ufAgg[uf].competitors.add((s as any).cnpj || s.uf || 'unknown')
         ufAgg[uf].editals += Number(s.total_participacoes || 0)
         ufAgg[uf].value += Number(s.valor_total_ganho || 0)
       }
@@ -372,11 +372,12 @@ async function handleWatchlistActivityCheck() {
       const lastSeen = entry.last_activity_seen_at || new Date(0).toISOString()
 
       // Check if competitor won anything since last check
+      // competitors.situacao is TEXT — wins use 'Homologado' or 'Informado'
       const { data: recentWins } = await supabase
         .from('competitors')
         .select('tender_id, nome, valor_proposta')
         .eq('cnpj', entry.competitor_cnpj)
-        .eq('vencedor', true)
+        .in('situacao', ['Homologado', 'Informado'])
         .gte('created_at', lastSeen)
         .limit(5)
 

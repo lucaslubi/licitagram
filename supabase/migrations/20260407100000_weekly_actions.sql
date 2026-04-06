@@ -34,13 +34,17 @@ CREATE INDEX IF NOT EXISTS idx_weekly_actions_company_week
 
 CREATE INDEX IF NOT EXISTS idx_weekly_actions_active
   ON public.weekly_actions(company_id)
-  WHERE dismissed_at IS NULL
-    AND (snoozed_until IS NULL OR snoozed_until < now());
+  WHERE dismissed_at IS NULL;
 
 ALTER TABLE public.weekly_actions ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users see own company weekly actions" ON public.weekly_actions
   FOR SELECT USING (
+    company_id IN (SELECT company_id FROM users WHERE id = auth.uid())
+  );
+
+CREATE POLICY "Users update own company weekly actions" ON public.weekly_actions
+  FOR UPDATE USING (
     company_id IN (SELECT company_id FROM users WHERE id = auth.uid())
   );
 
