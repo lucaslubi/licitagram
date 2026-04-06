@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { KanbanBoard } from './kanban-board'
 import { PendingOutcomesBanner } from './pending-outcomes-banner'
+import { formatCompactBRL } from '@/lib/geo/map-utils'
 
 const COLUMN_KEYS = ['new', 'interested', 'applied', 'won', 'lost']
 
@@ -34,7 +35,6 @@ export default async function PipelinePage() {
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
       .order('score', { ascending: false }),
 
-    // Matches with closed tenders that have no bid_outcome yet (interested/applied only)
     supabase
       .from('matches')
       .select(
@@ -50,7 +50,7 @@ export default async function PipelinePage() {
 
   const matches = matchesResult.data
 
-  // Filter out matches that already have bid_outcomes
+  // Pending outcomes
   const pendingCandidates = pendingOutcomesResult.data || []
   let pendingOutcomes: Array<{ id: string; objeto: string; orgao_nome: string; uf: string; data_encerramento: string | null }> = []
 
@@ -77,14 +77,14 @@ export default async function PipelinePage() {
       })
   }
 
-  // Normalize the matches for the client component
+  // Normalize matches
   const normalizedMatches = (matches || []).map((m) => {
     const tender = m.tenders as unknown as Record<string, unknown> | null
     return {
       id: m.id,
       score: m.score,
       status: m.status,
-      isHot: m.score >= 80,  // Super Quente: score >= 80 (consistent global rule)
+      isHot: m.score >= 80,
       competitionScore: (m as unknown as Record<string, unknown>).competition_score as number | null ?? null,
       tenders: tender
         ? {
@@ -99,11 +99,45 @@ export default async function PipelinePage() {
     }
   })
 
+  // Compute aggregate metrics
+  const totalValue = normalizedMatches.reduce((s, m) => s + (m.tenders?.valor_estimado || 0), 0)
+  const participating = normalizedMatches.filter((m) => m.status === 'applied')
+  const participatingValue = participating.reduce((s, m) => s + (m.tenders?.valor_estimado || 0), 0)
+  const wonCount = normalizedMatches.filter((m) => m.status === 'won').length
+  const lostCount = normalizedMatches.filter((m) => m.status === 'lost').length
+  const totalDecided = wonCount + lostCount
+  const conversionRate = totalDecided > 0 ? Math.round((wonCount / totalDecided) * 100) : 0
+  const avgTicket = normalizedMatches.length > 0 ? totalValue / normalizedMatches.length : 0
+
   return (
     <div>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-2">
-        <h1 className="text-2xl font-bold">Pipeline</h1>
-        <p className="text-sm text-gray-400">Arraste os cards entre as colunas para atualizar o status</p>
+      {/* Header */}
+      <div className="mb-5">
+        <h1 className="text-xl font-semibold text-foreground tracking-tight">Pipeline</h1>
+        <p className="text-xs text-muted-foreground mt-1">Gestão de oportunidades em andamento</p>
+      </div>
+
+      {/* Metrics */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+        <div className="bg-card border border-border rounded-xl p-3.5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1">Valor Total</p>
+          <p className="text-xl font-semibold text-foreground font-mono tabular-nums tracking-tight">{formatCompactBRL(totalValue)}</p>
+          <p className="text-[11px] text-muted-foreground mt-1">{normalizedMatches.length} oportunidades</p>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-3.5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1">Em Participação</p>
+          <p className="text-xl font-semibold text-foreground font-mono tabular-nums tracking-tight">{formatCompactBRL(participatingValue)}</p>
+          <p className="text-[11px] text-muted-foreground mt-1">{participating.length} oportunidade{participating.length !== 1 ? 's' : ''}</p>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-3.5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1">Taxa de Conversão</p>
+          <p className="text-xl font-semibold text-foreground font-mono tabular-nums tracking-tight">{conversionRate}%</p>
+          <p className="text-[11px] text-muted-foreground mt-1">{wonCount} ganha{wonCount !== 1 ? 's' : ''} / {totalDecided} decidida{totalDecided !== 1 ? 's' : ''}</p>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-3.5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1">Ticket Médio</p>
+          <p className="text-xl font-semibold text-foreground font-mono tabular-nums tracking-tight">{formatCompactBRL(avgTicket)}</p>
+        </div>
       </div>
 
       {pendingOutcomes.length > 0 && (
