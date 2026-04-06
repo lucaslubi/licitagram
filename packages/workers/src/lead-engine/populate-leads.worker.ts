@@ -395,6 +395,13 @@ export async function populateLeads(options: {
 
     for (const stat of batch) {
       if (!stat.cnpj) continue
+      // Sanitize CNPJ: keep only digits, pad to 14, truncate if longer
+      const cnpjClean = stat.cnpj.replace(/\D/g, '')
+      if (cnpjClean.length < 8 || cnpjClean.length > 14) {
+        logger.warn({ cnpj: stat.cnpj, len: cnpjClean.length }, 'CNPJ inválido, pulando')
+        continue
+      }
+      stat.cnpj = cnpjClean.padStart(14, '0')
       metrics.totalProcessado++
 
       const rfb = empresasRfb[stat.cnpj]
@@ -474,8 +481,8 @@ export async function populateLeads(options: {
 
       // Build UPSERT row params (41 columns)
       const rowParams = [
-        stat.cnpj,                                                    // 1 cnpj
-        stat.cnpj.substring(0, 8),                                    // 2 cnpj_raiz
+        stat.cnpj.substring(0, 14),                                    // 1 cnpj
+        stat.cnpj.substring(0, 8),                                     // 2 cnpj_raiz
         rfb?.razao_social || stat.razao_social || 'N/D',              // 3 razao_social
         rfb?.nome_fantasia || null,                                   // 4 nome_fantasia
         rfb?.natureza_juridica || stat.natureza_juridica || null,     // 5 natureza_juridica
@@ -484,9 +491,9 @@ export async function populateLeads(options: {
         rfb?.situacao_cadastral || null,                              // 8 situacao_cadastral
         rfb?.uf || stat.uf || null,                                   // 9 uf
         rfb?.municipio || stat.municipio || null,                     // 10 municipio
-        rfb?.cep || null,                                             // 11 cep
+        (rfb?.cep || '').replace(/\D/g, '').substring(0, 8) || null,    // 11 cep
         endereco || null,                                             // 12 endereco_completo
-        cnaeCodigo || null,                                           // 13 cnae_principal_codigo
+        cnaeCodigo?.substring(0, 7) || null,                            // 13 cnae_principal_codigo
         cnaeDescricao || null,                                        // 14 cnae_principal_descricao
         JSON.stringify([]),                                           // 15 cnae_secundarios
         emailGenerico,                                                // 16 email_institucional_generico
@@ -537,7 +544,11 @@ export async function populateLeads(options: {
       // Flush every 500 rows to avoid huge queries
       if (upsertValues.length >= 500 || metrics.totalProcessado === allCnpjs.length) {
         if (!dryRun && upsertValues.length > 0) {
-          await executeUpsert(upsertValues, upsertParams)
+          try {
+            await executeUpsert(upsertValues, upsertParams)
+          } catch (err) {
+            logger.error({ err, tuples: upsertValues.length }, 'Erro no UPSERT batch (skipping)')
+          }
         }
         upsertValues.length = 0
         upsertParams.length = 0
@@ -547,7 +558,11 @@ export async function populateLeads(options: {
 
     // Flush remaining
     if (!dryRun && upsertValues.length > 0) {
-      await executeUpsert(upsertValues, upsertParams)
+      try {
+        await executeUpsert(upsertValues, upsertParams)
+      } catch (err) {
+        logger.error({ err, tuples: upsertValues.length }, 'Erro no UPSERT final batch (skipping)')
+      }
       upsertValues.length = 0
       upsertParams.length = 0
       paramIdx = 1
