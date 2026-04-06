@@ -3,7 +3,8 @@ import type { Job } from 'bullmq'
 import { connection } from '../queues/connection'
 import { type NotificationJobData } from '../queues/notification.queue'
 import { bot } from '../telegram/bot'
-import { formatMatchAlert, formatHotAlert, formatUrgencyAlert48h, formatUrgencyAlert24h, formatNewMatchesDigest } from '../telegram/formatters'
+import { formatMatchAlert, formatHotAlert, formatUrgencyAlert48h, formatUrgencyAlert24h, formatNewMatchesDigest, formatWeeklyDigest } from '../telegram/formatters'
+import { sendWhatsAppText } from '../whatsapp/client'
 import { db as supabase } from '../lib/db'
 import { logger } from '../lib/logger'
 import { validateNotification } from '../lib/notification-guard'
@@ -185,6 +186,40 @@ const notificationWorker = new Worker<NotificationJobData>(
       } catch (err) {
         handleTelegramError(err, { telegramChatId, type: 'new_matches', attempt: job.attemptsMade + 1 })
       }
+      return
+    }
+
+    // ─── Weekly Digest ─────────────────────────────────────────────────
+    if ('type' in job.data && job.data.type === 'weekly_digest') {
+      const { telegramChatId, whatsappNumber, actions, companyName } = job.data
+
+      const { text, keyboard } = formatWeeklyDigest(actions, companyName)
+
+      // Send via Telegram
+      if (telegramChatId && bot) {
+        try {
+          await bot.api.sendMessage(telegramChatId, text, {
+            parse_mode: 'HTML',
+            reply_markup: keyboard,
+          })
+          logger.info({ telegramChatId, actionCount: actions.length }, 'Weekly digest sent via Telegram')
+        } catch (err) {
+          logger.error({ telegramChatId, err }, 'Failed to send weekly digest via Telegram')
+        }
+      }
+
+      // Send via WhatsApp
+      if (whatsappNumber) {
+        try {
+          // Strip HTML tags for WhatsApp plain text
+          const plainText = text.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+          await sendWhatsAppText(whatsappNumber, plainText)
+          logger.info({ whatsappNumber, actionCount: actions.length }, 'Weekly digest sent via WhatsApp')
+        } catch (err) {
+          logger.error({ whatsappNumber, err }, 'Failed to send weekly digest via WhatsApp')
+        }
+      }
+
       return
     }
 

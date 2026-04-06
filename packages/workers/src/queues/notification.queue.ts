@@ -15,6 +15,18 @@ export interface UrgencyMatchItem {
   ano: string
 }
 
+export interface WeeklyActionItem {
+  id: string
+  type: string
+  priority: 'urgent' | 'high' | 'normal'
+  headline: string
+  detail: string
+  metrics: Array<{ label: string; value: string }>
+  actionLabel: string
+  actionHref: string
+  deltaText?: string
+}
+
 export type NotificationJobData =
   | { matchId: string; telegramChatId?: number; whatsappNumber?: string }
   | { matchId: string; telegramChatId: number; type: 'hot'; rank: number; plan: string; competitionScore: number; topCompetitors: Array<{ nome: string; winRate: number; porte: string }> }
@@ -22,6 +34,7 @@ export type NotificationJobData =
   | { telegramChatId: number; type: 'urgency_24h'; matches: UrgencyMatchItem[]; totalValor: number }
   | { telegramChatId: number; type: 'new_matches'; matches: UrgencyMatchItem[]; totalValor: number }
   | { matchId: string; telegramChatId: number; type: 'outcome_prompt'; tenderObjeto: string; tenderOrgao: string; daysSinceClose: number }
+  | { telegramChatId?: number; whatsappNumber?: string; type: 'weekly_digest'; actions: WeeklyActionItem[]; companyName: string }
 
 // ─── Notification Priority Levels (lower number = higher priority) ────────
 export const NOTIFICATION_PRIORITY = {

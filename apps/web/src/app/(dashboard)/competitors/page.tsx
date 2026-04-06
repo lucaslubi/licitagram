@@ -7,6 +7,7 @@ import { AddWatchlistForm } from './watchlist-form'
 import { DeleteWatchlistButton } from './delete-watchlist-button'
 import { MercadoSummaryCards, MercadoTable, type MercadoCompetitor } from './mercado-table'
 import { IntelOverview, type OverviewData } from './intel-overview'
+import { RadarTab } from './radar-tab'
 
 export default async function CompetitorsPage({
   searchParams,
@@ -883,12 +884,10 @@ export default async function CompetitorsPage({
       {/* Tabs */}
       <div className="flex gap-1 mb-5 overflow-x-auto">
         {[
-          { key: 'overview', label: 'Visão Geral' },
-          { key: 'mercado', label: 'Mercado' },
-          { key: 'panorama', label: 'Panorama' },
-          { key: 'ranking', label: 'Ranking' },
+          { key: 'overview', label: 'Visão Unificada' },
+          { key: 'radar', label: 'Radar Semanal' },
           { key: 'watchlist', label: 'Watchlist' },
-          { key: 'comparativa', label: 'Comparativa' },
+          { key: 'comparativa', label: 'Comparar' },
           { key: 'buscar', label: 'Buscar' },
         ].map((t) => (
           <Link
@@ -908,6 +907,10 @@ export default async function CompetitorsPage({
       {/* Overview tab */}
       {tab === 'overview' && overviewData && (
         <IntelOverview data={overviewData} />
+      )}
+
+      {tab === 'radar' && (
+        <RadarTab />
       )}
 
       {tab === 'watchlist' && (

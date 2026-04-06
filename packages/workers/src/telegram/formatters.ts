@@ -310,3 +310,64 @@ export function formatNewMatchesDigest(matches: UrgencyMatchData[], totalValor: 
   const keyboard = new InlineKeyboard().url('📊 Ver todas no pipeline', `${appUrl}/pipeline`)
   return { text, keyboard }
 }
+
+// ─── Weekly Digest Formatter ──────────────────────────────────────────────────
+
+interface WeeklyActionForFormat {
+  type: string
+  priority: 'urgent' | 'high' | 'normal'
+  headline: string
+  detail: string
+  metrics: Array<{ label: string; value: string }>
+  actionLabel: string
+  actionHref: string
+}
+
+const ACTION_ICONS: Record<string, string> = {
+  window: '🎯',
+  new_rival: '👤',
+  rival_surge: '⚡',
+  rival_weakness: '📉',
+  price_shift: '💰',
+  trend: '📈',
+  win_opportunity: '🏆',
+}
+
+const PRIORITY_LABELS: Record<string, string> = {
+  urgent: '🔴 URGENTE',
+  high: '🟡 ALTA',
+  normal: '',
+}
+
+export function formatWeeklyDigest(
+  actions: WeeklyActionForFormat[],
+  companyName: string,
+): { text: string; keyboard: InlineKeyboard } {
+  const appUrl = process.env.APP_URL || 'https://app.licitagram.com.br'
+
+  let text = `📊 <b>Inteligência Semanal</b>\n`
+  text += `<i>${escapeHtml(companyName)}</i>\n\n`
+
+  for (const action of actions.slice(0, 5)) {
+    const icon = ACTION_ICONS[action.type] || '📌'
+    const prio = PRIORITY_LABELS[action.priority] || ''
+
+    text += `${icon} <b>${escapeHtml(action.headline)}</b>`
+    if (prio) text += ` ${prio}`
+    text += `\n`
+    text += `${escapeHtml(action.detail)}\n`
+
+    if (action.metrics.length > 0) {
+      text += action.metrics.map((m) => `  • ${m.label}: <b>${escapeHtml(m.value)}</b>`).join('\n')
+      text += '\n'
+    }
+
+    text += '\n'
+  }
+
+  text += `—\n🔗 <a href="${appUrl}/competitors">Ver análise completa</a>`
+
+  const keyboard = new InlineKeyboard().url('📊 Ver Inteligência Competitiva', `${appUrl}/competitors`)
+
+  return { text, keyboard }
+}

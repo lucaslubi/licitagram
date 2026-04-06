@@ -23,11 +23,13 @@ import { aiTriageWorker } from './processors/ai-triage.processor'
 import { semanticMatchingWorker } from './processors/semantic-matching.processor'
 import { hotAlertsWorker } from './processors/hot-alerts.processor'
 import { competitionAnalysisWorker } from './processors/competition-analysis.processor'
+import { weeklyActionsWorker } from './processors/weekly-actions.processor'
 
 // ─── Queues (for scheduling) ────────────────────────────────────────────────
 import { pendingNotificationsQueue } from './queues/pending-notifications.queue'
 import { hotAlertsQueue } from './queues/hot-alerts.queue'
 import { competitionAnalysisQueue } from './queues/competition-analysis.queue'
+import { weeklyActionsQueue } from './queues/weekly-actions.queue'
 
 import { startBot } from './telegram/bot'
 
@@ -36,7 +38,7 @@ const POOL_NAME = 'matching'
 const allWorkers = [
   matchingWorker, notificationWorker, pendingNotificationsWorker,
   aiTriageWorker, semanticMatchingWorker, hotAlertsWorker,
-  competitionAnalysisWorker,
+  competitionAnalysisWorker, weeklyActionsWorker,
 ]
 
 async function setupMatchingJobs() {
@@ -68,6 +70,18 @@ async function setupMatchingJobs() {
   competitionAnalysisQueue.add('materialize-stats-startup', { mode: 'full' }).catch(err => {
     logger.error({ err, pool: POOL_NAME }, 'Failed to enqueue startup competition analysis')
   })
+
+  // Weekly actions: generate every Monday at 00:00 BRT (03:00 UTC)
+  await weeklyActionsQueue.add(
+    'generate-weekly-actions', {},
+    { repeat: { pattern: '0 3 * * 1' }, jobId: 'weekly-actions-monday-repeat' },
+  )
+
+  // Watchlist activity check every 3h
+  await weeklyActionsQueue.add(
+    'watchlist-activity-check', {},
+    { repeat: { every: 3 * 60 * 60 * 1000 }, jobId: 'watchlist-activity-3h-repeat' },
+  )
 
   logger.info({ pool: POOL_NAME }, 'Repeatable matching jobs scheduled')
 }
