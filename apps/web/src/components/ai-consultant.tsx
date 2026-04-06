@@ -276,10 +276,10 @@ export function AiConsultant() {
         <button
           id="ai-consultant-button"
           onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-[9999] w-12 h-12 rounded-xl bg-card border border-border text-foreground shadow-lg hover:shadow-xl hover:bg-secondary transition-all duration-200 flex items-center justify-center group"
+          className="fixed bottom-6 right-6 z-[9999] w-12 h-12 rounded-xl bg-card border border-border text-foreground shadow-lg hover:shadow-xl hover:bg-secondary transition-all duration-200 flex items-center justify-center group overflow-hidden fab-shimmer"
           aria-label="Abrir Consultor IA"
         >
-          <Sparkles className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+          <Sparkles className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors relative z-[1]" />
           {unreadCount > 0 && (
             <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
               {unreadCount > 9 ? '9+' : unreadCount}
