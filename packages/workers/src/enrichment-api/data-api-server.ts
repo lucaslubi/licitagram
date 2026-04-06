@@ -13,6 +13,13 @@ import 'dotenv/config'
 import http from 'node:http'
 import pg from 'pg'
 import pino from 'pino'
+import {
+  handleListLeads,
+  handleLeadDetail,
+  handleLeadDashboard,
+  handleExportCsv,
+  handleOptOut,
+} from '../lead-engine/lead-api-routes'
 
 const logger = pino({ name: 'data-api-server', level: process.env.LOG_LEVEL || 'info' })
 
@@ -372,6 +379,60 @@ const server = http.createServer(async (req, res) => {
         jsonResponse(res, result.status, result.body)
         return
       }
+    }
+
+    // ─── Lead Engine routes ───────────────────────────────────────
+    // GET /api/leads/dashboard — Dashboard métricas
+    if (pathname === '/api/leads/dashboard' && req.method === 'GET') {
+      const result = await handleLeadDashboard(pgPool)
+      jsonResponse(res, result.status, result.body)
+      return
+    }
+
+    // GET /api/leads/:cnpj — Detalhe de lead
+    const leadDetailMatch = pathname.match(/^\/api\/leads\/(\d{11,14})$/)
+    if (leadDetailMatch && req.method === 'GET') {
+      const result = await handleLeadDetail(pgPool, leadDetailMatch[1])
+      jsonResponse(res, result.status, result.body)
+      return
+    }
+
+    // GET /api/leads — Lista paginada
+    if (pathname === '/api/leads' && req.method === 'GET') {
+      const result = await handleListLeads(pgPool, query)
+      jsonResponse(res, result.status, result.body)
+      return
+    }
+
+    // POST /api/leads/export — Export CSV
+    if (pathname === '/api/leads/export' && req.method === 'POST') {
+      const body = await readBody(req)
+      let parsed: any
+      try { parsed = JSON.parse(body) } catch {
+        jsonResponse(res, 400, { error: 'Invalid JSON' })
+        return
+      }
+      if (!parsed.adminEmail) {
+        jsonResponse(res, 400, { error: 'adminEmail required' })
+        return
+      }
+      await handleExportCsv(pgPool, res, parsed)
+      return
+    }
+
+    // GET /api/leads/optout — Opt-out LGPD
+    if (pathname === '/api/leads/optout' && req.method === 'GET') {
+      const cnpj = query.cnpj
+      const token = query.token
+      const origem = query.origem
+      if (!cnpj || !token) {
+        jsonResponse(res, 400, { error: 'cnpj and token required' })
+        return
+      }
+      const result = await handleOptOut(pgPool, cnpj, token, origem)
+      res.writeHead(result.status, { 'Content-Type': result.contentType })
+      res.end(result.body)
+      return
     }
 
     // Health check
