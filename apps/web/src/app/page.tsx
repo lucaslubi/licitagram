@@ -334,7 +334,7 @@ export default async function LandingPage() {
             {/* Mapa de Inteligência — Video Demo */}
             <ScrollReveal delay={300}>
               <div className="mb-16 max-w-4xl mx-auto">
-                <div className="rounded-2xl overflow-hidden border border-[#E5E5E0]/30 shadow-2xl">
+                <div className="relative rounded-2xl overflow-hidden border border-[#E5E5E0]/30 shadow-2xl">
                   <video
                     autoPlay
                     loop
@@ -345,6 +345,12 @@ export default async function LandingPage() {
                   >
                     <source src="/mapa-demo.webm" type="video/webm" />
                   </video>
+                  {/* Logo watermark — bottom-left */}
+                  <img
+                    src="/logo-branca.png"
+                    alt="Licitagram"
+                    className="absolute bottom-3 left-3 h-8 opacity-80 drop-shadow-lg pointer-events-none"
+                  />
                 </div>
                 <p className="text-center text-sm text-[#69695D] mt-4">Mapa de Inteligência — Oportunidades geolocalizadas com score de compatibilidade em tempo real</p>
               </div>

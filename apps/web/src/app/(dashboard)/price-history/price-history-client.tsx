@@ -9,8 +9,6 @@ import type { PriceSearchResult, PriceStatistics, PriceTrend } from '@licitagram
 import { PriceTrendChart } from './components/PriceTrendChart'
 
 // New module imports
-import { DiscountAnalysis } from './components/DiscountAnalysis'
-import { SeasonalityAnalysis } from './components/SeasonalityAnalysis'
 import { BenchmarkGauge } from './components/BenchmarkGauge'
 import { CompetitorProfile } from './components/CompetitorProfile'
 import { SmartPricingV2 } from './components/SmartPricingV2'
@@ -35,9 +33,7 @@ const MODALIDADE_OPTIONS = [
 
 const TABS = [
   { id: 'tendencia', label: 'Tendência' },
-  { id: 'descontos', label: 'Descontos' },
   { id: 'segmentacao', label: 'Segmentação' },
-  { id: 'sazonalidade', label: 'Sazonalidade' },
   { id: 'concorrentes', label: 'Concorrentes' },
 ] as const
 
@@ -753,11 +749,6 @@ export function PriceHistoryClient() {
             </div>
           )}
 
-          {/* Tab content: Descontos */}
-          {activeTab === 'descontos' && result && (
-            <DiscountAnalysis query={query} uf={uf} modalidade={modalidade} dateFrom={dateFrom} dateTo={dateTo} />
-          )}
-
           {/* Tab content: Segmentação */}
           {activeTab === 'segmentacao' && result && (
             <div className="space-y-6">
@@ -845,11 +836,6 @@ export function PriceHistoryClient() {
               </div>
 
             </div>
-          )}
-
-          {/* Tab content: Sazonalidade */}
-          {activeTab === 'sazonalidade' && result && (
-            <SeasonalityAnalysis query={query} uf={uf} modalidade={modalidade} />
           )}
 
           {/* Tab content: Concorrentes */}
