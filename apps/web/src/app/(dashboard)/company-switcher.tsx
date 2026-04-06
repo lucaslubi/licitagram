@@ -80,13 +80,13 @@ export function CompanySwitcher({ collapsed = false }: CompanySwitcherProps) {
   }
 
   return (
-    <div className="px-4 py-2" ref={ref}>
+    <div className="px-3 py-1.5" ref={ref}>
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-medium text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[12px] font-medium text-foreground hover:bg-secondary transition-colors border border-border"
+        title={displayName}
       >
-        {/* Building icon */}
-        <svg className="w-4 h-4 shrink-0 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-3.5 h-3.5 shrink-0 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -94,9 +94,9 @@ export function CompanySwitcher({ collapsed = false }: CompanySwitcherProps) {
             d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
           />
         </svg>
-        <span className="truncate flex-1 text-left">{displayName}</span>
+        <span className="truncate flex-1 text-left min-w-0">{displayName}</span>
         <svg
-          className={`w-3.5 h-3.5 shrink-0 text-gray-500 transition-transform ${open ? 'rotate-180' : ''}`}
+          className={`w-3 h-3 shrink-0 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"

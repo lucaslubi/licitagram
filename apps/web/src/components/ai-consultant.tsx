@@ -276,10 +276,10 @@ export function AiConsultant() {
         <button
           id="ai-consultant-button"
           onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-[9999] w-14 h-14 rounded-full bg-[#F43E01] text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center justify-center group"
+          className="fixed bottom-6 right-6 z-[9999] w-12 h-12 rounded-xl bg-card border border-border text-foreground shadow-lg hover:shadow-xl hover:bg-secondary transition-all duration-200 flex items-center justify-center group"
           aria-label="Abrir Consultor IA"
         >
-          <Sparkles className="w-6 h-6 group-hover:rotate-12 transition-transform" />
+          <Sparkles className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
           {unreadCount > 0 && (
             <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
               {unreadCount > 9 ? '9+' : unreadCount}
@@ -292,7 +292,7 @@ export function AiConsultant() {
       {open && (
         <div className="fixed bottom-0 right-0 md:bottom-6 md:right-6 z-[9999] w-full h-full md:w-[400px] md:h-auto md:max-h-[550px] bg-[#1a1c1f] md:rounded-2xl shadow-2xl border border-[#2d2f33] flex flex-col overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-[#F43E01] to-[#F43E01] text-white shrink-0">
+          <div className="flex items-center justify-between px-4 py-3 bg-card border-b border-border text-foreground shrink-0">
             <div className="flex items-center gap-2">
               <Sparkles className="w-5 h-5" />
               <h2 className="font-semibold text-sm">Consultor IA</h2>
