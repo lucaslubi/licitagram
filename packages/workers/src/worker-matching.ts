@@ -252,7 +252,8 @@ async function main() {
   setInterval(runReset, 24 * 60 * 60 * 1000)
 
   // Semantic matching
-  if (process.env.JINA_API_KEY || process.env.OPENAI_API_KEY) {
+  // Ollama/BGE-M3 always available locally — always run semantic matching
+  {
     Promise.all([
       import('./processors/company-profiler').then(m => m.batchEmbedTenders(500)),
       import('./processors/company-profiler').then(m => m.profileAllCompanies()),

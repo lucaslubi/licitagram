@@ -608,7 +608,8 @@ const aiTriageWorker = new Worker<AiTriageJobData>(
     }
 
     // Enqueue semantic matching if embedding provider is available and company has embedding
-    if (process.env.JINA_API_KEY || process.env.OPENAI_API_KEY) {
+    // Ollama/BGE-M3 always available locally — always check for semantic matching
+    {
       try {
         const { data: co } = await supabase
           .from('companies')

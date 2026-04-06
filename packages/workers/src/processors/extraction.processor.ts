@@ -160,7 +160,8 @@ const extractionWorker = new Worker<ExtractionJobData>(
 
     // 5. Embed tender for semantic matching FIRST (primary pipeline)
     let tenderEmbedded = false
-    if (process.env.JINA_API_KEY || process.env.OPENAI_API_KEY) {
+    // Ollama/BGE-M3 always available locally — always embed tenders
+    {
       try {
         const { embedTender } = await import('./company-profiler')
         await embedTender(tenderId)

@@ -941,7 +941,8 @@ async function main() {
   }
 
   // Semantic matching: embed tenders + profile companies + run sweep (non-blocking)
-  if ((isFullMode || selectedGroups.includes('matching')) && (process.env.JINA_API_KEY || process.env.OPENAI_API_KEY)) {
+  // Ollama/BGE-M3 runs locally (always available), so semantic matching is always enabled
+  if (isFullMode || selectedGroups.includes('matching')) {
     // Initial batch: embed unembedded tenders and profile companies
     Promise.all([
       import('./processors/company-profiler').then(m => m.batchEmbedTenders(500)),

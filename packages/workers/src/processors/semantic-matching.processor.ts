@@ -13,10 +13,8 @@ const semanticMatchingWorker = new Worker<SemanticMatchingJobData>(
   async (job) => {
     const { companyId } = job.data
 
-    if (!process.env.JINA_API_KEY && !process.env.OPENAI_API_KEY) {
-      logger.warn('No embedding provider configured (JINA_API_KEY or OPENAI_API_KEY) — skipping semantic matching')
-      return
-    }
+    // Ollama/BGE-M3 is always available locally — no API key check needed
+    // Cloud providers (Voyage, Jina, OpenAI) are used as fallback if Ollama fails
 
     logger.info({ companyId }, 'Starting semantic matching job')
     const stats = await runSemanticMatching(companyId)
