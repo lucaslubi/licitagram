@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation'
 interface AdminNavItem {
   href: string
   label: string
+  badge?: number
 }
 
 interface AdminSidebarProps {
@@ -64,7 +65,14 @@ export function AdminSidebar({ visibleItems, userEmail }: AdminSidebarProps) {
                   : 'text-gray-400 hover:bg-[#2d2f33] hover:text-white'
               }`}
             >
-              {item.label}
+              <span className="flex items-center justify-between gap-2">
+                <span>{item.label}</span>
+                {item.badge !== undefined && item.badge > 0 && (
+                  <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold">
+                    {item.badge > 99 ? '99+' : item.badge}
+                  </span>
+                )}
+              </span>
             </Link>
           )
         })}

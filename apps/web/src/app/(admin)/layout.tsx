@@ -2,9 +2,11 @@ export const dynamic = 'force-dynamic'
 
 import { requirePlatformAdmin, checkAdminPermission } from '@/lib/auth-helpers'
 import { AdminSidebar } from '@/components/admin/admin-sidebar'
+import { countUnresolvedAlerts } from '@/actions/admin/clients'
 
 const ADMIN_NAV = [
   { href: '/admin', label: 'Dashboard', section: 'dashboard' },
+  { href: '/admin/alerts', label: 'Alertas', section: 'dashboard' },
   { href: '/admin/clients', label: 'Clientes', section: 'clients' },
   { href: '/admin/plans', label: 'Planos', section: 'plans' },
   { href: '/admin/users', label: 'Usuarios', section: 'users' },
@@ -27,9 +29,15 @@ export default async function AdminLayout({
 }) {
   const user = await requirePlatformAdmin()
 
+  const alertsCount = await countUnresolvedAlerts().catch(() => 0)
+
   const visibleItems = ADMIN_NAV.filter((item) =>
     checkAdminPermission(user, item.section),
-  ).map(({ href, label }) => ({ href, label }))
+  ).map(({ href, label }) => ({
+    href,
+    label,
+    badge: href === '/admin/alerts' ? alertsCount : undefined,
+  }))
 
   return (
     <div className="flex h-screen bg-[#111315] text-white font-roboto">
