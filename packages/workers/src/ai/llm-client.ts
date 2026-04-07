@@ -130,6 +130,36 @@ function releaseSlot(): void {
   if (next) next()
 }
 
+// ─── Circuit Breaker (skip provider on TPD/quota exhaustion) ─────────────────
+//
+// When a provider returns 429 with a "Limit … Used …" error message indicating
+// daily quota exhaustion, mark it as "cooling down" for N minutes. The cascade
+// skips it entirely, jumping straight to the next provider — no wasted retries.
+const providerCooldown = new Map<string, number>() // label → unix ms when usable again
+
+function isProviderCoolingDown(label: string): boolean {
+  const until = providerCooldown.get(label)
+  if (!until) return false
+  if (Date.now() >= until) {
+    providerCooldown.delete(label)
+    return false
+  }
+  return true
+}
+
+function tripCircuit(label: string, errorMessage: string): void {
+  // Detect daily quota exhaustion patterns from common providers
+  const isDailyQuota =
+    /tokens per day|TPD|daily.*quota|daily.*limit|Limit.*Used/i.test(errorMessage)
+  // Default cooldown: 30 min for daily quota, 2 min otherwise
+  const cooldownMs = isDailyQuota ? 30 * 60 * 1000 : 2 * 60 * 1000
+  providerCooldown.set(label, Date.now() + cooldownMs)
+  logger.warn(
+    { provider: label, cooldownMinutes: cooldownMs / 60000, isDailyQuota },
+    'Provider circuit tripped — skipping in cascade until cooldown expires',
+  )
+}
+
 // ─── Main Function ───────────────────────────────────────────────────────────
 
 export async function callLLM(params: {
@@ -149,6 +179,15 @@ export async function callLLM(params: {
     // Try each provider in order
     for (let providerIdx = 0; providerIdx < PROVIDERS.length; providerIdx++) {
       const provider = PROVIDERS[providerIdx]
+
+      // Circuit breaker: skip provider that has tripped its daily quota
+      if (isProviderCoolingDown(provider.label)) {
+        logger.info(
+          { task, provider: provider.label },
+          'Provider in cooldown, skipping to next fallback',
+        )
+        continue
+      }
 
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
@@ -190,8 +229,17 @@ export async function callLLM(params: {
           return text
         } catch (error: unknown) {
           const status = (error as { status?: number }).status
+          const errorMessage = (error as Error).message || ''
           const isRateLimit = status === 429
           const isServerError = status && status >= 500
+          const isDailyQuota =
+            isRateLimit && /tokens per day|TPD|daily.*quota|daily.*limit|Limit.*Used/i.test(errorMessage)
+
+          // Daily quota exhausted → trip circuit breaker and skip immediately
+          if (isDailyQuota) {
+            tripCircuit(provider.label, errorMessage)
+            break // exit retry loop, jumps to next provider
+          }
 
           if ((isRateLimit || isServerError) && attempt < maxRetries) {
             const delay = Math.pow(2, attempt) * (isRateLimit ? 5000 : 3000)
