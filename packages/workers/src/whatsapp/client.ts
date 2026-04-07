@@ -16,10 +16,37 @@ const WAHA_URL = process.env.WAHA_URL || process.env.EVOLUTION_API_URL || 'http:
 const WAHA_KEY = process.env.WAHA_API_KEY || ''
 const WAHA_SESSION = process.env.WAHA_SESSION || 'default'
 
-/** Converte número BR (5541991016001) em chatId WAHA (5541991016001@c.us) */
-function toChatId(number: string): string {
+/** Cache de chatIds resolvidos para evitar lookup repetido */
+const chatIdCache = new Map<string, string>()
+
+/**
+ * Resolve número BR para chatId real do WhatsApp.
+ * WhatsApp normaliza números brasileiros antigos removendo o 9 (5541991016001 → 554191016001).
+ * Sem essa resolução, mensagens ficam PENDING para sempre.
+ */
+async function toChatId(number: string): Promise<string> {
   const digits = number.replace(/\D/g, '')
   if (digits.includes('@')) return digits
+
+  const cached = chatIdCache.get(digits)
+  if (cached) return cached
+
+  try {
+    const url = `${WAHA_URL}/api/contacts/check-exists?phone=${digits}&session=${WAHA_SESSION}`
+    const res = await fetch(url, {
+      headers: { 'X-Api-Key': WAHA_KEY },
+      signal: AbortSignal.timeout(10_000),
+    })
+    if (res.ok) {
+      const data = (await res.json()) as { numberExists?: boolean; chatId?: string }
+      if (data.numberExists && data.chatId) {
+        chatIdCache.set(digits, data.chatId)
+        return data.chatId
+      }
+    }
+  } catch {
+    // fallback abaixo
+  }
   return `${digits}@c.us`
 }
 
@@ -44,9 +71,10 @@ async function wahaFetch(path: string, body?: unknown, method: 'GET' | 'POST' = 
 
 /** Envia mensagem de texto via WAHA */
 export async function sendWhatsAppText(number: string, text: string) {
+  const chatId = await toChatId(number)
   return wahaFetch(`/api/sendText`, {
     session: WAHA_SESSION,
-    chatId: toChatId(number),
+    chatId,
     text,
     linkPreview: false,
   })
@@ -59,9 +87,10 @@ export async function sendWhatsAppDocument(
   fileName: string,
   caption: string,
 ) {
+  const chatId = await toChatId(number)
   return wahaFetch(`/api/sendFile`, {
     session: WAHA_SESSION,
-    chatId: toChatId(number),
+    chatId,
     file: { url: documentUrl, filename: fileName },
     caption,
   })
