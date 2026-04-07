@@ -474,8 +474,11 @@ export const competitorRelevanceWorker = new Worker<CompetitorRelevanceJobData>(
   {
     connection,
     concurrency: 1,
-    stalledInterval: 600_000,
-    lockDuration: 600_000,
+    // Targeted analysis can take 20-30min when LLM providers are rate-limited
+    // and the company has 100+ competitors. Lock + stalled checks must be
+    // generous enough to avoid BullMQ killing the job mid-flight.
+    stalledInterval: 1_800_000, // 30 min
+    lockDuration: 1_800_000,    // 30 min
   },
 )
 
