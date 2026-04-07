@@ -23,6 +23,7 @@ import {
   type CompetitorProfile,
 } from '../ai/competitor-relevance'
 import { db as supabase } from '../lib/db'
+import { supabase as supabaseRemote } from '../lib/supabase'
 import { logger } from '../lib/logger'
 
 const MAX_COMPANIES_PER_RUN = 5
@@ -214,7 +215,11 @@ async function analyzeCompanyCompetitors(company: {
 
   // 3. Find competitors that appeared in the same tenders as this company
   // Step A: Get tender IDs this company was matched to (ordered by most recent first)
-  const { data: companyMatches, error: matchError } = await supabase
+  // CRITICAL: must read from Supabase direct (not local mirror) — newly-saved
+  // companies have matches in Supabase but the mirror_matches replication may
+  // lag by minutes, causing "No matches found" false negatives that block the
+  // entire relevance analysis right after onboarding.
+  const { data: companyMatches, error: matchError } = await supabaseRemote
     .from('matches')
     .select('tender_id')
     .eq('company_id', companyId)
