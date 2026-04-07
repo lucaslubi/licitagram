@@ -3,6 +3,12 @@ import { connection } from './connection'
 
 export interface CompetitorRelevanceJobData {
   batch?: number
+  /**
+   * When set, the processor analyzes ONLY this company and bypasses the
+   * 12h "recently analyzed" skip. Used by worker-matching to trigger
+   * immediate relevance classification on company insert/update.
+   */
+  companyId?: string
 }
 
 export const competitorRelevanceQueue = new Queue<CompetitorRelevanceJobData>(

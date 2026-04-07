@@ -188,9 +188,25 @@ async function setupRedisEvents() {
           try {
             const { refreshMapCacheForCompany } = await import('./processors/map-cache.processor')
             const mapRows = await refreshMapCacheForCompany(companyId)
-            logger.info({ companyId, mapRows }, '✅ Step 6/6: Map cache refreshed')
+            logger.info({ companyId, mapRows }, '✅ Step 6/7: Map cache refreshed')
           } catch (err) {
-            logger.error({ companyId, err }, '❌ Step 6/6: Map cache refresh failed')
+            logger.error({ companyId, err }, '❌ Step 6/7: Map cache refresh failed')
+          }
+
+          // ── STEP 7: Enqueue targeted competitor-relevance analysis ──────
+          // Bypasses the 12h skip and processes ONLY this company, so the
+          // "Posição Competitiva" card in /competitors populates right after
+          // onboarding instead of waiting for the hourly cron batch.
+          try {
+            const { competitorRelevanceQueue } = await import('./queues/competitor-relevance.queue')
+            await competitorRelevanceQueue.add(
+              `on-company-save-${companyId}`,
+              { companyId },
+              { jobId: `relevance-company-${companyId}-${Date.now()}` },
+            )
+            logger.info({ companyId }, '✅ Step 7/7: Competitor relevance enqueued')
+          } catch (err) {
+            logger.error({ companyId, err }, '❌ Step 7/7: Failed to enqueue competitor relevance')
           }
 
           const elapsed = ((Date.now() - pipelineStart) / 1000).toFixed(1)

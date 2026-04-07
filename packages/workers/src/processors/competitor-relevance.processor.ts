@@ -31,42 +31,55 @@ const SKIP_IF_ANALYZED_WITHIN_MS = 12 * 60 * 60 * 1000 // 12 hours
 
 async function processCompetitorRelevance(job: Job<CompetitorRelevanceJobData>) {
   const startTime = Date.now()
-  logger.info('Starting competitor relevance analysis')
+  const targetCompanyId = job.data?.companyId
 
-  // 1. Get all companies
-  const { data: companies, error: compError } = await supabase
+  if (targetCompanyId) {
+    logger.info({ companyId: targetCompanyId }, '🎯 Starting targeted competitor relevance analysis')
+  } else {
+    logger.info('Starting competitor relevance analysis (batch mode)')
+  }
+
+  // 1. Get companies — either the single target or all
+  const query = supabase
     .from('companies')
     .select('id, razao_social, cnae_principal, cnaes_secundarios, descricao_servicos, palavras_chave')
 
+  const { data: companies, error: compError } = targetCompanyId
+    ? await query.eq('id', targetCompanyId)
+    : await query
+
   if (compError || !companies || companies.length === 0) {
-    logger.info({ error: compError }, 'No companies found for relevance analysis')
+    logger.info({ error: compError, targetCompanyId }, 'No companies found for relevance analysis')
     return
   }
 
   let companiesProcessed = 0
 
   for (const company of companies) {
-    if (companiesProcessed >= MAX_COMPANIES_PER_RUN) {
+    // In targeted mode, ignore MAX_COMPANIES_PER_RUN (we only have 1 anyway)
+    if (!targetCompanyId && companiesProcessed >= MAX_COMPANIES_PER_RUN) {
       logger.info({ companiesProcessed }, 'Reached max companies per run, stopping')
       break
     }
 
-    // 2. Check if already analyzed recently
-    const { data: recentAnalysis } = await supabase
-      .from('competitor_relevance')
-      .select('analyzed_at')
-      .eq('company_id', company.id)
-      .order('analyzed_at', { ascending: false })
-      .limit(1)
+    // 2. Check if already analyzed recently — SKIPPED in targeted mode
+    if (!targetCompanyId) {
+      const { data: recentAnalysis } = await supabase
+        .from('competitor_relevance')
+        .select('analyzed_at')
+        .eq('company_id', company.id)
+        .order('analyzed_at', { ascending: false })
+        .limit(1)
 
-    if (recentAnalysis?.[0]?.analyzed_at) {
-      const lastAnalyzed = new Date(recentAnalysis[0].analyzed_at).getTime()
-      if (Date.now() - lastAnalyzed < SKIP_IF_ANALYZED_WITHIN_MS) {
-        logger.info(
-          { companyId: company.id, lastAnalyzed: recentAnalysis[0].analyzed_at },
-          'Company recently analyzed, skipping',
-        )
-        continue
+      if (recentAnalysis?.[0]?.analyzed_at) {
+        const lastAnalyzed = new Date(recentAnalysis[0].analyzed_at).getTime()
+        if (Date.now() - lastAnalyzed < SKIP_IF_ANALYZED_WITHIN_MS) {
+          logger.info(
+            { companyId: company.id, lastAnalyzed: recentAnalysis[0].analyzed_at },
+            'Company recently analyzed, skipping',
+          )
+          continue
+        }
       }
     }
 
