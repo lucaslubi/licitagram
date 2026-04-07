@@ -49,6 +49,7 @@ export function NotificationBell() {
   const [loading, setLoading] = useState(false)
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 })
   const buttonRef = useRef<HTMLButtonElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   // Poll unread count every 30s
   useEffect(() => {
@@ -61,10 +62,15 @@ export function NotificationBell() {
   useEffect(() => {
     if (!open) return
     function handleClose(e: MouseEvent) {
-      if (buttonRef.current?.contains(e.target as Node)) return
+      const target = e.target as Node
+      if (buttonRef.current?.contains(target)) return
+      if (dropdownRef.current?.contains(target)) return
       setOpen(false)
     }
-    function handleScroll() { setOpen(false) }
+    function handleScroll(e: Event) {
+      if (dropdownRef.current?.contains(e.target as Node)) return
+      setOpen(false)
+    }
     document.addEventListener('mousedown', handleClose)
     window.addEventListener('scroll', handleScroll, true)
     return () => {
@@ -134,6 +140,7 @@ export function NotificationBell() {
 
   const dropdown = open ? (
     <div
+      ref={dropdownRef}
       style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: DROPDOWN_WIDTH, zIndex: 9999 }}
       className="bg-[#1a1c1f] border border-[#2d2f33] rounded-xl shadow-2xl overflow-hidden"
     >
