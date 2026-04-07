@@ -1,24 +1,33 @@
 /**
- * WhatsApp notification client via Evolution API
+ * WhatsApp notification client via WAHA (WhatsApp HTTP API)
  *
  * O Licitagram tem 1 único número de WhatsApp.
  * Os clientes cadastram seus números no dashboard.
  * O sistema envia alertas para o número de cada cliente.
  *
- * NINGUÉM escaneia QR Code além do admin na configuração inicial.
+ * NINGUÉM escaneia QR Code além do admin na página /admin/whatsapp.
+ *
+ * Engine: WAHA (devlikeapro/waha) - https://waha.devlike.pro
  */
 
 import { logger } from '../lib/logger'
 
-const EVO_URL = process.env.EVOLUTION_API_URL || 'http://localhost:8080'
-const EVO_KEY = process.env.EVOLUTION_API_KEY || ''
-const INSTANCE = process.env.EVOLUTION_INSTANCE || 'licitagram'
+const WAHA_URL = process.env.WAHA_URL || process.env.EVOLUTION_API_URL || 'http://127.0.0.1:3000'
+const WAHA_KEY = process.env.WAHA_API_KEY || ''
+const WAHA_SESSION = process.env.WAHA_SESSION || 'default'
 
-async function evoFetch(path: string, body?: unknown): Promise<unknown> {
-  const response = await fetch(`${EVO_URL}${path}`, {
-    method: body ? 'POST' : 'GET',
+/** Converte número BR (5541991016001) em chatId WAHA (5541991016001@c.us) */
+function toChatId(number: string): string {
+  const digits = number.replace(/\D/g, '')
+  if (digits.includes('@')) return digits
+  return `${digits}@c.us`
+}
+
+async function wahaFetch(path: string, body?: unknown, method: 'GET' | 'POST' = 'POST'): Promise<unknown> {
+  const response = await fetch(`${WAHA_URL}${path}`, {
+    method,
     headers: {
-      'apikey': EVO_KEY,
+      'X-Api-Key': WAHA_KEY,
       'Content-Type': 'application/json',
     },
     body: body ? JSON.stringify(body) : undefined,
@@ -27,33 +36,33 @@ async function evoFetch(path: string, body?: unknown): Promise<unknown> {
 
   if (!response.ok) {
     const error = await response.text()
-    throw new Error(`Evolution API ${response.status}: ${error}`)
+    throw new Error(`WAHA ${response.status}: ${error}`)
   }
 
-  return response.json()
+  return response.json().catch(() => ({}))
 }
 
-/** Envia mensagem de texto (Evolution API v2.2.3 — formato de produção commit 6983175) */
+/** Envia mensagem de texto via WAHA */
 export async function sendWhatsAppText(number: string, text: string) {
-  return evoFetch(`/message/sendText/${INSTANCE}`, {
-    number,
-    textMessage: { text },
-    options: { linkPreview: false },
+  return wahaFetch(`/api/sendText`, {
+    session: WAHA_SESSION,
+    chatId: toChatId(number),
+    text,
+    linkPreview: false,
   })
 }
 
-/** Envia documento (PDF do edital) */
+/** Envia documento (PDF do edital) via WAHA */
 export async function sendWhatsAppDocument(
   number: string,
   documentUrl: string,
   fileName: string,
   caption: string,
 ) {
-  return evoFetch(`/message/sendMedia/${INSTANCE}`, {
-    number,
-    mediatype: 'document',
-    media: documentUrl,
-    fileName,
+  return wahaFetch(`/api/sendFile`, {
+    session: WAHA_SESSION,
+    chatId: toChatId(number),
+    file: { url: documentUrl, filename: fileName },
     caption,
   })
 }
@@ -74,13 +83,13 @@ export async function sendVerificationCode(number: string, code: string) {
   )
 }
 
-/** Verifica se a instância está conectada */
+/** Verifica se a sessão WAHA está conectada (status WORKING) */
 export async function isConnected(): Promise<boolean> {
   try {
-    const data = await evoFetch(`/instance/connectionState/${INSTANCE}`) as {
-      instance?: { state?: string }
+    const data = await wahaFetch(`/api/sessions/${WAHA_SESSION}`, undefined, 'GET') as {
+      status?: string
     }
-    return data?.instance?.state === 'open'
+    return data?.status === 'WORKING'
   } catch {
     return false
   }

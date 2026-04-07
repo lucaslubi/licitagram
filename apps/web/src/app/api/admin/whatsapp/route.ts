@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-function getEvolutionConfig() {
+function getWahaConfig() {
   return {
-    url: process.env.EVOLUTION_API_URL || 'http://localhost:8080',
-    key: process.env.EVOLUTION_API_KEY || '',
-    instance: process.env.EVOLUTION_INSTANCE || 'licitagram',
+    url: process.env.WAHA_URL || 'http://85.31.60.53:3000',
+    key: process.env.WAHA_API_KEY || '',
+    session: process.env.WAHA_SESSION || 'default',
   }
 }
 
@@ -24,50 +24,79 @@ async function requireAdmin() {
   return user
 }
 
-async function evolutionFetch(method: string, path: string) {
-  const { url, key } = getEvolutionConfig()
+async function wahaFetch(method: string, path: string, body?: unknown) {
+  const { url, key } = getWahaConfig()
   const res = await fetch(`${url}${path}`, {
     method,
-    headers: { 'Content-Type': 'application/json', apikey: key },
+    headers: { 'Content-Type': 'application/json', 'X-Api-Key': key },
+    body: body ? JSON.stringify(body) : undefined,
     cache: 'no-store',
   })
   if (!res.ok) {
     const text = await res.text().catch(() => '')
-    throw new Error(`Evolution API ${res.status}: ${text}`)
+    throw new Error(`WAHA ${res.status}: ${text}`)
   }
-  return res.json()
+  return res
 }
 
-// GET — status + QR code
+// Map WAHA status → UI state
+function mapState(status: string): string {
+  switch (status) {
+    case 'WORKING':
+      return 'open'
+    case 'SCAN_QR_CODE':
+      return 'connecting'
+    case 'STARTING':
+    case 'STOPPED':
+      return 'connecting'
+    case 'FAILED':
+      return 'close'
+    default:
+      return 'unknown'
+  }
+}
+
+// GET — status + QR code (as base64 data URL)
 export async function GET() {
   try {
     await requireAdmin()
+    const { session } = getWahaConfig()
 
-    // Get connection state
-    let state = 'unknown'
+    let status = 'UNKNOWN'
+    let me: { id?: string; pushName?: string } | null = null
     try {
-      const stateRes = await evolutionFetch('GET', `/instance/connectionState/${getEvolutionConfig().instance}`)
-      state = stateRes?.instance?.state || 'unknown'
+      const r = await wahaFetch('GET', `/api/sessions/${session}`)
+      const data = await r.json()
+      status = data?.status || 'UNKNOWN'
+      me = data?.me || null
     } catch (fetchErr: any) {
-      return NextResponse.json({
-        state: 'error',
-        error: `Evolution API not reachable at ${getEvolutionConfig().url}`,
-        detail: fetchErr?.message || String(fetchErr),
-      })
-    }
-
-    // If not connected, get QR code
-    let qrBase64: string | null = null
-    if (state !== 'open') {
+      // Session may not exist — try to start it
       try {
-        const connectRes = await evolutionFetch('GET', `/instance/connect/${getEvolutionConfig().instance}`)
-        qrBase64 = connectRes?.base64 || null
-      } catch {
-        // Instance may not exist yet
+        await wahaFetch('POST', `/api/sessions/start`, { name: session })
+        status = 'STARTING'
+      } catch (startErr: any) {
+        return NextResponse.json({
+          state: 'error',
+          error: `WAHA não acessível em ${getWahaConfig().url}`,
+          detail: startErr?.message || String(startErr),
+        })
       }
     }
 
-    return NextResponse.json({ state, qrBase64 })
+    const state = mapState(status)
+
+    let qrBase64: string | null = null
+    if (status === 'SCAN_QR_CODE') {
+      try {
+        const r = await wahaFetch('GET', `/api/${session}/auth/qr?format=image`)
+        const buf = Buffer.from(await r.arrayBuffer())
+        qrBase64 = `data:image/png;base64,${buf.toString('base64')}`
+      } catch {
+        // QR not ready yet
+      }
+    }
+
+    return NextResponse.json({ state, status, qrBase64, me })
   } catch (err: any) {
     if (err.message === 'Unauthorized' || err.message === 'Forbidden') {
       return NextResponse.json({ error: err.message }, { status: 403 })
@@ -76,23 +105,34 @@ export async function GET() {
   }
 }
 
-// POST — actions: restart, logout
+// POST — actions: restart, logout, start
 export async function POST(req: NextRequest) {
   try {
     await requireAdmin()
     const { action } = await req.json()
+    const { session } = getWahaConfig()
 
     if (action === 'restart') {
-      await evolutionFetch('PUT', `/instance/restart/${getEvolutionConfig().instance}`)
-      return NextResponse.json({ ok: true, message: 'Instance restarted' })
+      await wahaFetch('POST', `/api/sessions/${session}/restart`).catch(async () => {
+        await wahaFetch('POST', `/api/sessions/stop`, { name: session })
+        await wahaFetch('POST', `/api/sessions/start`, { name: session })
+      })
+      return NextResponse.json({ ok: true, message: 'Sessão reiniciada' })
     }
 
     if (action === 'logout') {
-      await evolutionFetch('DELETE', `/instance/logout/${getEvolutionConfig().instance}`)
-      return NextResponse.json({ ok: true, message: 'Logged out' })
+      await wahaFetch('POST', `/api/sessions/logout`, { name: session }).catch(async () => {
+        await wahaFetch('POST', `/api/sessions/${session}/logout`)
+      })
+      return NextResponse.json({ ok: true, message: 'Deslogado' })
     }
 
-    return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
+    if (action === 'start') {
+      await wahaFetch('POST', `/api/sessions/start`, { name: session })
+      return NextResponse.json({ ok: true, message: 'Sessão iniciada' })
+    }
+
+    return NextResponse.json({ error: 'Ação desconhecida' }, { status: 400 })
   } catch (err: any) {
     if (err.message === 'Unauthorized' || err.message === 'Forbidden') {
       return NextResponse.json({ error: err.message }, { status: 403 })

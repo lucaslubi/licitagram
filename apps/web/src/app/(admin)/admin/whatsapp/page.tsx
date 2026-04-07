@@ -4,9 +4,13 @@ import { useState, useEffect, useCallback } from 'react'
 
 type ConnectionState = 'loading' | 'open' | 'connecting' | 'close' | 'error' | 'unknown'
 
+interface MeInfo { id?: string; pushName?: string }
+
 export default function WhatsAppAdminPage() {
   const [state, setState] = useState<ConnectionState>('loading')
+  const [status, setStatus] = useState<string>('')
   const [qrBase64, setQrBase64] = useState<string | null>(null)
+  const [me, setMe] = useState<MeInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [refreshCount, setRefreshCount] = useState(0)
@@ -21,9 +25,11 @@ export default function WhatsAppAdminPage() {
         return
       }
       setState(data.state as ConnectionState)
+      setStatus(data.status || '')
       setQrBase64(data.qrBase64 || null)
+      setMe(data.me || null)
       setError(null)
-    } catch (err) {
+    } catch {
       setState('error')
       setError('Falha ao conectar com a API')
     }
@@ -33,14 +39,15 @@ export default function WhatsAppAdminPage() {
     fetchStatus()
   }, [fetchStatus, refreshCount])
 
-  // Auto-refresh QR code every 30s when not connected
+  // Auto-refresh QR code every 8s when waiting for scan, every 5s when starting
   useEffect(() => {
     if (state === 'open' || state === 'loading') return
+    const intervalMs = status === 'SCAN_QR_CODE' ? 8000 : 5000
     const interval = setInterval(() => {
       setRefreshCount((c) => c + 1)
-    }, 30000)
+    }, intervalMs)
     return () => clearInterval(interval)
-  }, [state])
+  }, [state, status])
 
   const handleAction = async (action: 'restart' | 'logout') => {
     setActionLoading(true)
@@ -64,7 +71,7 @@ export default function WhatsAppAdminPage() {
     <div className="max-w-2xl">
       <h1 className="text-2xl font-bold text-white mb-1">WhatsApp Business</h1>
       <p className="text-sm text-gray-400 mb-6">
-        Gerencie a conexao do WhatsApp via Evolution API
+        Gerencie a conexão do WhatsApp via WAHA (WhatsApp HTTP API)
       </p>
 
       {/* Status Card */}
@@ -84,7 +91,7 @@ export default function WhatsAppAdminPage() {
           <div className="bg-red-900/20 border border-red-800 rounded-lg p-4">
             <p className="text-sm text-red-400">{error}</p>
             <p className="text-xs text-red-400 mt-1">
-              Verifique se a Evolution API esta rodando no VPS (Docker)
+              Verifique se o WAHA está rodando no VPS (Docker container `waha`)
             </p>
           </div>
         )}
@@ -94,8 +101,25 @@ export default function WhatsAppAdminPage() {
             <p className="text-sm text-green-400 font-medium">
               WhatsApp conectado e operacional
             </p>
+            {me?.pushName && (
+              <p className="text-xs text-green-400 mt-1">
+                Conta: <strong>{me.pushName}</strong>
+                {me.id && <span className="text-green-500/60"> ({me.id.split('@')[0]})</span>}
+              </p>
+            )}
             <p className="text-xs text-green-400 mt-1">
               Mensagens de notificação serão enviadas automaticamente
+            </p>
+          </div>
+        )}
+
+        {state === 'connecting' && status === 'STARTING' && !qrBase64 && (
+          <div className="bg-blue-900/20 border border-blue-800 rounded-lg p-4">
+            <p className="text-sm text-blue-400 font-medium">
+              Inicializando sessão WAHA...
+            </p>
+            <p className="text-xs text-blue-400 mt-1">
+              Aguarde alguns segundos para o QR aparecer
             </p>
           </div>
         )}
@@ -121,7 +145,7 @@ export default function WhatsAppAdminPage() {
             </div>
 
             <p className="text-xs text-gray-400 text-center">
-              O QR Code atualiza automaticamente a cada 30 segundos
+              O QR Code atualiza automaticamente a cada 8 segundos
             </p>
           </div>
         )}
@@ -172,12 +196,12 @@ export default function WhatsAppAdminPage() {
       <div className="mt-6 p-4 bg-[#1a1c1f] border border-[#2d2f33] rounded-lg">
         <h3 className="text-sm font-medium text-gray-300 mb-2">Informações Técnicas</h3>
         <div className="grid grid-cols-2 gap-2 text-xs text-gray-400">
-          <span>Evolution API</span>
-          <span className="text-right font-mono">{process.env.NEXT_PUBLIC_EVOLUTION_API_URL || 'VPS local'}</span>
-          <span>Instância</span>
-          <span className="text-right font-mono">licitagram</span>
-          <span>Versão</span>
-          <span className="text-right font-mono">v2.2.3</span>
+          <span>Engine</span>
+          <span className="text-right font-mono">WAHA (devlikeapro/waha)</span>
+          <span>Sessão</span>
+          <span className="text-right font-mono">default</span>
+          <span>Status WAHA</span>
+          <span className="text-right font-mono">{status || '—'}</span>
         </div>
       </div>
     </div>
