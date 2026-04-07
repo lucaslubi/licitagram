@@ -86,7 +86,7 @@ const pendingNotificationsWorker = new Worker(
     // Find users with any notification channel linked
     const { data: users, error: usersErr } = await supabase
       .from('users')
-      .select('id, company_id, email, email_notifications_enabled, telegram_chat_id, whatsapp_number, whatsapp_verified, min_score, notification_preferences')
+      .select('id, company_id, email, telegram_chat_id, whatsapp_number, whatsapp_verified, min_score, notification_preferences')
       .not('company_id', 'is', null)
 
     if (usersErr) {
@@ -318,7 +318,8 @@ const pendingNotificationsWorker = new Worker(
             }
 
             // Email notifications
-            const hasEmail = user.email && user.email_notifications_enabled
+            const prefs = (user.notification_preferences as Record<string, boolean>) || {}
+            const hasEmail = user.email && prefs.email !== false
             if (hasEmail) {
               await emailQueue.add(
                 `em-${user.id}-${match.id}`,
