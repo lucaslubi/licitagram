@@ -365,17 +365,6 @@ export function IntelligenceMap({
     }
   }, [markerLookup, scoreFilter])
 
-  const onMapClick = useCallback((e: any) => {
-    const features = e.features
-    if (!features?.length) {
-      setPopupInfo(null)
-      return
-    }
-    const layerId = features[0].layer?.id
-    if (layerId === 'clusters') onClusterClick(e)
-    else if (layerId === 'unclustered-point') onPointClick(e)
-  }, [onClusterClick, onPointClick])
-
   // ─── UF navigation ──────────────────────────────────────────────────────
 
   const selectUf = useCallback((uf: string) => {
@@ -390,6 +379,33 @@ export function IntelligenceMap({
       })
     }
   }, [])
+
+  const onMapClick = useCallback((e: any) => {
+    const features = e.features
+    if (!features?.length) {
+      setPopupInfo(null)
+      return
+    }
+    // Prefer clusters/points when multiple layers hit
+    const pointFeature = features.find((f: any) => f.layer?.id === 'unclustered-point')
+    const clusterFeature = features.find((f: any) => f.layer?.id === 'clusters')
+    const stateFeature = features.find((f: any) => f.layer?.id === 'uf-fill')
+
+    if (clusterFeature) {
+      onClusterClick({ ...e, features: [clusterFeature] })
+      return
+    }
+    if (pointFeature) {
+      onPointClick({ ...e, features: [pointFeature] })
+      return
+    }
+    if (stateFeature) {
+      const name = stateFeature.properties?.name || stateFeature.properties?.NAME || ''
+      const uf = STATE_NAME_TO_UF[name]
+      if (uf) selectUf(uf)
+      return
+    }
+  }, [onClusterClick, onPointClick, selectUf])
 
   const resetView = useCallback(() => {
     setSelectedUf(null)
@@ -1058,7 +1074,7 @@ export function IntelligenceMap({
             }}
             dragRotate={false}
             style={{ width: '100%', height: '100%' }}
-            interactiveLayerIds={['clusters', 'unclustered-point']}
+            interactiveLayerIds={['clusters', 'unclustered-point', 'uf-fill']}
             onClick={onMapClick}
             onMouseEnter={onMouseEnter}
             onMouseMove={onMapMouseMove}
