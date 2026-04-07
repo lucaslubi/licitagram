@@ -9,7 +9,7 @@ module.exports = {
   apps: [
     {
       name: 'licitagram-bot',
-      script: 'python3',
+      script: path.join(__dirname, '.venv/bin/python3'),
       args: path.join(__dirname, 'src/worker.py'),
       cwd: ROOT,
       env: { NODE_ENV: 'production' },
@@ -24,7 +24,7 @@ module.exports = {
     },
     {
       name: 'licitagram-login',
-      script: 'python3',
+      script: path.join(__dirname, '.venv/bin/python3'),
       args: path.join(__dirname, 'src/login_server.py'),
       cwd: ROOT,
       env: { NODE_ENV: 'production' },
