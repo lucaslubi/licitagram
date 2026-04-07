@@ -162,26 +162,29 @@ export function IntelligenceMap({
   // ─── GeoJSON for Mapbox GL native clustering ────────────────────────────
   const clusterGeoJson = useMemo<GeoJSON.FeatureCollection>(() => ({
     type: 'FeatureCollection',
-    features: filteredMarkers.map((m) => ({
-      type: 'Feature' as const,
-      geometry: {
-        type: 'Point' as const,
-        coordinates: [m.lng, m.lat],
-      },
-      properties: {
-        matchId: m.matchId,
-        score: m.score,
-        valor: m.valor || 0,
-        uf: m.uf,
-        orgao: m.orgao,
-        objeto: m.objeto,
-        municipio: m.municipio || '',
-        modalidade: m.modalidade || '',
-        dataEncerramento: m.dataEncerramento || '',
-        lat: m.lat,
-        lng: m.lng,
-      },
-    })),
+    // Sort ascending so highest-score pins render LAST (on top)
+    features: [...filteredMarkers]
+      .sort((a, b) => a.score - b.score)
+      .map((m) => ({
+        type: 'Feature' as const,
+        geometry: {
+          type: 'Point' as const,
+          coordinates: [m.lng, m.lat],
+        },
+        properties: {
+          matchId: m.matchId,
+          score: m.score,
+          valor: m.valor || 0,
+          uf: m.uf,
+          orgao: m.orgao,
+          objeto: m.objeto,
+          municipio: m.municipio || '',
+          modalidade: m.modalidade || '',
+          dataEncerramento: m.dataEncerramento || '',
+          lat: m.lat,
+          lng: m.lng,
+        },
+      })),
   }), [filteredMarkers])
 
   // Recompute UF stats from filtered markers
@@ -525,14 +528,13 @@ export function IntelligenceMap({
     source: 'opportunities',
     filter: ['has', 'point_count'],
     paint: {
+      // Cluster color reflects the HIGHEST score in the group
       'circle-color': [
-        'step',
-        ['get', 'point_count'],
-        '#1C1C21',                          // < 10: dark neutral
-        10, 'rgba(255, 107, 53, 0.15)',     // 10-30: orange very subtle
-        30, 'rgba(255, 107, 53, 0.3)',      // 30-60: orange medium
-        60, 'rgba(255, 107, 53, 0.5)',      // 60-100: orange strong
-        100, 'rgba(255, 107, 53, 0.7)',     // 100+: orange intense
+        'case',
+        ['>=', ['get', 'maxScore'], 90], 'rgba(16, 185, 129, 0.25)',  // emerald
+        ['>=', ['get', 'maxScore'], 80], 'rgba(132, 204, 22, 0.25)',  // lime
+        ['>=', ['get', 'maxScore'], 70], 'rgba(245, 158, 11, 0.25)',  // amber
+        'rgba(100, 116, 139, 0.25)',                                   // slate
       ],
       'circle-radius': [
         'step',
@@ -545,13 +547,11 @@ export function IntelligenceMap({
       ],
       'circle-stroke-width': 2,
       'circle-stroke-color': [
-        'step',
-        ['get', 'point_count'],
-        'rgba(255, 255, 255, 0.1)',
-        10, 'rgba(255, 107, 53, 0.3)',
-        30, 'rgba(255, 107, 53, 0.5)',
-        60, 'rgba(255, 107, 53, 0.7)',
-        100, 'rgba(255, 107, 53, 0.9)',
+        'case',
+        ['>=', ['get', 'maxScore'], 90], 'rgba(16, 185, 129, 0.6)',   // emerald
+        ['>=', ['get', 'maxScore'], 80], 'rgba(132, 204, 22, 0.6)',   // lime
+        ['>=', ['get', 'maxScore'], 70], 'rgba(245, 158, 11, 0.6)',   // amber
+        'rgba(100, 116, 139, 0.4)',                                    // slate
       ],
     },
   }
@@ -606,10 +606,12 @@ export function IntelligenceMap({
       ],
       'circle-opacity': 0.15,
       'circle-blur': 0.4,
+      'circle-sort-key': ['get', 'score'],
     },
   }
 
   // Individual unclustered points — zoom-based size, white stroke, no text inside
+  // circle-sort-key ensures highest-score pins render on top when overlapping
   const unclusteredPointLayer: any = {
     id: 'unclustered-point',
     type: 'circle',
@@ -635,6 +637,7 @@ export function IntelligenceMap({
       'circle-stroke-width': 2,
       'circle-stroke-color': 'rgba(255, 255, 255, 0.9)',
       'circle-opacity': 0.95,
+      'circle-sort-key': ['get', 'score'],
     },
   }
 
@@ -1016,6 +1019,9 @@ export function IntelligenceMap({
               cluster={true}
               clusterMaxZoom={11}
               clusterRadius={40}
+              clusterProperties={{
+                maxScore: ['max', ['get', 'score']],
+              }}
             >
               <Layer {...clusterLayer} />
               <Layer {...clusterCountLayer} />
