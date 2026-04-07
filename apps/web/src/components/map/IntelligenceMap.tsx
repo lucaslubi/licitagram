@@ -670,7 +670,55 @@ export function IntelligenceMap({
   const onMouseLeave = useCallback(() => {
     const canvas = mapRef.current?.getCanvas()
     if (canvas) canvas.style.cursor = ''
+    setHoveredMatchId(null)
   }, [])
+
+  // Hover over a pin → preview popup + highlight matching sidebar card
+  const onMapMouseMove = useCallback((e: any) => {
+    const features = e.features
+    if (!features?.length) {
+      setHoveredMatchId(null)
+      return
+    }
+    const feature = features.find((f: any) => f.layer?.id === 'unclustered-point')
+    if (!feature) {
+      setHoveredMatchId(null)
+      return
+    }
+    const props = feature.properties || {}
+    setHoveredMatchId(props.matchId || null)
+
+    const coords = (feature.geometry as GeoJSON.Point).coordinates as [number, number]
+    const key = `${parseFloat(props.lat).toFixed(3)},${parseFloat(props.lng).toFixed(3)}`
+    const nearbyMarkers = markerLookup.get(key) || []
+    const matches: MatchMarker[] = nearbyMarkers.length > 0
+      ? nearbyMarkers.filter((m) => m.score >= scoreFilter)
+      : [{
+          matchId: props.matchId || '',
+          tenderId: '',
+          objeto: props.objeto || '',
+          orgao: props.orgao || '',
+          uf: props.uf || '',
+          municipio: props.municipio || null,
+          score: props.score || 0,
+          matchSource: '',
+          valor: props.valor || null,
+          modalidade: props.modalidade || null,
+          recomendacao: null,
+          lat: coords[1],
+          lng: coords[0],
+          isHot: (props.score || 0) >= 80,
+          competitionScore: null,
+          dataEncerramento: props.dataEncerramento || null,
+        }]
+    if (matches.length > 0) {
+      setPopupInfo({
+        longitude: coords[0],
+        latitude: coords[1],
+        matches: matches.sort((a, b) => b.score - a.score),
+      })
+    }
+  }, [markerLookup, scoreFilter])
 
   // ─── Sidebar ────────────────────────────────────────────────────────────
 
@@ -912,6 +960,11 @@ export function IntelligenceMap({
                 <Link
                   key={m.matchId}
                   href={`/opportunities/${m.matchId}`}
+                  ref={(el) => {
+                    if (el && hoveredMatchId === m.matchId) {
+                      el.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+                    }
+                  }}
                   onMouseEnter={() => {
                     setHoveredMatchId(m.matchId)
                     if (m.lat && m.lng) {
@@ -1037,6 +1090,7 @@ export function IntelligenceMap({
             interactiveLayerIds={['clusters', 'unclustered-point', 'uf-fill']}
             onClick={onMapClick}
             onMouseEnter={onMouseEnter}
+            onMouseMove={onMapMouseMove}
             onMouseLeave={onMouseLeave}
           >
             <NavigationControl position={isMobile ? 'top-left' : 'top-right'} showCompass={false} />
