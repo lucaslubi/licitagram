@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import SalaDoRegao from './sala-do-pregao'
 import PregaoLive from './pregao-live'
 import { BotDashboard } from './bot-dashboard'
@@ -15,91 +16,89 @@ interface Props {
 
 type View = 'dashboard' | 'pregao' | 'live'
 
-const TABS: { id: View; label: string; description: string }[] = [
-  { id: 'dashboard', label: 'Configuracoes', description: 'Portais e credenciais' },
-  { id: 'pregao', label: 'Pre-Disputa', description: 'Analise e estrategia' },
-  { id: 'live', label: 'Ao Vivo', description: 'Monitor em tempo real' },
+const TABS: { id: View; label: string }[] = [
+  { id: 'dashboard', label: 'Configurações' },
+  { id: 'pregao', label: 'Pré-Disputa' },
+  { id: 'live', label: 'Ao Vivo' },
 ]
 
 export function BotWarRoom({ configs, sessions, companyId, tenders, competitors }: Props) {
   const [view, setView] = useState<View>('dashboard')
-  const activeSessions = sessions.filter((s: any) => s.status === 'active' || s.status === 'pending').length
+  const activeSessions = sessions.filter(
+    (s: Record<string, unknown>) => s.status === 'active' || s.status === 'pending',
+  ).length
 
   return (
     <div className="relative">
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-1">
-          <div className="w-2 h-2 rounded-full bg-[#F43E01] animate-pulse" />
-          <h1 className="text-2xl font-bold text-white tracking-tight">Robo de Lances</h1>
-          {activeSessions > 0 && (
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              {activeSessions} {activeSessions === 1 ? 'sessao ativa' : 'sessoes ativas'}
-            </span>
-          )}
+      <div className="mb-8 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-medium tracking-tight text-foreground">
+            Robô de Lances
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Automação inteligente para pregões eletrônicos
+          </p>
         </div>
-        <p className="text-sm text-gray-500 ml-5">
-          Automacao inteligente para pregoes eletronicos
-        </p>
+
+        {activeSessions > 0 && (
+          <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            </span>
+            <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-emerald-400">
+              <span className="font-mono tabular-nums">{activeSessions}</span>{' '}
+              {activeSessions === 1 ? 'sessão ativa' : 'sessões ativas'}
+            </span>
+          </span>
+        )}
       </div>
 
-      {/* Navigation */}
-      <div className="flex items-center gap-1 mb-8 border-b border-[#2d2f33]">
-        {TABS.map(tab => {
-          const isActive = view === tab.id
-          const isLive = tab.id === 'live'
-          return (
-            <button
+      <Tabs value={view} onValueChange={(v) => setView(v as View)}>
+        <TabsList className="mb-8 h-auto w-full justify-start gap-1 rounded-none border-b border-white/[0.06] bg-transparent p-0">
+          {TABS.map((tab) => (
+            <TabsTrigger
               key={tab.id}
-              onClick={() => setView(tab.id)}
-              className={`relative px-5 py-3 text-sm font-medium transition-all -mb-px ${
-                isActive
-                  ? 'text-white border-b-2 border-[#F43E01]'
-                  : 'text-gray-500 hover:text-gray-300 border-b-2 border-transparent'
-              }`}
+              value={tab.id}
+              className="relative -mb-px rounded-none border-b-2 border-transparent bg-transparent px-5 py-3 text-sm font-medium text-muted-foreground shadow-none transition-colors hover:text-foreground data-[state=active]:border-brand data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
             >
-              <span className="flex items-center gap-2">
-                {isLive && activeSessions > 0 && (
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-                  </span>
-                )}
-                {tab.label}
-              </span>
-            </button>
-          )
-        })}
-      </div>
+              {tab.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
 
-      {/* Views */}
-      {view === 'dashboard' && (
-        <BotDashboard
-          configs={configs as any}
-          sessions={sessions as any}
-          companyId={companyId}
-        />
-      )}
-
-      {view === 'pregao' && (
-        <div className="-mx-4 sm:-mx-6 lg:-mx-8">
-          <SalaDoRegao
-            tenders={tenders as any}
-            competitors={competitors as any}
+        <TabsContent value="dashboard" className="mt-0 focus-visible:ring-0">
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          <BotDashboard
             configs={configs as any}
+            sessions={sessions as any}
             companyId={companyId}
           />
-        </div>
-      )}
+        </TabsContent>
 
-      {view === 'live' && (
-        <div className="-mx-4 sm:-mx-6 lg:-mx-8">
-          <PregaoLive
-            sessions={sessions as any}
-            configs={configs as any}
-          />
-        </div>
-      )}
+        <TabsContent value="pregao" className="mt-0 focus-visible:ring-0">
+          <div className="-mx-4 sm:-mx-6 lg:-mx-8">
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            <SalaDoRegao
+              tenders={tenders as any}
+              competitors={competitors as any}
+              configs={configs as any}
+              companyId={companyId}
+            />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="live" className="mt-0 focus-visible:ring-0">
+          <div className="-mx-4 sm:-mx-6 lg:-mx-8">
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            <PregaoLive
+              sessions={sessions as any}
+              configs={configs as any}
+            />
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
