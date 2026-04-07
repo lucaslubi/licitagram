@@ -26,7 +26,7 @@ async function main() {
     .select('company_id')
     .not('whatsapp_number', 'is', null)
   if (e0) throw e0
-  const companyIds = Array.from(new Set((wausers || []).map(u => u.company_id).filter(Boolean)))
+  const companyIds = Array.from(new Set((wausers || []).map((u: { company_id: string | null }) => u.company_id).filter(Boolean)))
   console.log(`[resend] empresas com WhatsApp conectado: ${companyIds.length}`)
   if (companyIds.length === 0) return
 
@@ -49,7 +49,7 @@ async function main() {
   }
 
   // Reseta em lotes de 500
-  const ids = found.map(m => m.id)
+  const ids = found.map((m: { id: string }) => m.id)
   const batchSize = 500
   let updated = 0
   for (let i = 0; i < ids.length; i += batchSize) {
