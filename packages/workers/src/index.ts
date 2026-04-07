@@ -780,6 +780,19 @@ async function main() {
             logger.error({ companyId, err }, 'Step 6: Map cache refresh failed')
           }
 
+          // Step 7: Targeted competitor-relevance analysis (bypasses 12h skip)
+          try {
+            const { competitorRelevanceQueue } = await import('./queues/competitor-relevance.queue')
+            await competitorRelevanceQueue.add(
+              `on-company-save-${companyId}`,
+              { companyId },
+              { jobId: `relevance-company-${companyId}-${Date.now()}` },
+            )
+            logger.info({ companyId }, 'Step 7: Competitor relevance enqueued')
+          } catch (err) {
+            logger.error({ companyId, err }, 'Step 7: Failed to enqueue competitor relevance')
+          }
+
           const elapsed = ((Date.now() - pipelineStart) / 1000).toFixed(1)
           logger.info({ companyId, elapsed: `${elapsed}s`, keywordMatchCount }, 'Pipeline complete')
         }
