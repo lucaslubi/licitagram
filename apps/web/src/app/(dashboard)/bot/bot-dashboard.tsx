@@ -68,8 +68,8 @@ const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string }>
   active: { label: 'Ativo', bg: 'bg-blue-900/20', text: 'text-blue-400' },
   completed: { label: 'Concluido', bg: 'bg-emerald-900/20', text: 'text-emerald-400' },
   failed: { label: 'Falhou', bg: 'bg-red-900/20', text: 'text-red-400' },
-  paused: { label: 'Pausado', bg: 'bg-[#2d2f33]', text: 'text-gray-400' },
-  cancelled: { label: 'Cancelado', bg: 'bg-[#2d2f33]', text: 'text-gray-400' },
+  paused: { label: 'Pausado', bg: 'bg-white/[0.04]', text: 'text-gray-400' },
+  cancelled: { label: 'Cancelado', bg: 'bg-white/[0.04]', text: 'text-gray-400' },
 }
 
 /* ── Spinner ────────────────────────────────────────────────────────────────── */
@@ -332,26 +332,26 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
     <div className="space-y-6">
       {/* Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="rounded-xl border border-[#2d2f33] bg-[#1a1c1f] shadow-sm p-6">
+        <div className="rounded-xl border border-white/[0.06] bg-card shadow-sm p-6">
           <p className="text-sm text-gray-400 font-medium uppercase tracking-wider">Total sessões</p>
           <p className="text-3xl font-bold text-white mt-1">{sessions.length}</p>
         </div>
-        <div className="rounded-xl border border-[#2d2f33] bg-[#1a1c1f] shadow-sm p-6">
+        <div className="rounded-xl border border-white/[0.06] bg-card shadow-sm p-6">
           <p className="text-sm text-gray-400 font-medium uppercase tracking-wider">Bots ativos</p>
           <p className="text-3xl font-bold text-blue-400 mt-1">{activeSessions.length}</p>
         </div>
-        <div className="rounded-xl border border-[#2d2f33] bg-[#1a1c1f] shadow-sm p-6">
+        <div className="rounded-xl border border-white/[0.06] bg-card shadow-sm p-6">
           <p className="text-sm text-gray-400 font-medium uppercase tracking-wider">Taxa de sucesso</p>
           <p className="text-3xl font-bold text-emerald-400 mt-1">{winRate}%</p>
         </div>
-        <div className="rounded-xl border border-[#2d2f33] bg-[#1a1c1f] shadow-sm p-6">
+        <div className="rounded-xl border border-white/[0.06] bg-card shadow-sm p-6">
           <p className="text-sm text-gray-400 font-medium uppercase tracking-wider">Lances realizados</p>
           <p className="text-3xl font-bold text-white mt-1">{totalBids}</p>
         </div>
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex gap-1 border-b border-[#2d2f33]">
+      <div className="flex gap-1 border-b border-white/[0.06]">
         {[
           { key: 'configs' as const, label: 'Portais Configurados' },
           { key: 'sessions' as const, label: `Sessões Ativas (${activeSessions.length})` },
@@ -362,7 +362,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
             onClick={() => setActiveTab(tab.key)}
             className={`px-4 py-2.5 text-base font-medium transition-colors border-b-2 -mb-px ${
               activeTab === tab.key
-                ? 'border-[#F43E01] text-[#F43E01]'
+                ? 'border-brand text-brand'
                 : 'border-transparent text-gray-400 hover:text-white'
             }`}
           >
@@ -376,13 +376,13 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold text-white">Configurações de Portal</h2>
-            <button onClick={openAddConfig} className="bg-[#F43E01] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[#D63500] transition-colors">
+            <button onClick={openAddConfig} className="bg-brand text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-brand-dark transition-colors">
               Adicionar Portal
             </button>
           </div>
 
           {configs.length === 0 ? (
-            <div className="rounded-xl border border-[#2d2f33] bg-[#1a1c1f] shadow-sm p-8 text-center">
+            <div className="rounded-xl border border-white/[0.06] bg-card shadow-sm p-8 text-center">
               <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
               </svg>
@@ -392,7 +392,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {configs.map(config => (
-                <div key={config.id} className="rounded-xl border border-[#2d2f33] bg-[#1a1c1f] shadow-sm hover:shadow-md transition-shadow p-6">
+                <div key={config.id} className="rounded-xl border border-white/[0.06] bg-card shadow-sm hover:shadow-md transition-shadow p-6">
                   <div className="flex items-start justify-between">
                     <div>
                       <h3 className="font-semibold text-white text-lg">
@@ -402,7 +402,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                        config.is_active ? 'bg-emerald-900/20 text-emerald-400 border border-emerald-900/30' : 'bg-[#2d2f33] text-gray-400'
+                        config.is_active ? 'bg-emerald-900/20 text-emerald-400 border border-emerald-900/30' : 'bg-white/[0.04] text-gray-400'
                       }`}>
                         {config.is_active ? 'Ativo' : 'Inativo'}
                       </span>
@@ -413,7 +413,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                       ) : (
                         <button
                           onClick={() => setGuidedLoginPortal({ portal: config.portal, configId: config.id })}
-                          className="text-sm px-3 py-1 rounded-md bg-[#F43E01] text-white hover:bg-[#D63500] transition-colors font-medium"
+                          className="text-sm px-3 py-1 rounded-md bg-brand text-white hover:bg-brand-dark transition-colors font-medium"
                           title="Login guiado no portal"
                         >
                           Conectar
@@ -454,14 +454,14 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
             <button
               onClick={openNewSession}
               disabled={configs.length === 0}
-              className="bg-[#F43E01] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[#D63500] transition-colors disabled:opacity-50"
+              className="bg-brand text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-brand-dark transition-colors disabled:opacity-50"
             >
               Nova Sessão
             </button>
           </div>
 
           {activeSessions.length === 0 ? (
-            <div className="rounded-xl border border-[#2d2f33] bg-[#1a1c1f] shadow-sm p-8 text-center">
+            <div className="rounded-xl border border-white/[0.06] bg-card shadow-sm p-8 text-center">
               <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
@@ -473,7 +473,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {activeSessions.map(session => (
-                <div key={session.id} className="rounded-xl border border-[#2d2f33] bg-[#1a1c1f] shadow-sm hover:shadow-md transition-shadow p-6">
+                <div key={session.id} className="rounded-xl border border-white/[0.06] bg-card shadow-sm hover:shadow-md transition-shadow p-6">
                   <div className="flex items-start justify-between">
                     <div>
                       <h3 className="font-semibold text-white text-lg">Pregao {session.pregao_id}</h3>
@@ -512,11 +512,11 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                     </div>
                   )}
 
-                  <div className="mt-4 flex items-center gap-2 border-t border-[#2d2f33] pt-4">
+                  <div className="mt-4 flex items-center gap-2 border-t border-white/[0.06] pt-4">
                     {session.status === 'active' && (
                       <button
                         onClick={() => handleSessionAction(session.id, 'pause')}
-                        className="text-sm px-3 py-1.5 rounded-md border border-[#2d2f33] text-gray-400 hover:bg-[#2d2f33] transition-colors font-medium"
+                        className="text-sm px-3 py-1.5 rounded-md border border-white/[0.06] text-gray-400 hover:bg-white/[0.04] transition-colors font-medium"
                       >
                         Pausar
                       </button>
@@ -524,7 +524,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                     {session.status === 'paused' && (
                       <button
                         onClick={() => handleSessionAction(session.id, 'resume')}
-                        className="text-sm px-3 py-1.5 rounded-md bg-[#F43E01] text-white hover:bg-[#D63500] transition-colors font-medium"
+                        className="text-sm px-3 py-1.5 rounded-md bg-brand text-white hover:bg-brand-dark transition-colors font-medium"
                       >
                         Retomar
                       </button>
@@ -556,15 +556,15 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
           <h2 className="text-xl font-semibold text-white">Histórico de Sessões</h2>
 
           {historySessions.length === 0 ? (
-            <div className="rounded-xl border border-[#2d2f33] bg-[#1a1c1f] shadow-sm p-8 text-center">
+            <div className="rounded-xl border border-white/[0.06] bg-card shadow-sm p-8 text-center">
               <p className="text-base text-gray-400">Nenhuma sessao finalizada ainda.</p>
             </div>
           ) : (
-            <div className="rounded-xl border border-[#2d2f33] bg-[#1a1c1f] shadow-sm overflow-hidden">
+            <div className="rounded-xl border border-white/[0.06] bg-card shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-[#2d2f33] bg-[#1a1c1f]">
+                    <tr className="border-b border-white/[0.06] bg-card">
                       <th className="text-left px-4 py-3 text-sm font-medium text-gray-400 uppercase tracking-wider">Pregao</th>
                       <th className="text-left px-4 py-3 text-sm font-medium text-gray-400 uppercase tracking-wider">Portal</th>
                       <th className="text-left px-4 py-3 text-sm font-medium text-gray-400 uppercase tracking-wider">Status</th>
@@ -575,7 +575,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {historySessions.map(session => (
-                      <tr key={session.id} className="hover:bg-[#1a1c1f] transition-colors">
+                      <tr key={session.id} className="hover:bg-card transition-colors">
                         <td className="px-4 py-3 font-medium text-white">{session.pregao_id}</td>
                         <td className="px-4 py-3 text-gray-400">
                           {PORTAL_OPTIONS.find(p => p.value === session.portal)?.label || session.portal}
@@ -605,7 +605,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
       {/* ═══ Config Dialog ═══ */}
       {showConfigDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="bg-[#1a1c1f] border border-[#2d2f33] rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+          <div className="bg-card border border-white/[0.06] rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-white">
@@ -625,7 +625,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                   <select
                     value={configForm.portal}
                     onChange={e => setConfigForm(f => ({ ...f, portal: e.target.value }))}
-                    className="w-full bg-[#1a1c1f] border border-[#2d2f33] text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
+                    className="w-full bg-card border border-white/[0.06] text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none"
                   >
                     <option value="">Selecione...</option>
                     {PORTAL_OPTIONS.map(p => (
@@ -642,7 +642,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                     placeholder="000.000.000-00"
                     value={configForm.username}
                     onChange={e => setConfigForm(f => ({ ...f, username: e.target.value }))}
-                    className="w-full bg-[#1a1c1f] border border-[#2d2f33] text-white placeholder:text-gray-400 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
+                    className="w-full bg-card border border-white/[0.06] text-white placeholder:text-gray-400 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none"
                   />
                 </div>
 
@@ -654,7 +654,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                     placeholder={editingConfig ? 'Deixe vazio para manter' : 'Senha do portal'}
                     value={configForm.password}
                     onChange={e => setConfigForm(f => ({ ...f, password: e.target.value }))}
-                    className="w-full bg-[#1a1c1f] border border-[#2d2f33] text-white placeholder:text-gray-400 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
+                    className="w-full bg-card border border-white/[0.06] text-white placeholder:text-gray-400 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none"
                   />
                 </div>
 
@@ -664,7 +664,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                   <select
                     value={configForm.strategy}
                     onChange={e => setConfigForm(f => ({ ...f, strategy: e.target.value }))}
-                    className="w-full bg-[#1a1c1f] border border-[#2d2f33] text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
+                    className="w-full bg-card border border-white/[0.06] text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none"
                   >
                     {STRATEGY_OPTIONS.map(s => (
                       <option key={s.value} value={s.value}>{s.label}</option>
@@ -682,7 +682,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                       placeholder="0.01"
                       value={configForm.min_decrease_value}
                       onChange={e => setConfigForm(f => ({ ...f, min_decrease_value: e.target.value }))}
-                      className="w-full bg-[#1a1c1f] border border-[#2d2f33] text-white placeholder:text-gray-400 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
+                      className="w-full bg-card border border-white/[0.06] text-white placeholder:text-gray-400 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none"
                     />
                   </div>
                   <div>
@@ -693,7 +693,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                       placeholder="0.5"
                       value={configForm.min_decrease_percent}
                       onChange={e => setConfigForm(f => ({ ...f, min_decrease_percent: e.target.value }))}
-                      className="w-full bg-[#1a1c1f] border border-[#2d2f33] text-white placeholder:text-gray-400 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
+                      className="w-full bg-card border border-white/[0.06] text-white placeholder:text-gray-400 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none"
                     />
                   </div>
                 </div>
@@ -705,7 +705,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                 )}
               </div>
 
-              <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-[#2d2f33]">
+              <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-white/[0.06]">
                 <button
                   onClick={() => setShowConfigDialog(false)}
                   className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
@@ -715,7 +715,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                 <button
                   onClick={handleSaveConfig}
                   disabled={saving}
-                  className="bg-[#F43E01] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[#D63500] disabled:opacity-60 transition-colors flex items-center gap-2"
+                  className="bg-brand text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-brand-dark disabled:opacity-60 transition-colors flex items-center gap-2"
                 >
                   {saving && <Spinner />}
                   {editingConfig ? 'Salvar' : 'Adicionar'}
@@ -742,7 +742,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
       {/* ═══ New Session Dialog ═══ */}
       {showSessionDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="bg-[#1a1c1f] border border-[#2d2f33] rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+          <div className="bg-card border border-white/[0.06] rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-white">Nova Sessão de Bot</h3>
@@ -760,7 +760,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                   <select
                     value={sessionForm.config_id}
                     onChange={e => setSessionForm(f => ({ ...f, config_id: e.target.value }))}
-                    className="w-full bg-[#1a1c1f] border border-[#2d2f33] text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
+                    className="w-full bg-card border border-white/[0.06] text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none"
                   >
                     <option value="">Selecione...</option>
                     {configs.filter(c => c.is_active).map(c => (
@@ -779,7 +779,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                     placeholder="Ex: PE-2026/001"
                     value={sessionForm.pregao_id}
                     onChange={e => setSessionForm(f => ({ ...f, pregao_id: e.target.value }))}
-                    className="w-full bg-[#1a1c1f] border border-[#2d2f33] text-white placeholder:text-gray-400 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
+                    className="w-full bg-card border border-white/[0.06] text-white placeholder:text-gray-400 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none"
                   />
                 </div>
 
@@ -792,7 +792,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                     placeholder="Valor minimo para lances"
                     value={sessionForm.min_price}
                     onChange={e => setSessionForm(f => ({ ...f, min_price: e.target.value }))}
-                    className="w-full bg-[#1a1c1f] border border-[#2d2f33] text-white placeholder:text-gray-400 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
+                    className="w-full bg-card border border-white/[0.06] text-white placeholder:text-gray-400 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none"
                   />
                 </div>
 
@@ -804,7 +804,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                     placeholder="Limite de lances (opcional)"
                     value={sessionForm.max_bids}
                     onChange={e => setSessionForm(f => ({ ...f, max_bids: e.target.value }))}
-                    className="w-full bg-[#1a1c1f] border border-[#2d2f33] text-white placeholder:text-gray-400 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
+                    className="w-full bg-card border border-white/[0.06] text-white placeholder:text-gray-400 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none"
                   />
                 </div>
 
@@ -814,7 +814,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                   <select
                     value={sessionForm.strategy}
                     onChange={e => setSessionForm(f => ({ ...f, strategy: e.target.value }))}
-                    className="w-full bg-[#1a1c1f] border border-[#2d2f33] text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#F43E01]/30 focus:border-[#F43E01] outline-none"
+                    className="w-full bg-card border border-white/[0.06] text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none"
                   >
                     <option value="">Usar padrao do portal</option>
                     {STRATEGY_OPTIONS.map(s => (
@@ -830,7 +830,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                 )}
               </div>
 
-              <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-[#2d2f33]">
+              <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-white/[0.06]">
                 <button
                   onClick={() => setShowSessionDialog(false)}
                   className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
@@ -840,7 +840,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                 <button
                   onClick={handleCreateSession}
                   disabled={saving}
-                  className="bg-[#F43E01] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[#D63500] disabled:opacity-60 transition-colors flex items-center gap-2"
+                  className="bg-brand text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-brand-dark disabled:opacity-60 transition-colors flex items-center gap-2"
                 >
                   {saving && <Spinner />}
                   Iniciar Bot
