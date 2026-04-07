@@ -101,6 +101,15 @@ if (bot) {
         'Use /config para ajustar o score mínimo de alertas.',
     )
     logger.info({ userId: user.id, chatId: ctx.chat.id, email }, 'Telegram account linked')
+
+    // Fire-and-forget channel onboarding (TRIAL WOW or BACKFILL)
+    void import('../queues/channel-onboarding.queue').then(({ channelOnboardingQueue }) =>
+      channelOnboardingQueue.add(
+        `onb-telegram-${user.id}`,
+        { userId: user.id, channel: 'telegram' },
+        { jobId: `onb-telegram-${user.id}` },
+      ),
+    ).catch((err) => logger.error({ err, userId: user.id }, 'Failed to enqueue telegram onboarding'))
   })
 
   bot.command('config', async (ctx) => {

@@ -55,7 +55,8 @@ async function loadWorkers(): Promise<Worker[]> {
     const { hotAlertsWorker } = await import('./processors/hot-alerts.processor')
     const { whatsappNotificationWorker } = await import('./processors/whatsapp-notification.processor')
     const { outcomeCheckWorker } = await import('./processors/outcome-check.processor')
-    workers.push(notificationWorker, pendingNotificationsWorker, hotAlertsWorker, whatsappNotificationWorker, outcomeCheckWorker)
+    const { channelOnboardingWorker } = await import('./processors/channel-onboarding.processor')
+    workers.push(notificationWorker, pendingNotificationsWorker, hotAlertsWorker, whatsappNotificationWorker, outcomeCheckWorker, channelOnboardingWorker)
   }
 
   // Split notification groups for parallel mode
@@ -68,7 +69,8 @@ async function loadWorkers(): Promise<Worker[]> {
     const { dailyAuditWorker } = await import('./processors/daily-audit.processor')
     const { aiHealingWorker } = await import('./processors/ai-healing.processor')
     const { weeklyActionsWorker } = await import('./processors/weekly-actions.processor')
-    workers.push(pendingNotificationsWorker, hotAlertsWorker, mapCacheWorker, pipelineHealthWorker, outcomeCheckWorker, dailyAuditWorker, aiHealingWorker, weeklyActionsWorker)
+    const { channelOnboardingWorker } = await import('./processors/channel-onboarding.processor')
+    workers.push(pendingNotificationsWorker, hotAlertsWorker, mapCacheWorker, pipelineHealthWorker, outcomeCheckWorker, dailyAuditWorker, aiHealingWorker, weeklyActionsWorker, channelOnboardingWorker)
   }
 
   if (selectedGroups.includes('telegram')) {

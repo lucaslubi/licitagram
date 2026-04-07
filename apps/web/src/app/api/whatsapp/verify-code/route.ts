@@ -91,5 +91,13 @@ export async function POST(request: NextRequest) {
       .eq('id', userCtx.userId)
   }
 
+  // Fire-and-forget channel onboarding (TRIAL WOW or BACKFILL)
+  try {
+    const { enqueueChannelOnboarding } = await import('@/lib/queues/onboarding-producer')
+    await enqueueChannelOnboarding(userCtx.userId, 'whatsapp')
+  } catch (err) {
+    console.error('[wa-verify] failed to enqueue channel onboarding', err)
+  }
+
   return NextResponse.json({ success: true, phone: verification.phone })
 }
