@@ -53,9 +53,11 @@ export default async function AdminClientsPage({
               <th className="text-left px-4 py-3 font-medium text-gray-400 hidden sm:table-cell">CNPJ</th>
               <th className="text-left px-4 py-3 font-medium text-gray-400">Plano</th>
               <th className="text-left px-4 py-3 font-medium text-gray-400">Status</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-400 hidden md:table-cell">Matches</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-400 hidden lg:table-cell">UF</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-400 hidden lg:table-cell">Usuarios</th>
+              <th className="text-left px-4 py-3 font-medium text-gray-400 hidden md:table-cell" title="Canais conectados">Canais</th>
+              <th className="text-left px-4 py-3 font-medium text-gray-400 hidden md:table-cell">Matches 7d</th>
+              <th className="text-left px-4 py-3 font-medium text-gray-400 hidden lg:table-cell">Última atividade</th>
+              <th className="text-left px-4 py-3 font-medium text-gray-400 hidden lg:table-cell">CNAE</th>
+              <th className="text-left px-4 py-3 font-medium text-gray-400">Alerta</th>
             </tr>
           </thead>
           <tbody>
@@ -78,13 +80,40 @@ export default async function AdminClientsPage({
                     {client.subscription_status || 'N/A'}
                   </Badge>
                 </td>
-                <td className="px-4 py-3 text-gray-400 hidden md:table-cell">{client.matches_used_this_month ?? 0}</td>
-                <td className="px-4 py-3 text-gray-400 hidden lg:table-cell">{client.uf || '—'}</td>
-                <td className="px-4 py-3 text-gray-400 hidden lg:table-cell">{client.active_users ?? 0}</td>
+                <td className="px-4 py-3 text-gray-400 hidden md:table-cell">
+                  <span className="flex gap-1 text-base" title={`Email: ${client.email_principal || '—'} · WhatsApp: ${client.whatsapp_number || '—'} · Telegram: ${client.telegram_chat_id ? 'sim' : 'não'}`}>
+                    <span className={client.email_principal ? '' : 'opacity-20'}>✉️</span>
+                    <span className={client.whatsapp_connected ? '' : 'opacity-20'}>💬</span>
+                    <span className={client.telegram_connected ? '' : 'opacity-20'}>✈️</span>
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-gray-400 hidden md:table-cell">
+                  <span className={(client.matches_7d ?? 0) === 0 ? 'text-amber-400' : ''}>{client.matches_7d ?? 0}</span>
+                  <span className="text-gray-600 text-xs"> / {client.matches_30d ?? 0}</span>
+                </td>
+                <td className="px-4 py-3 text-gray-400 hidden lg:table-cell text-xs">
+                  {client.last_login_at
+                    ? new Date(client.last_login_at).toLocaleDateString('pt-BR')
+                    : <span className="text-red-400">nunca</span>}
+                </td>
+                <td className="px-4 py-3 hidden lg:table-cell text-xs font-mono">
+                  {client.has_valid_cnae
+                    ? <span className="text-gray-400">{client.cnae_principal}</span>
+                    : <span className="text-red-400">inválido</span>}
+                </td>
+                <td className="px-4 py-3">
+                  {!client.has_valid_cnae && <span title="CNAE inválido" className="text-red-400">⚠️</span>}
+                  {client.has_valid_cnae && (client.matches_7d ?? 0) === 0 && client.subscription_status === 'active' && (
+                    <span title="Sem matches em 7d" className="text-amber-400">⏸</span>
+                  )}
+                  {!client.whatsapp_connected && !client.telegram_connected && client.subscription_status === 'active' && (
+                    <span title="Sem canais" className="text-amber-400">🔇</span>
+                  )}
+                </td>
               </tr>
             ))}
             {result.clients.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">Nenhum cliente encontrado.</td></tr>
+              <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-400">Nenhum cliente encontrado.</td></tr>
             )}
           </tbody>
         </table>

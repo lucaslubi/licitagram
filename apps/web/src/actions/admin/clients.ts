@@ -68,6 +68,113 @@ export async function getClientDetail(companyId: string) {
   }
 }
 
+// ============================================================
+// Admin Alerts (anomaly detection)
+// ============================================================
+
+export interface AdminAlert {
+  id: string
+  type: string
+  severity: 'info' | 'warning' | 'critical'
+  company_id: string | null
+  message: string
+  metadata: Record<string, unknown>
+  resolved: boolean
+  created_at: string
+  companies?: { razao_social: string | null; cnpj: string | null } | null
+}
+
+export async function listAdminAlerts(params?: {
+  severity?: 'info' | 'warning' | 'critical'
+  onlyUnresolved?: boolean
+  limit?: number
+}) {
+  await requirePlatformAdmin()
+  const supabase = getServiceSupabase()
+
+  let query = supabase
+    .from('admin_alerts')
+    .select('*, companies(razao_social, cnpj)')
+    .order('created_at', { ascending: false })
+    .limit(params?.limit ?? 100)
+
+  if (params?.onlyUnresolved !== false) query = query.eq('resolved', false)
+  if (params?.severity) query = query.eq('severity', params.severity)
+
+  const { data, error } = await query
+  return {
+    alerts: (data as AdminAlert[] | null) || [],
+    error: error?.message || null,
+  }
+}
+
+export async function countUnresolvedAlerts(): Promise<number> {
+  await requirePlatformAdmin()
+  const supabase = getServiceSupabase()
+  const { count } = await supabase
+    .from('admin_alerts')
+    .select('id', { count: 'exact', head: true })
+    .eq('resolved', false)
+  return count || 0
+}
+
+export async function resolveAlert(alertId: string) {
+  await requirePlatformAdmin()
+  const supabase = getServiceSupabase()
+  const { error } = await supabase
+    .from('admin_alerts')
+    .update({ resolved: true, resolved_at: new Date().toISOString() })
+    .eq('id', alertId)
+  if (error) return { error: error.message }
+  await logAction({
+    action: 'admin_alert.resolved',
+    targetType: 'admin_alert',
+    targetId: alertId,
+    details: {},
+  })
+  return { success: true }
+}
+
+export async function runAnomalyDetection() {
+  await requirePlatformAdmin()
+  const supabase = getServiceSupabase()
+  const { data, error } = await supabase.rpc('detect_client_anomalies')
+  if (error) return { error: error.message }
+  return { success: true, unresolvedCount: data as number }
+}
+
+// Enriched detail including contact channels + activity
+export async function getClientDetailEnriched(companyId: string) {
+  await requirePlatformAdmin()
+  const supabase = getServiceSupabase()
+
+  const [overviewResult, alertsResult, notifResult, recentMatchesResult] = await Promise.all([
+    supabase.from('admin_client_overview').select('*').eq('company_id', companyId).maybeSingle(),
+    supabase.from('admin_alerts').select('*').eq('company_id', companyId).eq('resolved', false).order('created_at', { ascending: false }),
+    supabase
+      .from('notifications')
+      .select('id, type, title, created_at, read')
+      .in('user_id', (
+        await supabase.from('users').select('id').eq('company_id', companyId)
+      ).data?.map(u => u.id) || [])
+      .order('created_at', { ascending: false })
+      .limit(20),
+    supabase
+      .from('matches')
+      .select('id, score, status, created_at, tender_id')
+      .eq('company_id', companyId)
+      .order('created_at', { ascending: false })
+      .limit(10),
+  ])
+
+  return {
+    overview: overviewResult.data,
+    activeAlerts: alertsResult.data || [],
+    recentNotifications: notifResult.data || [],
+    recentMatches: recentMatchesResult.data || [],
+  }
+}
+
 export async function updateClientSubscription(
   companyId: string,
   updates: { status?: string; plan_id?: string },

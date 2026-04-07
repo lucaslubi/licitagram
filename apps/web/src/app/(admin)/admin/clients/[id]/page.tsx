@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { requirePlatformAdmin } from '@/lib/auth-helpers'
-import { getClientDetail } from '@/actions/admin/clients'
+import { getClientDetail, getClientDetailEnriched, resolveAlert } from '@/actions/admin/clients'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ClientSubscriptionActions } from '@/components/admin/client-subscription-actions'
@@ -17,7 +17,11 @@ export default async function ClientDetailPage({
 }) {
   await requirePlatformAdmin()
   const { id } = await params
-  const detail = await getClientDetail(id)
+  const [detail, enriched] = await Promise.all([
+    getClientDetail(id),
+    getClientDetailEnriched(id),
+  ])
+  const overview = enriched.overview as any
 
   if (!detail.company) {
     return <div className="text-center py-20 text-gray-400">Cliente não encontrado.</div>
@@ -74,6 +78,107 @@ export default async function ClientDetailPage({
               currentStatus={sub?.status || 'inactive'}
               allPlans={detail.allPlans}
             />
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Active Alerts */}
+      {enriched.activeAlerts.length > 0 && (
+        <Card className="mb-6 border-amber-700/50">
+          <CardHeader><CardTitle className="text-amber-400">⚠️ Alertas Ativos ({enriched.activeAlerts.length})</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+            {enriched.activeAlerts.map((a: any) => (
+              <div key={a.id} className="flex items-start justify-between gap-3 text-sm border-b border-[#2d2f33] pb-2 last:border-0">
+                <div>
+                  <Badge variant="outline" className={
+                    a.severity === 'critical' ? 'bg-red-900/20 text-red-400' :
+                    a.severity === 'warning' ? 'bg-amber-900/20 text-amber-400' :
+                    'bg-blue-900/20 text-blue-400'
+                  }>{a.type}</Badge>
+                  <p className="mt-1 text-gray-300">{a.message}</p>
+                </div>
+                <form action={async () => { 'use server'; await resolveAlert(a.id) }}>
+                  <button className="text-xs text-gray-400 hover:text-white">Resolver</button>
+                </form>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Contatos + Atividade */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <Card>
+          <CardHeader><CardTitle>Contatos</CardTitle></CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <div className="flex justify-between"><span className="text-gray-400">Email principal</span><span>{overview?.email_principal || '—'}</span></div>
+            <div className="flex justify-between"><span className="text-gray-400">WhatsApp</span>
+              <span>{overview?.whatsapp_number ? <span className="text-emerald-400">{overview.whatsapp_number}</span> : <span className="text-gray-500">não conectado</span>}</span>
+            </div>
+            <div className="flex justify-between"><span className="text-gray-400">Telegram</span>
+              <span>{overview?.telegram_connected ? <span className="text-emerald-400">conectado</span> : <span className="text-gray-500">não conectado</span>}</span>
+            </div>
+            <div className="flex justify-between"><span className="text-gray-400">CNAE principal</span>
+              <span className="font-mono">{overview?.has_valid_cnae ? overview.cnae_principal : <span className="text-red-400">inválido</span>}</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Atividade</CardTitle></CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <div className="flex justify-between"><span className="text-gray-400">Último login</span>
+              <span>{overview?.last_login_at ? new Date(overview.last_login_at).toLocaleString('pt-BR') : <span className="text-red-400">nunca</span>}</span>
+            </div>
+            <div className="flex justify-between"><span className="text-gray-400">Último match</span>
+              <span>{overview?.last_match_at ? new Date(overview.last_match_at).toLocaleString('pt-BR') : '—'}</span>
+            </div>
+            <div className="flex justify-between"><span className="text-gray-400">Matches 7d / 30d</span>
+              <span>{overview?.matches_7d ?? 0} / {overview?.matches_30d ?? 0}</span>
+            </div>
+            <div className="flex justify-between"><span className="text-gray-400">Notificações não lidas</span>
+              <span>{overview?.notifications_unread ?? 0}</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Matches recentes + notificações recentes */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <Card>
+          <CardHeader><CardTitle>Matches recentes</CardTitle></CardHeader>
+          <CardContent>
+            {enriched.recentMatches.length === 0 ? (
+              <p className="text-sm text-gray-400">Nenhum match.</p>
+            ) : (
+              <ul className="text-xs space-y-1">
+                {enriched.recentMatches.map((m: any) => (
+                  <li key={m.id} className="flex justify-between gap-2 text-gray-300">
+                    <span className="font-mono truncate">{m.tender_id?.slice(0, 8)}…</span>
+                    <span>score {Math.round((m.score || 0) * 100)}%</span>
+                    <span className="text-gray-500">{new Date(m.created_at).toLocaleDateString('pt-BR')}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Notificações recentes</CardTitle></CardHeader>
+          <CardContent>
+            {enriched.recentNotifications.length === 0 ? (
+              <p className="text-sm text-gray-400">Nenhuma notificação.</p>
+            ) : (
+              <ul className="text-xs space-y-1">
+                {enriched.recentNotifications.map((n: any) => (
+                  <li key={n.id} className="flex justify-between gap-2">
+                    <span className={n.read ? 'text-gray-500' : 'text-white'}>{n.title}</span>
+                    <span className="text-gray-500">{new Date(n.created_at).toLocaleDateString('pt-BR')}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </CardContent>
         </Card>
       </div>
