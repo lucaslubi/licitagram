@@ -248,6 +248,20 @@ export async function saveCompany(payload: CompanyPayload, existingId?: string) 
     return { error: 'Descrição de serviços deve ter no máximo 5000 caracteres' }
   }
 
+  // ── CNAE validation ──────────────────────────────────────────────────
+  // CNAE principal é obrigatório e deve ter formato numérico de 7 dígitos.
+  // Sem ele, o worker de competitor_relevance não consegue classificar
+  // concorrentes e toda a Inteligência Competitiva fica vazia.
+  const isValidCnaeCode = (s: string): boolean => /^\d{7}$/.test(s)
+  const cnaePrincipalClean = (payload.cnae_principal || '').replace(/\D/g, '')
+  if (!isValidCnaeCode(cnaePrincipalClean)) {
+    return {
+      error:
+        'CNAE principal é obrigatório. Informe um código numérico de 7 dígitos (ex: 6201501). ' +
+        'Sem o CNAE não conseguimos analisar concorrentes nem gerar o Radar Semanal.',
+    }
+  }
+
   // Sanitize arrays — limit size and strip HTML
   const sanitizeStr = (s: string) => s.replace(/<[^>]*>/g, '').trim().slice(0, 200)
   const sanitizeArray = (arr: string[], max: number) =>
@@ -259,14 +273,16 @@ export async function saveCompany(payload: CompanyPayload, existingId?: string) 
     razao_social: payload.razao_social.trim().slice(0, 500),
     nome_fantasia: (payload.nome_fantasia || '').trim().slice(0, 500),
     descricao_servicos: (payload.descricao_servicos || '').replace(/<[^>]*>/g, '').trim().slice(0, 5000),
-    cnaes_secundarios: sanitizeArray(payload.cnaes_secundarios, 50),
+    cnaes_secundarios: sanitizeArray(payload.cnaes_secundarios, 50)
+      .map((s) => s.replace(/\D/g, ''))
+      .filter(isValidCnaeCode),
     capacidades: sanitizeArray(payload.capacidades, 50),
     certificacoes: sanitizeArray(payload.certificacoes, 50),
     palavras_chave: sanitizeArray(payload.palavras_chave, 50),
     uf: (payload.uf || '').slice(0, 2).toUpperCase(),
     municipio: (payload.municipio || '').trim().slice(0, 200),
     porte: payload.porte || '',
-    cnae_principal: (payload.cnae_principal || '').replace(/\D/g, '').slice(0, 10),
+    cnae_principal: cnaePrincipalClean,
     // Campos para propostas
     endereco: (payload.endereco || '').trim().slice(0, 500),
     cep: (payload.cep || '').replace(/\D/g, '').slice(0, 8),

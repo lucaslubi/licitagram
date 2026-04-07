@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { lookupCNPJ, saveCompany, loadCompanyData } from '@/actions/company'
 
+const isValidCnaeCode = (s: string): boolean => /^\d{7}$/.test((s || '').replace(/\D/g, ''))
+
 const UFS = [
   'AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA',
   'PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO',
@@ -105,10 +107,10 @@ export default function CompanyPage() {
     setLoading(false)
   }
 
-  async function fetchCNPJ() {
+  async function fetchCNPJ(silent = false) {
     const clean = company.cnpj.replace(/\D/g, '')
     if (clean.length !== 14) {
-      showMessage('CNPJ deve ter 14 dígitos', 'error')
+      if (!silent) showMessage('CNPJ deve ter 14 dígitos', 'error')
       return
     }
 
@@ -117,7 +119,7 @@ export default function CompanyPage() {
     setFetching(false)
 
     if (result.error) {
-      showMessage(result.error, 'error')
+      if (!silent) showMessage(result.error, 'error')
       return
     }
 
@@ -129,27 +131,72 @@ export default function CompanyPage() {
         nome_fantasia: data.fantasia || prev.nome_fantasia,
         uf: data.uf || prev.uf,
         municipio: data.municipio || prev.municipio,
-        porte: data.porte?.toLowerCase().includes('micro') ? 'me' : prev.porte,
+        porte: data.porte?.toLowerCase().includes('micro')
+          ? 'me'
+          : data.porte?.toLowerCase().includes('pequeno')
+            ? 'epp'
+            : data.porte?.toLowerCase().includes('demais')
+              ? 'medio'
+              : prev.porte,
         cnae_principal:
           data.atividade_principal?.[0]?.code?.replace(/[.-]/g, '') || prev.cnae_principal,
         cnaes_secundarios:
           data.atividades_secundarias
             ?.map((a: { code: string }) => a.code.replace(/[.-]/g, ''))
-            .filter(Boolean) || prev.cnaes_secundarios,
-        // Auto-preencher dados para propostas
+            .filter((c: string) => /^\d{7}$/.test(c)) || prev.cnaes_secundarios,
         endereco: data.endereco || prev.endereco,
         cep: data.cep || prev.cep,
         telefone: data.telefone || prev.telefone,
         email: data.email || prev.email,
       }))
-      showMessage('Dados do CNPJ carregados!', 'success')
+      showMessage(
+        '✅ Dados preenchidos automaticamente pela Receita Federal. Revise e complete os campos restantes.',
+        'success',
+      )
     }
   }
+
+  // Auto-fetch assim que o CNPJ atinge 14 dígitos — elimina o clique manual
+  // no botão "Consultar" (era o ponto de falha que deixou o Seculus sem CNAE).
+  useEffect(() => {
+    const clean = company.cnpj.replace(/\D/g, '')
+    if (clean.length === 14 && !company.id && !company.razao_social) {
+      fetchCNPJ(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [company.cnpj])
 
   async function handleSave() {
     if (!company.cnpj.replace(/\D/g, '') || !company.razao_social) {
       showMessage('CNPJ e Razão Social são obrigatórios', 'error')
       return
+    }
+
+    // Validação de CNAE principal: obrigatório e deve ter 7 dígitos numéricos.
+    // Sem ele, o worker de Inteligência Competitiva não consegue classificar concorrentes.
+    const cnaePrincipalClean = (company.cnae_principal || '').replace(/\D/g, '')
+    if (!isValidCnaeCode(cnaePrincipalClean)) {
+      showMessage(
+        '⚠️ CNAE principal é obrigatório e deve ter 7 dígitos numéricos (ex: 6201501). ' +
+        'Dica: digite o CNPJ primeiro — nós buscamos o CNAE automaticamente na Receita Federal.',
+        'error',
+      )
+      return
+    }
+
+    // Filtra cnaes_secundarios mantendo só códigos válidos — silenciosamente remove lixo
+    const cleanedSecundarios = (company.cnaes_secundarios || [])
+      .map((s) => (s || '').replace(/\D/g, ''))
+      .filter(isValidCnaeCode)
+    const removedCount = (company.cnaes_secundarios || []).length - cleanedSecundarios.length
+    if (removedCount > 0) {
+      // Atualiza o state para refletir a limpeza — usuário vê exatamente o que foi enviado
+      setCompany((prev) => ({ ...prev, cnaes_secundarios: cleanedSecundarios }))
+      showMessage(
+        `Removemos ${removedCount} item(ns) dos CNAEs secundários que não eram códigos válidos. ` +
+        'Use apenas códigos numéricos de 7 dígitos.',
+        'info',
+      )
     }
 
     setSaving(true)
@@ -162,8 +209,8 @@ export default function CompanyPage() {
       porte: company.porte,
       uf: company.uf,
       municipio: company.municipio,
-      cnae_principal: company.cnae_principal,
-      cnaes_secundarios: company.cnaes_secundarios,
+      cnae_principal: cnaePrincipalClean,
+      cnaes_secundarios: cleanedSecundarios,
       descricao_servicos: company.descricao_servicos,
       capacidades: company.capacidades,
       certificacoes: company.certificacoes,
@@ -272,6 +319,23 @@ export default function CompanyPage() {
     value: string,
   ) {
     if (!value.trim()) return
+    // CNAEs secundários: só aceita código numérico de 7 dígitos
+    if (field === 'cnaes_secundarios') {
+      const clean = value.replace(/\D/g, '')
+      if (!/^\d{7}$/.test(clean)) {
+        showMessage(
+          'CNAE secundário deve ser um código numérico de 7 dígitos (ex: 4751201). ' +
+          'Categorias em texto livre não são aceitas — use os códigos oficiais da Receita.',
+          'error',
+        )
+        return
+      }
+      setCompany((prev) => ({
+        ...prev,
+        cnaes_secundarios: [...prev.cnaes_secundarios, clean],
+      }))
+      return
+    }
     setCompany((prev) => ({
       ...prev,
       [field]: [...prev[field], value.trim()],
@@ -320,7 +384,7 @@ export default function CompanyPage() {
                 />
               </div>
               <div className="flex items-end">
-                <Button variant="outline" onClick={fetchCNPJ} disabled={fetching}>
+                <Button variant="outline" onClick={() => fetchCNPJ(false)} disabled={fetching}>
                   {fetching ? 'Consultando...' : 'Consultar'}
                 </Button>
               </div>
@@ -384,12 +448,18 @@ export default function CompanyPage() {
             </div>
 
             <div>
-              <Label>CNAE Principal</Label>
+              <Label>CNAE Principal <span className="text-red-400">*</span></Label>
               <Input
                 value={company.cnae_principal}
-                onChange={(e) => setCompany({ ...company, cnae_principal: e.target.value })}
-                placeholder="Ex: 6201501"
+                onChange={(e) => setCompany({ ...company, cnae_principal: e.target.value.replace(/\D/g, '').slice(0, 7) })}
+                placeholder="7 dígitos — ex: 6201501"
+                inputMode="numeric"
+                maxLength={7}
               />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Digite o CNPJ no topo primeiro — buscamos o CNAE automaticamente na Receita Federal.
+                Sem um CNAE válido, não conseguimos analisar concorrentes nem gerar o Radar Semanal.
+              </p>
             </div>
 
             <div>
@@ -426,13 +496,13 @@ export default function CompanyPage() {
               label="CNAEs Secundários"
               tags={company.cnaes_secundarios}
               value={newCnae}
-              onChange={setNewCnae}
+              onChange={(v) => setNewCnae(v.replace(/\D/g, '').slice(0, 7))}
               onAdd={() => {
                 addTag('cnaes_secundarios', newCnae)
                 setNewCnae('')
               }}
               onRemove={(i) => removeTag('cnaes_secundarios', i)}
-              placeholder="Código CNAE"
+              placeholder="7 dígitos — ex: 4751201"
             />
             <TagInput
               label="Capacidades Técnicas"

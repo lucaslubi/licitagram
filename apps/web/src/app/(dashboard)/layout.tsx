@@ -7,6 +7,7 @@ import { CompanyProvider } from '@/contexts/company-context'
 import { CompanySwitcher } from './company-switcher'
 import { getUserCompanies } from '@/actions/multi-company'
 import { MatchingProgressBanner } from '@/components/matching-progress-banner'
+import { ProfileHealthBanner } from '@/components/profile-health-banner'
 import { navigationGroups, accountItems } from '@/config/navigation'
 import type { PlanFeatureKey } from '@licitagram/shared'
 
@@ -105,6 +106,7 @@ export default async function DashboardLayout({
                 initialMatchCount={initialMatchCount}
               />
             )}
+            <ProfileHealthBanner />
             <DashboardAiWrapper
               onboardingCompleted={user.onboardingCompleted}
               userUfs={user.ufsInteresse}

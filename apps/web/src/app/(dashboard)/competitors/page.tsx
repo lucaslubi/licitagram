@@ -8,6 +8,7 @@ import { DeleteWatchlistButton } from './delete-watchlist-button'
 import { MercadoSummaryCards, MercadoTable, type MercadoCompetitor } from './mercado-table'
 import { IntelOverview, type OverviewData } from './intel-overview'
 import { RadarTab } from './radar-tab'
+import { EmptyIntelMessage } from './empty-intel-message'
 
 export default async function CompetitorsPage({
   searchParams,
@@ -270,6 +271,18 @@ export default async function CompetitorsPage({
     .select('cnae_principal, cnaes_secundarios')
     .eq('id', profile?.company_id || '')
     .single()
+
+  // Quick count of competitor_stats available for user's CNAE — used by
+  // EmptyIntelMessage to decide between "add CNAE" vs "niche not covered yet" vs "analyzing"
+  let competitorStatsCountForCnae = 0
+  if (company?.cnae_principal && /^\d{7}$/.test(company.cnae_principal)) {
+    const grupo4 = company.cnae_principal.substring(0, 4)
+    const { count } = await supabase
+      .from('competitor_stats')
+      .select('*', { count: 'exact', head: true })
+      .eq('cnae_grupo', grupo4)
+    competitorStatsCountForCnae = count || 0
+  }
 
   // Use 4-digit CNAE groups for precise competitor matching, with 2-digit fallback
   const companyCnaePrincipal: string[] = []
@@ -1576,8 +1589,8 @@ export default async function CompetitorsPage({
             </div>
           )}
 
-          {/* AI Relevance Summary */}
-          {Object.keys(relevanceMap).length > 0 && (
+          {/* AI Relevance Summary — shows breakdown when classified, educational message otherwise */}
+          {Object.keys(relevanceMap).length > 0 ? (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -1610,6 +1623,11 @@ export default async function CompetitorsPage({
                 })()}
               </CardContent>
             </Card>
+          ) : (
+            <EmptyIntelMessage
+              cnaePrincipal={company?.cnae_principal || null}
+              competitorStatsCount={competitorStatsCountForCnae}
+            />
           )}
 
           {/* Distribution chart placeholder */}
