@@ -129,16 +129,15 @@ ${Array.isArray(company.palavras_chave) && (company.palavras_chave as string[]).
 Retorne APENAS a descricao, sem formatacao, sem markdown.`
 
   try {
-    const response = await deepseekClient.chat.completions.create({
-      model: 'deepseek-chat',
-      messages: [{ role: 'user', content: prompt }],
-      max_tokens: 500,
-      temperature: 0.3,
-    })
+    // Uses LLM cascade (Groq → OpenRouter models) — falls back automatically
+    // if any provider is out of credits, rate limited, or down.
+    const desc = (await callLLM({
+      task: 'summary',
+      system: 'Voce gera descricoes concisas de empresas baseado em CNAEs.',
+      prompt,
+    })).trim()
 
-    const desc = response.choices[0]?.message?.content?.trim()
     if (desc && desc.length > 20) {
-      // Save to DB
       await supabase
         .from('companies')
         .update({ descricao_servicos: desc })
@@ -705,14 +704,13 @@ INSTRUCOES:
 Retorne APENAS os termos, um por linha, sem numeracao, sem explicacao.`
 
   try {
-    const response = await deepseekClient.chat.completions.create({
-      model: 'deepseek-chat',
-      messages: [{ role: 'user', content: prompt }],
-      max_tokens: 800,
-      temperature: 0.4,
-    })
-
-    const content = response.choices[0]?.message?.content?.trim()
+    // Uses LLM cascade — falls back across 7 free providers if any fails
+    // (Groq → Qwen3.6 → Nemotron → Llama-3.3 → Hermes → Gemma → GPT-OSS)
+    const content = (await callLLM({
+      task: 'chat',
+      system: 'Voce e um especialista em licitacoes publicas brasileiras que gera termos de busca.',
+      prompt,
+    })).trim()
     if (!content) return []
 
     // Parse response: one term per line, clean up
