@@ -33,11 +33,10 @@ async function evoFetch(path: string, body?: unknown): Promise<unknown> {
   return response.json()
 }
 
-/** Envia mensagem de texto (Evolution API v1 format — nested textMessage) */
+/** Envia mensagem de texto (Evolution API v2.2.3 format — formato original funcional) */
 export async function sendWhatsAppText(number: string, text: string) {
   return evoFetch(`/message/sendText/${INSTANCE}`, {
     number,
-    options: { delay: 0, presence: 'composing', linkPreview: false },
     textMessage: { text },
   })
 }
