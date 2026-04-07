@@ -87,6 +87,7 @@ export function IntelligenceMap({
   const [regionFilter, setRegionFilter] = useState<Set<string>>(new Set(REGIONS))
 
   // Mobile
+  const [hoveredMatchId, setHoveredMatchId] = useState<string | null>(null)
   const [isMobile, setIsMobile] = useState(false)
   const [sheetPosition, setSheetPosition] = useState<SheetPosition>('half')
   const touchStartY = useRef<number>(0)
@@ -653,7 +654,58 @@ export function IntelligenceMap({
   const onMouseLeave = useCallback(() => {
     const canvas = mapRef.current?.getCanvas()
     if (canvas) canvas.style.cursor = ''
+    setHoveredMatchId(null)
   }, [])
+
+  // Hover over a pin → preview popup + highlight matching sidebar card
+  const onMapMouseMove = useCallback((e: any) => {
+    const features = e.features
+    if (!features?.length) {
+      setHoveredMatchId(null)
+      return
+    }
+    const feature = features[0]
+    const layerId = feature.layer?.id
+    if (layerId !== 'unclustered-point') {
+      setHoveredMatchId(null)
+      return
+    }
+    const props = feature.properties || {}
+    const matchId = props.matchId || null
+    setHoveredMatchId(matchId)
+
+    // Show popup preview on hover (only if no popup is pinned by click for a different point)
+    const coords = (feature.geometry as GeoJSON.Point).coordinates as [number, number]
+    const key = `${parseFloat(props.lat).toFixed(3)},${parseFloat(props.lng).toFixed(3)}`
+    const nearbyMarkers = markerLookup.get(key) || []
+    const matches: MatchMarker[] = nearbyMarkers.length > 0
+      ? nearbyMarkers.filter((m) => m.score >= scoreFilter)
+      : [{
+          matchId: props.matchId || '',
+          tenderId: '',
+          objeto: props.objeto || '',
+          orgao: props.orgao || '',
+          uf: props.uf || '',
+          municipio: props.municipio || null,
+          score: props.score || 0,
+          matchSource: '',
+          valor: props.valor || null,
+          modalidade: props.modalidade || null,
+          recomendacao: null,
+          lat: coords[1],
+          lng: coords[0],
+          isHot: (props.score || 0) >= 80,
+          competitionScore: null,
+          dataEncerramento: props.dataEncerramento || null,
+        }]
+    if (matches.length > 0) {
+      setPopupInfo({
+        longitude: coords[0],
+        latitude: coords[1],
+        matches: matches.sort((a, b) => b.score - a.score),
+      })
+    }
+  }, [markerLookup, scoreFilter])
 
   // ─── Sidebar ────────────────────────────────────────────────────────────
 
@@ -895,7 +947,17 @@ export function IntelligenceMap({
                 <Link
                   key={m.matchId}
                   href={`/opportunities/${m.matchId}`}
-                  className="block p-3 rounded-lg bg-secondary/30 hover:bg-secondary/60 transition-colors border border-transparent hover:border-border"
+                  data-match-id={m.matchId}
+                  ref={(el) => {
+                    if (el && hoveredMatchId === m.matchId) {
+                      el.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+                    }
+                  }}
+                  className={`block p-3 rounded-lg transition-colors border ${
+                    hoveredMatchId === m.matchId
+                      ? 'bg-secondary/80 border-foreground/30 ring-1 ring-foreground/20'
+                      : 'bg-secondary/30 hover:bg-secondary/60 border-transparent hover:border-border'
+                  }`}
                 >
                   <div className="flex items-start gap-2.5">
                     <span
@@ -999,6 +1061,7 @@ export function IntelligenceMap({
             interactiveLayerIds={['clusters', 'unclustered-point']}
             onClick={onMapClick}
             onMouseEnter={onMouseEnter}
+            onMouseMove={onMapMouseMove}
             onMouseLeave={onMouseLeave}
           >
             <NavigationControl position={isMobile ? 'top-left' : 'top-right'} showCompass={false} />
