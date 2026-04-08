@@ -187,15 +187,15 @@ export default async function LandingPage() {
               </ScrollReveal>
               <ScrollReveal delay={100}>
                 <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white tracking-tight leading-[1.08] mb-6">
-                  Menos de 1% das empresas brasileiras vendem para o governo.{' '}
+                  Menos de 1% das empresas vencem contratos milionários no governo.{' '}
                   <span className="bg-gradient-to-r from-white via-[#F43E01] to-[#FF6B3D] bg-clip-text text-transparent">
-                    O Licitagram existe para mudar isso.
+                    O Licitagram é o sistema operacional que garante a sua vantagem assimétrica.
                   </span>
                 </h1>
               </ScrollReveal>
               <ScrollReveal delay={200}>
                 <p className="text-base sm:text-lg text-white mb-8 max-w-xl mx-auto leading-relaxed">
-                  Mais de 200.000 licitações monitoradas por mês. 67 milhões de CNPJs cruzados em tempo real. Inteligência artificial que encontra, analisa e prepara tudo para você licitar — em minutos, não em dias.
+                  Processamos as entranhas de R$ 2 trilhões em compras públicas. 67 milhões de CNPJs monitorados, análise balística de dados e agentes autônomos que transformam o caos licitatório em uma operação de guerra altamente lucrativa.
                 </p>
               </ScrollReveal>
               <ScrollReveal delay={300}>
@@ -285,23 +285,23 @@ export default async function LandingPage() {
             </ScrollReveal>
             <ScrollReveal delay={100}>
               <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight text-balance mb-6">
-                R$ 2 trilhões em compras públicas.{' '}
-                <span className="text-[#8B8B8B]">Menos de 1% das empresas participam.</span>
+                R$ 2 trilhões na mesa de operações.{' '}
+                <span className="text-[#8B8B8B]">Restrito a quem possui a melhor tecnologia.</span>
               </h2>
             </ScrollReveal>
             <ScrollReveal delay={200}>
               <p className="text-lg text-[#8B8B8B] max-w-2xl mx-auto leading-relaxed mb-6">
-                Todo ano, o governo brasileiro gasta mais de R$ 2 trilhões comprando produtos e serviços. É o maior comprador do país. Mas a imensa maioria das empresas brasileiras — mais de 99% — nunca vendeu um real para o governo.
+                Todo ano, o governo brasileiro executa mais de R$ 2 trilhões em contratos. É a maior máquina financeira do país. Mas as engrenagens são opacas e complexas. Vencer não é questão de esforço; é dispor do aparato tecnológico para desemaranhar o labirinto informacional.
               </p>
             </ScrollReveal>
             <ScrollReveal delay={300}>
               <p className="text-lg text-[#8B8B8B] max-w-2xl mx-auto leading-relaxed mb-8">
-                Não é porque não querem. É porque o processo é complexo demais, fragmentado demais, opaco demais. São dezenas de portais diferentes, milhares de editais por semana, documentos que mudam conforme a lei, e concorrentes que você nem sabe quem são.
+                Operar com buscas manuais ou robozinhos genéricos é entrar desarmado no campo de batalha moderno. A diferença entre a empresa que apenas "participa" e a corporação que domina os pregões está na profundidade matemática e tática aplicada em milissegundos.
               </p>
             </ScrollReveal>
             <ScrollReveal delay={400}>
               <p className="text-lg text-[#F43E01] font-semibold max-w-2xl mx-auto">
-                O Licitagram nasceu para abrir esse mercado.
+                Nós desenvolvemos o aparato de engenharia de dados definitivo para esmagar a concorrência.
               </p>
             </ScrollReveal>
           </div>
@@ -326,7 +326,7 @@ export default async function LandingPage() {
               </ScrollReveal>
               <ScrollReveal delay={200}>
                 <p className="text-lg text-[#69695D] leading-relaxed max-w-2xl mx-auto">
-                  O Licitagram não é mais uma plataforma de busca de editais. É a primeira infraestrutura de dados e inteligência artificial construída para tornar o mercado de licitações acessível para qualquer empresa brasileira.
+                  O Licitagram não é uma plataforma genérica de busca de editais para leigos. Trata-se de uma infraestrutura massiva de análise de dados, projetada para conferir onisciência tática e capacidade de execução autônoma nas licitações.
                 </p>
               </ScrollReveal>
             </div>
@@ -408,48 +408,48 @@ export default async function LandingPage() {
               {[
                 {
                   num: '01',
-                  title: 'Match de Editais via IA com Precisão Cirúrgica',
-                  desc: 'Esqueça os "filtros de palavras-chave". Nossa IA avalia requisitos técnicos escondidos, seu histórico e capacidade, entregando um Score de 0 a 100 indicando sua chance real matemática de vencer.',
+                  title: 'Radar de Targeting e Hunting Espacial',
+                  desc: 'Uma IA de rastreio militar substitui buscas fracas. O algoritmo engole requisitos estruturais e mapeia Oportunidades emitindo um Score Matemático (0-100) que traduz sua viabilidade tática de vitória.',
                 },
                 {
                   num: '02',
-                  title: 'Propostas Autogeradas — Item a Item',
-                  desc: 'Extraímos cada item da licitação e geramos a proposta completa formatada perfeitamente na conformidade da Lei 14.133. Com planilhas de preço e dados comerciais automaticamente preenchidos.',
+                  title: 'Fábrica de Propostas Autônoma',
+                  desc: 'A Esteira de Disputas fatia e extrai cada item governamental e cospe a proposta final juridicamente perfeita (Lei 14.133), documentada e blindada, dispensando processos lentos e manuais.',
                 },
                 {
                   num: '03',
-                  title: 'Precificador Inteligente: Seguro vs. Agressivo',
-                  desc: 'Diga adeus à precificação baseada no escuro. Mapeamos trilhões em históricos de preços públicos, traçando o lance ideal para você com base na curva probabilística de vitórias do mercado.',
+                  title: 'Engenharia de Custos e Oráculo de Preços',
+                  desc: 'Encerre o amadorismo de "adivinhar" o desconto. Nosso núcleo cruza dezenas de terabytes do histórico público e indica o preço balístico fatal para desestabilizar oponentes mantendo sua margem hiper-lucrativa.',
                 },
                 {
                   num: '04',
-                  title: 'Radar Competitivo do seu Nicho',
-                  desc: 'O Licitagram descobre automaticamente quem são seus reais concorrentes através do seu CNAE. Exibe o "win rate", histórico de vitórias milionárias e as estratégias geográficas dos seus maiores rivais.',
+                  title: 'Espionagem e Dossiê Competitivo',
+                  desc: 'Identificamos seus agressores mercadológicos baseados em CNAEs. Obtenha a ficha completa deles: win-rate absoluto, margem histórica de recuo e contratos ocultos que extraem governamentalmente.',
                 },
                 {
                   num: '05',
-                  title: 'Consultor de IA para Jurídico e Editais',
-                  desc: 'Não leia mais PDFs de 300 páginas. Converse livremente com o documento. Encontrou alguma cláusula restritiva? Nossa IA redige uma minuta oficial de Impugnação baseada em acórdãos em 40 segundos.',
+                  title: 'Acervo Jurídico de Bolso (Consultor IA)',
+                  desc: 'Editais monstruosos implodem em 10s na Análise Semântica do nosso Consultor. Descobriu direcionamento ilícito? A máquina redige instantaneamente a impugnação baseada nos acórdãos estritos do TCU.',
                 },
                 {
                   num: '06',
-                  title: 'Dossiê Pré-Disputa e Sala de Operações',
-                  desc: 'Antes do pregão começar, antecipe o limite de desconto que seu adversário costuma dar. E, na hora H, deixe um agente autônomo executar sua blindagem com lances até a margem desejada.',
+                  title: 'Command Center de Operações',
+                  desc: 'Na abertura do pregão, sua tela exibe indicadores críticos dos alvos. Engaje o nosso Agente IA de Lances para executar metralhadas algorítmicas de punições financeiras até secar os rivais no limite exato determinado.',
                 },
                 {
                   num: '07',
-                  title: 'Antifraude e Grafo Societário Interconectado',
-                  desc: 'Nossa malha cruza 67 milhões de empresas no país. Identifique num mapa visual se seus três adversários pertencem a laranjas, dividem o mesmo endereço ou estão formando um cartel.',
+                  title: 'Grafo de Infiltração e Varredura Antifraude',
+                  desc: 'Cruza iterativamente 67 Milhões de CNPJs no ato. Constate matematicamente se está lutando de fato contra corporações idôneas ou se três adversos no mesmo lote são testas-de-ferro mascarando o mesmo proprietário.',
                 },
                 {
                   num: '08',
-                  title: 'Checklist de Compliance Inviolável',
-                  desc: 'O terror da inabilitação acabou. A máquina lê todos os seus atestados, CNDs e balanços e avisa antes: "Sua certidão municipal não cobre as exigências do Lote 2". Segurança total na entrega.',
+                  title: 'Blindagem Documental e Compliance Superior',
+                  desc: 'O terror do departamento de licitações é ser inabilitado após o lance vencedor. O Motor de Compliance antevê requisitos vs. seus certames válidos garantindo que seu flanco estagiário-jurídico esteja vedado.',
                 },
                 {
                   num: '09',
-                  title: 'Pesquisa Automática IN 65/2021',
-                  desc: 'Relatórios de balizamento gerados instantaneamente e blindados para auditoria na norma rígida do Ministério da Economia. Trilha documental irrefutável com os links e painéis oficiais.',
+                  title: 'Auditoria e Balizamento Estratégico',
+                  desc: 'Robôs de compliance cospem relatórios de adequabilidade invioláveis nos ditames da IN 65/2021 do Governo Federal, criando lastro documental irrefutável contra denúncias ou auditorias imprecisas.',
                 },
               ].map((item, i) => (
                 <ScrollReveal key={item.num} delay={i * 80}>
@@ -505,18 +505,18 @@ export default async function LandingPage() {
             <div className="max-w-3xl mx-auto text-center mb-16">
               <ScrollReveal>
                 <StickyLabel>
-                  <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">04 — Funcionalidade exclusiva no mercado</p>
+                  <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">04 — Vantagem Informacional Absoluta</p>
                 </StickyLabel>
               </ScrollReveal>
               <ScrollReveal delay={100}>
                 <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[#1A1C1F] tracking-tight text-balance mb-6">
-                  Antes de entrar em qualquer disputa,{' '}
-                  <span className="text-[#69695D]">você já sabe o resultado provável.</span>
+                  Não lute no escuro. Injetamos na sua tela{' '}
+                  <span className="text-[#69695D]">a planta-baixa invisível do inimigo.</span>
                 </h2>
               </ScrollReveal>
               <ScrollReveal delay={200}>
                 <p className="text-lg text-[#69695D] leading-relaxed max-w-2xl mx-auto">
-                  A Sala de Operações é o centro de comando da sua estratégia. Antes de cada pregão, você recebe um dossiê completo com o histórico de cada concorrente, padrão de lances, win rate e vínculos societários.
+                  No Command Center, o ruído governamental é convertido em tática letal. Antes da abertura do certame, nosso sistema computa e renderiza o seu Dossiê Estratégico exibindo a previsibilidade de lances, falências e vulnerabilidades dos oponentes na sala.
                 </p>
               </ScrollReveal>
             </div>
@@ -597,18 +597,18 @@ export default async function LandingPage() {
           <div className="max-w-4xl mx-auto px-4 text-center">
             <ScrollReveal>
               <StickyLabel>
-                <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">06 — Presente em cada licitação &middot; Exclusivo</p>
+                <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">06 — Assimetria de Informação</p>
               </StickyLabel>
             </ScrollReveal>
             <ScrollReveal delay={100}>
               <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[#1A1C1F] tracking-tight text-balance mb-6">
-                Cada edital tem um especialista{' '}
-                <span className="text-[#69695D]">esperando sua pergunta.</span>
+                A assimetria de interpretação acabou.{' '}
+                <span className="text-[#69695D]">A rede neural disseca os editais em segundos.</span>
               </h2>
             </ScrollReveal>
             <ScrollReveal delay={200}>
               <p className="text-lg text-[#69695D] max-w-2xl mx-auto leading-relaxed mb-12">
-                O Consultor de IA lê o edital inteiro e responde qualquer dúvida sobre cláusulas, exigências técnicas, prazos e riscos. Sem baixar nada, sem sair da plataforma. E toda análise pode ser exportada em PDF profissional com a identidade da sua empresa.
+                O Acervo Jurídico processa terabytes de regras do Governo. Ele digere centenas de páginas do seu edital, encontrando direcionamentos, exigências abusivas e armadilhas contratuais que humanos demorariam dias para caçar. A saída já é um plano de ataque exportado e blindado.
               </p>
             </ScrollReveal>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
