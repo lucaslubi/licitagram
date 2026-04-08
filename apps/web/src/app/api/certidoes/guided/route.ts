@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
         vpsEndpoint = '/start_certidao'
         vpsBody = {
           portal: params.portal,
-          cnpj: params.cnpj,
+          cnpjs: [params.cnpj],
           session_id: params.session_id,
         }
         break
