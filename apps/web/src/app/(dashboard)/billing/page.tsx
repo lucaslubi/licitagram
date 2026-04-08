@@ -19,51 +19,38 @@ function formatBRL(cents: number): string {
 /** Static feature lists per plan tier for display */
 const PLAN_FEATURES: Record<string, string[]> = {
   essencial: [
+    'Telegram SmartAlerts (Notificações em tempo real)',
     '+200.000 licitações monitoradas/mês',
-    'AI Matching com score 0-100 (até 50 matches/mês)',
-    'Mapa de Inteligência geográfico',
-    'Filtros avançados',
-    'Busca no texto do edital',
-    'Pipeline Kanban completo',
-    'Dashboard com métricas e tendências',
-    'Gestão de Certidões + alertas de vencimento',
-    'Verificação automática de sanções',
-    'Alertas WhatsApp e Telegram (10/dia)',
-    'Preços de Mercado (5 buscas/dia)',
+    'AI Matching com score 0-100 (50/mês)',
+    'Pipeline Kanban e Dashboards',
+    'Gestão de Certidões (13 tipos)',
+    'Filtros avançados e Busca full-text',
     '1 usuário',
     'Suporte por email',
   ],
   profissional: [
     'Tudo do Essencial +',
-    'AI Matching ilimitado',
-    'Alertas ilimitados',
-    'Gerador de Propostas Comerciais (Lei 14.133)',
+    'WhatsApp FastMatch (Alertas instantâneos)',
+    'Licitagram GeoRadar (Visão estratégica regional)',
+    'AI Matching Ilimitado',
+    '"Pergunte ao Edital" (Chat IA com PDF)',
+    'Compliance Checker e Análise de Risco',
+    'Gerador de Propostas (Lei 14.133)',
     'Pesquisa de Preços IN 65/2021',
-    'Preços de Mercado ilimitados + tendência',
-    '"Pergunte ao Edital" — chat IA',
-    'Análise de edital por IA',
-    'Compliance Checker',
     'Inteligência Competitiva (5 módulos)',
-    'Ranking de Concorrentes por IA',
-    'Janelas de Oportunidade',
-    'Drive institucional',
-    'Auto-fill CNPJ',
-    'Export Excel e CSV',
     'Até 5 usuários',
     'Suporte prioritário',
   ],
   enterprise: [
     'Tudo do Profissional +',
+    'Licitagram Prospector (Outbound B2B)',
+    'Guardian Compliance (Certidões automáticas)',
     'Robô de Lances com IA estratégica',
-    'Pré-Disputa',
-    'Sugestão de lance por IA',
-    'Detecção de Anomalias (5 tipos)',
+    'Sugestão de lance e Detecção de Anomalias',
     'Grafo Societário (67M+ CNPJs)',
-    'Relatório de Inteligência Setorial',
-    'Multi-CNPJ',
-    'API de integração',
+    'Multi-CNPJ e API de integração',
     'Usuários ilimitados',
-    'Suporte dedicado',
+    'Onboarding Premium e Suporte dedicado',
   ],
 }
 
@@ -116,14 +103,19 @@ function planFeatureList(plan: Plan): string[] {
     }
   }
 
-  if (f.chat_ia) features.push('"Pergunte ao Edital" — chat IA')
+  if (f.chat_ia) features.push('"Pergunte ao Edital" (Chat IA)')
   if (f.compliance_checker) features.push('Compliance Checker')
   if (f.competitive_intel) features.push('Inteligência Competitiva')
   if (f.export_excel) features.push('Export Excel e CSV')
   if (f.multi_cnpj) features.push('Multi-CNPJ')
   if (f.api_integration) features.push('API de integração')
-  if (f.proposal_generator) features.push('Gerador de Propostas Comerciais')
+  if (f.proposal_generator) features.push('Gerador de Propostas')
   if (f.priority_support) features.push('Suporte prioritário')
+  if (f.whatsapp_alerts) features.push('WhatsApp FastMatch')
+  if (f.telegram_alerts) features.push('Telegram SmartAlerts')
+  if (f.lead_engine) features.push('Licitagram Prospector')
+  if (f.radar_map) features.push('Licitagram GeoRadar')
+  if (f.certidoes_bot) features.push('Guardian Compliance')
 
   if (plan.max_alerts_per_day === null) {
     features.push('Alertas ilimitados')

@@ -181,6 +181,11 @@ export async function getCompanyFeatures(companyId: string): Promise<PlanFeature
       proposal_generator: false,
       bidding_bot: false,
       priority_support: false,
+      whatsapp_alerts: false,
+      telegram_alerts: false,
+      lead_engine: false,
+      radar_map: false,
+      certidoes_bot: false,
     }
   }
   if (!['active', 'trialing'].includes(sub.status)) {
@@ -195,6 +200,11 @@ export async function getCompanyFeatures(companyId: string): Promise<PlanFeature
       proposal_generator: false,
       bidding_bot: false,
       priority_support: false,
+      whatsapp_alerts: false,
+      telegram_alerts: false,
+      lead_engine: false,
+      radar_map: false,
+      certidoes_bot: false,
     }
   }
 

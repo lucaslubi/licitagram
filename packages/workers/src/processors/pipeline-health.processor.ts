@@ -167,14 +167,22 @@ async function recoverStalledJobs(queueName: string): Promise<number> {
   return 0
 }
 
-/** Level 2: Restart a specific PM2 worker */
-async function restartWorker(workerName: string): Promise<boolean> {
+/** Level 2: Restart or Boot a specific PM2 worker */
+async function restartWorker(workerName: string, isMissing = false): Promise<boolean> {
   try {
-    await execAsync(`pm2 restart ${workerName}`)
-    logger.warn({ workerName }, '⚡ Level 3: Restarted PM2 worker')
+    if (isMissing) {
+      // If it's completely missing, restart fails. We must start from ecosystem.
+      await execAsync(`pm2 start ecosystem.config.js --only ${workerName}`)
+      logger.warn({ workerName }, '⚡ Level 3: Booted missing PM2 worker from ecosystem.config.js')
+    } else {
+      await execAsync(`pm2 restart ${workerName}`)
+      logger.warn({ workerName }, '⚡ Level 3: Restarted PM2 worker')
+    }
+    // Always save PM2 state to ensure resilience across server reboots
+    await execAsync('pm2 save')
     return true
   } catch (err) {
-    logger.error({ workerName, err }, 'Failed to restart worker via PM2')
+    logger.error({ workerName, err }, 'Failed to (re)start worker via PM2')
     return false
   }
 }
@@ -454,7 +462,7 @@ async function checkPM2Processes(): Promise<{ issues: string[]; fixes: string[] 
         issues.push(`PM2 process "${expectedName}" not found`)
         const failCount = trackFailure(`pm2-missing-${expectedName}`)
         if (failCount >= 2) {
-          await restartWorker(expectedName)
+          await restartWorker(expectedName, true)
           fixes.push(`Started missing process ${expectedName}`)
           clearFailure(`pm2-missing-${expectedName}`)
         }

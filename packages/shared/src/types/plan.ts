@@ -11,6 +11,11 @@ export interface PlanFeatures {
   proposal_generator: boolean
   bidding_bot: boolean
   priority_support: boolean
+  whatsapp_alerts: boolean
+  telegram_alerts: boolean
+  lead_engine: boolean
+  radar_map: boolean
+  certidoes_bot: boolean
 }
 
 export interface Plan {
@@ -105,6 +110,11 @@ export const DEFAULT_FEATURES: PlanFeatures = {
   proposal_generator: false,
   bidding_bot: false,
   priority_support: false,
+  whatsapp_alerts: false,
+  telegram_alerts: false,
+  lead_engine: false,
+  radar_map: false,
+  certidoes_bot: false,
 }
 
 /** Cookie name for plan context */

@@ -97,13 +97,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Create checkout session
-    const session = await stripeRequest('/checkout/sessions', {
+    const isTrialCandidate = plan.slug === 'starter' || plan.slug === 'professional'
+
+    const sessionParams: Record<string, string> = {
       customer: customerId!,
       mode: 'subscription',
       'payment_method_types[0]': 'card',
       'line_items[0][price]': priceId,
       'line_items[0][quantity]': '1',
-      'subscription_data[trial_period_days]': '7',
       'subscription_data[metadata][supabase_user_id]': user.id,
       'subscription_data[metadata][plan_id]': plan.id,
       'subscription_data[metadata][plan_slug]': plan.slug,
@@ -113,7 +114,13 @@ export async function POST(request: NextRequest) {
       'metadata[plan_id]': plan.id,
       'metadata[plan_slug]': plan.slug,
       'metadata[billing]': billing,
-    })
+    }
+
+    if (isTrialCandidate) {
+      sessionParams['subscription_data[trial_period_days]'] = '7'
+    }
+
+    const session = await stripeRequest('/checkout/sessions', sessionParams)
 
     if (!session.url) {
       console.error('[stripe/checkout] Session created but no URL:', session.id, 'appUrl:', appUrl)

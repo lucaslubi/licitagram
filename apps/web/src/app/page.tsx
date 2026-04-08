@@ -55,7 +55,7 @@ const TESTIMONIALS = [
 const FAQ = [
   {
     q: 'Por que o Licitagram custa mais que outras plataformas?',
-    a: 'Porque o Licitagram não é uma plataforma de busca de editais. É uma infraestrutura completa de inteligência artificial, dados corporativos e automação jurídica. Oferecemos AI Matching com score de probabilidade, gerador de propostas comerciais, pesquisa de preços IN 65/2021, inteligência competitiva com 5 módulos, robô de lances com IA estratégica, detecção de anomalias com 67 milhões de CNPJs, grafo societário e compliance checker. Nenhum concorrente entrega 10% disso.',
+    a: 'Porque o Licitagram não é uma plataforma de busca de editais. É uma infraestrutura completa de inteligência artificial, dados corporativos e automação jurídica. Oferecemos o Licitagram Prospector para inteligência B2B, WhatsApp FastMatch para alertas instantâneos, GeoRadar para visão regional, Guardian Compliance para automação de certidões, além de Oráculo de Preços (IN 65/2021) e Robô de Lances com IA estratégica. Nenhum concorrente entrega 10% disso.',
   },
   {
     q: 'O que acontece nos 7 dias grátis?',
@@ -84,14 +84,14 @@ const FAQ = [
 ]
 
 const COMPARISON_BEFORE_AFTER: { before: string; after: string }[] = [
-  { before: 'Buscar licitações manualmente em dezenas de portais', after: '+200.000 licitações monitoradas automaticamente por IA' },
+  { before: 'Buscar licitações manualmente em dezenas de portais', after: 'Telegram SmartAlerts: +200.000 licitações monitoradas automaticamente' },
   { before: 'Ler editais inteiros para saber se vale a pena', after: 'AI Matching com score 0-100 — a IA lê por você' },
   { before: 'Montar propostas do zero a cada licitação', after: 'Gerador de Propostas Comerciais em 2 minutos (Lei 14.133)' },
-  { before: 'Pesquisar preços em planilhas e sistemas descontinuados', after: 'Preços de Mercado em tempo real com tendência temporal' },
-  { before: 'Não saber quem são os concorrentes', after: 'Inteligência Competitiva com 5 módulos e ranking por IA' },
+  { before: 'Pesquisar preços em planilhas e sistemas descontinuados', after: 'Oráculo de Preços: Preços de Mercado em tempo real com tendência' },
+  { before: 'Não saber quem são os concorrentes', after: 'Licitagram Prospector: Dossiê completo e Outbound B2B' },
   { before: 'Dar lances no escuro durante pregões', after: 'Robô de Lances com IA estratégica e Pré-Disputa' },
   { before: 'Não detectar fraudes, cartéis ou empresas de fachada', after: 'Detecção de Anomalias + Grafo Societário com 67M+ CNPJs' },
-  { before: 'Verificar documentos manualmente antes de cada licitação', after: 'Compliance Checker automático — cruza edital com seus docs' },
+  { before: 'Verificar documentos manualmente antes de cada licitação', after: 'Guardian Compliance: Automação completa de certidões CNDs' },
 ]
 
 
@@ -408,8 +408,8 @@ export default async function LandingPage() {
               {[
                 {
                   num: '01',
-                  title: 'Radar de Targeting e Hunting Espacial',
-                  desc: 'Uma IA de rastreio militar substitui buscas fracas. O algoritmo engole requisitos estruturais e mapeia Oportunidades emitindo um Score Matemático (0-100) que traduz sua viabilidade tática de vitória.',
+                  title: 'Radar de Targeting (Licitagram GeoRadar)',
+                  desc: 'Uma visão estratégica militar substitui buscas fracas. O GeoRadar mapeia oportunidades geolocalizadas com Score Matemático (0-100), traduzindo sua viabilidade tática de vitória em tempo real.',
                 },
                 {
                   num: '02',
@@ -423,8 +423,8 @@ export default async function LandingPage() {
                 },
                 {
                   num: '04',
-                  title: 'Espionagem e Dossiê Competitivo',
-                  desc: 'Identificamos seus agressores mercadológicos baseados em CNAEs. Obtenha a ficha completa deles: win-rate absoluto, margem histórica de recuo e contratos ocultos que extraem governamentalmente.',
+                  title: 'Inteligência B2B (Licitagram Prospector)',
+                  desc: 'Identificamos seus agressores mercadológicos e potenciais clientes. Obtenha o dossiê completo: win-rate absoluto, margem histórica de recuo e canais de contato direto para prospecção outbound.',
                 },
                 {
                   num: '05',
@@ -443,8 +443,8 @@ export default async function LandingPage() {
                 },
                 {
                   num: '08',
-                  title: 'Blindagem Documental e Compliance Superior',
-                  desc: 'O terror do departamento de licitações é ser inabilitado após o lance vencedor. O Motor de Compliance antevê requisitos vs. seus certames válidos garantindo que seu flanco estagiário-jurídico esteja vedado.',
+                  title: 'Blindagem e Guardian Compliance',
+                  desc: 'O fim da inabilitação por documentos vencidos. O Guardian mantém suas certidões CNDs atualizadas no piloto automático, garantindo que seu flanco jurídico esteja sempre vedado e pronto para vencer.',
                 },
                 {
                   num: '09',
@@ -524,16 +524,16 @@ export default async function LandingPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
               {[
                 {
-                  title: 'Dossiê Pré-Pregão',
-                  desc: 'Histórico completo de cada concorrente: padrão de lances, preços praticados, win rate e vínculos societários.',
+                  title: 'Licitagram Prospector',
+                  desc: 'Acesse o dossiê invisível: histórico de lances, win-rate, preços praticados e vínculos societários de cada concorrente antes do certame começar.',
                 },
                 {
-                  title: 'Análise de Concorrentes',
-                  desc: 'Saiba quem vai disputar antes do pregão começar. Conheça suas fraquezas e prepare uma estratégia superior.',
+                  title: 'Licitagram GeoRadar',
+                  desc: 'Mapeamento balístico de oportunidades por região. Saiba onde o dinheiro está fluindo e onde a concorrência é mais frágil.',
                 },
                 {
-                  title: 'Agente Autônomo de Disputa',
-                  desc: 'Configure sua estratégia e limite. O agente executa cada lance com precisão cirúrgica e para quando você definir.',
+                  title: 'Guardian Compliance',
+                  desc: 'Seu QG de documentos. O Guardian monitora e revalida suas certidões em tempo real, garantindo inabilidade zero na hora da disputa.',
                 },
               ].map((item, i) => (
                 <ScrollReveal key={item.title} delay={i * 100}>
