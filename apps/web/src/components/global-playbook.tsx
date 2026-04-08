@@ -105,79 +105,80 @@ export function GlobalPlaybook() {
                 delay="0ms"
                 icon={<Building2 className="w-3.5 h-3.5" />}
                 title="1. Preenchimento de Dados"
-                description="O sistema precisa conhecer sua empresa para encontrar o que você vende."
+                description="O sistema precisa documentar quem é sua empresa e o que ela vende."
                 tips={[
-                  'Preencha seus dados na seção Empresa para buscar dados na Receita.',
-                  'Inclua as palavras-chave exatas dos produtos/serviços que você oferece.',
+                  'Nas Configurações da Empresa, insira seu CNPJ para sincronização com a base da Receita Federal.',
+                  'Na área de Certidões, faça o upload dos seus atestados para que a Inteligência cruze os requisitos e valide se você está apto a participar.',
                 ]}
                 linkTo="/company"
-                linkText="Ir para Empresa"
+                linkText="Gerenciar Empresa"
               />
 
               <PlaybookStep
                 delay="50ms"
                 icon={<MapPin className="w-3.5 h-3.5" />}
-                title="2. Encontrar Oportunidades no Mapa"
-                description="Em minutos, o mapa é populado com as licitações ativas em todo o Brasil."
+                title="2. Radar de Oportunidades"
+                description="O mapa e as listas serão povoados com licitações altamente segmentadas em todo o país."
                 tips={[
-                  'Analise onde estão os Estados menos concorridos.',
-                  'Volte no mapa e encontre a oportunidade com maior chance matemática de vencer.',
+                  'Bata o olho no Mapa para focar em Estados menos concorridos e com menor concentração de adversários diretos.',
+                  'Explore as Oportunidades e classifique pelo Score gerado pela Inteligência Artificial, dando prioridade para matches de 80 a 100.',
                 ]}
-                linkTo="/map"
-                linkText="Abrir Mapa Estratégico"
+                linkTo="/opportunities"
+                linkText="Ver Oportunidades"
               />
 
               <PlaybookStep
                 delay="100ms"
                 icon={<FileSearch className="w-3.5 h-3.5" />}
-                title="3. Entender o Edital"
-                description="Abra a página da licitação escolhida e converse com o Consultor IA."
+                title="3. Desconstrução do Edital & Pipeline"
+                description="Não perca horas lendo PDFs. Abra o edital interessante e analise na Sala do Edital."
                 tips={[
-                  'Tire qualquer dúvida sobre os requisitos e prazos em formato de chat.',
-                  'Suas perguntas e os resumos podem ser salvos em PDF no Licitagram Drive.',
-                  'Marque o indicativo de interesse na página para acompanhá-la em seu Pipeline.',
+                  'Bata papo com o Consultor IA embeddedado. Ele extrai requisitos e faz análises de risco rapidamente.',
+                  'Você pode baixar as respostas dele em PDF e armazenar no seu Licitagram Drive.',
+                  'Altere o status para "Em Análise" no menu drop-down da página para que ela vá para o seu Pipeline Kanban.',
                 ]}
                 linkTo="/pipeline"
-                linkText="Visualizar Pipeline"
+                linkText="Ir para Meu Pipeline"
               />
 
               <PlaybookStep
                 delay="150ms"
                 icon={<PenTool className="w-3.5 h-3.5" />}
-                title="4. Geração Rápida de Proposta"
-                description="Com a oportunidade validada, a plataforma gera a proposta ou impugnação que demoraria horas em apenas 5 minutos."
+                title="4. Fábrica de Propostas"
+                description="Faça a matemática do leilão e documente sem esforço as formalidades exigidas."
                 tips={[
-                  'Faça o cálculo de BDI dentro da própria página.',
-                  'Use o gerador de propostas para extrair os itens formatados pela Lei 14.133 automaticamente.',
+                  'Use a Calculadora de Precificação em anexo para descobrir precisamente o seu BDI.',
+                  'Encontrou exigências esdrúxulas? Acione o gerador inteligente na aba Oportunidade para redigir uma Impugnação baseada no TCU.',
+                  'Tudo validado? Clique em "Gerar Proposta" para extrair itens com CNPJ formatados para a Lei 14.133 automaticamente.',
                 ]}
                 linkTo="/proposals"
-                linkText="Gerador de Propostas"
+                linkText="Meus Documentos"
               />
 
               <PlaybookStep
                 delay="200ms"
                 icon={<ShieldAlert className="w-3.5 h-3.5" />}
-                title="5. War Room & Detecção de Fraudes"
-                description="Conheça o histórico de quem está disputando com você."
+                title="5. Mapeamento de Fraude"
+                description="Descubra antecipadamente o comportamento de quem você está enfrentando."
                 tips={[
-                  'O detector de fraudes analisa concorrentes em tempo real apontando irregularidades e base para impugnações.',
-                  'A inteligência aponta o Win Rate da sua concorrência no nicho.',
+                  'Nas páginas detalhadas, o Detector de Risco vasculha cartéis ou monopólios (empresas com mesmos sócios).',
+                  'Vá em "Inteligência Competitiva" caso queira analisar a taxa de sucesso geral dos CNPJs dos rivais que baterem no seu lote.',
                 ]}
                 linkTo="/competitors"
-                linkText="Analisar Concorrentes"
+                linkText="Espionagem Competitiva"
               />
 
               <PlaybookStep
                 delay="250ms"
                 icon={<Swords className="w-3.5 h-3.5" />}
-                title="6. Robô de Lances Automático"
-                description="Durante o pregão, execute a disputa de forma inteligente."
+                title="6. Sala de Guerra & Automação"
+                description="Na hora de arrematar os preços no pregão, use as ferramentas defensivas."
                 tips={[
-                  'A IA acompanha a disputa ao vivo na War Room.',
-                  'O Robô dá lances semáforos preservando sua margem mínima de lucro.',
+                  'Rastreie o histórico dos preços já praticados naquele item para entender qual seria um lance plausível no seu negócio.',
+                  'Configure o Robô Autônomo caso prefira varrer lotes escalonadamente cobrindo os limites impostos, mas sem aguentar desvalorizações excessivas.',
                 ]}
                 linkTo="/bot"
-                linkText="Configurar Robô"
+                linkText="Acessar o Agente de Lances"
               />
             </div>
           </div>
