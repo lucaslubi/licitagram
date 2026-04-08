@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getPriceHistoryCacheAdapter, checkRedisRateLimit } from '@/lib/price-history-cache'
+import { fetchTendersWithBids } from '@/lib/price-history-query'
 import crypto from 'crypto'
 
 const UF_LIST = [
@@ -184,19 +185,25 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    // Use RPC for efficient server-side query (CTE + GIN index)
-    const { data: rpcData, error } = await supabase.rpc('search_tenders_with_bids', {
-      p_query: q,
-      p_uf: uf || null,
-      p_modalidade: modalidade || null,
-      p_date_from: dateFrom || null,
-      p_date_to: dateTo || null,
-      p_limit: 20,
-    })
+    // Use JS logic instead of Postgres RPC to bypass return type mismatch
+    let rpcData: any;
+    let error: any = null;
+    try {
+      rpcData = await fetchTendersWithBids(supabase, {
+        p_query: q,
+        p_uf: uf || null,
+        p_modalidade: modalidade || null,
+        p_date_from: dateFrom || null,
+        p_date_to: dateTo || null,
+        p_limit: 20,
+      })
+    } catch (e) {
+      error = e;
+    }
 
     if (error) {
       console.error('Discount analysis query error:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ error: error.message || String(error) }, { status: 500 })
     }
 
     // Build discount entries from RPC flat rows
