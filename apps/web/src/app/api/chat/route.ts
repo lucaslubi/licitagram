@@ -171,18 +171,26 @@ export async function POST(request: NextRequest) {
 
   // Fetch company profile if available
   let company: Record<string, unknown> | null = null
+  let companyDocuments: Record<string, unknown>[] = []
   if (userProfile.data?.company_id) {
-    const { data: companyData } = await supabase
-      .from('companies')
-      .select(`
-        razao_social, nome_fantasia, cnpj, porte,
-        cnae_principal, cnaes_secundarios,
-        descricao_servicos, capacidades, certificacoes,
-        palavras_chave, uf, municipio
-      `)
-      .eq('id', userProfile.data.company_id)
-      .single()
-    company = companyData as Record<string, unknown> | null
+    const [companyResult, docsResult] = await Promise.all([
+      supabase
+        .from('companies')
+        .select(`
+          razao_social, nome_fantasia, cnpj, porte,
+          cnae_principal, cnaes_secundarios,
+          descricao_servicos, capacidades, certificacoes,
+          palavras_chave, uf, municipio
+        `)
+        .eq('id', userProfile.data.company_id)
+        .single(),
+      supabase
+        .from('company_documents')
+        .select('id, tipo, descricao, validade, numero, status')
+        .eq('company_id', userProfile.data.company_id)
+    ])
+    company = companyResult.data as Record<string, unknown> | null
+    companyDocuments = (docsResult.data || []) as Record<string, unknown>[]
   }
 
   // Build context
@@ -219,6 +227,20 @@ export async function POST(request: NextRequest) {
 
     if (Array.isArray(company.palavras_chave) && company.palavras_chave.length > 0) {
       context += `**Palavras-chave / Especialidades:** ${(company.palavras_chave as string[]).join(', ')}\n`
+    }
+
+    if (companyDocuments && companyDocuments.length > 0) {
+      context += `\n**Documentos / Certidões da Empresa já cadastrados no sistema (use isso para certificar conformidade):**\n`
+      for (const doc of companyDocuments) {
+        let validadeText = 'N/A'
+        if (doc.validade) {
+          const valDate = new Date(String(doc.validade))
+          // ensure valDate is adjusted if we want local timezone, but toLocaleDateString without arguments uses node's default. Let's just do a simple check.
+          const isVencido = valDate < new Date()
+          validadeText = isVencido ? `VENCIDO (Venceu em ${valDate.toLocaleDateString('pt-BR')})` : valDate.toLocaleDateString('pt-BR')
+        }
+        context += `- Tipo: ${doc.tipo || 'Desconhecido'} | Status: ${doc.status || 'N/A'} | Validade: ${validadeText} | Descrição: ${doc.descricao || 'N/A'} | Número: ${doc.numero || 'N/A'}\n`
+      }
     }
 
     context += '\n'

@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import OpenAI from 'openai'
+import { callAIWithFallback } from '@/lib/ai-client'
 import pdf from 'pdf-parse'
-
-const groqClient = new OpenAI({
-  apiKey: process.env.GROQ_API_KEY || '',
-  baseURL: 'https://api.groq.com/openai/v1',
-  timeout: 30_000,
-})
 
 export async function POST(req: NextRequest) {
   try {
@@ -106,21 +100,20 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-      const completion = await groqClient.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
+      const completion = await callAIWithFallback({
         temperature: 0.1,
         max_tokens: 512,
         messages: [
           {
             role: 'system',
-            content: 'Você é um assistente especializado em análise de certidões e documentos de habilitação para licitações públicas no Brasil.',
+            content: 'Você é um assistente especializado em análise de certidões e documentos de habilitação para licitações públicas no Brasil. Responda apenas com JSON válido.',
           },
           {
             role: 'user',
             content: `Analise este documento de certidão e extraia:
 - tipo: o tipo da certidão (use um destes valores quando possível: cnd_federal, cnd_estadual, cnd_municipal, fgts, trabalhista, tcu, sicaf, atestado_capacidade, balanco, contrato_social, iso_9001, alvara, crea_cau, outro)
 - status: "regular" ou "irregular" ou "positiva_com_efeito_negativa"
-- validade: data de validade no formato YYYY-MM-DD (se houver)
+- validade: data de validade no formato YYYY-MM-DD (se houver, e null se não houver)
 - numero: número do documento (se houver)
 - orgao_emissor: órgão que emitiu (ex: Receita Federal, TST, CEF)
 - resumo: resumo em 1 linha do que o documento atesta
