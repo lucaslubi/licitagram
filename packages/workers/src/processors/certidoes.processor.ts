@@ -2,6 +2,7 @@ import { Worker, type Job } from 'bullmq'
 import { connection } from '../queues/connection'
 import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
+import { mirrorExternalFileToDrive } from '../lib/drive'
 import type { CertidaoResult } from '../scrapers/types'
 
 const CERTIDAO_TYPES = [
@@ -49,13 +50,25 @@ async function saveCertidao(companyId: string, cert: CertidaoResult) {
     .eq('tipo', cert.tipo)
     .maybeSingle()
 
+  let finalUrl = cert.pdf_url || cert.consulta_url
+
+  // If we have a PDF URL, mirror it to Licitagram Drive
+  if (cert.pdf_url && cert.pdf_url.startsWith('http')) {
+    const fileName = `${cert.tipo}_${cert.numero || 'emitida'}.pdf`
+    const storagePath = await mirrorExternalFileToDrive(cert.pdf_url, companyId, fileName)
+    if (storagePath) {
+      // Point to our internal proxy for permanent access
+      finalUrl = `/api/drive/proxy?path=${encodeURIComponent(storagePath)}`
+    }
+  }
+
   const doc = {
     company_id: companyId,
     tipo: cert.tipo,
     descricao: `[Auto] ${cert.detalhes}`,
     numero: cert.numero,
     validade: cert.validade,
-    arquivo_url: cert.pdf_url || cert.consulta_url,
+    arquivo_url: finalUrl,
     updated_at: new Date().toISOString(),
   }
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { mirrorExternalFileToDrive } from '@/lib/drive-server'
 
 export const maxDuration = 60
 
@@ -146,12 +147,24 @@ export async function POST(req: NextRequest) {
           .eq('tipo', tipo)
           .maybeSingle()
 
+        let finalUrl = vpsData.url || null
+
+        // If we have a PDF URL, mirror it to Licitagram Drive
+        if (vpsData.url && (vpsData.url as string).startsWith('http')) {
+          const fileName = `${tipo}_${vpsData.numero || 'guiada'}.pdf`
+          const storagePath = await mirrorExternalFileToDrive(vpsData.url as string, profile.company_id, fileName)
+          if (storagePath) {
+            // Point to our internal proxy for permanent access
+            finalUrl = `/api/drive/proxy?path=${encodeURIComponent(storagePath)}`
+          }
+        }
+
         const doc = {
           company_id: profile.company_id,
           tipo,
           descricao: `[Guided] ${vpsData.detalhes || 'Certidao emitida via captcha guiado'}`,
           validade: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
-          arquivo_url: vpsData.url || null,
+          arquivo_url: finalUrl,
           updated_at: new Date().toISOString(),
         }
 
