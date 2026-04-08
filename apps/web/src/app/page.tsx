@@ -408,48 +408,48 @@ export default async function LandingPage() {
               {[
                 {
                   num: '01',
-                  title: 'Inteligência Artificial que entende a sua empresa',
-                  desc: 'A IA lê cada edital publicado no Brasil e calcula um score de 0 a 100 de compatibilidade com o perfil da sua empresa — CNAEs, porte, região, histórico.',
+                  title: 'Match de Editais via IA com Precisão Cirúrgica',
+                  desc: 'Esqueça os "filtros de palavras-chave". Nossa IA avalia requisitos técnicos escondidos, seu histórico e capacidade, entregando um Score de 0 a 100 indicando sua chance real matemática de vencer.',
                 },
                 {
                   num: '02',
-                  title: 'Gerador de Propostas Comerciais',
-                  desc: 'Em 2 minutos, a IA gera uma proposta completa, formatada conforme a Lei 14.133, com os dados da sua empresa preenchidos. Pronta para enviar.',
+                  title: 'Propostas Autogeradas — Item a Item',
+                  desc: 'Extraímos cada item da licitação e geramos a proposta completa formatada perfeitamente na conformidade da Lei 14.133. Com planilhas de preço e dados comerciais automaticamente preenchidos.',
                 },
                 {
                   num: '03',
-                  title: 'Preços de Mercado em Tempo Real',
-                  desc: 'O substituto real do Painel de Preços do governo (descontinuado). Dados de todos os portais — federais, estaduais e municipais — com tendência temporal.',
+                  title: 'Precificador Inteligente: Seguro vs. Agressivo',
+                  desc: 'Diga adeus à precificação baseada no escuro. Mapeamos trilhões em históricos de preços públicos, traçando o lance ideal para você com base na curva probabilística de vitórias do mercado.',
                 },
                 {
                   num: '04',
-                  title: 'Pesquisa de Preços IN 65/2021',
-                  desc: 'Relatório automático de pesquisa de preços conforme a Instrução Normativa 65/2021. Pronto para anexar ao processo. Em minutos, não em dias.',
+                  title: 'Radar Competitivo do seu Nicho',
+                  desc: 'O Licitagram descobre automaticamente quem são seus reais concorrentes através do seu CNAE. Exibe o "win rate", histórico de vitórias milionárias e as estratégias geográficas dos seus maiores rivais.',
                 },
                 {
                   num: '05',
-                  title: 'Inteligência Competitiva com 5 Módulos',
-                  desc: 'Saiba quem são seus concorrentes, quanto cobram, onde ganham, onde perdem, e quais editais estão disputando agora. Ranking por IA com win rate.',
+                  title: 'Consultor de IA para Jurídico e Editais',
+                  desc: 'Não leia mais PDFs de 300 páginas. Converse livremente com o documento. Encontrou alguma cláusula restritiva? Nossa IA redige uma minuta oficial de Impugnação baseada em acórdãos em 40 segundos.',
                 },
                 {
                   num: '06',
-                  title: 'Robô de Lances com Estratégia',
-                  desc: 'Não é um robô que só executa. É um agente que pensa. Analisa o padrão de lances dos concorrentes, calcula o lance ótimo e executa com precisão.',
+                  title: 'Dossiê Pré-Disputa e Sala de Operações',
+                  desc: 'Antes do pregão começar, antecipe o limite de desconto que seu adversário costuma dar. E, na hora H, deixe um agente autônomo executar sua blindagem com lances até a margem desejada.',
                 },
                 {
                   num: '07',
-                  title: 'Detecção de Anomalias',
-                  desc: '67 milhões de CNPJs cruzados em tempo real. 5 tipos de alerta: cartel, empresa de fachada, sócios em comum, endereço compartilhado, padrão de lance.',
+                  title: 'Antifraude e Grafo Societário Interconectado',
+                  desc: 'Nossa malha cruza 67 milhões de empresas no país. Identifique num mapa visual se seus três adversários pertencem a laranjas, dividem o mesmo endereço ou estão formando um cartel.',
                 },
                 {
                   num: '08',
-                  title: 'Grafo Societário',
-                  desc: 'Visualize as conexões entre empresas, sócios, endereços e contratos. Descubra quem está por trás de cada CNPJ — e como eles se conectam entre si.',
+                  title: 'Checklist de Compliance Inviolável',
+                  desc: 'O terror da inabilitação acabou. A máquina lê todos os seus atestados, CNDs e balanços e avisa antes: "Sua certidão municipal não cobre as exigências do Lote 2". Segurança total na entrega.',
                 },
                 {
                   num: '09',
-                  title: 'Compliance Checker',
-                  desc: 'A IA cruza as exigências do edital com os documentos da sua empresa e diz exatamente o que está faltando — antes de você investir tempo na proposta.',
+                  title: 'Pesquisa Automática IN 65/2021',
+                  desc: 'Relatórios de balizamento gerados instantaneamente e blindados para auditoria na norma rígida do Ministério da Economia. Trilha documental irrefutável com os links e painéis oficiais.',
                 },
               ].map((item, i) => (
                 <ScrollReveal key={item.num} delay={i * 80}>
