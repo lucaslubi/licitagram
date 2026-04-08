@@ -25,8 +25,38 @@ import { callLLM, parseJsonResponse } from '../ai/llm-client'
 import { sendHealingAlert, sendHealingReport } from '../lib/healing-telegram'
 import { exec } from 'child_process'
 import { promisify } from 'util'
+import fs from 'fs'
+import path from 'path'
 
 const execAsync = promisify(exec)
+
+const MEMORY_FILE = path.join(process.cwd(), 'healing-memory.json')
+
+interface HealingMemory {
+  runbook_rules: string[]
+  last_consolidated: string
+}
+
+async function loadHealingMemory(): Promise<HealingMemory> {
+  try {
+    if (fs.existsSync(MEMORY_FILE)) {
+      const data = await fs.promises.readFile(MEMORY_FILE, 'utf-8')
+      return JSON.parse(data)
+    }
+  } catch (err) {
+    logger.error({ err }, 'Error loading healing memory')
+  }
+  return { runbook_rules: [], last_consolidated: '' }
+}
+
+async function saveHealingMemory(mem: HealingMemory) {
+  try {
+    await fs.promises.writeFile(MEMORY_FILE, JSON.stringify(mem, null, 2))
+  } catch (err) {
+    logger.error({ err }, 'Error saving healing memory')
+  }
+}
+
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -491,6 +521,11 @@ function getRestartCommandForQueue(queueName: string): string {
 
 async function runAIAnalysis(metrics: SystemMetrics, recentActions: Record<string, unknown>[]): Promise<DetectedIssue[]> {
   try {
+    const memory = await loadHealingMemory()
+    const memoryContext = memory.runbook_rules.length > 0 
+      ? `\n\nMemória de Cura (Regras Históricas Aprendidas):\n${memory.runbook_rules.map(r => '- ' + r).join('\n')}` 
+      : ''
+
     // Build a compact summary to minimize token usage
     const metricsSummary = {
       pm2: metrics.pm2.map(p => ({
@@ -512,6 +547,7 @@ Analise as métricas e identifique problemas que regras simples não detectariam
 - Padrões de degradação progressiva
 - Correlações entre métricas (ex: RAM alta + filas crescendo = leak)
 - Anomalias sutis
+${memoryContext}
 
 Responda APENAS em JSON válido:
 {
@@ -527,7 +563,7 @@ Responda APENAS em JSON válido:
 
 Se não houver problemas além dos óbvios, retorne { "issues": [] }.
 NÃO repita problemas que regras simples já detectam (worker crashed, RAM > 85%, etc).`,
-      prompt: `Métricas atuais:\n${JSON.stringify(metricsSummary, null, 2)}\n\nÚltimas 10 ações de healing:\n${JSON.stringify(recentActions.slice(0, 10), null, 2)}`,
+      prompt: `Métricas atuais:\n${JSON.stringify(metricsSummary, null, 2)}\n\nÚltimas ações de healing:\n${JSON.stringify(recentActions.slice(0, 10), null, 2)}`,
       maxRetries: 1,
       jsonMode: true,
     })
@@ -743,6 +779,34 @@ async function generateDailyReport() {
     report += '\n'
   }
 
+  // Memory Consolidation Phase
+  let memoryStatsStr = ''
+  try {
+    const memory = await loadHealingMemory()
+    const memoryPrompt = `Memória Atual:\n${JSON.stringify(memory.runbook_rules)}\n\nAções Sistêmicas e IAs nas últimas 24h:\n${JSON.stringify(allActions.slice(0, 30).map(a => ({ type: a.action_type, desc: a.description, status: a.status }))) }`
+    
+    const consolidationResponse = await callLLM({
+      task: 'summary',
+      system: `Você é o Arquivista do sistema de Auto Healing.
+Atualize a Memória de Curas (Runbook) para que o agente primário aprenda o que funcionou falhou e não repita os mesmos erros.
+Mantenha as regras anteriores (se úteis), descarte irrelevantes, e adicione os aprendizados das últimas 24h. Limite a 15 regras.
+Responda APENAS JSON: { "runbook_rules": ["Regra 1...", "Regra 2..."] }`,
+      prompt: memoryPrompt,
+      maxRetries: 1,
+      jsonMode: true,
+    })
+    
+    const parsedMemory = parseJsonResponse<{ runbook_rules: string[] }>(consolidationResponse)
+    if (parsedMemory && parsedMemory.runbook_rules) {
+      memory.runbook_rules = parsedMemory.runbook_rules.slice(0, 15)
+      memory.last_consolidated = new Date().toISOString()
+      await saveHealingMemory(memory)
+      memoryStatsStr = `📘 <b>Memória de Auto-Cura Evoluída:</b> ${memory.runbook_rules.length} regras consolidadas com sucesso.`
+    }
+  } catch (err) {
+    logger.warn({ err }, 'Failed to consolidate healing memory')
+  }
+
   // AI trend analysis
   try {
     const aiSummary = await callLLM({
@@ -761,9 +825,11 @@ Pipeline: ${JSON.stringify(pipelineStats)}
 RAM: ${metrics.ram.percentUsed}%, Disco: ${metrics.disk.percentUsed}%, Workers: ${onlineWorkers}/${metrics.pm2.length}`,
       maxRetries: 1,
     })
-    report += `🧠 <b>Análise IA</b>\n${aiSummary.trim()}\n`
+    report += `🧠 <b>Análise IA</b>\n${aiSummary.trim()}\n\n`
+    if (memoryStatsStr) report += `${memoryStatsStr}\n`
   } catch {
-    report += `🧠 <b>Análise IA</b>\n<i>Análise indisponível</i>\n`
+    report += `🧠 <b>Análise IA</b>\n<i>Análise indisponível</i>\n\n`
+    if (memoryStatsStr) report += `${memoryStatsStr}\n`
   }
 
   await sendHealingReport(report)
