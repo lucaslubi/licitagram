@@ -36,8 +36,8 @@ export const navigationGroups: NavGroup[] = [
   {
     label: 'Inteligência',
     items: [
-      { id: 'dashboard', label: 'Command Center', icon: LayoutDashboard, href: '/dashboard' },
       { id: 'mapa', label: 'Radar Geográfico', icon: MapPin, href: '/map' },
+      { id: 'dashboard', label: 'Command Center', icon: LayoutDashboard, href: '/dashboard' },
       { id: 'oportunidades', label: 'Hunting de Editais', icon: FileText, href: '/opportunities' },
       { id: 'concorrentes', label: 'Espionagem Competitiva', icon: Building2, href: '/competitors', requiredFeature: 'competitive_intel' },
       { id: 'precos', label: 'Inteligência de Preços', icon: DollarSign, href: '/price-history' },

@@ -46,7 +46,7 @@ export function AdminSidebar({ visibleItems, userEmail }: AdminSidebarProps) {
   const sidebarContent = (
     <>
       <div className="p-4 border-b border-[#2d2f33]">
-        <Link href="/dashboard" className="text-sm text-gray-400 hover:text-gray-300">
+        <Link href="/map" className="text-sm text-gray-400 hover:text-gray-300">
           &larr; Voltar ao painel
         </Link>
         <h2 className="text-lg font-bold mt-2 text-white">Admin</h2>
@@ -98,7 +98,7 @@ export function AdminSidebar({ visibleItems, userEmail }: AdminSidebarProps) {
           </svg>
         </button>
         <span className="text-sm font-bold text-white">Admin</span>
-        <Link href="/dashboard" className="ml-auto text-xs text-gray-400 hover:text-gray-300">
+        <Link href="/map" className="ml-auto text-xs text-gray-400 hover:text-gray-300">
           &larr; Painel
         </Link>
       </div>

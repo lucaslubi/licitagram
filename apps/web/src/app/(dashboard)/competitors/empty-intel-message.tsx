@@ -65,7 +65,7 @@ export function EmptyIntelMessage({ cnaePrincipal, competitorStatsCount }: Props
             <p className="text-sm text-muted-foreground leading-relaxed">
               Estamos expandindo a cobertura de concorrentes para o CNAE <span className="font-mono text-foreground">{cnaePrincipal}</span>.
               A análise detalhada ficará disponível conforme mais editais desse segmento forem processados.
-              Enquanto isso, visite o <Link href="/dashboard" className="text-foreground underline hover:no-underline">mapa de oportunidades</Link> para ver matches relevantes.
+              Enquanto isso, visite o <Link href="/map" className="text-foreground underline hover:no-underline">mapa de oportunidades</Link> para ver matches relevantes.
             </p>
           </div>
         </div>

@@ -80,10 +80,10 @@ export function DashboardSidebar({
   const sidebarContent = (
     <div className="flex flex-col h-full">
       {/* Logo — compact */}
-      <div className="flex items-center gap-2.5 px-4 pt-4 pb-2">
+      <Link href="/map" className="flex items-center gap-2.5 px-4 pt-4 pb-2 transition-opacity hover:opacity-80">
         <Image src="/logo-only.png" alt="Licitagram" width={200} height={200} className="h-7 w-7 object-contain" />
         <span className="text-[13px] font-bold tracking-[0.04em] text-foreground uppercase">Licitagram</span>
-      </div>
+      </Link>
 
       {/* Company selector + notification bell */}
       <div className="flex items-center gap-1.5 px-3 py-2">

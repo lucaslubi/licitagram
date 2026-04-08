@@ -63,8 +63,16 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname
 
-  // ─── Public routes: no auth required ──────────────────────────────────
-  if (PUBLIC_ROUTES.some((r) => pathname.startsWith(r))) {
+  // ─── Public routes & Authenticated redirect ────────────────────────────
+  // If user is already authenticated and visits the landing page or login/register, push them directly to their app homepage (/map).
+  if (user && (pathname === '/' || pathname.startsWith('/login') || pathname.startsWith('/register'))) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/map'
+    return NextResponse.redirect(url)
+  }
+
+  // ─── Public routes: allow access for unauthenticated users ─────────────
+  if (pathname === '/' || PUBLIC_ROUTES.some((r) => pathname.startsWith(r))) {
     return supabaseResponse
   }
 
