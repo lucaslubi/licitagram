@@ -52,6 +52,17 @@ export default async function GenerateProposalPage({
     }
   }
 
+  // Fetch real tender items
+  let tenderItems: any[] = []
+  if (tender?.id) {
+    const { data: items } = await supabase
+      .from('tender_items')
+      .select('*')
+      .eq('tender_id', tender.id)
+      .order('numero_item', { ascending: true })
+    if (items) tenderItems = items
+  }
+
   // If editing an existing proposal, fetch it
   let existingProposal: Record<string, unknown> | null = null
   if (proposalId) {
@@ -119,16 +130,26 @@ export default async function GenerateProposalPage({
       representante_cpf: (existingProposal?.representante_cpf as string) || (company?.representante_cpf as string) || '',
       representante_cargo: (existingProposal?.representante_cargo as string) || (company?.representante_cargo as string) || '',
     },
-    // Proposal fields — pre-fill items from tender data
+    // Proposal fields — pre-fill items from real tender items if available
     items: (existingProposal?.items as Array<Record<string, unknown>>)
-      || (tender?.objeto ? [{
-        item_number: 1,
-        description: (tender.objeto as string).slice(0, 500),
-        quantity: 1,
-        unit: 'unidade',
-        unit_price: (tender.valor_estimado as number) || 0,
-        total_price: (tender.valor_estimado as number) || 0,
-      }] : []),
+      || (tenderItems.length > 0
+        ? tenderItems.map(item => ({
+            item_number: Number(item.numero_item) || 1,
+            description: item.descricao_completa || item.descricao || '',
+            quantity: Number(item.quantidade) || 1,
+            unit: item.unidade_medida || item.unidade || 'unidade',
+            unit_price: Number(item.valor_unitario_estimado) || Number(item.valor_estimado) || 0,
+            total_price: Number(item.valor_total_estimado) || 0,
+          }))
+        : (tender?.objeto ? [{
+            item_number: 1,
+            description: (tender.objeto as string).slice(0, 500),
+            quantity: 1,
+            unit: 'unidade',
+            unit_price: (tender.valor_estimado as number) || 0,
+            total_price: (tender.valor_estimado as number) || 0,
+          }] : [])
+      ),
     valorMensal: (existingProposal?.valor_mensal as number) || undefined,
     valorGlobal: (existingProposal?.valor_global as number) || (tender?.valor_estimado as number) || 0,
     validadeDias: (existingProposal?.validade_dias as number) || 60,
