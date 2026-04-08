@@ -106,15 +106,20 @@ export function UploadCertidao({ companyId }: { companyId: string }) {
         .from('drive')
         .getPublicUrl(storagePath)
 
+      let dbStatus = 'valido'
+      if (extracted.status === 'irregular' || (extracted.validade && new Date(extracted.validade) < new Date())) {
+        dbStatus = 'vencido'
+      }
+
       const { error: insertError } = await supabase.from('company_documents').insert({
         company_id: companyId,
         tipo: extracted.tipo || 'outro',
         descricao: extracted.resumo
-          ? `[Upload] ${extracted.resumo}`
+          ? `[Upload] ${extracted.resumo} (${extracted.status || 'sem status'})`
           : `[Upload] ${fileName}`,
         numero: extracted.numero || null,
         validade: extracted.validade || null,
-        status: extracted.status || null,
+        status: dbStatus,
         origem: 'upload',
         arquivo_url: urlData.publicUrl,
       })
