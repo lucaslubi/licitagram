@@ -57,7 +57,7 @@ export const navigationGroups: NavGroup[] = [
   {
     label: 'Automação',
     items: [
-      { id: 'robo', label: 'Robô', icon: Bot, href: '/bot', requiredFeature: 'bidding_bot' },
+      { id: 'robo', label: 'Agente IA de Lances', icon: Bot, href: '/bot', requiredFeature: 'bidding_bot' },
     ],
   },
 ]
