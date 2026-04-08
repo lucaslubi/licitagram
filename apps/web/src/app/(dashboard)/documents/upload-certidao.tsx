@@ -19,6 +19,7 @@ export function UploadCertidao({ companyId }: { companyId: string }) {
   const [step, setStep] = useState<UploadStep>('idle')
   const [dragOver, setDragOver] = useState(false)
   const [fileName, setFileName] = useState('')
+  const [fileSize, setFileSize] = useState<number>(0)
   const [storagePath, setStoragePath] = useState('')
   const [extracted, setExtracted] = useState<ExtractedData | null>(null)
   const [errorMsg, setErrorMsg] = useState('')
@@ -29,6 +30,7 @@ export function UploadCertidao({ companyId }: { companyId: string }) {
     setStep('idle')
     setDragOver(false)
     setFileName('')
+    setFileSize(0)
     setStoragePath('')
     setExtracted(null)
     setErrorMsg('')
@@ -48,6 +50,7 @@ export function UploadCertidao({ companyId }: { companyId: string }) {
     }
 
     setFileName(file.name)
+    setFileSize(file.size)
     setStep('uploading')
     setErrorMsg('')
 
@@ -115,6 +118,25 @@ export function UploadCertidao({ companyId }: { companyId: string }) {
         origem: 'upload',
         arquivo_url: urlData.publicUrl,
       })
+
+      // Also save to Drive
+      const { data: userData } = await supabase.auth.getUser()
+      if (userData.user) {
+        await supabase.from('drive_files').insert({
+          company_id: companyId,
+          user_id: userData.user.id,
+          file_name: fileName,
+          file_type: 'pdf',
+          mime_type: 'application/pdf',
+          file_size: fileSize,
+          storage_path: storagePath,
+          folder: '/certidoes',
+          category: 'certidao',
+          description: extracted.resumo || null,
+          source: 'upload',
+          tags: extracted.tipo ? [extracted.tipo] : ['certidao']
+        })
+      }
 
       if (insertError) {
         setErrorMsg('Erro ao salvar: ' + insertError.message)
