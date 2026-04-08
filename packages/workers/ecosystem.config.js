@@ -187,6 +187,21 @@ module.exports = {
       out_file: '/var/log/licitagram/monitoring-server-out.log',
       error_file: '/var/log/licitagram/monitoring-server-err.log',
     },
+    
+    // ─── Data API Server (Enrichment/Leads) (port 3997) ──────────────
+    {
+      ...baseConfig,
+      name: 'enrichment-api',
+      script: path.join(WORKERS, 'dist/enrichment-api/data-api-server.js'),
+      node_args: '--max-old-space-size=256',
+      max_memory_restart: '256M',
+      env: {
+        NODE_ENV: 'production',
+        DATA_API_PORT: '3997',
+      },
+      out_file: '/var/log/licitagram/enrichment-api-out.log',
+      error_file: '/var/log/licitagram/enrichment-api-err.log',
+    },
 
     // ─── Queue metrics collector ─────────────────────────────────────
     {

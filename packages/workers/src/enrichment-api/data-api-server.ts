@@ -23,7 +23,7 @@ import {
 
 const logger = pino({ name: 'data-api-server', level: process.env.LOG_LEVEL || 'info' })
 
-const PORT = Number(process.env.DATA_API_PORT) || 3998
+const PORT = Number(process.env.DATA_API_PORT) || 3997
 
 const pgPool = new pg.Pool({
   host: process.env.PG_HOST || '127.0.0.1',

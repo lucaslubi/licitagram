@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
         vpsEndpoint = '/start_certidao'
         vpsBody = {
           portal: params.portal,
-          cnpjs: [params.cnpj],
+          cnpj: params.cnpj,
           session_id: params.session_id,
         }
         break
@@ -101,6 +101,18 @@ export async function POST(req: NextRequest) {
     let vpsRes: Response
     let vpsData: Record<string, unknown>
     try {
+      // 1. Quick health check to detect misconfiguration
+      const healthRes = await fetch(`${VPS_LOGIN_URL}/`, { signal: AbortSignal.timeout(5000) }).catch(() => null)
+      if (healthRes && healthRes.ok) {
+        const healthData = await healthRes.json()
+        if (healthData.timestamp && !healthData.sessions) {
+          return NextResponse.json({
+            error: 'Servidor VPS mal configurado (Enrichment API detectada no lugar do Login Server). Verifique os processos no servidor 187.77.241.93.',
+            vps_error: true
+          }, { status: 502 })
+        }
+      }
+
       vpsRes = await fetch(`${VPS_LOGIN_URL}${vpsEndpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

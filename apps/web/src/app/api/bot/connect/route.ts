@@ -79,17 +79,36 @@ export async function POST(req: NextRequest) {
     }
 
     // Proxy to VPS
-    const vpsRes = await fetch(`${VPS_LOGIN_URL}${vpsEndpoint}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(vpsBody),
-      signal: AbortSignal.timeout(110000),
-    })
+    let vpsRes: Response
+    let vpsData: Record<string, unknown>
+    try {
+      // 1. Quick health check to detect misconfiguration
+      const healthRes = await fetch(`${VPS_LOGIN_URL}/`, { signal: AbortSignal.timeout(5000) }).catch(() => null)
+      if (healthRes && healthRes.ok) {
+        const healthData = await healthRes.json()
+        if (healthData.timestamp && !healthData.sessions) {
+          return NextResponse.json({
+            error: 'Servidor VPS mal configurado (Enrichment API detectada no lugar do Login Server). Verifique os processos no servidor 187.77.241.93.',
+            vps_error: true
+          }, { status: 502 })
+        }
+      }
 
-    const vpsData = await vpsRes.json()
+      vpsRes = await fetch(`${VPS_LOGIN_URL}${vpsEndpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(vpsBody),
+        signal: AbortSignal.timeout(110000),
+      })
+      vpsData = await vpsRes.json()
+    } catch (err) {
+      console.error('[API bot/connect] error:', err)
+      const message = err instanceof Error ? err.message : 'Erro interno'
+      return NextResponse.json({ error: message }, { status: 500 })
+    }
 
     // If cookies action and logged_in, save cookies to bot_configs
-    if (action === 'cookies' && vpsData.logged_in && params.config_id) {
+    if (action === 'cookies' && vpsData?.logged_in && params.config_id) {
       await supabase
         .from('bot_configs')
         .update({ cookies: JSON.stringify(vpsData.cookies) })
