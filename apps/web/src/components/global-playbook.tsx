@@ -11,6 +11,7 @@ import {
   ShieldAlert,
   Swords,
   ChevronRight,
+  BellRing,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -116,8 +117,22 @@ export function GlobalPlaybook() {
 
               <PlaybookStep
                 delay="50ms"
+                icon={<BellRing className="w-3.5 h-3.5" />}
+                title="2. Notificações Inteligentes"
+                description="Ative seus sensores para ser avisado antes da concorrência."
+                tips={[
+                  'Conecte seu WhatsApp, Telegram e Email nas Configurações. Refine alertas por palavra-chave, UF, Score IA e valor.',
+                  'No plano Enterprise, use a função multi-empresas para direcionar editais para CNPJs específicos do seu grupo.',
+                  'Dica de Ouro: Ao clicar em "Interesse" no alerta do Telegram pelo celular, a licitação entra instantaneamente no Pipeline Kanban da equipe no escritório.',
+                ]}
+                linkTo="/settings"
+                linkText="Configurar Alertas"
+              />
+
+              <PlaybookStep
+                delay="100ms"
                 icon={<MapPin className="w-3.5 h-3.5" />}
-                title="2. Radar de Oportunidades"
+                title="3. Radar de Oportunidades"
                 description="O mapa e as listas serão povoados com licitações altamente segmentadas em todo o país."
                 tips={[
                   'Bata o olho no Mapa para focar em Estados menos concorridos e com menor concentração de adversários diretos.',
@@ -128,9 +143,9 @@ export function GlobalPlaybook() {
               />
 
               <PlaybookStep
-                delay="100ms"
+                delay="150ms"
                 icon={<FileSearch className="w-3.5 h-3.5" />}
-                title="3. Desconstrução do Edital & Pipeline"
+                title="4. Desconstrução do Edital & Pipeline"
                 description="Não perca horas lendo PDFs. Abra o edital interessante e analise na Sala do Edital."
                 tips={[
                   'Bata papo com o Consultor IA embeddedado. Ele extrai requisitos e faz análises de risco rapidamente.',
@@ -142,9 +157,9 @@ export function GlobalPlaybook() {
               />
 
               <PlaybookStep
-                delay="150ms"
+                delay="200ms"
                 icon={<PenTool className="w-3.5 h-3.5" />}
-                title="4. Fábrica de Propostas"
+                title="5. Fábrica de Propostas"
                 description="Faça a matemática do leilão e documente sem esforço as formalidades exigidas."
                 tips={[
                   'Use a Calculadora de Precificação em anexo para descobrir precisamente o seu BDI.',
@@ -156,9 +171,9 @@ export function GlobalPlaybook() {
               />
 
               <PlaybookStep
-                delay="200ms"
+                delay="250ms"
                 icon={<ShieldAlert className="w-3.5 h-3.5" />}
-                title="5. Mapeamento de Fraude"
+                title="6. Mapeamento de Fraude"
                 description="Descubra antecipadamente o comportamento de quem você está enfrentando."
                 tips={[
                   'Nas páginas detalhadas, o Detector de Risco vasculha cartéis ou monopólios (empresas com mesmos sócios).',
@@ -169,9 +184,9 @@ export function GlobalPlaybook() {
               />
 
               <PlaybookStep
-                delay="250ms"
+                delay="300ms"
                 icon={<Swords className="w-3.5 h-3.5" />}
-                title="6. Sala de Guerra & Automação"
+                title="7. Sala de Guerra & Automação"
                 description="Na hora de arrematar os preços no pregão, use as ferramentas defensivas."
                 tips={[
                   'Rastreie o histórico dos preços já praticados naquele item para entender qual seria um lance plausível no seu negócio.',
