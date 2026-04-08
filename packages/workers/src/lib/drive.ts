@@ -34,11 +34,13 @@ export async function mirrorExternalFileToDrive(
 
     const buffer = await response.arrayBuffer()
     const fileSize = buffer.byteLength
-    const contentType = response.headers.get('content-type') || 'application/pdf'
+    const rawContentType = response.headers.get('content-type') || 'application/pdf'
+    // Sanitize content type (remove parameters like ; qs=0.001)
+    const contentType = rawContentType.split(';')[0].trim()
 
     // 2. Prepare Storage Path
     const timestamp = Date.now()
-    const folder = '/Certidões'
+    const folder = '/Certidoes'
     const sanitizedName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_')
     // Path structure: {companyId}/Certidões/{timestamp}_{filename}
     const storagePath = `${companyId}${folder}/${timestamp}_${sanitizedName}`

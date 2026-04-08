@@ -94,6 +94,26 @@ export async function fetchDocumentos(
   }
 }
 
+export async function fetchContratacaoItens(
+  cnpj: string,
+  ano: number,
+  sequencial: number,
+  pagina = 1,
+): Promise<any[]> {
+  const cleanCnpj = cnpj.replace(/\D/g, '')
+  const url = `${PNCP_URL}/orgaos/${cleanCnpj}/compras/${ano}/${sequencial}/itens?pagina=${pagina}&tamanhoPagina=100`
+
+  try {
+    logger.info({ url }, 'Fetching PNCP contratacao items')
+    const response = await fetchWithRetry(url)
+    const json = await response.json()
+    return Array.isArray(json) ? json : (json.data || [])
+  } catch (error) {
+    logger.warn({ cnpj, ano, sequencial, error }, 'Failed to fetch items')
+    return []
+  }
+}
+
 export function buildPncpId(contratacao: PNCPContratacao): string {
   const cnpj = contratacao.orgaoEntidade.cnpj.replace(/\D/g, '')
   return `${cnpj}-${contratacao.anoCompra}-${contratacao.sequencialCompra}`

@@ -2,6 +2,7 @@ import { requirePlatformAdmin } from '@/lib/auth-helpers'
 import { StatsCard } from '@/components/admin/stats-card'
 import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
+import { RefreshPanel } from '@/components/admin/refresh-panel'
 
 const PAGE_SIZE = 30
 
@@ -661,12 +662,14 @@ export default async function AdminIntelligencePage({
   )
 
   // ── Stats ──
-  const [totalResult, criticalResult, highResult, mediumResult, analyzedResult] = await Promise.all([
+  const [totalResult, criticalResult, highResult, mediumResult, analyzedResult, itemsResult, pricesResult] = await Promise.all([
     supabase.from('fraud_alerts').select('id', { count: 'exact', head: true }),
     supabase.from('fraud_alerts').select('id', { count: 'exact', head: true }).or('severity.eq.CRITICAL,severity.eq.critical'),
     supabase.from('fraud_alerts').select('id', { count: 'exact', head: true }).or('severity.eq.HIGH,severity.eq.high'),
     supabase.from('fraud_alerts').select('id', { count: 'exact', head: true }).or('severity.eq.MEDIUM,severity.eq.medium'),
     supabase.from('tenders').select('id', { count: 'exact', head: true }).eq('fraud_analyzed', true),
+    supabase.from('tender_items').select('id', { count: 'exact', head: true }),
+    supabase.from('price_history').select('id', { count: 'exact', head: true }),
   ])
 
   const totalCount = totalResult.count || 0
@@ -674,6 +677,9 @@ export default async function AdminIntelligencePage({
   const highCount = highResult.count || 0
   const mediumCount = mediumResult.count || 0
   const analyzedCount = analyzedResult.count || 0
+  const totalItemsCount = itemsResult.count || 0
+  const totalPricesCount = pricesResult.count || 0
+
 
   // ── Filtered Query ──
   let query = supabase
@@ -692,8 +698,15 @@ export default async function AdminIntelligencePage({
   }
 
   const { data: alerts, count: filteredCount } = await query.range(offset, offset + PAGE_SIZE - 1)
-
   const totalPages = Math.ceil((filteredCount || 0) / PAGE_SIZE)
+
+  // ── Recent Tender Items ──
+  const { data: recentItems } = await supabase
+    .from('tender_items')
+    .select('*, tenders(orgao_nome, uf)')
+    .order('created_at', { ascending: false })
+    .limit(8)
+
 
   // ── Occurrence groups (same alert_type + same CNPJ root pair) ──
   const occurrenceMap = new Map<string, number>()
@@ -799,24 +812,25 @@ export default async function AdminIntelligencePage({
   return (
     <div className="max-w-6xl">
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-          <h1 className="text-xl sm:text-2xl font-bold">Central de Inteligência</h1>
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <h1 className="text-xl sm:text-2xl font-bold">Licitagram Intelligence</h1>
+          </div>
+          <p className="text-sm text-gray-400">
+            Inteligência de Mercado e Análise automatizada de padrões de fraude e conluio em licitações.
+          </p>
         </div>
-        <p className="text-sm text-gray-400">
-          Análise automatizada de padrões de fraude e conluio em licitações.
-          Cruzamento de dados com base na Receita Federal ({'>'}67M registros), CEIS/CNEP e histórico de participações.
-        </p>
+        <RefreshPanel />
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-8">
-        <StatsCard title="Total Alertas" value={totalCount.toLocaleString('pt-BR')} description="Padrões detectados" />
-        <StatsCard title="Críticos" value={criticalCount.toLocaleString('pt-BR')} description="Sanções ativas" />
-        <StatsCard title="Alto Risco" value={highCount.toLocaleString('pt-BR')} description="Sócios e endereços" />
-        <StatsCard title="Médio Risco" value={mediumCount.toLocaleString('pt-BR')} description="Capital e idade" />
-        <StatsCard title="Analisadas" value={analyzedCount.toLocaleString('pt-BR')} description="Licitações escaneadas" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
+        <StatsCard title="Itens Extraídos" value={totalItemsCount.toLocaleString('pt-BR')} description="Em Market Intelligence" />
+        <StatsCard title="Vitórias Mapeadas" value={totalPricesCount.toLocaleString('pt-BR')} description="Histórico de preços" />
+        <StatsCard title="Alertas de Fraude" value={totalCount.toLocaleString('pt-BR')} description="Padrões detectados" />
+        <StatsCard title="Licitações Escaneadas" value={analyzedCount.toLocaleString('pt-BR')} description="Fraud detector" />
       </div>
 
       {/* Filters */}
@@ -987,6 +1001,61 @@ export default async function AdminIntelligencePage({
             <p className="text-gray-400">Nenhum alerta encontrado com os filtros selecionados.</p>
           </div>
         )}
+      </div>
+
+      {/* Market Intelligence / Resumo de Itens */}
+      <h2 className="text-lg font-bold mt-12 mb-4">Itens Mapeados Recentemente</h2>
+      <div className="bg-[#111315] rounded-xl border border-[#2d2f33] overflow-hidden mb-8">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm whitespace-nowrap">
+            <thead className="bg-[#1a1c1f] text-gray-400 text-xs uppercase tracking-wider">
+              <tr>
+                <th className="px-5 py-3 font-medium">Item</th>
+                <th className="px-5 py-3 font-medium">Órgão / UF</th>
+                <th className="px-5 py-3 font-medium">Qtd</th>
+                <th className="px-5 py-3 font-medium text-right">Valor Est. Ref</th>
+                <th className="px-5 py-3 font-medium text-right">Capturado Há</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#2d2f33]">
+              {(recentItems || []).length > 0 ? (
+                recentItems?.map((item: any) => {
+                  const valorEst = Number(item.valor_estimado) || 0;
+                  const orgao_nome = item.tenders?.orgao_nome || 'N/A';
+                  const uf = item.tenders?.uf || '-';
+
+                  return (
+                    <tr key={item.id} className="hover:bg-[#1a1c1f]/50 transition-colors">
+                      <td className="px-5 py-4 max-w-[300px] truncate" title={item.descricao_completa || item.descricao}>
+                        <div className="font-medium text-white">{item.descricao}</div>
+                        {item.cnae_grupo && <div className="text-xs text-gray-500 mt-0.5">Grupo CNAE: {item.cnae_grupo}</div>}
+                      </td>
+                      <td className="px-5 py-4 max-w-[200px] truncate text-gray-300" title={orgao_nome}>
+                        {orgao_nome} <span className="text-gray-500">[{uf}]</span>
+                      </td>
+                      <td className="px-5 py-4 text-gray-300">{Number(item.quantidade)} <span className="text-gray-500 text-xs">{item.unidade}</span></td>
+                      <td className="px-5 py-4 text-right">
+                        {valorEst > 0 ? (
+                          <div className="text-emerald-400 font-medium">{formatCurrency(valorEst)}</div>
+                        ) : (
+                          <span className="text-gray-500">—</span>
+                        )}
+                        {item.valor_total_estimado > 0 && <div className="text-xs text-gray-500 mt-0.5">Total: {formatCurrency(item.valor_total_estimado)}</div>}
+                      </td>
+                      <td className="px-5 py-4 text-right text-gray-400">
+                        {timeAgo(item.created_at)}
+                      </td>
+                    </tr>
+                  )
+                })
+              ) : (
+                <tr>
+                  <td colSpan={5} className="px-5 py-8 text-center text-gray-500">Nenhum item mapeado recentemente</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Pagination */}

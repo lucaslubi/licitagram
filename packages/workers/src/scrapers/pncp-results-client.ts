@@ -26,6 +26,9 @@ export interface CompetitorResult {
   situacao: string
   data_resultado: string
   vencedor: boolean
+  item_numero?: number
+  marca?: string
+  fabricante?: string
 }
 
 async function fetchWithRetry(url: string, retries = 3): Promise<Response> {
@@ -144,8 +147,12 @@ export async function fetchTenderResults(pncpId: string): Promise<CompetitorResu
           valor_final: item.valorTotalHomologado,
           situacao,
           data_resultado: item.dataResultado || '',
-          // "Informado" means the result was recorded (homologated in practice)
           vencedor: situacao.toLowerCase().includes('informado') || situacao.toLowerCase().includes('homologad'),
+          item_numero: itemNum,
+          // Note: PNCP API might have brand/manufacturer in item details, 
+          // adding placeholders for now to be enriched in next step
+          marca: '', 
+          fabricante: ''
         })
       }
     } catch (error) {

@@ -73,8 +73,8 @@ async function processResultsJob(job: Job<ResultsScrapingJobData>) {
           const competitorResults = await fetchTenderResults(tender.pncp_id!)
           if (competitorResults.length === 0) return 0
 
-          // Insert competitors
-          const rows = competitorResults.map((r) => {
+          // Insert competitors and price history
+          const competitorRows = competitorResults.map((r) => {
             let situacao = r.situacao
             if (r.vencedor && situacao.toLowerCase() === 'informado') {
               situacao = 'Homologado'
@@ -88,10 +88,32 @@ async function processResultsJob(job: Job<ResultsScrapingJobData>) {
             }
           })
 
-          const { error } = await supabase.from('competitors').insert(rows)
-          if (error) {
-            logger.error({ error, tenderId: tender.id }, 'Error inserting competitors')
-            return 0
+          const { error: compError } = await supabase.from('competitors').insert(competitorRows)
+          if (compError) {
+            logger.error({ error: compError, tenderId: tender.id }, 'Error inserting competitors')
+          }
+
+          // Filter winners to populate price_history
+          const winners = competitorResults.filter(r => r.vencedor)
+          if (winners.length > 0) {
+            const priceHistoryRows = winners.map(w => ({
+              tender_id: tender.id,
+              tender_item_number: w.item_numero,
+              cnpj_vencedor: w.cnpj,
+              nome_vencedor: w.nome,
+              valor_unitario_vencido: w.valor_proposta,
+              valor_total_vencido: w.valor_final,
+              data_homologacao: w.data_resultado || new Date().toISOString(),
+              marca: w.marca,
+              fabricante: w.fabricante
+            }))
+
+            const { error: priceError } = await supabase.from('price_history').insert(priceHistoryRows)
+            if (priceError) {
+              logger.error({ error: priceError, tenderId: tender.id }, 'Error inserting price history')
+            } else {
+              logger.info({ tenderId: tender.id, count: winners.length }, 'Saved price history for intelligence')
+            }
           }
 
           return competitorResults.length

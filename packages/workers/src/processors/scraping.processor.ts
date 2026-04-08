@@ -2,7 +2,7 @@ import { Worker, type Job } from 'bullmq'
 import { connection } from '../queues/connection'
 import { extractionQueue } from '../queues/extraction.queue'
 import { scrapingQueue, type ScrapingJobData } from '../queues/scraping.queue'
-import { fetchContratacoes, fetchDocumentos, buildPncpId } from '../scrapers/pncp-client'
+import { fetchContratacoes, fetchDocumentos, buildPncpId, fetchContratacaoItens } from '../scrapers/pncp-client'
 import { db as supabase } from '../lib/db'
 import { logger } from '../lib/logger'
 import type { PNCPContratacao } from '@licitagram/shared'
@@ -94,6 +94,35 @@ async function processContratacao(contratacao: PNCPContratacao) {
   }
 
   await extractionQueue.add('extract', { tenderId: id })
+  
+  // Scrape Items & Quantities for Intelligence (PNCP)
+  try {
+    const items = await fetchContratacaoItens(cnpj, contratacao.anoCompra, contratacao.sequencialCompra)
+    if (items && items.length > 0) {
+      const itemRows = items.map((item: any) => ({
+        tender_id: id,
+        numero_item: item.numeroItem,
+        descricao: item.descricao,
+        quantidade: item.quantidade,
+        unidade_medida: item.unidadeMedida,
+        valor_unitario_estimado: item.valorUnitarioEstimado,
+        valor_total_estimado: item.valorTotalEstimado,
+        situacao_id: item.situacaoItem,
+        situacao_nome: item.situacaoItemNome,
+        categoria_nome: item.itemCategoriaNome,
+        criterio_julgamento_nome: item.criterioJulgamentoNome
+      }))
+      
+      const { error: itemError } = await supabase.from('tender_items').insert(itemRows)
+      if (itemError) {
+        logger.error({ tenderId: id, error: itemError }, 'Failed to save tender items')
+      } else {
+        logger.info({ tenderId: id, count: items.length }, 'Saved tender items for intelligence')
+      }
+    }
+  } catch (err) {
+    logger.warn({ tenderId: id, err }, 'Failed to fetch/save items for tender (non-critical)')
+  }
 
   return { tenderId: id, isNew: true }
 }

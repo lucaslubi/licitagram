@@ -31,7 +31,7 @@ export async function mirrorExternalFileToDrive(
 
     // 2. Prepare Path
     const timestamp = Date.now()
-    const folder = '/Certidões'
+    const folder = '/Certidoes'
     const sanitizedName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_')
     const storagePath = `${companyId}${folder}/${timestamp}_${sanitizedName}`
 
