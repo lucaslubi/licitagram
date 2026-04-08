@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import {
   Compass,
   X,
@@ -65,6 +66,11 @@ function PlaybookStep({ icon, title, description, tips, linkTo, linkText, delay 
 
 export function GlobalPlaybook() {
   const [open, setOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   return (
     <>
@@ -76,7 +82,7 @@ export function GlobalPlaybook() {
         <span className="sidebar-nav-label text-[13px] font-medium">Guia da Plataforma</span>
       </button>
 
-      {open && (
+      {open && mounted && createPortal(
         <div className="fixed inset-y-0 right-0 z-[9999] w-full sm:w-[460px] bg-background border-l border-border flex flex-col shadow-2xl animate-in slide-in-from-right duration-200">
           <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-card shrink-0">
             <div>
@@ -197,7 +203,8 @@ export function GlobalPlaybook() {
               />
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   )
