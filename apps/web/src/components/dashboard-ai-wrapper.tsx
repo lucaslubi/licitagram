@@ -5,7 +5,6 @@ import { ConsultantProvider } from '@/contexts/consultant-context'
 import { AiConsultant } from '@/components/ai-consultant'
 import { OnboardingWizard } from '@/components/onboarding-wizard'
 import { OnboardingTour } from '@/components/onboarding-tour'
-import { GlobalPlaybook } from '@/components/global-playbook'
 
 interface DashboardAiWrapperProps {
   children: React.ReactNode
@@ -45,7 +44,6 @@ export function DashboardAiWrapper({
       {children}
 
       <AiConsultant />
-      <GlobalPlaybook />
 
       {showWizard && (
         <OnboardingWizard

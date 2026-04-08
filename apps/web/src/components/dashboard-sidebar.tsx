@@ -16,6 +16,7 @@ import {
 } from '@/config/navigation'
 import type { PlanFeatureKey } from '@licitagram/shared'
 import { LogOut, ChevronsUpDown } from 'lucide-react'
+import { GlobalPlaybook } from '@/components/global-playbook'
 
 interface DashboardSidebarProps {
   isAdmin: boolean
@@ -166,8 +167,13 @@ export function DashboardSidebar({
         </div>
       )}
 
+      {/* Guide & Playbook */}
+      <div className="px-2 pb-1 mt-auto">
+        <GlobalPlaybook />
+      </div>
+
       {/* User menu — footer */}
-      <div className="px-3 py-3 border-t border-border mt-auto">
+      <div className="px-3 py-3 border-t border-border">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0">
             <span className="text-[11px] font-semibold text-primary">{userInitial}</span>
