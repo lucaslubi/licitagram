@@ -172,6 +172,14 @@ export function DocumentRow({
   // Clean description (remove [Auto] prefix for display)
   const displayDesc = doc.descricao?.replace(/^\[Auto\]\s*/, '') || '-'
 
+  let finalUrl = doc.arquivo_url
+  if (finalUrl && finalUrl.includes('/object/public/drive/')) {
+    const parts = finalUrl.split('/object/public/drive/')
+    if (parts.length === 2) {
+      finalUrl = `/api/drive/proxy?path=${encodeURIComponent(parts[1])}`
+    }
+  }
+
   return (
     <tr className="border-b transition-colors hover:bg-muted/50">
       <td className="p-4 text-sm font-medium">
@@ -199,9 +207,9 @@ export function DocumentRow({
       <td className="p-4">{originBadge}</td>
       <td className="p-4">
         <div className="flex gap-2">
-          {doc.arquivo_url && (
+          {finalUrl && (
             <a
-              href={doc.arquivo_url}
+              href={finalUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="text-brand hover:text-brand/70 text-xs"

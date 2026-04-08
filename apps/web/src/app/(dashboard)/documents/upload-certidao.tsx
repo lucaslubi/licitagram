@@ -102,9 +102,7 @@ export function UploadCertidao({ companyId }: { companyId: string }) {
     try {
       const supabase = createClient()
 
-      const { data: urlData } = supabase.storage
-        .from('drive')
-        .getPublicUrl(storagePath)
+      const proxyUrl = `/api/drive/proxy?path=${encodeURIComponent(storagePath)}`
 
       let dbStatus = 'valido'
       if (extracted.status === 'irregular' || (extracted.validade && new Date(extracted.validade) < new Date())) {
@@ -121,7 +119,7 @@ export function UploadCertidao({ companyId }: { companyId: string }) {
         validade: extracted.validade || null,
         status: dbStatus,
         origem: 'upload',
-        arquivo_url: urlData.publicUrl,
+        arquivo_url: proxyUrl,
       })
 
       // Also save to Drive
