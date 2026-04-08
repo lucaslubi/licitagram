@@ -4,7 +4,7 @@ import { mirrorExternalFileToDrive } from '@/lib/drive-server'
 
 export const maxDuration = 60
 
-const VPS_LOGIN_URL = process.env.VPS_LOGIN_URL || 'http://187.77.241.93:3999'
+const VPS_LOGIN_URL = process.env.VPS_LOGIN_URL || 'http://85.31.60.53:3999'
 
 /**
  * POST /api/certidoes/guided
@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
         const healthData = await healthRes.json()
         if (healthData.timestamp && !healthData.sessions) {
           return NextResponse.json({
-            error: 'Servidor VPS mal configurado (Enrichment API detectada no lugar do Login Server). Verifique os processos no servidor 187.77.241.93.',
+            error: 'Servidor VPS mal configurado (Enrichment API detectada no lugar do Login Server). Verifique os processos no servidor 85.31.60.53.',
             vps_error: true
           }, { status: 502 })
         }

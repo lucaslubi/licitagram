@@ -1,7 +1,7 @@
 /**
  * Mass Fraud Scan — uses HTTP Data API (no local PG needed)
  *
- * Run on VPS1 (187.77.241.93):
+ * Run on VPS1 (85.31.60.53):
  *   cd /opt/licitagram && pnpm run build
  *   node --max-old-space-size=512 packages/workers/dist/scripts/mass-fraud-scan.js
  *

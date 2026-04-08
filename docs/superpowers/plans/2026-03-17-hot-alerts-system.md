@@ -1356,7 +1356,7 @@ Expected: Push succeeds, Vercel deploy starts
 
 Run:
 ```bash
-ssh root@187.77.241.93 'cd /opt/licitagram && git pull origin main && cd packages/workers && npm run build && pm2 restart worker-main'
+ssh root@85.31.60.53 'cd /opt/licitagram && git pull origin main && cd packages/workers && npm run build && pm2 restart worker-main'
 ```
 Expected: Worker restarts with hot alerts processor active
 
@@ -1367,7 +1367,7 @@ Expected: Migration applied
 
 - [ ] **Step 5: Verify hot-daily job is scheduled**
 
-Run: `ssh root@187.77.241.93 'pm2 logs worker-main --lines 30 2>&1 | grep -i "hot\|urgency"'`
+Run: `ssh root@85.31.60.53 'pm2 logs worker-main --lines 30 2>&1 | grep -i "hot\|urgency"'`
 Expected: See "Hot alerts daily job scheduled" and "Urgency check job scheduled" in logs
 
 - [ ] **Step 6: Commit deploy confirmation (no code changes)**

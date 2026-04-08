@@ -987,13 +987,13 @@ Apply the migration SQL via Supabase dashboard SQL editor (copy from `supabase/m
 - [ ] **Step 3: Deploy workers to VPS**
 
 ```bash
-ssh root@187.77.241.93 "cd /opt/licitagram && git pull origin main && pnpm install --frozen-lockfile && pnpm --filter workers build && pm2 restart worker-main"
+ssh root@85.31.60.53 "cd /opt/licitagram && git pull origin main && pnpm install --frozen-lockfile && pnpm --filter workers build && pm2 restart worker-main"
 ```
 
 - [ ] **Step 4: Trigger initial materialization**
 
 ```bash
-ssh root@187.77.241.93 "cd /opt/licitagram/packages/workers && REDIS_URL='redis://:a15b96315876efb68a5a9bb4fd48b66e@localhost:6379' node -e \"
+ssh root@85.31.60.53 "cd /opt/licitagram/packages/workers && REDIS_URL='redis://:a15b96315876efb68a5a9bb4fd48b66e@localhost:6379' node -e \"
 const { Queue } = require('bullmq');
 const url = new URL(process.env.REDIS_URL);
 const q = new Queue('competition-analysis', { connection: { host: url.hostname, port: Number(url.port), password: url.password } });
@@ -1004,14 +1004,14 @@ q.add('initial-full', { mode: 'full' }, { jobId: 'initial-full-' + Date.now() })
 - [ ] **Step 5: Verify via logs**
 
 ```bash
-ssh root@187.77.241.93 "pm2 logs worker-main --lines 30 --nostream 2>&1 | grep -i 'competition'"
+ssh root@85.31.60.53 "pm2 logs worker-main --lines 30 --nostream 2>&1 | grep -i 'competition'"
 ```
 Expected: "Competition analysis materialization complete" with totalUpserted > 0.
 
 - [ ] **Step 6: Trigger hot scan to populate competition_scores**
 
 ```bash
-ssh root@187.77.241.93 "cd /opt/licitagram/packages/workers && REDIS_URL='redis://:a15b96315876efb68a5a9bb4fd48b66e@localhost:6379' node -e \"
+ssh root@85.31.60.53 "cd /opt/licitagram/packages/workers && REDIS_URL='redis://:a15b96315876efb68a5a9bb4fd48b66e@localhost:6379' node -e \"
 const { Queue } = require('bullmq');
 const url = new URL(process.env.REDIS_URL);
 const q = new Queue('hot-alerts', { connection: { host: url.hostname, port: Number(url.port), password: url.password } });
@@ -1505,7 +1505,7 @@ git push origin main
 - [ ] **Step 2: Deploy workers (if not already updated)**
 
 ```bash
-ssh root@187.77.241.93 "cd /opt/licitagram && git pull origin main && pnpm install --frozen-lockfile && pnpm --filter workers build && pm2 restart worker-main"
+ssh root@85.31.60.53 "cd /opt/licitagram && git pull origin main && pnpm install --frozen-lockfile && pnpm --filter workers build && pm2 restart worker-main"
 ```
 
 - [ ] **Step 3: Verify end-to-end**
