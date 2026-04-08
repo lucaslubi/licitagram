@@ -18,6 +18,11 @@ const FEATURE_LABELS: Record<keyof PlanFeatures, string> = {
   proposal_generator: 'Gerador Proposta',
   bidding_bot: 'Robô de Lances',
   priority_support: 'Suporte Prioritário',
+  whatsapp_alerts: 'WhatsApp FastMatch',
+  telegram_alerts: 'Telegram SmartAlerts',
+  lead_engine: 'Licitagram Prospector',
+  radar_map: 'Licitagram GeoRadar',
+  certidoes_bot: 'Guardian Compliance',
 }
 
 function formatBRL(cents: number): string {
