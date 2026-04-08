@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 
-const DATA_API_URL = process.env.DATA_API_URL || 'http://85.31.60.53:3999'
+const DATA_API_URL = process.env.DATA_API_URL || 'http://85.31.60.53:3997'
 
 function formatCurrency(value: number | null): string {
   if (!value) return 'R$ 0'

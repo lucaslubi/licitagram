@@ -2,7 +2,7 @@ import { requirePlatformAdmin } from '@/lib/auth-helpers'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 
-const DATA_API_URL = process.env.DATA_API_URL || 'http://85.31.60.53:3999'
+const DATA_API_URL = process.env.DATA_API_URL || 'http://85.31.60.53:3997'
 const PAGE_SIZE = 50
 
 const ALL_UFS = ['AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS','MT','PA','PB','PE','PI','PR','RJ','RN','RO','RR','RS','SC','SE','SP','TO']
@@ -239,7 +239,7 @@ export default async function AdminLeadsPage({
 
       {fetchError ? (
         <div className="p-8 text-center bg-red-900/20 rounded-xl border border-red-800">
-          <p className="text-red-400">Erro ao conectar com o Data API (VPS2). Verifique se o serviço está rodando em 85.31.60.53:3999.</p>
+          <p className="text-red-400">Erro ao conectar com o Data API (VPS2). Verifique se o serviço está rodando em 85.31.60.53:3997.</p>
         </div>
       ) : leads.length === 0 ? (
         <div className="p-8 text-center bg-zinc-900/50 rounded-xl border border-zinc-800">
