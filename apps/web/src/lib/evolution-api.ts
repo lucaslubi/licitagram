@@ -1,7 +1,6 @@
 /**
  * WhatsApp verification code sender via WAHA (WhatsApp HTTP API)
  *
- * Switched from Evolution API to WAHA — same engine the workers use.
  * Env vars needed on Vercel:
  *   WAHA_URL      = http://<VPS_IP>:3000
  *   WAHA_API_KEY  = <key>
@@ -16,11 +15,34 @@ function getConfig() {
   }
 }
 
+/**
+ * Resolve o chatId real do número BR via WAHA check-exists.
+ * Números brasileiros migrados para 9 dígitos às vezes têm chatId
+ * sem o 9 extra (ex: 5541991016001 → 554191016001@c.us).
+ * Sem essa resolução, mensagens ficam PENDING para sempre.
+ */
+async function toChatId(digits: string): Promise<string> {
+  const { url, key, session } = getConfig()
+  try {
+    const res = await fetch(
+      `${url}/api/contacts/check-exists?phone=${digits}&session=${session}`,
+      { headers: { 'X-Api-Key': key }, signal: AbortSignal.timeout(10_000) },
+    )
+    if (res.ok) {
+      const data = await res.json() as { numberExists?: boolean; chatId?: string }
+      if (data.numberExists && data.chatId) return data.chatId
+    }
+  } catch {
+    // fallback abaixo
+  }
+  return `${digits}@c.us`
+}
+
 export async function sendVerificationCode(phone: string, code: string): Promise<boolean> {
   const { url, key, session } = getConfig()
 
   const digits = phone.replace(/\D/g, '')
-  const chatId = `${digits}@c.us`
+  const chatId = await toChatId(digits)
 
   const text = [
     '*Código de Verificação Licitagram*',
