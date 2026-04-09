@@ -406,7 +406,7 @@ async function checkPipelineFlow(): Promise<{ issues: string[]; fixes: string[] 
          
       if (stuckMatches && stuckMatches.length > 0) {
          const q = new Queue('pending-notifications', { connection })
-         await q.addBulk(stuckMatches.map(m => ({
+         await q.addBulk(stuckMatches.map((m: any) => ({
             name: 'process-notification',
             data: { matchId: m.id },
             opts: { removeOnComplete: true }
@@ -441,7 +441,7 @@ async function checkPipelineFlow(): Promise<{ issues: string[]; fixes: string[] 
          
        if (stuckRows && stuckRows.length > 0) {
          const extractionQueue = new Queue('extraction', { connection })
-         await extractionQueue.addBulk(stuckRows.map(r => ({
+         await extractionQueue.addBulk(stuckRows.map((r: any) => ({
            name: 'extract-tender',
            data: { 
              tenderId: r.id, 
@@ -479,7 +479,7 @@ async function checkPipelineFlow(): Promise<{ issues: string[]; fixes: string[] 
          
        if (aiMatches && aiMatches.length > 0) {
          const triageQueue = new Queue('ai-triage', { connection })
-         await triageQueue.addBulk(aiMatches.map(m => ({
+         await triageQueue.addBulk(aiMatches.map((m: any) => ({
            name: 'triage-match',
            data: { matchId: m.id },
            opts: { removeOnComplete: true }
