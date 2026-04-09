@@ -266,7 +266,7 @@ export default async function OpportunityDetailPage({
                 <EditalChat
                   tenderId={(tender?.id as string) || id}
                   documentCount={documents.length}
-                  documentUrls={documents.filter(d => d.url).map(d => ({ id: d.id, titulo: d.titulo, tipo: d.tipo, url: d.url }))}
+                  documentUrls={documents.filter(d => d.url).map(d => ({ id: d.id, titulo: d.titulo, tipo: d.tipo, url: d.url, text: d.texto_extraido }))}
                   hasAccess={hasChatIa}
                 />
               </div>
