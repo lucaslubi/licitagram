@@ -1,4 +1,8 @@
-import 'dotenv/config'
+// Ensure .env gets loaded properly in PM2 regardless of CWD.
+import { resolve } from 'path'
+import { config } from 'dotenv'
+config({ path: resolve(__dirname, '../../.env') })
+config({ path: resolve(__dirname, '../.env') })
 import { logger } from './lib/logger'
 import { supabase } from './lib/supabase'
 import { BotSessionRunner } from './bot/bot-session-runner'
