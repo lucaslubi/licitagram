@@ -6,13 +6,15 @@ import { fetchTenderResults } from './src/scrapers/pncp-results-client';
 async function backfillToday() {
   console.log("--- STARTING BACKFILL FOR TODAY TENDERS ---");
   
-  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  // Look back 30 days for a deep historical backfill
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   
   const { data: tenders, error: fetchError } = await db
     .from('tenders')
     .select('*')
-    .gt('created_at', yesterday)
-    .limit(500);
+    .gt('created_at', thirtyDaysAgo)
+    .order('created_at', { ascending: false })
+    .limit(2000);
 
   if (fetchError) {
     console.error("Error fetching tenders:", fetchError);
