@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { db } from './src/lib/db';
 import { fetchContratacaoItens, buildPncpId } from './src/scrapers/pncp-client';
 import { fetchTenderResults } from './src/scrapers/pncp-results-client';
