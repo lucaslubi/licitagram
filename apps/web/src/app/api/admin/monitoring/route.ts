@@ -12,9 +12,12 @@ const supabase = createClient(
 
 const VPS_MONITORING_URL = process.env.VPS_MONITORING_URL || 'http://85.31.60.53:3998'
 const MONITORING_AUTH_TOKEN = process.env.MONITORING_AUTH_TOKEN || ''
+const VPS_MONITORING_URLS_STR = process.env.VPS_MONITORING_URLS || `${VPS_MONITORING_URL},http://187.77.241.93:3998`
+const monitoringUrls = VPS_MONITORING_URLS_STR.split(',').map(s => s.trim()).filter(Boolean)
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
+// ... (Types remain unchanged but we need to merge them) ...
 interface VpsWorker {
   name: string
   pid: number
@@ -34,16 +37,18 @@ interface QueueStats {
 }
 
 interface VpsMetrics {
-  ram_total: number
-  ram_used: number
-  ram_free: number
+  ram_total_mb?: number
+  ram_used_mb?: number
+  ram_free_mb?: number
+  ram_total?: number
+  ram_used?: number
+  ram_free?: number
   cpu_load: number[]
   cpu_count?: number
   disk_total_gb?: number
   disk_used_gb?: number
   disk_used_pct: number
   uptime_hours: number
-  // API may return _mb suffixed fields
   [key: string]: unknown
 }
 
@@ -65,17 +70,103 @@ async function fetchVpsData(): Promise<VpsResponse | null> {
       headers['Authorization'] = `Bearer ${MONITORING_AUTH_TOKEN}`
     }
 
-    const res = await fetch(`${VPS_MONITORING_URL}/metrics`, {
-      headers,
-      signal: AbortSignal.timeout(15_000),
-    })
+    const responses = await Promise.allSettled(
+      monitoringUrls.map(url =>
+        fetch(`${url}/metrics`, {
+          headers,
+          signal: AbortSignal.timeout(15_000),
+        }).then(res => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`)
+          return res.json() as Promise<VpsResponse>
+        })
+      )
+    )
 
-    if (!res.ok) {
-      console.error(`VPS monitoring returned ${res.status}`)
-      return null
+    let totalRam = 0
+    let usedRam = 0
+    let totalCores = 0
+    let totalDisk = 0
+    let usedDisk = 0
+    let cpuLoadSum = [0, 0, 0]
+    let maxUptime = 0
+    let successCount = 0
+
+    const aggregated: VpsResponse = {
+      workers: [],
+      queues: {},
+      vps: {
+        ram_total: 0,
+        ram_used: 0,
+        ram_free: 0,
+        cpu_load: [0, 0, 0],
+        cpu_count: 0,
+        disk_total_gb: 0,
+        disk_used_gb: 0,
+        disk_used_pct: 0,
+        uptime_hours: 0,
+      },
+      timestamp: new Date().toISOString()
     }
 
-    return (await res.json()) as VpsResponse
+    // Merge logic
+    responses.forEach(result => {
+       if (result.status === 'fulfilled' && result.value) {
+          successCount++
+          const data = result.value
+          
+          // Rename duplicate workers by adding instance suffix to distinguish if needed,
+          // but PM2 guarantees unique names per machine. We just append them.
+          aggregated.workers.push(...(data.workers || []))
+          
+          // Merge Queues
+          if (data.queues) {
+             Object.entries(data.queues).forEach(([qName, qStats]) => {
+                if (!aggregated.queues[qName]) {
+                   aggregated.queues[qName] = { wait: 0, active: 0, delayed: 0, completed: 0, failed: 0 }
+                }
+                const aggQ = aggregated.queues[qName]
+                // Only sum wait/active/delayed as they are point-in-time, but wait, both machines talk to same Redis
+                // So queue counts are actually identical! We just take the last healthy one.
+                aggregated.queues[qName] = qStats 
+             })
+          }
+
+          // Aggregate VPS stats
+          if (data.vps) {
+             const rTot = data.vps.ram_total_mb ?? data.vps.ram_total ?? 0
+             const rUsd = data.vps.ram_used_mb ?? data.vps.ram_used ?? 0
+             totalRam += rTot
+             usedRam += rUsd
+             
+             totalCores += (data.vps.cpu_count || 0)
+             totalDisk += (data.vps.disk_total_gb || 0)
+             usedDisk += (data.vps.disk_used_gb || 0)
+             maxUptime = Math.max(maxUptime, data.vps.uptime_hours || 0)
+             
+             cpuLoadSum[0] += (data.vps.cpu_load?.[0] || 0)
+             cpuLoadSum[1] += (data.vps.cpu_load?.[1] || 0)
+             cpuLoadSum[2] += (data.vps.cpu_load?.[2] || 0)
+          }
+       }
+    })
+
+    if (successCount === 0) return null
+
+    aggregated.vps = {
+       ram_total: totalRam,
+       ram_used: usedRam,
+       ram_free: totalRam - usedRam,
+       cpu_count: totalCores,
+       disk_total_gb: totalDisk,
+       disk_used_gb: usedDisk,
+       disk_used_pct: totalDisk > 0 ? Math.round((usedDisk / totalDisk) * 100) : 0,
+       uptime_hours: maxUptime,
+       // Provide averaged load or total load? Total load is actually meaningful
+       // because we compare total_load against total_cores (4 + 8 = 12).
+       cpu_load: cpuLoadSum,
+    }
+
+    return aggregated
   } catch (err) {
     console.error('Failed to fetch VPS monitoring data:', err)
     return null
@@ -167,18 +258,21 @@ function generateAlerts(
   }
 
   // Memory
-  const ramUsedPct = vps.vps.ram_total > 0
-    ? Math.round((vps.vps.ram_used / vps.vps.ram_total) * 100)
+  const ramTotal = vps.vps?.ram_total ?? 0
+  const ramUsed = vps.vps?.ram_used ?? 0
+  const ramUsedPct = ramTotal > 0
+    ? Math.round((ramUsed / ramTotal) * 100)
     : 0
+
   if (ramUsedPct > 90) {
     alerts.push({
       level: 'critical',
-      message: `RAM usage at ${ramUsedPct}% (${vps.vps.ram_used}MB / ${vps.vps.ram_total}MB)`,
+      message: `RAM usage at ${ramUsedPct}% (${ramUsed}MB / ${ramTotal}MB)`,
     })
   } else if (ramUsedPct > 75) {
     alerts.push({
       level: 'warning',
-      message: `RAM usage at ${ramUsedPct}% (${vps.vps.ram_used}MB / ${vps.vps.ram_total}MB)`,
+      message: `RAM usage at ${ramUsedPct}% (${ramUsed}MB / ${ramTotal}MB)`,
     })
   }
 
