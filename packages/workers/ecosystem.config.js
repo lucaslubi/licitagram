@@ -137,6 +137,18 @@ module.exports = {
       error_file: '/var/log/licitagram/worker-whatsapp-err.log',
     },
 
+    // ─── Email: message delivery via Resend API (10 emails/s) ────────
+    {
+      ...baseConfig,
+      name: 'worker-email',
+      script: SCRIPT,
+      args: '--queues email',
+      node_args: '--max-old-space-size=200',
+      max_memory_restart: '200M',
+      out_file: '/var/log/licitagram/worker-email-out.log',
+      error_file: '/var/log/licitagram/worker-email-err.log',
+    },
+
     // ─── Certidoes: Puppeteer-based certidao automation ──────────────
     {
       ...baseConfig,

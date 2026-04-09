@@ -18,7 +18,7 @@ import type { Worker } from 'bullmq'
 const queuesArg = process.argv.find(a => a.startsWith('--queues='))?.split('=')[1]
   || (process.argv.indexOf('--queues') >= 0 ? process.argv[process.argv.indexOf('--queues') + 1] : null)
 
-const ALL_GROUPS = ['scraping', 'extraction', 'matching', 'alerts', 'telegram', 'whatsapp', 'enrichment', 'notification', 'analysis', 'certidoes']
+const ALL_GROUPS = ['scraping', 'extraction', 'matching', 'alerts', 'telegram', 'whatsapp', 'email', 'enrichment', 'notification', 'analysis', 'certidoes']
 const selectedGroups = queuesArg ? queuesArg.split(',').map(g => g.trim()) : ALL_GROUPS
 const isFullMode = !queuesArg
 
@@ -81,6 +81,11 @@ async function loadWorkers(): Promise<Worker[]> {
   if (selectedGroups.includes('whatsapp')) {
     const { whatsappNotificationWorker } = await import('./processors/whatsapp-notification.processor')
     workers.push(whatsappNotificationWorker)
+  }
+
+  if (selectedGroups.includes('email')) {
+    const { emailWorker } = await import('./processors/notification-email.processor')
+    workers.push(emailWorker)
   }
 
   // Dedicated enrichment group: results scraping + competitor analysis + contact/CNAE enrichment

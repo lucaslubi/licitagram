@@ -80,9 +80,9 @@ const emailWorker = new Worker<EmailNotificationJobData>(
 
     if ('matchId' in data && data.matchId) {
       // Validate notification
-      const valid = await validateNotification(data.matchId)
-      if (!valid) {
-        logger.info({ matchId: data.matchId }, 'Email notification skipped (invalid match)')
+      const guard = await validateNotification(data.matchId)
+      if (!guard.allowed) {
+        logger.info({ matchId: data.matchId, reason: guard.reason }, 'Email notification skipped')
         return
       }
 
@@ -113,7 +113,7 @@ const emailWorker = new Worker<EmailNotificationJobData>(
       const resendId = await sendEmail(data.userEmail, subject, html)
 
       // Log delivery
-      await supabase.supabase
+      await supabase
         .from('email_notification_logs')
         .insert({
           user_id: data.userId,
