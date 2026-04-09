@@ -54,28 +54,28 @@ const TESTIMONIALS = [
 
 const FAQ = [
   {
-    q: 'Por que o Licitagram custa mais que outras plataformas?',
-    a: 'Porque o Licitagram não é uma plataforma de busca de editais. É uma infraestrutura completa de inteligência artificial, dados corporativos e automação jurídica. Oferecemos o Licitagram Prospector para inteligência B2B, WhatsApp FastMatch para alertas instantâneos, GeoRadar para visão regional, Guardian Compliance para automação de certidões, além de Oráculo de Preços (IN 65/2021) e Robô de Lances com IA estratégica. Nenhum concorrente entrega 10% disso.',
+    q: 'Por que o LICITAGRAM custa mais que outras plataformas?',
+    a: 'Porque o LICITAGRAM não é uma plataforma. É o primeiro sistema operacional multi-agentes de IA para licitações da América Latina. Você não está pagando por uma ferramenta de busca com filtros — está ativando um exército de 9 agentes autônomos de inteligência artificial: Prospector para inteligência B2B, Agente de Combate para lances autônomos, GeoRadar para visão regional, Guardian para compliance automático, Oráculo de Preços conforme IN 65/2021 e Agente Antifraude com 67M+ CNPJs. Nenhuma ferramenta no mercado possui sequer um desses agentes. O LICITAGRAM possui nove.',
   },
   {
     q: 'O que acontece nos 7 dias grátis?',
-    a: 'Você tem acesso completo ao plano escolhido por 7 dias, sem precisar de cartão de crédito. Se não fizer sentido para a sua operação, basta não continuar. Sem burocracia, sem multa, sem pegadinha.',
+    a: 'Você ativa o exército completo do plano escolhido por 7 dias, sem precisar de cartão de crédito. Seus agentes começam a operar imediatamente. Se não fizer sentido para a sua operação, basta não continuar. Sem burocracia, sem multa, sem pegadinha.',
   },
   {
-    q: 'O Licitagram substitui o Painel de Preços do governo?',
-    a: 'Sim. O Painel de Preços oficial (pafranel.planejamento.gov.br) foi descontinuado e os dados eram limitados ao ComprasNet federal. O Licitagram agrega dados de preços de todos os portais — federais, estaduais e municipais — com tendência temporal e filtros por região, órgão e item. É a base de preços mais completa do Brasil hoje.',
+    q: 'O LICITAGRAM substitui o Painel de Preços do governo?',
+    a: 'Sim. O Painel de Preços oficial foi descontinuado e os dados eram limitados ao ComprasNet federal. O Agente de Precificação do LICITAGRAM agrega dados de preços de todos os portais — federais, estaduais e municipais — com tendência temporal e filtros por região, órgão e item. É a base de preços mais completa do Brasil.',
   },
   {
     q: 'Preciso de treinamento para usar?',
-    a: 'Não. O Licitagram foi projetado para ser intuitivo. Basta informar seu CNPJ e a plataforma configura tudo automaticamente — CNAEs, área de atuação, certidões pendentes. No plano Enterprise, oferecemos onboarding dedicado se necessário.',
+    a: 'Não. O LICITAGRAM foi projetado para que os agentes façam o trabalho pesado. Basta informar seu CNPJ e o sistema configura tudo automaticamente — CNAEs, área de atuação, certidões pendentes. Os 9 agentes se calibram ao seu perfil em segundos. No plano Enterprise, oferecemos onboarding dedicado para operações de alta complexidade.',
   },
   {
     q: 'E se eu já uso outra plataforma de licitações?',
-    a: 'Muitos clientes migram de outras ferramentas para o Licitagram. Você pode testar em paralelo durante os 7 dias grátis e comparar os resultados. A diferença na qualidade dos matches, na profundidade da inteligência competitiva e na automação de propostas fica evidente logo nos primeiros dias.',
+    a: 'Muitas empresas migram de ferramentas convencionais para o LICITAGRAM. Você pode testar em paralelo durante os 7 dias grátis. A diferença entre operar com uma ferramenta de busca e comandar um exército multi-agentes de IA fica evidente nas primeiras horas — não nos primeiros dias.',
   },
   {
-    q: 'Os dados do Licitagram são confiáveis?',
-    a: 'Sim. Todos os dados são extraídos de fontes oficiais públicas (PNCP, ComprasNet, portais estaduais e municipais, Receita Federal, CEIS, CNEP, TCU). Não inventamos dados. Cada informação tem rastreabilidade completa até a fonte original. Se um dado muda na fonte, ele muda no Licitagram.',
+    q: 'Os dados do LICITAGRAM são confiáveis?',
+    a: 'Todos os dados são extraídos de fontes oficiais públicas (PNCP, ComprasNet, portais estaduais e municipais, Receita Federal, CEIS, CNEP, TCU). Cada informação tem rastreabilidade completa até a fonte original. Os agentes não inventam dados — processam, cruzam e entregam inteligência verificável.',
   },
   {
     q: 'Como funciona o pagamento?',
@@ -84,14 +84,14 @@ const FAQ = [
 ]
 
 const COMPARISON_BEFORE_AFTER: { before: string; after: string }[] = [
-  { before: 'Buscar licitações manualmente em dezenas de portais', after: 'Telegram SmartAlerts: +200.000 licitações monitoradas automaticamente' },
-  { before: 'Ler editais inteiros para saber se vale a pena', after: 'AI Matching com score 0-100 — a IA lê por você' },
-  { before: 'Montar propostas do zero a cada licitação', after: 'Gerador de Propostas Comerciais em 2 minutos (Lei 14.133)' },
-  { before: 'Pesquisar preços em planilhas e sistemas descontinuados', after: 'Oráculo de Preços: Preços de Mercado em tempo real com tendência' },
-  { before: 'Não saber quem são os concorrentes', after: 'Licitagram Prospector: Dossiê completo e Outbound B2B' },
-  { before: 'Dar lances no escuro durante pregões', after: 'Robô de Lances com IA estratégica e Pré-Disputa' },
-  { before: 'Não detectar fraudes, cartéis ou empresas de fachada', after: 'Detecção de Anomalias + Grafo Societário com 67M+ CNPJs' },
-  { before: 'Verificar documentos manualmente antes de cada licitação', after: 'Guardian Compliance: Automação completa de certidões CNDs' },
+  { before: 'Buscar licitações manualmente em dezenas de portais', after: 'Agente de Targeting: +200.000 licitações monitoradas automaticamente com score' },
+  { before: 'Ler editais inteiros para saber se vale a pena', after: 'Agente Jurídico: AI Matching com score 0-100 — o agente lê, analisa e decide por você' },
+  { before: 'Montar propostas do zero a cada licitação', after: 'Agente de Propostas: Proposta comercial completa em 2 minutos (Lei 14.133)' },
+  { before: 'Pesquisar preços em planilhas e sistemas descontinuados', after: 'Agente de Precificação: Oráculo de Preços em tempo real com tendência temporal' },
+  { before: 'Não saber quem são os concorrentes', after: 'Agente Prospector: Dossiê completo com win-rate, preços e prospecção B2B' },
+  { before: 'Dar lances no escuro durante pregões', after: 'Agente de Combate: Robô de Lances com IA estratégica e execução autônoma' },
+  { before: 'Não detectar fraudes, cartéis ou empresas de fachada', after: 'Agente Antifraude: Grafo Societário com 67M+ CNPJs cruzados em tempo real' },
+  { before: 'Verificar documentos manualmente antes de cada licitação', after: 'Agente Guardian: Automação completa de certidões CNDs no piloto automático' },
 ]
 
 
@@ -103,7 +103,7 @@ export default async function LandingPage() {
     : ''
   const ctaHref = isImplementation ? whatsappUrl : '/register'
   const ctaText = isImplementation ? 'Falar com Consultor' : 'Criar Conta'
-  const ctaHeroText = isImplementation ? 'Agendar Implementação' : 'Começar agora — 7 dias grátis'
+  const ctaHeroText = isImplementation ? 'Agendar Implementação' : 'Ativar meu exército de IA — 7 dias grátis'
 
   return (
     <div className="min-h-screen bg-[#F5F5F0]">
@@ -182,20 +182,18 @@ export default async function LandingPage() {
             <div>
               <ScrollReveal>
                 <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-6">
-                  A NOVA INTELIG&Ecirc;NCIA DAS COMPRAS P&Uacute;BLICAS NO BRASIL
+                  O PRIMEIRO SISTEMA OPERACIONAL MULTI-AGENTES DE IA PARA LICITAÇÕES DA AMÉRICA LATINA
                 </p>
               </ScrollReveal>
               <ScrollReveal delay={100}>
                 <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white tracking-tight leading-[1.08] mb-6">
-                  Menos de 1% das empresas vencem contratos milionários no governo.{' '}
-                  <span className="bg-gradient-to-r from-white via-[#F43E01] to-[#FF6B3D] bg-clip-text text-transparent">
-                    O Licitagram é o sistema operacional que garante a sua vantagem assimétrica.
-                  </span>
+                  <span className="bg-gradient-to-r from-white via-[#F43E01] to-[#FF6B3D] bg-clip-text text-transparent">LICITAGRAM</span>{' '}
+                  <span className="text-white">A era dos buscadores de editais satisfez quem queria participar. A era dos multi-agentes de IA foi construída para quem quer dominar.</span>
                 </h1>
               </ScrollReveal>
               <ScrollReveal delay={200}>
                 <p className="text-base sm:text-lg text-white mb-8 max-w-xl mx-auto leading-relaxed">
-                  Processamos as entranhas de R$ 2 trilhões em compras públicas. 67 milhões de CNPJs monitorados, análise balística de dados e agentes autônomos que transformam o caos licitatório em uma operação de guerra altamente lucrativa.
+                  Enquanto o mercado inteiro opera com ferramentas que entregam listas e chamam isso de tecnologia, o LICITAGRAM comanda um exército de agentes autônomos de IA — cada um uma unidade de elite especializada — que operam em cadeia sincronizada sobre R$ 2 trilhões em compras públicas e 67 milhões de CNPJs cruzados em tempo real. Um agente descobre. Outro disseca o edital em segundos. Outro calcula o preço letal. Outro blinda seu compliance. Outro executa o lance com precisão cirúrgica. Você não opera uma ferramenta. Você comanda uma máquina de guerra autônoma que transforma dinheiro público em faturamento privado.
                 </p>
               </ScrollReveal>
               <ScrollReveal delay={300}>
@@ -218,7 +216,7 @@ export default async function LandingPage() {
                     Ver a plataforma ao vivo
                   </a>
                 </div>
-                <p className="mt-5 text-xs text-[#555]">Sem cartão de crédito para testar. Cancele quando quiser.</p>
+                <p className="mt-5 text-xs text-[#555]">Quem tem o exército de IA, vence. Quem tem uma ferramenta, assiste. Sem cartão de crédito para testar. Cancele quando quiser.</p>
               </ScrollReveal>
             </div>
 
@@ -280,28 +278,23 @@ export default async function LandingPage() {
           <div className="max-w-4xl mx-auto px-4 text-center">
             <ScrollReveal>
               <StickyLabel>
-                <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">01 — O problema</p>
+                  <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">01 — O campo de batalha</p>
               </StickyLabel>
             </ScrollReveal>
             <ScrollReveal delay={100}>
               <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight text-balance mb-6">
-                R$ 2 trilhões na mesa de operações.{' '}
-                <span className="text-[#8B8B8B]">Restrito a quem possui a melhor tecnologia.</span>
+                  R$ 2 trilhões na mesa. Um exército de IA de um lado.{' '}
+                  <span className="text-[#8B8B8B]">Ferramentas obsoletas do outro. Escolha o seu lado.</span>
               </h2>
             </ScrollReveal>
             <ScrollReveal delay={200}>
               <p className="text-lg text-[#8B8B8B] max-w-2xl mx-auto leading-relaxed mb-6">
-                Todo ano, o governo brasileiro executa mais de R$ 2 trilhões em contratos. É a maior máquina financeira do país. Mas as engrenagens são opacas e complexas. Vencer não é questão de esforço; é dispor do aparato tecnológico para desemaranhar o labirinto informacional.
-              </p>
-            </ScrollReveal>
-            <ScrollReveal delay={300}>
-              <p className="text-lg text-[#8B8B8B] max-w-2xl mx-auto leading-relaxed mb-8">
-                Operar com buscas manuais ou robozinhos genéricos é entrar desarmado no campo de batalha moderno. A diferença entre a empresa que apenas "participa" e a corporação que domina os pregões está na profundidade matemática e tática aplicada em milissegundos.
+                  Quem ainda opera com buscadores manuais, robozinhos de alerta e planilhas de preço está entrando num campo de batalha moderno com equipamento da guerra anterior. A distância entre a empresa que “participa” de licitações e a corporação que domina pregões é a mesma distância entre uma ferramenta genérica e um sistema operacional multi-agentes de IA.
               </p>
             </ScrollReveal>
             <ScrollReveal delay={400}>
               <p className="text-lg text-[#F43E01] font-semibold max-w-2xl mx-auto">
-                Nós desenvolvemos o aparato de engenharia de dados definitivo para esmagar a concorrência.
+                  O LICITAGRAM não foi construído para competir com ferramentas. Foi construído para torná-las irrelevantes.
               </p>
             </ScrollReveal>
           </div>
@@ -315,18 +308,18 @@ export default async function LandingPage() {
             <div className="max-w-3xl mx-auto text-center mb-16">
               <ScrollReveal>
                 <StickyLabel>
-                  <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">02 — O que é o Licitagram</p>
+                  <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">02 — O sistema operacional</p>
                 </StickyLabel>
               </ScrollReveal>
               <ScrollReveal delay={100}>
                 <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[#1A1C1F] tracking-tight text-balance mb-6">
-                  A inteligência por trás de R$ 2 trilhões{' '}
-                  <span className="text-[#69695D]">em compras públicas.</span>
+                  Não é uma plataforma. É um exército de agentes autônomos de IA{' '}
+                  <span className="text-[#69695D]">operando em cadeia pela sua vitória.</span>
                 </h2>
               </ScrollReveal>
               <ScrollReveal delay={200}>
                 <p className="text-lg text-[#69695D] leading-relaxed max-w-2xl mx-auto">
-                  O Licitagram não é uma plataforma genérica de busca de editais para leigos. Trata-se de uma infraestrutura massiva de análise de dados, projetada para conferir onisciência tática e capacidade de execução autônoma nas licitações.
+                  O LICITAGRAM é o primeiro sistema operacional multi-agentes de inteligência artificial e estrutura de dados para licitações da América Latina. Cada agente é uma unidade autônoma de elite, treinada para uma missão específica na cadeia licitatória — e todos operam em sincronia, em tempo real, 24 horas por dia.
                 </p>
               </ScrollReveal>
             </div>
@@ -363,15 +356,15 @@ export default async function LandingPage() {
               {[
                 {
                   title: 'Para quem vende para o governo',
-                  desc: 'Sua empresa recebe oportunidades filtradas por IA, com score de compatibilidade. Gera propostas em 2 minutos. Sabe quem são seus concorrentes, quanto eles cobram, e onde estão mais fracos.',
+                  desc: 'Seus agentes de IA filtram oportunidades com score de compatibilidade, geram propostas em 2 minutos, mapeiam cada concorrente e calculam o preço exato para vencer mantendo sua margem. Você não busca licitações. Seus agentes trazem contratos.',
                 },
                 {
                   title: 'Para quem compra para o governo',
-                  desc: 'O Painel de Preços do governo foi descontinuado. O Licitagram tem dados de preços mais completos, de todos os portais — federais, estaduais e municipais — com tendência temporal e filtros por região.',
+                  desc: 'O Painel de Preços do governo foi descontinuado. O LICITAGRAM possui a base de preços mais completa do Brasil — dados de todos os portais federais, estaduais e municipais — com tendência temporal, filtros por região e relatórios automáticos conforme IN 65/2021.',
                 },
                 {
                   title: 'Para quem fiscaliza o governo',
-                  desc: 'Cruzamos 67 milhões de CNPJs com dados de sócios, sanções, endereços e histórico de licitações. Detectamos cartéis, empresas de fachada e vínculos societários ocultos automaticamente.',
+                  desc: 'Nosso agente antifraude cruza 67 milhões de CNPJs com dados de sócios, sanções, endereços e histórico de licitações. Detecta cartéis, empresas de fachada e vínculos societários ocultos automaticamente. Onde o olho humano falha, a rede multi-agentes encontra.',
                 },
               ].map((item, i) => (
                 <ScrollReveal key={item.title} delay={i * 100}>
@@ -393,13 +386,13 @@ export default async function LandingPage() {
             <div className="max-w-3xl mx-auto text-center mb-16">
               <ScrollReveal>
                 <StickyLabel>
-                  <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">03 — O que você ganha</p>
+                  <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-4">03 — Seu exército</p>
                 </StickyLabel>
               </ScrollReveal>
               <ScrollReveal delay={100}>
                 <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight text-balance">
-                  9 módulos que não existem{' '}
-                  <span className="text-[#8B8B8B]">em nenhum outro lugar.</span>
+                  9 agentes autônomos de IA.{' '}
+                  <span className="text-[#8B8B8B]">9 unidades de elite. Zero equivalente no mercado.</span>
                 </h2>
               </ScrollReveal>
             </div>
@@ -408,48 +401,48 @@ export default async function LandingPage() {
               {[
                 {
                   num: '01',
-                  title: 'Radar de Targeting (Licitagram GeoRadar)',
-                  desc: 'Uma visão estratégica militar substitui buscas fracas. O GeoRadar mapeia oportunidades geolocalizadas com Score Matemático (0-100), traduzindo sua viabilidade tática de vitória em tempo real.',
+                  title: 'Agente de Targeting — GeoRadar',
+                  desc: 'O agente de radar varre o território nacional e mapeia oportunidades geolocalizadas com Score Matemático (0-100), traduzindo sua viabilidade tática de vitória em tempo real. Enquanto ferramentas entregam listas genéricas, esse agente entrega alvos calculados.',
                 },
                 {
                   num: '02',
-                  title: 'Fábrica de Propostas Autônoma',
-                  desc: 'A Esteira de Disputas fatia e extrai cada item governamental e cospe a proposta final juridicamente perfeita (Lei 14.133), documentada e blindada, dispensando processos lentos e manuais.',
+                  title: 'Agente de Propostas Autônomas',
+                  desc: 'O agente de propostas fatia e extrai cada item governamental e entrega a proposta final juridicamente perfeita conforme a Lei 14.133 — documentada, blindada e pronta para protocolo. O que levava horas, um agente autônomo resolve em 2 minutos.',
                 },
                 {
                   num: '03',
-                  title: 'Engenharia de Custos e Oráculo de Preços',
-                  desc: 'Encerre o amadorismo de "adivinhar" o desconto. Nosso núcleo cruza dezenas de terabytes do histórico público e indica o preço balístico fatal para desestabilizar oponentes mantendo sua margem hiper-lucrativa.',
+                  title: 'Agente de Precificação Letal — Oráculo de Preços',
+                  desc: 'O agente de precificação cruza dezenas de terabytes do histórico público e calcula o preço balístico fatal — aquele que desestabiliza oponentes e mantém sua margem hiper-lucrativa. Encerre para sempre o amadorismo de "adivinhar" o desconto.',
                 },
                 {
                   num: '04',
-                  title: 'Inteligência B2B (Licitagram Prospector)',
-                  desc: 'Identificamos seus agressores mercadológicos e potenciais clientes. Obtenha o dossiê completo: win-rate absoluto, margem histórica de recuo e canais de contato direto para prospecção outbound.',
+                  title: 'Agente de Inteligência B2B — Prospector',
+                  desc: 'O agente de inteligência competitiva identifica seus agressores mercadológicos e potenciais clientes. Entrega o dossiê completo: win-rate absoluto, margem histórica de recuo e canais de contato direto para prospecção outbound. Você sabe tudo sobre eles. Eles não sabem nada sobre você.',
                 },
                 {
                   num: '05',
-                  title: 'Acervo Jurídico de Bolso (Consultor IA)',
-                  desc: 'Editais monstruosos implodem em 10s na Análise Semântica do nosso Consultor. Descobriu direcionamento ilícito? A máquina redige instantaneamente a impugnação baseada nos acórdãos estritos do TCU.',
+                  title: 'Agente Jurídico — Consultor IA',
+                  desc: 'O agente jurídico processa editais monstruosos e os implode em 10 segundos via análise semântica. Descobriu direcionamento ilícito? O agente redige instantaneamente a impugnação fundamentada nos acórdãos estritos do TCU. Seu advogado de bolso que nunca dorme.',
                 },
                 {
                   num: '06',
-                  title: 'Command Center de Operações',
-                  desc: 'Na abertura do pregão, sua tela exibe indicadores críticos dos alvos. Engaje o nosso Agente IA de Lances para executar metralhadas algorítmicas de punições financeiras até secar os rivais no limite exato determinado.',
+                  title: 'Agente de Combate — Command Center',
+                  desc: 'Na abertura do pregão, o agente de combate exibe indicadores críticos dos alvos na sua tela e executa metralhadas algorítmicas de lances até secar os rivais no limite exato que você determinou. Você define a estratégia. O agente executa com precisão cirúrgica.',
                 },
                 {
                   num: '07',
-                  title: 'Grafo de Infiltração e Varredura Antifraude',
-                  desc: 'Cruza iterativamente 67 Milhões de CNPJs no ato. Constate matematicamente se está lutando de fato contra corporações idôneas ou se três adversos no mesmo lote são testas-de-ferro mascarando o mesmo proprietário.',
+                  title: 'Agente Antifraude — Grafo de Infiltração',
+                  desc: 'O agente antifraude cruza iterativamente 67 milhões de CNPJs no ato. Constata matematicamente se você está lutando contra corporações idôneas ou se três adversários no mesmo lote são testas-de-ferro mascarando o mesmo proprietário. A fraude acaba onde esse agente começa.',
                 },
                 {
                   num: '08',
-                  title: 'Blindagem e Guardian Compliance',
-                  desc: 'O fim da inabilitação por documentos vencidos. O Guardian mantém suas certidões CNDs atualizadas no piloto automático, garantindo que seu flanco jurídico esteja sempre vedado e pronto para vencer.',
+                  title: 'Agente de Blindagem — Guardian Compliance',
+                  desc: 'O agente de compliance mantém suas certidões CNDs atualizadas no piloto automático, monitorando vencimentos e revalidando documentos em tempo real. O fim da inabilitação por documentos vencidos. Seu flanco jurídico, permanentemente vedado.',
                 },
                 {
                   num: '09',
-                  title: 'Auditoria e Balizamento Estratégico',
-                  desc: 'Robôs de compliance cospem relatórios de adequabilidade invioláveis nos ditames da IN 65/2021 do Governo Federal, criando lastro documental irrefutável contra denúncias ou auditorias imprecisas.',
+                  title: 'Agente de Auditoria — Balizamento Estratégico',
+                  desc: 'O agente de auditoria gera relatórios de adequabilidade invioláveis nos ditames da IN 65/2021 do Governo Federal, criando lastro documental irrefutável contra denúncias ou auditorias imprecisas. Compliance automático, blindagem total.',
                 },
               ].map((item, i) => (
                 <ScrollReveal key={item.num} delay={i * 80}>
@@ -516,7 +509,7 @@ export default async function LandingPage() {
               </ScrollReveal>
               <ScrollReveal delay={200}>
                 <p className="text-lg text-[#69695D] leading-relaxed max-w-2xl mx-auto">
-                  No Command Center, o ruído governamental é convertido em tática letal. Antes da abertura do certame, nosso sistema computa e renderiza o seu Dossiê Estratégico exibindo a previsibilidade de lances, falências e vulnerabilidades dos oponentes na sala.
+                  No Agente de Combate, o ruído governamental é convertido em tática letal. Antes da abertura do certame, o sistema computa e renderiza o seu Dossiê Estratégico exibindo a previsibilidade de lances, vulnerabilidades dos oponentes e o preço exato de entrada.
                 </p>
               </ScrollReveal>
             </div>
@@ -524,16 +517,16 @@ export default async function LandingPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
               {[
                 {
-                  title: 'Licitagram Prospector',
-                  desc: 'Acesse o dossiê invisível: histórico de lances, win-rate, preços praticados e vínculos societários de cada concorrente antes do certame começar.',
+                  title: 'Agente Prospector',
+                  desc: 'Acesse o dossiê invisível: histórico de lances, win-rate, preços praticados e vínculos societários de cada concorrente antes do certame começar. Informção que vale mais do que qualquer lance.',
                 },
                 {
-                  title: 'Licitagram GeoRadar',
-                  desc: 'Mapeamento balístico de oportunidades por região. Saiba onde o dinheiro está fluindo e onde a concorrência é mais frágil.',
+                  title: 'Agente GeoRadar',
+                  desc: 'Mapeamento balístico de oportunidades por região. Saiba onde o dinheiro está fluindo, onde a concorrência é mais frágil e onde seus agentes devem concentrar a operação.',
                 },
                 {
-                  title: 'Guardian Compliance',
-                  desc: 'Seu QG de documentos. O Guardian monitora e revalida suas certidões em tempo real, garantindo inabilidade zero na hora da disputa.',
+                  title: 'Agente Guardian',
+                  desc: 'Seu QG de documentos. O Agente Guardian monitora e revalida suas certidões em tempo real, garantindo inabilidade zero na hora da disputa. Compliance no piloto automático.',
                 },
               ].map((item, i) => (
                 <ScrollReveal key={item.title} delay={i * 100}>
@@ -608,7 +601,7 @@ export default async function LandingPage() {
             </ScrollReveal>
             <ScrollReveal delay={200}>
               <p className="text-lg text-[#69695D] max-w-2xl mx-auto leading-relaxed mb-12">
-                O Acervo Jurídico processa terabytes de regras do Governo. Ele digere centenas de páginas do seu edital, encontrando direcionamentos, exigências abusivas e armadilhas contratuais que humanos demorariam dias para caçar. A saída já é um plano de ataque exportado e blindado.
+                O Agente Jurídico processa terabytes de regras do Governo. Ele digere centenas de páginas do seu edital, encontrando direcionamentos, exigências abusivas e armadilhas contratuais que humanos demorariam dias para caçar. A saída já é um plano de ataque exportado, blindado e pronto para impugnação.
               </p>
             </ScrollReveal>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
@@ -656,7 +649,7 @@ export default async function LandingPage() {
               </ScrollReveal>
               <ScrollReveal delay={200}>
                 <p className="text-lg text-[#A0A0A0] max-w-2xl mx-auto leading-relaxed">
-                  Somos a única plataforma que envia alertas em tempo real por WhatsApp e Telegram simultaneamente. Enquanto outros te mandam um e-mail genérico no dia seguinte, você já está com o edital na mão.
+                  O LICITAGRAM é a única plataforma que envia alertas em tempo real por WhatsApp e Telegram simultaneamente. Cada alerta contém o score de compatibilidade, resumo do edital e link direto. Enquanto ferramentas convencionais te mandam um e-mail no dia seguinte, seus agentes já calcularam o preço ideal.
                 </p>
               </ScrollReveal>
             </div>
@@ -761,7 +754,7 @@ export default async function LandingPage() {
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#F43E01] opacity-75" />
                     <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#F43E01]" />
                   </span>
-                  <span className="text-sm text-[#F43E01] font-medium">Nenhum concorrente oferece alertas WhatsApp + Telegram simultaneamente</span>
+                  <span className="text-sm text-[#F43E01] font-medium">Zero concorrente no mercado oferece alertas WhatsApp + Telegram com score de IA simultaneamente</span>
                 </div>
               </div>
             </ScrollReveal>
@@ -786,7 +779,7 @@ export default async function LandingPage() {
             </ScrollReveal>
             <ScrollReveal delay={200}>
               <p className="text-lg text-[#8B8B8B] max-w-2xl mx-auto leading-relaxed mb-12">
-                Cada análise, consulta ao Consultor IA, dossiê pré-pregão e PDF exportado vai automaticamente para o repositório institucional da sua empresa. É a memória do seu departamento de licitações, organizada e pesquisável.
+                Cada análise do Agente Jurídico, consulta ao Consultor IA, dossiê pré-pregão e PDF exportado vai automaticamente para o repositório institucional da sua empresa. É a memória estratégica do seu departamento de licitações, organizada, pesquisável e permanente.
               </p>
             </ScrollReveal>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
@@ -839,22 +832,22 @@ export default async function LandingPage() {
                 {
                   step: '01',
                   title: 'Perfil',
-                  desc: 'Informe seu CNPJ e o sistema busca automaticamente CNAEs, area de atuação e dados na Receita Federal.',
+                  desc: 'Informe seu CNPJ e o sistema busca automaticamente CNAEs, área de atuação e dados na Receita Federal. Os 9 agentes se calibram ao seu perfil em segundos, sem configuração manual.',
                 },
                 {
                   step: '02',
                   title: 'Descoberta contínua',
-                  desc: 'A IA monitora 24/7 todos os portais e calcula um score de compatibilidade para cada edital.',
+                  desc: 'O Agente de Targeting monitora 24/7 todos os portais e calcula um score de compatibilidade para cada edital. Você não vê ruído — vê apenas alvos qualificados.',
                 },
                 {
                   step: '03',
                   title: 'Inteligência antes da disputa',
-                  desc: 'Receba o dossiê completo de cada oportunidade: concorrentes, histórico de preços e probabilidade de vitória.',
+                  desc: 'O Agente Prospector entrega o dossiê completo de cada oportunidade: concorrentes, histórico de preços e probabilidade de vitória — antes do pregão começar.',
                 },
                 {
                   step: '04',
                   title: 'Execução com precisão',
-                  desc: 'O agente autonomo executa sua estrategia de lances com precisão cirúrgica. Voce define os limites, ele executa.',
+                  desc: 'O Agente de Combate executa sua estratégia de lances com precisão cirúrgica. Você define os limites e a lógica. O agente executa mais rápido e mais preciso do que qualquer humano.',
                 },
               ].map((item, i) => (
                 <ScrollReveal key={item.step} delay={i * 120}>
@@ -881,7 +874,7 @@ export default async function LandingPage() {
             </ScrollReveal>
             <ScrollReveal delay={100}>
               <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight text-balance mb-12">
-                Monitoramento multi-portal em tempo real.
+                +160 portais monitorados. Nenhum edital escapa.
               </h2>
             </ScrollReveal>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
@@ -960,7 +953,7 @@ export default async function LandingPage() {
               </ScrollReveal>
               <ScrollReveal delay={100}>
                 <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight text-balance">
-                  Como era. Como é agora.
+                  Categoria diferente. Nível diferente. Era diferente.
                 </h2>
               </ScrollReveal>
             </div>
@@ -969,8 +962,8 @@ export default async function LandingPage() {
                 <table className="w-full border-collapse">
                   <thead>
                     <tr className="border-b border-white/[0.08] bg-white/[0.04]">
-                      <th className="text-sm font-mono font-semibold text-red-400/80 text-left py-4 px-6">Como era</th>
-                      <th className="text-sm font-mono font-semibold text-[#F43E01] text-left py-4 px-6">Com o Licitagram</th>
+                      <th className="text-sm font-mono font-semibold text-red-400/80 text-left py-4 px-6">Operar com ferramentas convencionais</th>
+                      <th className="text-sm font-mono font-semibold text-[#F43E01] text-left py-4 px-6">Operar com o exército LICITAGRAM</th>
                     </tr>
                   </thead>
                   <tbody className="text-sm">
@@ -1018,7 +1011,7 @@ export default async function LandingPage() {
                   </ScrollReveal>
                   <ScrollReveal delay={200}>
                     <p className="text-lg text-[#69695D] max-w-2xl mx-auto">
-                      Trabalhamos com implementação dedicada para garantir que sua equipe extraia o máximo da plataforma desde o primeiro dia.
+                      Trabalhamos com implementação dedicada para garantir que seu exército de agentes opere com máxima precisão desde o primeiro dia.
                     </p>
                   </ScrollReveal>
                 </div>
@@ -1135,13 +1128,13 @@ export default async function LandingPage() {
               </ScrollReveal>
               <ScrollReveal delay={100}>
                 <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[#1A1C1F] tracking-tight text-balance mb-6">
-                  Servidores públicos: pesquisa de preços em 5 minutos,{' '}
+                  Servidores públicos: pesquisa de preços conforme IN 65/2021 em 5 minutos,{' '}
                   <span className="text-[#69695D]">não em 2 dias.</span>
                 </h2>
               </ScrollReveal>
               <ScrollReveal delay={200}>
                 <p className="text-lg text-[#69695D] leading-relaxed max-w-2xl mx-auto">
-                  O Painel de Preços do governo foi descontinuado. O Licitagram é o substituto completo: dados de preços de todos os portais, relatório de pesquisa de preços conforme IN 65/2021 gerado automaticamente, pronto para anexar ao processo.
+                  O Painel de Preços do governo foi descontinuado. O LICITAGRAM é o substituto definitivo: dados de preços de todos os portais, relatório de pesquisa de preços conforme IN 65/2021 gerado automaticamente pelo Agente de Precificação, pronto para anexar ao processo.
                 </p>
               </ScrollReveal>
             </div>
@@ -1186,12 +1179,12 @@ export default async function LandingPage() {
               <ScrollReveal delay={100}>
                 <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight text-balance mb-6">
                   Tribunais de Contas: 67 milhões de CNPJs{' '}
-                  <span className="text-[#8B8B8B]">cruzados contra cada licitação.</span>
+                  <span className="text-[#8B8B8B]">cruzados pelo Agente Antifraude contra cada licitação.</span>
                 </h2>
               </ScrollReveal>
               <ScrollReveal delay={200}>
                 <p className="text-lg text-[#8B8B8B] leading-relaxed max-w-2xl mx-auto">
-                  Nosso motor de correlação cruza cada licitação com 67 milhões de entidades corporativas. Detectamos cartéis, empresas de fachada, vínculos societários ocultos e padrões de conluio automaticamente.
+                  O Agente Antifraude do LICITAGRAM cruza cada licitação com 67 milhões de entidades corporativas. Detecta cartéis, empresas de fachada, vínculos societários ocultos e padrões de conluio automaticamente — antes da homologação.
                 </p>
               </ScrollReveal>
             </div>
@@ -1245,7 +1238,7 @@ export default async function LandingPage() {
             <ScrollReveal delay={100}>
               <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-[#1A1C1F] tracking-tight text-balance mb-6">
                 Jurídico por quem entende.{' '}
-                <span className="text-[#69695D]">Tecnologia por quem constrói.</span>
+                <span className="text-[#69695D]">Tecnologia por quem constrói. Compliance por quem não aceita falha.</span>
               </h2>
             </ScrollReveal>
             <ScrollReveal delay={200}>
@@ -1272,12 +1265,12 @@ export default async function LandingPage() {
             <ScrollReveal delay={100}>
               <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight text-balance mb-6">
                 Uma licitação ganha{' '}
-                <span className="text-[#8B8B8B]">paga o Licitagram por um ano.</span>
+                <span className="text-[#8B8B8B]">paga o LICITAGRAM por um ano. O ROI é aritmética, não projeção.</span>
               </h2>
             </ScrollReveal>
             <ScrollReveal delay={200}>
               <p className="text-lg text-[#8B8B8B] max-w-2xl mx-auto leading-relaxed mb-8">
-                O plano Profissional custa R$ 697/mês. Uma única licitação ganha — mesmo de pequeno porte — paga o investimento do ano inteiro. O ROI não é uma projeção. É aritmética.
+                O plano Profissional custa R$ 697/mês. Uma única licitação ganha — mesmo de pequeno porte — paga o investimento do ano inteiro. Enquanto você decide, seus concorrentes com LICITAGRAM já estão calculando o preço letal do próximo pregão.
               </p>
             </ScrollReveal>
             <ScrollReveal delay={300}>
@@ -1285,7 +1278,7 @@ export default async function LandingPage() {
                 {[
                   { value: '+200.000', label: 'licitações monitoradas por mês' },
                   { value: '67 milhões', label: 'de CNPJs cruzados em tempo real' },
-                  { value: 'R$ 1+ trilhão', label: 'em oportunidades mapeadas' },
+                  { value: 'R$ 2+ trilhões', label: 'em compras públicas monitoradas em tempo real' },
                 ].map((item, i) => (
                   <ScrollReveal key={item.value} delay={i * 100}>
                     <div className="p-8 rounded-2xl border border-white/[0.08] bg-white/[0.04] hover:border-[#F43E01]/30 hover:bg-white/[0.06] transition-all duration-300 hover:-translate-y-1">
@@ -1306,12 +1299,12 @@ export default async function LandingPage() {
         <div className="relative max-w-3xl mx-auto px-4 text-center">
           <ScrollReveal>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight text-balance mb-6">
-              O mercado de R$ 2 trilhões está aberto. A pergunta é se você vai entrar.
+              Um exército de IA ou uma ferramenta obsoleta. O mercado de R$ 2 trilhões recompensa apenas um deles.
             </h2>
           </ScrollReveal>
           <ScrollReveal delay={100}>
             <p className="text-lg text-white/70 mb-10">
-              7 dias grátis. Sem cartão de crédito. Sem compromisso. O produto fala por si.
+              7 dias grátis. Sem cartão de crédito. Sem compromisso. Quem ativa o exército primeiro, vence primeiro.
             </p>
           </ScrollReveal>
           <ScrollReveal delay={200}>
@@ -1339,7 +1332,7 @@ export default async function LandingPage() {
                 <Image src="/logo.png" alt="Licitagram" width={140} height={32} className="h-8 w-auto brightness-0 invert" />
               </div>
               <p className="text-sm text-[#8B8B8B] leading-relaxed mb-3">
-                Inteligência de dados para licitações públicas no Brasil. +200.000 licitações/mês monitoradas por IA. 67M+ CNPJs cruzados em tempo real.
+                O primeiro — e único — sistema operacional multi-agentes de IA para licitações da América Latina. +200.000 licitações/mês monitoradas por 9 agentes autônomos de IA. 67M+ CNPJs cruzados em tempo real.
               </p>
               <p className="text-xs text-[#555] leading-relaxed">
                 Todos os dados são extraídos de fontes oficiais públicas: PNCP, Compras.gov.br, Receita Federal e Portal da Transparência.
