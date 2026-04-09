@@ -367,11 +367,12 @@ async function checkPipelineFlow(): Promise<{ issues: string[]; fixes: string[] 
       fixes.push('Restarted worker-matching (no matches despite tenders)')
       clearFailure('no-matches-today')
     }
+    // ... flow checks above ...
   } else {
     clearFailure('no-matches-today')
   }
 
-  // Check if notifications are flowing
+  // Check if notifications are flowing and HEAL them
   const { count: pendingNotifs } = await supabase
     .from('matches')
     .select('*', { count: 'exact', head: true })
@@ -380,8 +381,8 @@ async function checkPipelineFlow(): Promise<{ issues: string[]; fixes: string[] 
     .in('match_source', ['ai', 'ai_triage', 'semantic'])
     .gte('score', 50)
 
-  // If pending > 5000 and growing, notification pipeline might be stuck
-  if (pendingNotifs && pendingNotifs > 5000) {
+  // If pending > 100, the notification pipeline might be stuck
+  if (pendingNotifs && pendingNotifs > 100) {
     const failCount = trackFailure('notifications-backlog')
     issues.push(`${pendingNotifs} pending notifications (backlog)`)
 
@@ -392,9 +393,103 @@ async function checkPipelineFlow(): Promise<{ issues: string[]; fixes: string[] 
       await restartWorker('worker-alerts')
       await restartWorker('worker-telegram')
       fixes.push('Restarted alerts + telegram workers (notification backlog)')
+      
+      // AUTO-HEALING: Push stuck notifications to the queue directly!
+      const { data: stuckMatches } = await supabase
+         .from('matches')
+         .select('id')
+         .eq('status', 'new')
+         .is('notified_at', null)
+         .in('match_source', ['ai', 'ai_triage', 'semantic'])
+         .gte('score', 50)
+         .limit(1000)
+         
+      if (stuckMatches && stuckMatches.length > 0) {
+         const q = new Queue('pending-notifications', { connection })
+         await q.addBulk(stuckMatches.map(m => ({
+            name: 'process-notification',
+            data: { matchId: m.id },
+            opts: { removeOnComplete: true }
+         })))
+         fixes.push(`Auto-Healed: Queued ${stuckMatches.length} stuck notifications`)
+      }
     }
   } else {
     clearFailure('notifications-backlog')
+  }
+
+  // AUTO-HEALING: Tenders stuck in "new" (Failed to extract)
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+  const { count: stuckTenders } = await supabase
+    .from('tenders')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'new')
+    .lte('created_at', oneHourAgo)
+
+  if (stuckTenders && stuckTenders > 10) {
+     issues.push(`${stuckTenders} tenders stuck in 'new'`)
+     const failCount = trackFailure('tenders-stuck')
+     
+     if (failCount >= 2) {
+       // Auto-Heal: Re-queue to extraction
+       const { data: stuckRows } = await supabase
+         .from('tenders')
+         .select('id, data_source, raw_content, source_url')
+         .eq('status', 'new')
+         .lte('created_at', oneHourAgo)
+         .limit(500)
+         
+       if (stuckRows && stuckRows.length > 0) {
+         const extractionQueue = new Queue('extraction', { connection })
+         await extractionQueue.addBulk(stuckRows.map(r => ({
+           name: 'extract-tender',
+           data: { 
+             tenderId: r.id, 
+             source: r.data_source, 
+             rawText: r.raw_content, 
+             url: r.source_url 
+           },
+           opts: { attempts: 3, backoff: { type: 'exponential', delay: 2000 } }
+         })))
+         fixes.push(`Auto-Healed: Re-queued ${stuckRows.length} stuck tenders to extraction`)
+       }
+       clearFailure('tenders-stuck')
+     }
+  } else {
+     clearFailure('tenders-stuck')
+  }
+
+  // AUTO-HEALING: Keyword-only matches missing AI Triage
+  const { count: keywordMatches } = await supabase
+    .from('matches')
+    .select('id', { count: 'exact', head: true })
+    .eq('match_source', 'keyword')
+
+  if (keywordMatches && keywordMatches > 1000) {
+     issues.push(`${keywordMatches} keyword-only matches bypassing AI`)
+     const failCount = trackFailure('keyword-only-matches')
+     
+     if (failCount >= 3) {
+       // Auto-Heal: Push to AI Triage queue
+       const { data: aiMatches } = await supabase
+         .from('matches')
+         .select('id')
+         .eq('match_source', 'keyword')
+         .limit(500)
+         
+       if (aiMatches && aiMatches.length > 0) {
+         const triageQueue = new Queue('ai-triage', { connection })
+         await triageQueue.addBulk(aiMatches.map(m => ({
+           name: 'triage-match',
+           data: { matchId: m.id },
+           opts: { removeOnComplete: true }
+         })))
+         fixes.push(`Auto-Healed: Queued ${aiMatches.length} keyword matches to AI Triage`)
+       }
+       clearFailure('keyword-only-matches')
+     }
+  } else {
+     clearFailure('keyword-only-matches')
   }
 
   return { issues, fixes }
