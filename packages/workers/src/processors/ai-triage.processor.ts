@@ -221,7 +221,7 @@ async function triageBatch(
   const today = new Date().toISOString().split('T')[0]
   const { data: matches } = await supabase
     .from('matches')
-    .select('id, company_id, tender_id, score, match_source, tenders!inner(id, objeto, valor_estimado, orgao_nome, data_encerramento, cnae_classificados)')
+    .select('id, company_id, tender_id, score, match_source, tenders!inner(id, objeto, valor_estimado, orgao_nome, uf, data_encerramento, cnae_classificados)')
     .in('id', matchIds)
     .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
 
@@ -243,6 +243,7 @@ async function triageBatch(
         objeto: ((t.objeto as string) || '').slice(0, 200),
         valorEstimado: t.valor_estimado as number | null,
         orgao: ((t.orgao_nome as string) || '').slice(0, 80),
+        uf: t.uf as string,
         originalScore: m.score as number,
         matchSource: m.match_source as string,
         tenderCnaes: (t.cnae_classificados as string[]) || [],
@@ -379,7 +380,8 @@ async function triageBatch(
           ? `R$ ${item.valorEstimado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
           : 'N/I'
         const orgao = item.orgao || 'N/I'
-        return `${i + 1}. ID: ${item.matchId} | Objeto: "${item.objeto}" | Valor: ${valor} | Orgao: ${orgao}`
+        const uf = item.uf || 'N/I'
+        return `${i + 1}. ID: ${item.matchId} | Objeto: "${item.objeto}" | Valor: ${valor} | Orgao: ${orgao} | Estado: ${uf}`
       })
       .join('\n')
 

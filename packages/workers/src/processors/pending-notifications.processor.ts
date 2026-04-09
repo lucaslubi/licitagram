@@ -134,16 +134,17 @@ const pendingNotificationsWorker = new Worker(
 
     const { data: companyRows } = await supabase
       .from('companies')
-      .select('id, min_score, min_valor, max_valor')
+      .select('id, min_score, min_valor, max_valor, target_ufs')
       .in('id', companyIdList)
 
-    const companySettingsMap = new Map<string, CompanySettings>()
+    const companySettingsMap = new Map<string, any>()
     for (const c of companyRows || []) {
       companySettingsMap.set(c.id, {
         companyId: c.id,
         minScore: c.min_score ?? 50,
         minValor: c.min_valor ?? null,
         maxValor: c.max_valor ?? null,
+        targetUfs: (c.target_ufs as string[]) || [],
       })
     }
 
@@ -210,7 +211,7 @@ const pendingNotificationsWorker = new Worker(
         // Fetch AI-verified matches (any score above company minScore)
         const { data: aiMatches } = await supabase
           .from('matches')
-          .select('id, score, match_source, created_at, tenders(data_encerramento, modalidade_id, valor_estimado)')
+          .select('id, score, match_source, created_at, tenders(data_encerramento, modalidade_id, valor_estimado, uf)')
           .eq('company_id', companyId)
           .eq('status', 'new')
           .gte('score', settings.minScore)
@@ -223,7 +224,7 @@ const pendingNotificationsWorker = new Worker(
         // Also fetch high-score keyword matches (>=70) not yet triaged
         const { data: keywordMatches } = await supabase
           .from('matches')
-          .select('id, score, match_source, created_at, tenders(data_encerramento, modalidade_id, valor_estimado)')
+          .select('id, score, match_source, created_at, tenders(data_encerramento, modalidade_id, valor_estimado, uf)')
           .eq('company_id', companyId)
           .eq('status', 'new')
           .gte('score', 70)
@@ -252,7 +253,9 @@ const pendingNotificationsWorker = new Worker(
             if (settings.minValor != null && valor < settings.minValor) return false
             if (settings.maxValor != null && valor > settings.maxValor) return false
           }
-          // If valor is null on tender, let it through (don't exclude missing price data)
+          // Geography filter: respect target_ufs
+          const tenderUf = m.tenders?.uf
+          if (settings.targetUfs.length > 0 && tenderUf && !settings.targetUfs.includes(tenderUf)) return false
 
           return true
         })

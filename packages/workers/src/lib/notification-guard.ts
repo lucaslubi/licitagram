@@ -22,8 +22,9 @@ const VERIFIED_SOURCES = new Set(['ai', 'ai_triage', 'semantic', 'keyword'])
 export interface GuardResult {
   allowed: boolean
   reason?: string
-  match?: Record<string, unknown>
-  tender?: Record<string, unknown>
+  match?: Record<string, any>
+  tender?: Record<string, any>
+  settings?: Record<string, any>
 }
 
 /**
@@ -45,6 +46,9 @@ export async function validateNotification(matchId: string): Promise<GuardResult
         data_abertura, data_encerramento,
         modalidade_nome, modalidade_id,
         numero_compra, ano_compra, pncp_id, status
+      ),
+      companies (
+        id, min_score, min_valor, max_valor, target_ufs
       )
     `)
     .eq('id', matchId)
@@ -54,10 +58,15 @@ export async function validateNotification(matchId: string): Promise<GuardResult
     return { allowed: false, reason: `match_not_found` }
   }
 
-  const tender = (match.tenders as unknown) as Record<string, unknown>
+  const tender = (match.tenders as unknown) as Record<string, any>
+  const settings = (match.companies as unknown) as Record<string, any>
 
   if (!tender) {
     return { allowed: false, reason: `tender_not_found` }
+  }
+  
+  if (!settings) {
+    return { allowed: false, reason: `company_settings_not_found` }
   }
 
   // 2. Block non-competitive modalities (inexigibilidade, credenciamento, inaplicabilidade)
@@ -101,6 +110,24 @@ export async function validateNotification(matchId: string): Promise<GuardResult
   const tenderStatus = tender.status as string | null
   if (tenderStatus && ['canceled', 'suspended', 'revoked'].includes(tenderStatus)) {
     return { allowed: false, reason: `tender_status_${tenderStatus}` }
+  }
+
+  // 7. Value Filter (The final gate)
+  const valor = tender.valor_estimado as number | null
+  if (valor !== null) {
+    if (settings.min_valor && valor < settings.min_valor) {
+      return { allowed: false, reason: `value_too_low_${valor}_min_${settings.min_valor}` }
+    }
+    if (settings.max_valor && valor > settings.max_valor) {
+      return { allowed: false, reason: `value_too_high_${valor}_max_${settings.max_valor}` }
+    }
+  }
+
+  // 8. Geography Filter (UF Interest)
+  const tenderUf = tender.uf as string | null
+  const targetUfs = (settings.target_ufs as string[]) || []
+  if (targetUfs.length > 0 && tenderUf && !targetUfs.includes(tenderUf)) {
+    return { allowed: false, reason: `uf_mismatch_${tenderUf}_allowed_${targetUfs.join(',')}` }
   }
 
   // 7. notified_at guard REMOVED — BullMQ jobId dedup (tg-${userId}-${matchId} / wa-${userId}-${matchId})
