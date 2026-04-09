@@ -31,10 +31,15 @@ async function backfillToday() {
 
   for (const tender of tenders) {
     try {
-      const cnpj = tender.orgao_cnpj.replace(/\D/g, '');
+      const cnpj = tender.orgao_cnpj?.replace(/\D/g, '');
       const ano = tender.ano_compra;
       const seq = tender.sequencial_compra;
       const pncpId = tender.pncp_id;
+
+      if (!cnpj || !ano || !seq) {
+        console.warn(`⚠️ Skipping tender ${tender.numero_compra || tender.id}: Missing CNPJ, Ano or Sequencial.`);
+        continue;
+      }
 
       // 1. Fetch and Save Items
       const items = await fetchContratacaoItens(cnpj, ano, seq);
