@@ -106,7 +106,7 @@ function sessionStatusToRoboStatus(status: string): 'ativo' | 'pausado' | 'stand
 
 // ─── COMPONENTS ──────────────────────────────────────────────────────────────
 
-const overline = 'text-[11px] uppercase tracking-[0.14em] text-muted-foreground font-medium'
+const overline = 'text-xs uppercase tracking-[0.1em] text-muted-foreground font-semibold'
 
 function StatusBadge({ status }: { status: string }) {
   const cfg: Record<string, { tone: string; label: string; pulse: boolean }> = {
@@ -124,7 +124,7 @@ function StatusBadge({ status }: { status: string }) {
           <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-current" />
         </span>
       )}
-      <span className="text-[11px] font-bold tracking-[0.14em]">{c.label}</span>
+      <span className="text-xs font-bold tracking-[0.1em]">{c.label}</span>
     </span>
   )
 }
@@ -139,7 +139,7 @@ function PosicaoIndicator({ pos, total }: { pos: number; total: number }) {
       <div className={`flex h-[72px] w-[72px] items-center justify-center rounded-full border-[3px] ${tone}`}>
         <span className="text-[32px] font-black font-mono tabular-nums">{pos}º</span>
       </div>
-      <span className="text-[11px] tracking-wider text-muted-foreground">DE <span className="font-mono tabular-nums">{total}</span> LICITANTES</span>
+      <span className="text-xs tracking-wide text-muted-foreground">DE <span className="font-mono tabular-nums">{total}</span> LICITANTES</span>
     </div>
   )
 }
@@ -597,7 +597,7 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
           {/* Session selector or title */}
           {activeSessions.length > 0 && !demoMode ? (
             <select
-              className="max-w-[280px] rounded-md border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-[11px] text-foreground font-mono outline-none focus:border-white/[0.12]"
+              className="max-w-[280px] rounded-md border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-sm text-foreground outline-none focus:border-white/[0.12]"
               value={selectedSessionId || ''}
               onChange={(e) => setSelectedSessionId(e.target.value || null)}
             >
@@ -610,7 +610,7 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
               ))}
             </select>
           ) : (
-            <span className="text-xs text-muted-foreground">
+            <span className="text-sm text-muted-foreground">
               {demoMode ? 'Modo Demo · Simulação' : 'Nenhuma sessão ativa'}
             </span>
           )}
@@ -647,7 +647,7 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
                 <div className="text-xl font-bold text-brand font-mono tabular-nums tracking-tight mt-2">
                   {estado.nosso_lance > 0 ? fmt(estado.nosso_lance) : '—'}
                 </div>
-                <div className="text-[11px] text-muted-foreground mt-1">
+                <div className="text-xs text-muted-foreground mt-1">
                   {estado.nosso_lance === 0 ? 'Aguardando lances' :
                    diferenca === 0 ? '= melhor lance' : `${fmt(Math.abs(diferenca))} ${diferenca > 0 ? 'acima' : 'abaixo'} do melhor`}
                 </div>
@@ -668,7 +668,7 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
                 <div className="text-xl font-bold text-blue-400 font-mono tabular-nums tracking-tight mt-2">
                   {estado.melhor_lance > 0 ? fmt(estado.melhor_lance) : '—'}
                 </div>
-                <div className="text-[11px] text-muted-foreground mt-1">Menor valor da disputa</div>
+                <div className="text-xs text-muted-foreground mt-1">Menor valor da disputa</div>
               </CardContent>
             </Card>
           </div>
@@ -687,11 +687,11 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
                 className={`h-1.5 ${progressPct > 75 ? '[&>div]:bg-red-400' : progressPct > 50 ? '[&>div]:bg-brand' : '[&>div]:bg-emerald-400'}`}
               />
               <div className="flex justify-between mt-1.5">
-                <span className="text-[11px] text-muted-foreground font-mono tabular-nums">0</span>
-                <span className={`text-[11px] font-mono tabular-nums ${progressPct > 75 ? 'text-red-400' : 'text-muted-foreground'}`}>
+                <span className="text-xs text-muted-foreground font-mono tabular-nums">0</span>
+                <span className={`text-xs font-mono tabular-nums ${progressPct > 75 ? 'text-red-400' : 'text-muted-foreground'}`}>
                   {progressPct > 75 ? '⚠ Próximo do limite' : `${estado.lances_max - estado.lances_executados} restantes`}
                 </span>
-                <span className="text-[11px] text-muted-foreground font-mono tabular-nums">{estado.lances_max}</span>
+                <span className="text-xs text-muted-foreground font-mono tabular-nums">{estado.lances_max}</span>
               </div>
             </CardContent>
           </Card>
@@ -711,10 +711,10 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
                     : 'bg-white/[0.04] border-white/[0.06] text-muted-foreground'
                   return (
                     <div key={fase} className={`flex-1 rounded-md border p-2 text-center ${toneFase}`}>
-                      <div className="text-[11px] font-bold tracking-wider">
+                      <div className="text-xs font-semibold tracking-wide">
                         {done ? '✓' : ativo ? '●' : '○'}
                       </div>
-                      <div className="text-[11px] mt-1">{fase}</div>
+                      <div className="text-xs mt-1">{fase}</div>
                     </div>
                   )
                 })}
@@ -763,7 +763,7 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
                   ENVIAR
                 </Button>
               </div>
-              <div className="text-[11px] text-muted-foreground mt-1.5">
+              <div className="text-xs text-muted-foreground mt-1.5">
                 Pressione Enter ou clique em Enviar para dar um lance manual
               </div>
             </CardContent>
@@ -777,7 +777,7 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs animate-pulse">🧠</span>
-                    <span className="text-[11px] text-violet-400 tracking-[0.14em] font-bold">INSIGHT IA</span>
+                    <span className="text-xs text-violet-400 tracking-[0.1em] font-bold">INSIGHT IA</span>
                   </div>
                   {aiInsights.length > 1 && (
                     <div className="flex gap-1">
@@ -802,7 +802,7 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
                       <div className="flex items-start gap-2">
                         <span className="text-sm flex-shrink-0 -mt-px">{ins.icone}</span>
                         <div className="flex-1 min-w-0">
-                          <div className={`text-[11px] font-bold mb-0.5 tracking-wide ${titleColor}`}>
+                          <div className={`text-xs font-semibold mb-0.5 tracking-wide ${titleColor}`}>
                             {ins.titulo}
                           </div>
                           <div className="text-xs text-muted-foreground leading-relaxed">
@@ -829,7 +829,7 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
           <div ref={feedRef} className="flex-1 overflow-auto py-2">
             {lances.length === 0 && !demoMode && (
               <div className="px-5 py-10 text-center">
-                <div className="text-[11px] text-muted-foreground mb-2">Nenhum lance registrado</div>
+                <div className="text-xs text-muted-foreground mb-2">Nenhum lance registrado</div>
                 <div className="text-xs text-foreground/40">
                   {selectedSessionId ? 'Aguardando lances do robô...' : 'Selecione uma sessão ou ative o modo Demo'}
                 </div>
@@ -862,7 +862,7 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
                       <span className={`text-sm font-bold font-mono tabular-nums ${valColor}`}>
                         {fmt(l.valor)}
                       </span>
-                      <span className="text-[11px] text-muted-foreground font-mono tabular-nums">{l.tempo}</span>
+                      <span className="text-xs text-muted-foreground font-mono tabular-nums">{l.tempo}</span>
                     </div>
                     <div className="flex gap-2 mt-0.5 items-center">
                       <span className={`text-[11px] font-bold tracking-wider ${subColor}`}>
@@ -870,7 +870,7 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
                          l.tipo === 'concorrente' ? l.empresa?.toUpperCase() : 'SISTEMA'}
                       </span>
                       {l.posicao_apos > 0 && (
-                        <span className={`text-[11px] font-mono tabular-nums ${l.posicao_apos === 1 ? 'text-emerald-400' : 'text-muted-foreground'}`}>
+                        <span className={`text-xs font-mono tabular-nums ${l.posicao_apos === 1 ? 'text-emerald-400' : 'text-muted-foreground'}`}>
                           → {l.posicao_apos}º lugar
                         </span>
                       )}
@@ -887,7 +887,7 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand opacity-60" />
                   <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-brand" />
                 </span>
-                <span className="text-[11px] text-muted-foreground">
+                <span className="text-xs text-muted-foreground">
                   {demoMode ? 'Simulação ativa...' : selectedSessionId ? 'Polling a cada 3s...' : 'Aguardando sessão...'}
                 </span>
               </div>
@@ -899,7 +899,7 @@ export default function PregaoLive({ sessionId: initialSessionId, sessions = [],
                 <div className={`text-xs font-bold tracking-[0.14em] mb-1.5 ${estado.nossa_posicao === 1 ? 'text-emerald-400' : 'text-red-400'}`}>
                   {estado.nossa_posicao === 1 ? 'PREGÃO VENCIDO' : 'PREGÃO ENCERRADO'}
                 </div>
-                <div className="text-[11px] text-muted-foreground">
+                <div className="text-xs text-muted-foreground">
                   {estado.nossa_posicao === 1
                     ? `Lance vencedor: ${fmt(estado.nosso_lance)}`
                     : `Posição final: ${estado.nossa_posicao}º lugar`

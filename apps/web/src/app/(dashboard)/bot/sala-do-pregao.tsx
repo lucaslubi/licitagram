@@ -245,7 +245,7 @@ function WinRateBadge({ rate }: { rate: number }) {
     <span style={{
       background: `${color}22`, color, border: `1px solid ${color}44`,
       borderRadius: 4, padding: '2px 8px', fontSize: 12, fontWeight: 700,
-      fontFamily: 'monospace', letterSpacing: 1,
+      fontFamily: '"IBM Plex Mono", monospace', letterSpacing: 0,
     }}>
       {pct}%
     </span>
@@ -323,17 +323,17 @@ function DifficultyGauge({ score, nivel }: { score: number; nivel: string }) {
           <circle cx={100} cy={110} r={3} fill="#0a0a0f" />
         </g>
         {/* Score text */}
-        <text x={100} y={98} textAnchor="middle" fill={color} fontSize={28} fontWeight={700} fontFamily="monospace">
+        <text x={100} y={98} textAnchor="middle" fill={color} fontSize={28} fontWeight={700} fontFamily="'IBM Plex Mono', monospace">
           {score}
         </text>
-        <text x={100} y={112} textAnchor="middle" fill="#ffffff44" fontSize={10} fontFamily="monospace">
+        <text x={100} y={112} textAnchor="middle" fill="#ffffff44" fontSize={11} fontFamily="'Inter', system-ui, sans-serif">
           /100
         </text>
       </svg>
       <div style={{
         background: `${color}22`, color, border: `1px solid ${color}55`,
-        borderRadius: 6, padding: '4px 18px', fontSize: 13, fontWeight: 800,
-        letterSpacing: 3, fontFamily: 'monospace',
+        borderRadius: 6, padding: '4px 18px', fontSize: 12, fontWeight: 700,
+        letterSpacing: 1.5, fontFamily: '"Inter", system-ui, sans-serif',
       }}>
         {levelLabel[nivel] || nivel.toUpperCase()}
       </div>
@@ -554,7 +554,7 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
       background: '#08090e',
       minHeight: '100vh',
       color: '#e2e8f0',
-      fontFamily: '"IBM Plex Mono", "Courier New", monospace',
+      fontFamily: '"Inter", "Segoe UI", system-ui, sans-serif',
       position: 'relative',
       overflow: 'hidden',
     },
@@ -580,7 +580,7 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
       letterSpacing: 2, animation: 'pulse 2s infinite',
     },
     tenderTitle: { fontSize: 13, color: '#94a3b8', maxWidth: 480, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-    clock: { fontSize: 20, fontWeight: 700, color: '#f1f5f9', letterSpacing: 3, fontFamily: '"IBM Plex Mono", monospace' },
+    clock: { fontSize: 20, fontWeight: 700, color: '#f1f5f9', letterSpacing: 2, fontFamily: '"IBM Plex Mono", monospace' },
     grid: {
       display: 'grid',
       gridTemplateColumns: '1fr 340px 360px',
@@ -600,8 +600,8 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       position: 'sticky', top: 0, background: '#0a0b12', zIndex: 10,
     },
-    panelTitle: { fontSize: 12, fontWeight: 700, letterSpacing: 3, color: '#cbd5e1', textTransform: 'uppercase' },
-    panelCount: { fontSize: 11, color: '#f97316', fontWeight: 700 },
+    panelTitle: { fontSize: 11, fontWeight: 700, letterSpacing: 2, color: '#cbd5e1', textTransform: 'uppercase' },
+    panelCount: { fontSize: 12, color: '#f97316', fontWeight: 700 },
     habilitadoRow: {
       padding: '14px 20px',
       borderBottom: '1px solid #ffffff06',
@@ -609,25 +609,25 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
       transition: 'background 0.15s',
     },
     habilitadoTop: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
-    habilitadoName: { fontSize: 12, fontWeight: 600, color: '#e2e8f0', marginBottom: 4, letterSpacing: 0.3 },
+    habilitadoName: { fontSize: 13, fontWeight: 600, color: '#e2e8f0', marginBottom: 4, letterSpacing: 0 },
     habilitadoMeta: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' as const },
-    metaChip: { fontSize: 12, color: '#64748b', fontFamily: 'monospace' },
+    metaChip: { fontSize: 12, color: '#64748b' },
     diffPanel: { padding: 20, display: 'flex', flexDirection: 'column' as const, gap: 20 },
     factorRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #ffffff06' },
-    factorLabel: { fontSize: 11, color: '#64748b' },
-    factorValue: { fontSize: 11, fontWeight: 700, fontFamily: 'monospace' },
+    factorLabel: { fontSize: 12, color: '#64748b' },
+    factorValue: { fontSize: 12, fontWeight: 700 },
     recommendation: {
       background: '#f9731608', border: '1px solid #f9731622',
       borderRadius: 8, padding: '12px 16px',
-      fontSize: 11, color: '#cbd5e1', lineHeight: 1.7,
+      fontSize: 12, color: '#cbd5e1', lineHeight: 1.7,
     },
     strategyPanel: { padding: 20, display: 'flex', flexDirection: 'column' as const, gap: 16 },
     inputGroup: { display: 'flex', flexDirection: 'column' as const, gap: 6 },
-    label: { fontSize: 12, color: '#cbd5e1', letterSpacing: 2, textTransform: 'uppercase' as const, fontWeight: 700 },
+    label: { fontSize: 11, color: '#cbd5e1', letterSpacing: 1.5, textTransform: 'uppercase' as const, fontWeight: 700 },
     input: {
       background: '#ffffff08', border: '1px solid #ffffff12',
       borderRadius: 6, padding: '10px 14px',
-      color: '#f1f5f9', fontSize: 13, fontFamily: '"IBM Plex Mono", monospace',
+      color: '#f1f5f9', fontSize: 14, fontFamily: '"IBM Plex Mono", monospace',
       outline: 'none', width: '100%', boxSizing: 'border-box' as const,
     },
     modeGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 },
@@ -636,12 +636,12 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
       border: `1px solid ${active ? color + '88' : '#ffffff12'}`,
       background: active ? color + '18' : 'transparent',
       color: active ? color : '#475569',
-      fontSize: 12, fontWeight: 700, letterSpacing: 1,
+      fontSize: 12, fontWeight: 700, letterSpacing: 0.5,
       textAlign: 'center', textTransform: 'uppercase',
       transition: 'all 0.15s',
     }),
     toggleRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderTop: '1px solid #ffffff0a' },
-    toggleLabel: { fontSize: 12, color: '#94a3b8' },
+    toggleLabel: { fontSize: 13, color: '#94a3b8' },
     toggle: (on: boolean): React.CSSProperties => ({
       width: 44, height: 24, borderRadius: 12, cursor: 'pointer',
       background: on ? '#f97316' : '#1e293b',
@@ -658,8 +658,8 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
       borderRadius: 8, padding: '14px 16px',
     },
     summaryRow: { display: 'flex', justifyContent: 'space-between', padding: '4px 0' },
-    summaryKey: { fontSize: 12, color: '#64748b', letterSpacing: 1 },
-    summaryVal: { fontSize: 12, fontWeight: 700, fontFamily: 'monospace' },
+    summaryKey: { fontSize: 12, color: '#64748b', letterSpacing: 0 },
+    summaryVal: { fontSize: 12, fontWeight: 700, fontFamily: '"IBM Plex Mono", monospace' },
     ctaBtn: {
       padding: '14px 20px', borderRadius: 8,
       background: confirmed ? '#22c55e' : strategy.robo_ativo ? 'linear-gradient(135deg, #f97316, #ef4444)' : '#1e40af',
@@ -668,11 +668,11 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
       textTransform: 'uppercase', width: '100%',
       transition: 'all 0.2s',
     },
-    histTable: { width: '100%', borderCollapse: 'collapse' as const, fontSize: 11 },
+    histTable: { width: '100%', borderCollapse: 'collapse' as const, fontSize: 12 },
     select: {
       background: '#ffffff08', border: '1px solid #ffffff12',
       borderRadius: 6, padding: '10px 14px',
-      color: '#f1f5f9', fontSize: 12, fontFamily: '"IBM Plex Mono", monospace',
+      color: '#f1f5f9', fontSize: 13, fontFamily: '"Inter", system-ui, sans-serif',
       outline: 'none', width: '100%', boxSizing: 'border-box' as const,
       cursor: 'pointer',
     },
@@ -683,12 +683,12 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
       <div style={{ ...s.root, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 24 }}>
         <div style={s.scanline} />
         <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-          <div style={{ fontSize: 12, color: '#f97316', letterSpacing: 4, fontFamily: 'monospace', animation: 'pulse 1s infinite' }}>
+          <div style={{ fontSize: 12, color: '#f97316', letterSpacing: 2, fontFamily: '"Inter", system-ui, sans-serif', animation: 'pulse 1s infinite' }}>
             ◈ INICIALIZANDO SALA DO PREGÃO
           </div>
           {['Carregando habilitados...', 'Analisando histórico dos concorrentes...', 'Calculando score de dificuldade...', 'Buscando licitações similares...'].map((msg, i) => (
             <div key={i} style={{
-              fontSize: 11, color: '#94a3b8', fontFamily: 'monospace', letterSpacing: 1,
+              fontSize: 12, color: '#94a3b8', fontFamily: '"Inter", system-ui, sans-serif', letterSpacing: 0,
               opacity: 0, animation: `fadeIn 0.5s ${i * 0.4}s forwards`,
             }}>
               {msg}
@@ -718,7 +718,7 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
         @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
         @keyframes spin { to{transform:rotate(360deg)} }
-        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 2px; }
@@ -729,7 +729,7 @@ export default function SalaDoRegao({ tenderId: initialTenderId, tenders = [], c
         <div style={s.headerLeft}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', animation: 'pulse 1.5s infinite' }} />
-            <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, color: '#f97316' }}>SALA DO PREGÃO</span>
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: '#f97316' }}>SALA DO PREGÃO</span>
           </div>
           <button
             onClick={() => setIsDemo(!isDemo)}
