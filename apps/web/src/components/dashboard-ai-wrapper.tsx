@@ -25,7 +25,8 @@ export function DashboardAiWrapper({
   hasTelegram,
   hasWhatsapp,
 }: DashboardAiWrapperProps) {
-  const [showWizard, setShowWizard] = useState(!onboardingCompleted)
+  // Suspended onboarding wizard temporarily as requested by the user
+  const [showWizard, setShowWizard] = useState(false)
   const [showTour, setShowTour] = useState(false)
 
   const handleWizardComplete = (startTour: boolean) => {
