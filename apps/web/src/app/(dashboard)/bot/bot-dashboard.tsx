@@ -137,8 +137,9 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
   const historySessions = sessions.filter(s => !['pending', 'active'].includes(s.status))
   const totalBids = sessions.reduce((sum, s) => sum + (s.bids_placed || 0), 0)
   const completedSessions = sessions.filter(s => s.status === 'completed')
-  const winRate = sessions.length > 0
-    ? Math.round((completedSessions.length / sessions.length) * 100)
+  const finishedSessions = sessions.filter(s => ['completed', 'failed'].includes(s.status))
+  const winRate = finishedSessions.length > 0
+    ? Math.round((completedSessions.length / finishedSessions.length) * 100)
     : 0
 
   /* ── Auto-refresh active sessions ──────────────────────────────────────── */

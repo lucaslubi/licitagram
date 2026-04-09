@@ -174,7 +174,7 @@ export async function PATCH(req: NextRequest) {
     const statusMap: Record<string, string> = {
       pause: 'paused',
       resume: 'pending',  // worker polls for 'pending' status
-      cancel: 'failed',
+      cancel: 'cancelled',
     }
 
     const updatePayload: Record<string, unknown> = { status: statusMap[action] }
