@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
 import { BasePortal } from './portals/base-portal'
 import { ComprasGovPortal } from './portals/comprasgov'
+import { MockPortal } from './portals/mock-portal'
 
 export class BotSessionRunner {
   private portal: BasePortal | null = null
@@ -19,11 +20,13 @@ export class BotSessionRunner {
 
       if (!session) throw new Error('Session not found')
       
-      const config = session.bot_configs
+      const config = session.bot_configs || { username: 'sim', portal: 'simulator' }
       
       // Instantiate right portal
       if (session.portal === 'comprasgov' || session.portal === 'comprasnet') {
         this.portal = new ComprasGovPortal({ username: config.username, portal: session.portal })
+      } else if (session.portal === 'simulator') {
+        this.portal = new MockPortal({ username: 'sim', portal: 'simulator' })
       } else {
         throw new Error(`Portal ${session.portal} not yet supported natively`)
       }
