@@ -13,7 +13,7 @@
 import { logger } from '../lib/logger'
 
 const WAHA_URL = process.env.WAHA_URL || process.env.EVOLUTION_API_URL || 'http://127.0.0.1:3000'
-const WAHA_KEY = process.env.WAHA_API_KEY || ''
+const WAHA_KEY = process.env.WAHA_API_KEY || process.env.EVOLUTION_API_KEY || ''
 const WAHA_SESSION = process.env.WAHA_SESSION || 'default'
 
 /** Cache de chatIds resolvidos para evitar lookup repetido */
