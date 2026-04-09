@@ -224,7 +224,7 @@ export default async function TenderDetailPage({
       <EditalChat
         tenderId={id}
         documentCount={docs?.length || 0}
-        documentUrls={(docs || []).filter((d: any) => d.url).map((d: any) => ({ id: d.id, titulo: d.titulo || null, tipo: d.tipo || null, url: d.url, text: d.texto_extraido || null }))}
+        documentUrls={(docs || []).filter((d: Record<string, unknown>) => d.url).map((d: Record<string, unknown>) => ({ id: d.id as string, titulo: (d.titulo as string) || null, tipo: (d.tipo as string) || null, url: d.url as string }))}
         hasAccess={hasChatIa}
       />
     </div>

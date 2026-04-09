@@ -23,7 +23,6 @@ interface DocumentInfo {
   titulo: string | null
   tipo: string | null
   url: string
-  text?: string | null
 }
 
 interface EditalChatProps {
@@ -346,13 +345,7 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
     for (const doc of pdfUrls) {
       const docName = doc.titulo || doc.tipo || 'Documento do Edital'
       try {
-        // PRIORITY: Use pre-extracted text if available from the server (FASTEST)
-        if (doc.text && doc.text.length >= 30) {
-          downloaded.push({ name: docName, chars: doc.text.length, pages: 0, text: doc.text })
-          continue
-        }
-
-        // FALLBACK: Download via proxy to bypass CORS
+        // Download via proxy to bypass CORS
         // Use our proxy to bypass CORS — government sites don't set CORS headers
         const proxyUrl = `/api/chat/proxy-pdf?url=${encodeURIComponent(doc.url)}`
         const response = await fetch(proxyUrl, {
@@ -389,7 +382,7 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
           console.warn(`[Chat Auto] No text extracted from ${docName}`)
         }
       } catch (err) {
-        console.warn(`[Chat Auto] Failed to download/extract ${docName}:`, err)
+        console.warn(`[Chat Auto] Failed to download ${docName}:`, err)
       }
     }
 
