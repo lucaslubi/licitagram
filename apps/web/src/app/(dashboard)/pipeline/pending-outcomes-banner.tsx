@@ -15,14 +15,21 @@ export function PendingOutcomesBanner({ pendingOutcomes }: { pendingOutcomes: Pe
   const [expanded, setExpanded] = useState(false)
   const [reported, setReported] = useState<Set<string>>(new Set())
   const [isPending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
 
   const visibleCount = pendingOutcomes.filter((o) => !reported.has(o.id)).length
   if (visibleCount === 0) return null
 
   function handleReport(matchId: string, outcome: 'won' | 'lost' | 'did_not_participate') {
+    setError(null)
     startTransition(async () => {
-      await reportOutcome(matchId, outcome)
-      setReported((prev) => new Set(prev).add(matchId))
+      const result = await reportOutcome(matchId, outcome)
+      if (result.success) {
+        setReported((prev) => new Set(prev).add(matchId))
+      } else {
+        setError(result.error || 'Erro ao reportar resultado')
+        console.error('[PendingOutcomes] Error:', result.error)
+      }
     })
   }
 
@@ -37,6 +44,12 @@ export function PendingOutcomesBanner({ pendingOutcomes }: { pendingOutcomes: Pe
         </span>
         <span className="text-amber-400/70 text-xs">{expanded ? 'Fechar' : 'Ver detalhes'}</span>
       </button>
+
+      {error && (
+        <div className="mt-2 text-xs text-red-400 bg-red-900/20 rounded-md px-3 py-2">
+          {error}
+        </div>
+      )}
 
       {expanded && (
         <div className="mt-3 space-y-2">
