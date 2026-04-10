@@ -56,7 +56,8 @@ async function loadWorkers(): Promise<Worker[]> {
     const { whatsappNotificationWorker } = await import('./processors/whatsapp-notification.processor')
     const { outcomeCheckWorker } = await import('./processors/outcome-check.processor')
     const { channelOnboardingWorker } = await import('./processors/channel-onboarding.processor')
-    workers.push(notificationWorker, pendingNotificationsWorker, hotAlertsWorker, whatsappNotificationWorker, outcomeCheckWorker, channelOnboardingWorker)
+    const { trialExpiryWorker: trialExpiryNotifWorker } = await import('./processors/trial-expiry.processor')
+    workers.push(notificationWorker, pendingNotificationsWorker, hotAlertsWorker, whatsappNotificationWorker, outcomeCheckWorker, channelOnboardingWorker, trialExpiryNotifWorker)
   }
 
   // Split notification groups for parallel mode
@@ -70,7 +71,8 @@ async function loadWorkers(): Promise<Worker[]> {
     const { aiHealingWorker } = await import('./processors/ai-healing.processor')
     const { weeklyActionsWorker } = await import('./processors/weekly-actions.processor')
     const { channelOnboardingWorker } = await import('./processors/channel-onboarding.processor')
-    workers.push(pendingNotificationsWorker, hotAlertsWorker, mapCacheWorker, pipelineHealthWorker, outcomeCheckWorker, dailyAuditWorker, aiHealingWorker, weeklyActionsWorker, channelOnboardingWorker)
+    const { trialExpiryWorker } = await import('./processors/trial-expiry.processor')
+    workers.push(pendingNotificationsWorker, hotAlertsWorker, mapCacheWorker, pipelineHealthWorker, outcomeCheckWorker, dailyAuditWorker, aiHealingWorker, weeklyActionsWorker, channelOnboardingWorker, trialExpiryWorker)
   }
 
   if (selectedGroups.includes('telegram')) {
@@ -144,6 +146,7 @@ import { dailyAuditQueue } from './queues/daily-audit.queue'
 import { certidoesQueue } from './queues/certidoes.queue'
 import { aiHealingQueue } from './queues/ai-healing.queue'
 import { weeklyActionsQueue } from './queues/weekly-actions.queue'
+import { trialExpiryQueue } from './queues/trial-expiry.queue'
 
 async function setupRepeatableJobs() {
   const today = formatDatePNCP(new Date())
@@ -436,6 +439,17 @@ async function setupRepeatableJobs() {
   )
   logger.info('Certidoes poller scheduled (every 15s)')
 
+  // Schedule trial expiry sweep daily at 2 AM BRT (05:00 UTC)
+  await trialExpiryQueue.add(
+    'trial-expiry-sweep',
+    {},
+    {
+      repeat: { pattern: '0 5 * * *' },
+      jobId: 'trial-expiry-daily-2am-brt',
+    },
+  )
+  logger.info('Trial expiry sweep scheduled (daily 2 AM BRT / 05:00 UTC)')
+
   // Trigger immediate map cache refresh on startup
   mapCacheQueue.add('refresh-map-startup', {}).catch((err) => {
     logger.error({ err }, 'Failed to enqueue startup map cache refresh')
@@ -577,6 +591,17 @@ async function setupAlertRepeatableJobs() {
     },
   )
   logger.info('[alerts] New matches digest scheduled (every 3h)')
+
+  // Trial expiry sweep daily at 2 AM BRT (05:00 UTC)
+  await trialExpiryQueue.add(
+    'trial-expiry-sweep',
+    {},
+    {
+      repeat: { pattern: '0 5 * * *' },
+      jobId: 'trial-expiry-daily-2am-brt',
+    },
+  )
+  logger.info('[alerts] Trial expiry sweep scheduled (daily 2 AM BRT)')
 }
 
 /**

@@ -464,7 +464,7 @@ export async function saveCompany(payload: CompanyPayload, existingId?: string) 
           plan_id: null,
           status: 'trialing',
           started_at: new Date().toISOString(),
-          expires_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
           matches_used_this_month: 0,
         })
 

@@ -213,6 +213,107 @@ export async function POST(request: NextRequest) {
       }
       break
     }
+
+    case 'customer.subscription.updated': {
+      const updatedSub = event.data.object as Stripe.Subscription
+      const newStatus = updatedSub.status // 'active', 'trialing', 'past_due', 'canceled', etc.
+
+      // Map Stripe status to our DB status
+      const statusMap: Record<string, string> = {
+        active: 'active',
+        trialing: 'trialing',
+        past_due: 'past_due',
+        canceled: 'canceled',
+        unpaid: 'past_due',
+        incomplete: 'past_due',
+        incomplete_expired: 'canceled',
+      }
+
+      const dbStatus = statusMap[newStatus] || newStatus
+
+      const updateData: Record<string, unknown> = {
+        status: dbStatus,
+      }
+
+      // Sync billing period dates from Stripe
+      const subRaw = updatedSub as any
+      if (subRaw.current_period_start) {
+        updateData.current_period_start = new Date(subRaw.current_period_start * 1000).toISOString()
+      }
+      if (subRaw.current_period_end) {
+        updateData.current_period_end = new Date(subRaw.current_period_end * 1000).toISOString()
+      }
+
+      // If transitioning from trial to active, clear expires_at and update started_at
+      const previousStatus = (event.data.previous_attributes as any)?.status
+      if (previousStatus === 'trialing' && newStatus === 'active') {
+        updateData.expires_at = null
+        console.log(`[stripe-webhook] Trial → Active for subscription ${updatedSub.id}`)
+      }
+
+      const { error: updateErr } = await supabase
+        .from('subscriptions')
+        .update(updateData)
+        .eq('stripe_subscription_id', updatedSub.id)
+
+      if (updateErr) {
+        console.error('[stripe-webhook] Error updating subscription:', updateErr)
+        return NextResponse.json({ error: 'DB error' }, { status: 500 })
+      }
+
+      // Invalidate plan context cache
+      try {
+        const { data: subRow } = await supabase
+          .from('subscriptions')
+          .select('company_id')
+          .eq('stripe_subscription_id', updatedSub.id)
+          .single()
+        if (subRow?.company_id) {
+          const { invalidateKey } = await import('@/lib/redis')
+          await invalidateKey(`cache:sub:${subRow.company_id}`)
+        }
+      } catch {
+        // Cache invalidation failed — cookie TTL will handle it
+      }
+
+      console.log(`[stripe-webhook] Subscription ${updatedSub.id} updated: ${previousStatus || '?'} → ${newStatus}`)
+      break
+    }
+
+    case 'customer.subscription.trial_will_end': {
+      // Stripe fires this 3 days before trial ends
+      const trialSub = event.data.object as Stripe.Subscription
+      const trialEndDate = trialSub.trial_end
+        ? new Date(trialSub.trial_end * 1000).toLocaleDateString('pt-BR')
+        : 'em breve'
+
+      console.log(`[stripe-webhook] Trial ending soon for subscription ${trialSub.id} — ends ${trialEndDate}`)
+
+      // Find the user to potentially send them a notification
+      const { data: subRow } = await supabase
+        .from('subscriptions')
+        .select('company_id')
+        .eq('stripe_subscription_id', trialSub.id)
+        .single()
+
+      if (subRow?.company_id) {
+        // Find users linked to this company
+        const { data: users } = await supabase
+          .from('users')
+          .select('id, email, telegram_chat_id, whatsapp_number, whatsapp_verified')
+          .eq('company_id', subRow.company_id)
+
+        if (users && users.length > 0) {
+          for (const user of users) {
+            // Send Telegram notification if available
+            if (user.telegram_chat_id) {
+              console.log(`[stripe-webhook] Trial ending for user ${user.id} (TG: ${user.telegram_chat_id}) — ${trialEndDate}`)
+            }
+          }
+        }
+      }
+      break
+    }
   }
 
   return NextResponse.json({ received: true })

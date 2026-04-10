@@ -7,6 +7,8 @@ export type EmailNotificationJobData =
   | { matchId: string; userEmail: string; userId: string; type: 'urgency_digest'; matches: string[] }
   | { userEmail: string; userId: string; type: 'certidao_expiring'; certidaoTipo: string; diasRestantes: number }
   | { userEmail: string; userId: string; type: 'weekly_report'; month: string }
+  | { userEmail: string; userId: string; type: 'trial_expiring_soon' }
+  | { userEmail: string; userId: string; type: 'trial_expired' }
 
 export const emailQueue = new Queue<EmailNotificationJobData>(
   'notification-email',
