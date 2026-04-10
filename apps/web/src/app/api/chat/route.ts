@@ -290,21 +290,22 @@ export async function POST(request: NextRequest) {
   const docsNeedingExtraction = docs.filter((doc) => !doc.texto_extraido && doc.url && isSafeUrl(doc.url))
 
   if (docsNeedingExtraction.length > 0) {
-    console.log(`[Chat PDF] Extracting ${docsNeedingExtraction.length} documents via VPS proxy`)
-
     // Use VPS proxy for PDF extraction (no timeout issues, direct access to PNCP)
-    const VPS_URL = process.env.VPS_MONITORING_URL || 'http://85.31.60.53:3998'
+    const VPS_URL = (process.env.VPS_MONITORING_URL || 'http://85.31.60.53:3998').replace(/\/+$/, '')
     const VPS_TOKEN = process.env.VPS_MONITORING_TOKEN || ''
+
+    console.log(`[Chat PDF] Extracting ${docsNeedingExtraction.length} documents via VPS: ${VPS_URL}`)
 
     await Promise.allSettled(
       docsNeedingExtraction.map(async (doc) => {
         try {
           // Try VPS proxy first (45s timeout, no Vercel limits)
-          const vpsRes = await fetch(`${VPS_URL}/extract-pdf`, {
+          const vpsEndpoint = `${VPS_URL}/extract-pdf`
+          const vpsRes = await fetch(vpsEndpoint, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              Authorization: `Bearer ${VPS_TOKEN}`,
+              ...(VPS_TOKEN ? { Authorization: `Bearer ${VPS_TOKEN}` } : {}),
             },
             body: JSON.stringify({ pdfUrl: doc.url, docId: doc.id }),
             signal: AbortSignal.timeout(50_000),
@@ -318,20 +319,26 @@ export async function POST(request: NextRequest) {
               console.log(`[Chat PDF] VPS extracted ${result.chars} chars for ${doc.id}`)
               return
             }
+            console.warn(`[Chat PDF] VPS returned ok but empty text for ${doc.id}`)
+          } else {
+            const errBody = await vpsRes.text().catch(() => '(no body)')
+            console.warn(`[Chat PDF] VPS failed ${vpsRes.status} for ${doc.id}: ${errBody.slice(0, 200)}`)
           }
 
           // Fallback: try direct extraction from Vercel
+          console.log(`[Chat PDF] Trying direct extraction for ${doc.id}`)
           const { text, error } = await extractPdfText(doc.url)
           if (text) {
             doc.texto_extraido = text
             doc.status = 'done'
+            console.log(`[Chat PDF] Direct extracted ${text.length} chars for ${doc.id}`)
             const serviceSupabase = getServiceSupabase()
             serviceSupabase.from('tender_documents').update({ texto_extraido: text, status: 'done' }).eq('id', doc.id).then(() => {})
           } else {
-            console.warn(`[Chat PDF] Failed: ${doc.id} — ${error}`)
+            console.warn(`[Chat PDF] All extraction failed for ${doc.id}: ${error}`)
           }
         } catch (err) {
-          console.warn(`[Chat PDF] Error extracting ${doc.id}:`, err)
+          console.error(`[Chat PDF] Error extracting ${doc.id}:`, err instanceof Error ? err.message : err)
         }
       }),
     )
@@ -349,6 +356,8 @@ export async function POST(request: NextRequest) {
       docsFailed++
     }
   }
+
+  console.log(`[Chat PDF] Summary: ${docs.length} total, ${docsLoaded} extracted, ${docsFailed} failed, ${docsNeedingExtraction.length} attempted on-demand`)
 
   if (docsText) {
     context += `## Texto Extraído dos Documentos (${docsLoaded} documento${docsLoaded > 1 ? 's' : ''} — texto COMPLETO sem truncamento)\n${docsText}\n`
