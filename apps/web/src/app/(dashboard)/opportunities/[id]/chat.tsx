@@ -156,8 +156,9 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
   const processFile = useCallback(
     async (file: File) => {
       if (uploadingFile) return
-      if (!file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') {
-        setError('Apenas arquivos PDF são aceitos.')
+      const isPdf = file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf'
+      if (!isPdf) {
+        setError(`Apenas arquivos PDF são aceitos. Você enviou: ${file.name} (${file.type || 'tipo desconhecido'})`)
         return
       }
       if (file.size > 100 * 1024 * 1024) {
@@ -221,11 +222,10 @@ export function EditalChat({ tenderId, documentCount = 0, documentUrls = [], has
       setDragOver(false)
 
       const files = Array.from(e.dataTransfer.files)
-      // Process all PDFs dropped
+      if (files.length === 0) return
+      // Process all files — let processFile validate individually
       for (const file of files) {
-        if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
-          processFile(file)
-        }
+        processFile(file)
       }
     },
     [processFile],
