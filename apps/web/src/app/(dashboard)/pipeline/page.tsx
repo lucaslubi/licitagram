@@ -4,7 +4,6 @@ import { KanbanBoard } from './kanban-board'
 import { PendingOutcomesBanner } from './pending-outcomes-banner'
 import { formatCompactBRL } from '@/lib/geo/map-utils'
 
-const COLUMN_KEYS = ['new', 'interested', 'applied', 'won', 'lost']
 
 export default async function PipelinePage() {
   const supabase = await createClient()
@@ -23,17 +22,33 @@ export default async function PipelinePage() {
 
   const today = new Date().toISOString().split('T')[0]
 
-  const [matchesResult, pendingOutcomesResult] = await Promise.all([
+  const ACTIVE_KEYS = ['new', 'interested', 'applied']
+  const DECIDED_KEYS = ['won', 'lost']
+
+  const [matchesResult, decidedMatchesResult, pendingOutcomesResult] = await Promise.all([
+    // Active matches: only show non-closed tenders
     supabase
       .from('matches')
       .select(
         'id, score, status, is_hot, competition_score, tenders!inner(objeto, orgao_nome, uf, valor_estimado, data_abertura, data_encerramento, modalidade_id)',
       )
       .eq('company_id', profile.company_id)
-      .in('status', COLUMN_KEYS)
+      .in('status', ACTIVE_KEYS)
       .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
       .order('score', { ascending: false }),
+
+    // Won/lost matches: no date filter — these are always past closing date
+    supabase
+      .from('matches')
+      .select(
+        'id, score, status, is_hot, competition_score, tenders!inner(objeto, orgao_nome, uf, valor_estimado, data_abertura, data_encerramento, modalidade_id)',
+      )
+      .eq('company_id', profile.company_id)
+      .in('status', DECIDED_KEYS)
+      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
+      .order('score', { ascending: false })
+      .limit(100),
 
     supabase
       .from('matches')
@@ -48,7 +63,8 @@ export default async function PipelinePage() {
       .limit(5),
   ])
 
-  const matches = matchesResult.data
+  // Merge active + decided matches
+  const matches = [...(matchesResult.data || []), ...(decidedMatchesResult.data || [])]
 
   // Pending outcomes
   const pendingCandidates = pendingOutcomesResult.data || []
