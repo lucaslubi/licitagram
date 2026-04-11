@@ -37,7 +37,28 @@ export async function signUp(formData: FormData, redirectTo?: string) {
   })
 
   if (error) {
+    // Supabase returns "User already registered" for duplicate emails
+    const isDuplicate =
+      error.message.toLowerCase().includes('user already registered') ||
+      error.message.toLowerCase().includes('already registered') ||
+      error.message.toLowerCase().includes('already in use')
+    if (isDuplicate) {
+      return {
+        error:
+          'Este email já está associado a uma conta. Cada email só pode ser usado em uma conta. Se você já tem acesso ao Licitagram, faça login normalmente.',
+      }
+    }
     return { error: error.message }
+  }
+
+  // Supabase silently returns a user with empty identities when email confirmations
+  // are enabled and the email is already registered (avoids leaking user existence).
+  // Detect this case and block the duplicate signup gracefully.
+  if (data.user && data.user.identities?.length === 0) {
+    return {
+      error:
+        'Este email já está associado a uma conta. Cada email só pode ser usado em uma conta. Se você já tem acesso ao Licitagram, faça login normalmente.',
+    }
   }
 
   // If email confirmation is required, Supabase returns a user with identities
