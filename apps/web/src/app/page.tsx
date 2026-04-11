@@ -181,13 +181,13 @@ export default async function LandingPage() {
           <div className="max-w-3xl mx-auto text-center">
             <div>
               <ScrollReveal>
-                <p className="text-lg sm:text-xl uppercase tracking-[0.3em] mb-6 font-bold bg-gradient-to-r from-white via-[#F43E01] to-[#FF6B3D] bg-clip-text text-transparent">
+                <p className="font-mono text-xs uppercase text-[#F43E01] tracking-[0.2em] mb-6">
                   LICITAGRAM
                 </p>
               </ScrollReveal>
               <ScrollReveal delay={100}>
                 <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white tracking-tight leading-[1.08] mb-6">
-                  O Primeiro Sistema Operacional de Intelig&ecirc;ncia Aut&ocirc;noma Multi-Agente de IA e Dados para Licita&ccedil;&otilde;es da{' '}
+                  O Primeiro Sistema Operacional de Intelig&ecirc;ncia Aut&ocirc;noma Multi-Agente de IA para Licita&ccedil;&otilde;es da{' '}
                   <span className="bg-gradient-to-r from-white via-[#F43E01] to-[#FF6B3D] bg-clip-text text-transparent">
                     Am&eacute;rica Latina.
                   </span>
