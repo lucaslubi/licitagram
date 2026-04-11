@@ -4,10 +4,12 @@ export const maxDuration = 30
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
-  process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || '',
-)
+function getServiceClient() {
+  return createClient(
+    process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+  )
+}
 
 // ─── VPS Health via SSH-less approach: store metrics in Redis, read here ─────
 // For now we query what we can from Supabase and Redis directly
@@ -21,6 +23,7 @@ export async function GET() {
   }
 
   try {
+    const supabase = getServiceClient()
     const now = new Date()
     const today = now.toISOString().split('T')[0]
     const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000).toISOString()

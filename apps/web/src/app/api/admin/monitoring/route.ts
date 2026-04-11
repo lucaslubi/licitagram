@@ -5,10 +5,12 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getUserWithPlan } from '@/lib/auth-helpers'
 
-const supabase = createClient(
-  process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || '',
-)
+function getServiceClient() {
+  return createClient(
+    process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+  )
+}
 
 const VPS_MONITORING_URL = process.env.VPS_MONITORING_URL || 'http://85.31.60.53:3998'
 const MONITORING_AUTH_TOKEN = process.env.MONITORING_AUTH_TOKEN || ''
@@ -176,6 +178,7 @@ async function fetchVpsData(): Promise<VpsResponse | null> {
 // ─── Database stats ─────────────────────────────────────────────────────────
 
 async function fetchDatabaseStats() {
+  const supabase = getServiceClient()
   const [
     { count: tenders },
     { count: companies },

@@ -5,10 +5,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getUserWithPlan } from '@/lib/auth-helpers'
 
-const supabase = createClient(
-  process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || '',
-)
+function getServiceClient() {
+  return createClient(
+    process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+  )
+}
 
 /**
  * GET /api/admin/monitoring/history
@@ -37,6 +39,7 @@ export async function GET(req: NextRequest) {
 
     const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString()
 
+    const supabase = getServiceClient()
     let query = supabase
       .from('system_metrics')
       .select('id, metric_type, metric_name, metric_value, recorded_at')
