@@ -132,6 +132,27 @@ export async function POST(request: NextRequest) {
         }
 
         if (profile?.company_id) {
+          // Fetch the actual Stripe subscription to get the correct status
+          // (may be 'trialing' if checkout included a trial period)
+          let subStatus = 'active'
+          let periodStart = new Date()
+          let periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+          let expiresAt: string | null = null
+
+          if (session.subscription) {
+            try {
+              const stripeSub = await stripe.subscriptions.retrieve(session.subscription as string)
+              subStatus = stripeSub.status === 'trialing' ? 'trialing' : 'active'
+              periodStart = new Date(stripeSub.current_period_start * 1000)
+              periodEnd = new Date(stripeSub.current_period_end * 1000)
+              if (stripeSub.trial_end) {
+                expiresAt = new Date(stripeSub.trial_end * 1000).toISOString()
+              }
+            } catch (e) {
+              console.error('[stripe-webhook] Failed to fetch subscription details:', e)
+            }
+          }
+
           const { error: subErr } = await supabase.from('subscriptions').upsert(
             {
               company_id: profile.company_id,
@@ -139,9 +160,10 @@ export async function POST(request: NextRequest) {
               stripe_customer_id: session.customer as string,
               plan_id: planId,
               plan: planSlug || null,  // backward compat
-              status: 'active',
-              current_period_start: new Date().toISOString(),
-              current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+              status: subStatus,
+              current_period_start: periodStart.toISOString(),
+              current_period_end: periodEnd.toISOString(),
+              ...(expiresAt ? { expires_at: expiresAt } : {}),
             },
             { onConflict: 'company_id' },
           )

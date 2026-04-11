@@ -18,6 +18,10 @@ const FEATURE_GATED_ROUTES: Record<string, PlanFeatureKey> = {
 /**
  * Routes that require an active subscription.
  * Users without active sub are redirected to /billing?expired=1.
+ *
+ * /company is excluded so users can complete their company profile
+ * during or after trial expiry. The paywall overlay in the dashboard
+ * layout still shows on these pages.
  */
 const SUBSCRIPTION_REQUIRED_ROUTES = [
   '/map',
@@ -26,6 +30,7 @@ const SUBSCRIPTION_REQUIRED_ROUTES = [
   '/pipeline',
   '/competitors',
   '/documents',
+  '/settings',
 ]
 
 /** Public routes (no auth needed) */

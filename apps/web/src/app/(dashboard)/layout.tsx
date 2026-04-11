@@ -10,6 +10,7 @@ import { MatchingProgressBanner } from '@/components/matching-progress-banner'
 import { ProfileHealthBanner } from '@/components/profile-health-banner'
 import { TrialBanner } from '@/components/trial-banner'
 import { TrialExpiredOverlay } from '@/components/trial-expired-overlay'
+import { getActivePlans } from '@/lib/plans'
 import { navigationGroups, accountItems } from '@/config/navigation'
 import type { PlanFeatureKey } from '@licitagram/shared'
 
@@ -91,8 +92,15 @@ export default async function DashboardLayout({
         })
     : Promise.resolve({ status: null as string | null, matchCount: 0 })
 
-  const [hasWhatsapp, userCompanies, { status: matchingStatus, matchCount: initialMatchCount }] =
-    await Promise.all([whatsappPromise, companiesPromise, matchingPromise])
+  // Fetch plans for expired overlay so it can call Stripe checkout directly
+  const plansPromise = showExpiredOverlay
+    ? getActivePlans().then((plans) =>
+        plans.map((p) => ({ id: p.id, slug: p.slug, name: p.name, price_cents: p.price_cents }))
+      )
+    : Promise.resolve([])
+
+  const [hasWhatsapp, userCompanies, { status: matchingStatus, matchCount: initialMatchCount }, overlayPlans] =
+    await Promise.all([whatsappPromise, companiesPromise, matchingPromise, plansPromise])
 
   // ── Multi-company support ──────────────────────────────────────────────
   const multiCnpjEnabled = hasFeature(user, 'multi_cnpj')
@@ -131,7 +139,7 @@ export default async function DashboardLayout({
             )}
             <ProfileHealthBanner />
             {showExpiredOverlay ? (
-              <TrialExpiredOverlay />
+              <TrialExpiredOverlay plans={overlayPlans} />
             ) : (
               <DashboardAiWrapper
                 onboardingCompleted={user.onboardingCompleted}
