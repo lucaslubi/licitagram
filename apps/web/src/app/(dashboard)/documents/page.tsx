@@ -6,6 +6,7 @@ import { AddDocumentForm } from './add-document-form'
 import { DocumentRow } from './document-actions'
 import { ConsultaCertidoes } from './consulta-certidoes'
 import { UploadCertidao } from './upload-certidao'
+import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
 
 const DOCUMENT_TYPES: Record<string, string> = {
   cnd_federal: 'CND Federal (Receita/PGFN)',
@@ -25,9 +26,14 @@ const DOCUMENT_TYPES: Record<string, string> = {
 }
 
 export default async function DocumentsPage() {
+  const planUser = await getUserWithPlan()
+  if (!planUser) redirect('/login')
+  if (!hasFeature(planUser, 'compliance_checker')) {
+    redirect('/billing?upgrade=true')
+  }
+
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const user = { id: planUser.userId }
 
   const { data: profile } = await supabase
     .from('users')

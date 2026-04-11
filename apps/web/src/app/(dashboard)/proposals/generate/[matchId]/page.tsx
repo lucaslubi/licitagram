@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { ProposalWizard } from '@/components/proposals/ProposalWizard'
+import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
 
 interface MatchData {
   id: string
@@ -17,9 +18,14 @@ export default async function GenerateProposalPage({
 }) {
   const { matchId } = await params
   const { proposalId } = await searchParams
+  const planUser = await getUserWithPlan()
+  if (!planUser) redirect('/login')
+  if (!hasFeature(planUser, 'proposal_generator')) {
+    redirect('/billing?upgrade=true')
+  }
+
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const user = { id: planUser.userId }
 
   const { data: profile } = await supabase
     .from('users')

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getUserWithPlan, hasActiveSubscription } from '@/lib/auth-helpers'
 
 /**
  * GET /api/bot/actions?sessionId=xxx
@@ -8,11 +9,16 @@ import { createClient } from '@/lib/supabase/server'
  */
 export async function GET(req: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
+    const planUser = await getUserWithPlan()
+    if (!planUser) {
       return NextResponse.json({ error: 'Nao autenticado' }, { status: 401 })
     }
+    if (!hasActiveSubscription(planUser)) {
+      return NextResponse.json({ error: 'Subscription required' }, { status: 403 })
+    }
+
+    const supabase = await createClient()
+    const user = { id: planUser.userId }
 
     const sessionId = req.nextUrl.searchParams.get('sessionId')
     if (!sessionId) {

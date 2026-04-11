@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getUserWithPlan, hasActiveSubscription } from '@/lib/auth-helpers'
 
 export const maxDuration = 120
 
@@ -13,11 +14,16 @@ const VPS_LOGIN_URL = process.env.VPS_LOGIN_URL || 'http://85.31.60.53:3999'
  */
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
+    const planUser = await getUserWithPlan()
+    if (!planUser) {
       return NextResponse.json({ error: 'Nao autenticado' }, { status: 401 })
     }
+    if (!hasActiveSubscription(planUser)) {
+      return NextResponse.json({ error: 'Subscription required' }, { status: 403 })
+    }
+
+    const supabase = await createClient()
+    const user = { id: planUser.userId }
 
     const { data: profile } = await supabase
       .from('users')

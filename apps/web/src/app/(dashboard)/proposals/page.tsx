@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   draft: { label: 'Rascunho', className: 'bg-gray-500/10 text-gray-400 border-gray-700' },
@@ -24,9 +25,14 @@ export default async function ProposalsPage({
   searchParams: Promise<{ status?: string }>
 }) {
   const { status: filterStatus } = await searchParams
+  const planUser = await getUserWithPlan()
+  if (!planUser) redirect('/login')
+  if (!hasFeature(planUser, 'proposal_generator')) {
+    redirect('/billing?upgrade=true')
+  }
+
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const user = { id: planUser.userId }
 
   const { data: profile } = await supabase
     .from('users')

@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
+import { getUserWithPlan, hasFeature, hasActiveSubscription } from '@/lib/auth-helpers'
 import { createClient } from '@/lib/supabase/server'
 import { DashboardSidebar } from '@/components/dashboard-sidebar'
 import { DashboardAiWrapper } from '@/components/dashboard-ai-wrapper'
@@ -8,6 +8,8 @@ import { CompanySwitcher } from './company-switcher'
 import { getUserCompanies } from '@/actions/multi-company'
 import { MatchingProgressBanner } from '@/components/matching-progress-banner'
 import { ProfileHealthBanner } from '@/components/profile-health-banner'
+import { TrialBanner } from '@/components/trial-banner'
+import { TrialExpiredOverlay } from '@/components/trial-expired-overlay'
 import { navigationGroups, accountItems } from '@/config/navigation'
 import type { PlanFeatureKey } from '@licitagram/shared'
 
@@ -28,6 +30,26 @@ export default async function DashboardLayout({
     .map((item) => item.requiredFeature!)
 
   const enabledFeatures = allFeatures.filter((f) => hasFeature(user, f))
+
+  // ── Trial / Subscription status ─────────────────────────────────────────
+  const isActive = hasActiveSubscription(user)
+  const isTrialing = user.subscription?.status === 'trialing'
+
+  // Calculate trial days left
+  let trialDaysLeft = 0
+  if (isTrialing && user.subscription?.current_period_end) {
+    const end = new Date(user.subscription.current_period_end).getTime()
+    const now = Date.now()
+    trialDaysLeft = Math.max(0, Math.ceil((end - now) / 86_400_000))
+  }
+
+  // Show expired overlay for users without active subscription (non-admin).
+  // The middleware already redirects most routes to /billing, but this catches
+  // any routes that slip through and provides a graceful overlay UX.
+  const showExpiredOverlay = !isActive && !user.isPlatformAdmin
+
+  // Show trial banner if trialing with 3 or fewer days left
+  const showTrialBanner = isTrialing && trialDaysLeft <= 3 && !showExpiredOverlay
 
   const planName = user.plan?.name || null
   const userName = user.fullName || ''
@@ -100,6 +122,7 @@ export default async function DashboardLayout({
         {/* Main content — add top padding on mobile for the fixed top bar */}
         <main className="flex-1 overflow-y-auto min-h-0 bg-background">
           <div className="pt-14 md:pt-0 min-h-full">
+            {showTrialBanner && <TrialBanner daysLeft={trialDaysLeft} />}
             {matchingStatus && matchingStatus !== 'ready' && (
               <MatchingProgressBanner
                 initialStatus={matchingStatus}
@@ -107,16 +130,20 @@ export default async function DashboardLayout({
               />
             )}
             <ProfileHealthBanner />
-            <DashboardAiWrapper
-              onboardingCompleted={user.onboardingCompleted}
-              userUfs={user.ufsInteresse}
-              userKeywords={user.palavrasChaveFiltro}
-              userEmail={userEmail}
-              hasTelegram={!!user.telegramChatId}
-              hasWhatsapp={hasWhatsapp}
-            >
-              <div className="p-4 md:p-8">{children}</div>
-            </DashboardAiWrapper>
+            {showExpiredOverlay ? (
+              <TrialExpiredOverlay />
+            ) : (
+              <DashboardAiWrapper
+                onboardingCompleted={user.onboardingCompleted}
+                userUfs={user.ufsInteresse}
+                userKeywords={user.palavrasChaveFiltro}
+                userEmail={userEmail}
+                hasTelegram={!!user.telegramChatId}
+                hasWhatsapp={hasWhatsapp}
+              >
+                <div className="p-4 md:p-8">{children}</div>
+              </DashboardAiWrapper>
+            )}
           </div>
         </main>
       </div>

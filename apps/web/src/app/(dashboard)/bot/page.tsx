@@ -1,11 +1,17 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { BotWarRoom } from './bot-war-room'
+import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
 
 export default async function BotPage() {
+  const planUser = await getUserWithPlan()
+  if (!planUser) redirect('/login')
+  if (!hasFeature(planUser, 'bidding_bot')) {
+    redirect('/billing?upgrade=true')
+  }
+
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const user = { id: planUser.userId }
 
   const { data: profile } = await supabase
     .from('users')

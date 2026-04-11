@@ -26,8 +26,6 @@ const SUBSCRIPTION_REQUIRED_ROUTES = [
   '/pipeline',
   '/competitors',
   '/documents',
-  '/company',
-  '/settings',
 ]
 
 /** Public routes (no auth needed) */

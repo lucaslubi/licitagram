@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getUserWithPlan, hasActiveSubscription } from '@/lib/auth-helpers'
 
 /**
  * GET /api/bot/sessions
@@ -7,11 +8,16 @@ import { createClient } from '@/lib/supabase/server'
  */
 export async function GET() {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
+    const planUser = await getUserWithPlan()
+    if (!planUser) {
       return NextResponse.json({ error: 'Nao autenticado' }, { status: 401 })
     }
+    if (!hasActiveSubscription(planUser)) {
+      return NextResponse.json({ error: 'Subscription required' }, { status: 403 })
+    }
+
+    const supabase = await createClient()
+    const user = { id: planUser.userId }
 
     const { data: profile } = await supabase
       .from('users')
@@ -50,11 +56,16 @@ export async function GET() {
  */
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
+    const planUserPost = await getUserWithPlan()
+    if (!planUserPost) {
       return NextResponse.json({ error: 'Nao autenticado' }, { status: 401 })
     }
+    if (!hasActiveSubscription(planUserPost)) {
+      return NextResponse.json({ error: 'Subscription required' }, { status: 403 })
+    }
+
+    const supabase = await createClient()
+    const user = { id: planUserPost.userId }
 
     const { data: profile } = await supabase
       .from('users')
@@ -125,11 +136,16 @@ export async function POST(req: NextRequest) {
  */
 export async function PATCH(req: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
+    const planUserPatch = await getUserWithPlan()
+    if (!planUserPatch) {
       return NextResponse.json({ error: 'Nao autenticado' }, { status: 401 })
     }
+    if (!hasActiveSubscription(planUserPatch)) {
+      return NextResponse.json({ error: 'Subscription required' }, { status: 403 })
+    }
+
+    const supabase = await createClient()
+    const user = { id: planUserPatch.userId }
 
     const { data: profile } = await supabase
       .from('users')

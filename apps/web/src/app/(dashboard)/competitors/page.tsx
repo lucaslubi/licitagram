@@ -9,6 +9,7 @@ import { MercadoSummaryCards, MercadoTable, type MercadoCompetitor } from './mer
 import { IntelOverview, type OverviewData } from './intel-overview'
 import { RadarTab } from './radar-tab'
 import { EmptyIntelMessage } from './empty-intel-message'
+import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
 
 export default async function CompetitorsPage({
   searchParams,
@@ -16,9 +17,14 @@ export default async function CompetitorsPage({
   searchParams: Promise<{ q?: string; tab?: string }>
 }) {
   const params = await searchParams
+  const planUser = await getUserWithPlan()
+  if (!planUser) redirect('/login')
+  if (!hasFeature(planUser, 'competitive_intel')) {
+    redirect('/billing?upgrade=true')
+  }
+
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const user = { id: planUser.userId }
 
   const { data: profile } = await supabase
     .from('users')

@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getUserWithPlan, hasActiveSubscription } from '@/lib/auth-helpers'
 
 // GET - List files with filters
 export async function GET(req: NextRequest) {
+  const planUser = await getUserWithPlan()
+  if (!planUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!hasActiveSubscription(planUser)) {
+    return NextResponse.json({ error: 'Subscription required' }, { status: 403 })
+  }
+
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const user = { id: planUser.userId }
 
   // Get user's company via users table
   const { data: profile } = await supabase
@@ -90,9 +96,14 @@ export async function GET(req: NextRequest) {
 
 // POST - Upload file
 export async function POST(req: NextRequest) {
+  const planUserPost = await getUserWithPlan()
+  if (!planUserPost) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!hasActiveSubscription(planUserPost)) {
+    return NextResponse.json({ error: 'Subscription required' }, { status: 403 })
+  }
+
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const user = { id: planUserPost.userId }
 
   const { data: profile } = await supabase
     .from('users')
@@ -173,9 +184,13 @@ export async function POST(req: NextRequest) {
 
 // DELETE - Delete file
 export async function DELETE(req: NextRequest) {
+  const planUserDel = await getUserWithPlan()
+  if (!planUserDel) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!hasActiveSubscription(planUserDel)) {
+    return NextResponse.json({ error: 'Subscription required' }, { status: 403 })
+  }
+
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await req.json()
   if (!id) return NextResponse.json({ error: 'No file ID' }, { status: 400 })
@@ -205,9 +220,13 @@ export async function DELETE(req: NextRequest) {
 
 // PATCH - Update file metadata (star, rename, move)
 export async function PATCH(req: NextRequest) {
+  const planUserPatch = await getUserWithPlan()
+  if (!planUserPatch) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!hasActiveSubscription(planUserPatch)) {
+    return NextResponse.json({ error: 'Subscription required' }, { status: 403 })
+  }
+
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id, ...updates } = await req.json()
   if (!id) return NextResponse.json({ error: 'No file ID' }, { status: 400 })
