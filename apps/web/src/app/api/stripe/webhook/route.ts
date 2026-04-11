@@ -141,10 +141,15 @@ export async function POST(request: NextRequest) {
 
           if (session.subscription) {
             try {
-              const stripeSub = await stripe.subscriptions.retrieve(session.subscription as string)
+              const stripeSubRaw = await stripe.subscriptions.retrieve(session.subscription as string) as any
+              const stripeSub = stripeSubRaw.data ?? stripeSubRaw
               subStatus = stripeSub.status === 'trialing' ? 'trialing' : 'active'
-              periodStart = new Date(stripeSub.current_period_start * 1000)
-              periodEnd = new Date(stripeSub.current_period_end * 1000)
+              if (stripeSub.current_period_start) {
+                periodStart = new Date(stripeSub.current_period_start * 1000)
+              }
+              if (stripeSub.current_period_end) {
+                periodEnd = new Date(stripeSub.current_period_end * 1000)
+              }
               if (stripeSub.trial_end) {
                 expiresAt = new Date(stripeSub.trial_end * 1000).toISOString()
               }
