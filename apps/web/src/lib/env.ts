@@ -5,24 +5,21 @@
  * Server-only — never import this file from client components.
  */
 
-function requireEnv(name: string): string {
-  const value = process.env[name]
-  if (!value) {
-    throw new Error(`[ENV] Missing required environment variable: ${name}`)
-  }
-  return value
-}
-
 function optionalEnv(name: string, fallback: string): string {
   return process.env[name] || fallback
 }
 
 // ─── Validated Environment ──────────────────────────────────────────────────
 
-/** Supabase */
-export const SUPABASE_URL = requireEnv('NEXT_PUBLIC_SUPABASE_URL')
-export const SUPABASE_ANON_KEY = requireEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY')
-export const SUPABASE_SERVICE_ROLE_KEY = requireEnv('SUPABASE_SERVICE_ROLE_KEY')
+/**
+ * Supabase — read from process.env at runtime, not at module load.
+ * Importing env.ts for unrelated vars (e.g. ENRICHMENT_API_URL) must NOT
+ * throw during `next build` when Supabase vars aren't set.
+ * The Supabase client files already guard these at call time.
+ */
+export const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
+export const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
+export const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
 
 /** Stripe (optional at build time — required at runtime by Stripe routes) */
 export const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || ''
