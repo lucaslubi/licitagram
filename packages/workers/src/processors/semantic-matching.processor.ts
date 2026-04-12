@@ -22,7 +22,7 @@ const semanticMatchingWorker = new Worker<SemanticMatchingJobData>(
   },
   {
     connection,
-    concurrency: 15,
+    concurrency: 5, // Reduced from 15 — Ollama embedding is CPU-intensive
     limiter: { max: 60, duration: 60_000 },
     stalledInterval: 600_000, // 10 min stall timeout (embedding can be slow)
     lockDuration: 300_000, // 5 min lock

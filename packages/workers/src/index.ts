@@ -180,16 +180,16 @@ async function setupRepeatableJobs() {
   )
   logger.info('Pending notifications job scheduled (every 5 min)')
 
-  // Schedule dadosabertos.compras.gov.br scraping every 4 hours
+  // Schedule dadosabertos.compras.gov.br scraping every 4 hours (offset +1h to avoid PNCP overlap)
   await comprasgovScrapingQueue.add(
     'comprasgov-scrape',
     { pagina: 1 },
     {
-      repeat: { every: 4 * 60 * 60 * 1000 },
+      repeat: { every: 4 * 60 * 60 * 1000, offset: 60 * 60 * 1000 },
       jobId: 'comprasgov-scrape-repeat',
     },
   )
-  logger.info('dadosabertos.compras.gov.br scraping job scheduled (every 4h)')
+  logger.info('dadosabertos.compras.gov.br scraping job scheduled (every 4h, offset +1h)')
 
   // Schedule PNCP scraping for SP and MG specifically (every 6h)
   // BEC-SP and Portal MG scrapers are broken (site migrated / WAF blocks).
@@ -214,16 +214,16 @@ async function setupRepeatableJobs() {
   }
   logger.info('PNCP SP+MG UF-specific scraping jobs scheduled (every 6h)')
 
-  // Schedule PNCP results scraping (competitive intelligence) every 6 hours
+  // Schedule PNCP results scraping (competitive intelligence) every 6 hours (offset +30min)
   await resultsScrapingQueue.add(
     'results-scrape',
     { batch: 0 },
     {
-      repeat: { every: 6 * 60 * 60 * 1000 },
+      repeat: { every: 6 * 60 * 60 * 1000, offset: 30 * 60 * 1000 },
       jobId: 'results-scrape-repeat',
     },
   )
-  logger.info('PNCP results scraping job scheduled (every 6h)')
+  logger.info('PNCP results scraping job scheduled (every 6h, offset +30min)')
 
   // Schedule document expiry check weekly (every 7 days)
   await documentExpiryQueue.add(
@@ -247,27 +247,27 @@ async function setupRepeatableJobs() {
   )
   logger.info('Fornecedor enrichment job scheduled (every 8h)')
 
-  // Schedule ARP (Atas de Registro de Preço) scraping every 12 hours
+  // Schedule ARP (Atas de Registro de Preço) scraping every 12 hours (offset +2h to avoid PNCP overlap)
   await arpScrapingQueue.add(
     'arp-scrape',
     { pagina: 1 },
     {
-      repeat: { every: 12 * 60 * 60 * 1000 },
+      repeat: { every: 12 * 60 * 60 * 1000, offset: 2 * 60 * 60 * 1000 },
       jobId: 'arp-scrape-repeat',
     },
   )
-  logger.info('ARP scraping job scheduled (every 12h)')
+  logger.info('ARP scraping job scheduled (every 12h, offset +2h)')
 
-  // Schedule legacy pregões (Lei 8.666) scraping every 24 hours
+  // Schedule legacy pregões (Lei 8.666) scraping every 24 hours (offset +3h)
   await legadoScrapingQueue.add(
     'legado-scrape',
     { pagina: 1 },
     {
-      repeat: { every: 24 * 60 * 60 * 1000 },
+      repeat: { every: 24 * 60 * 60 * 1000, offset: 3 * 60 * 60 * 1000 },
       jobId: 'legado-scrape-repeat',
     },
   )
-  logger.info('Legacy pregoes scraping job scheduled (every 24h)')
+  logger.info('Legacy pregoes scraping job scheduled (every 24h, offset +3h)')
 
   // Schedule hot alerts scan every 30 min — surfaces best opportunities fast
   await hotAlertsQueue.add(
@@ -302,27 +302,27 @@ async function setupRepeatableJobs() {
   )
   logger.info('New matches digest scheduled (every 3h)')
 
-  // Schedule competition analysis materialization every 3h
+  // Schedule competition analysis materialization every 3h (offset +45min to avoid scraping overlap)
   await competitionAnalysisQueue.add(
     'materialize-stats',
     { mode: 'incremental' },
     {
-      repeat: { every: 3 * 60 * 60 * 1000 },
+      repeat: { every: 3 * 60 * 60 * 1000, offset: 45 * 60 * 1000 },
       jobId: 'competition-analysis-3h-repeat',
     },
   )
-  logger.info('Competition analysis scheduled (every 3h)')
+  logger.info('Competition analysis scheduled (every 3h, offset +45min)')
 
-  // Schedule AI competitor classification every 2 hours
+  // Schedule AI competitor classification every 2 hours (offset +20min)
   await aiCompetitorClassifierQueue.add(
     'classify-competitors',
     { batch: 0 },
     {
-      repeat: { every: 2 * 60 * 60 * 1000 },
+      repeat: { every: 2 * 60 * 60 * 1000, offset: 20 * 60 * 1000 },
       jobId: 'ai-competitor-classifier-2h-repeat',
     },
   )
-  logger.info('AI competitor classifier scheduled (every 2h)')
+  logger.info('AI competitor classifier scheduled (every 2h, offset +20min)')
 
   // Schedule map cache refresh every 1 hour
   await mapCacheQueue.add(
@@ -390,27 +390,27 @@ async function setupRepeatableJobs() {
   )
   logger.info('Outcome prompt check scheduled (every 6h)')
 
-  // Schedule competitor relevance analysis every 1 hour (AI-powered contextual scoring)
+  // Schedule competitor relevance analysis every 2 hours (AI-powered contextual scoring, offset +10min)
   await competitorRelevanceQueue.add(
     'analyze-relevance',
     {},
     {
-      repeat: { every: 1 * 60 * 60 * 1000 },
-      jobId: 'competitor-relevance-1h-repeat',
+      repeat: { every: 2 * 60 * 60 * 1000, offset: 10 * 60 * 1000 },
+      jobId: 'competitor-relevance-2h-repeat',
     },
   )
-  logger.info('Competitor relevance analysis scheduled (every 1h)')
+  logger.info('Competitor relevance analysis scheduled (every 2h, offset +10min)')
 
-  // Schedule proactive supplier scraping every 4 hours (discovers competitors from PNCP publications)
+  // Schedule proactive supplier scraping every 4 hours (offset +90min to avoid PNCP overlap)
   await proactiveSupplierScrapingQueue.add(
     'proactive-supplier-sweep',
     {},
     {
-      repeat: { every: 4 * 60 * 60 * 1000 },
+      repeat: { every: 4 * 60 * 60 * 1000, offset: 90 * 60 * 1000 },
       jobId: 'proactive-supplier-sweep-4h-repeat',
     },
   )
-  logger.info('Proactive supplier scraping scheduled (every 4h)')
+  logger.info('Proactive supplier scraping scheduled (every 4h, offset +90min)')
 
   // Weekly actions: generate every Monday at 00:00 BRT (03:00 UTC)
   await weeklyActionsQueue.add(

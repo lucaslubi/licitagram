@@ -263,7 +263,7 @@ const extractionWorker = new Worker<ExtractionJobData>(
   },
   {
     connection,
-    concurrency: 10,
+    concurrency: 3, // Reduced from 10 — with 2 PM2 instances = 6 total parallel
     limiter: { max: 60, duration: 60_000 },
     stalledInterval: 180_000,
     lockDuration: 300_000, // 5 min lock — fail job if processor hangs

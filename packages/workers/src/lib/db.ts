@@ -171,6 +171,9 @@ function buildSql(state: QueryState): { text: string; values: unknown[] } {
         if (Array.isArray(f.value) && f.value.length > 0) {
           conditions.push(`${f.column} = ANY($${paramIdx++})`)
           params.push(f.value)
+        } else {
+          // Empty IN() should match nothing, not skip the condition
+          conditions.push('FALSE')
         }
         break
     }
@@ -431,7 +434,10 @@ class QueryBuilder {
     } catch (err: any) {
       // Local PG failed → fallback to Supabase
       localFallbacks++
-      logger.warn({ table: this.state.table, err: err.message }, 'Local PG read failed, falling back to Supabase')
+      // Log actual SQL only once per unique query to avoid spam
+      if (localFallbacks <= 3) {
+        logger.warn({ table: this.state.table, err: err.message, sql: text }, 'Local PG read failed, falling back to Supabase')
+      }
       supabaseReads++
       return this._executeSupabase()
     }
