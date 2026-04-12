@@ -310,6 +310,8 @@ const notificationWorker = new Worker<NotificationJobData>(
     connection,
     concurrency: 5,
     limiter: { max: 30, duration: 1000 }, // Telegram limit: 30 msgs/sec
+    lockDuration: 600_000,
+    stalledInterval: 600_000,
   },
 )
 

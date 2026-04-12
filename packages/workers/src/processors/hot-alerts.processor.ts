@@ -602,6 +602,8 @@ const hotAlertsWorker = new Worker(
   {
     connection,
     concurrency: 1,
+    lockDuration: 600_000,
+    stalledInterval: 600_000,
   },
 )
 

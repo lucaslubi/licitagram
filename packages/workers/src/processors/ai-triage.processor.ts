@@ -528,6 +528,11 @@ const aiTriageWorker = new Worker<AiTriageJobData>(
       return
     }
 
+    if (!matchIds || matchIds.length === 0) {
+      logger.warn({ companyId }, 'AI triage called with no matchIds — skipping')
+      return
+    }
+
     logger.info({ companyId, matchCount: matchIds.length }, 'Starting background AI triage')
 
     // Fetch company profile

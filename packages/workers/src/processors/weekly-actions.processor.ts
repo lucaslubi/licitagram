@@ -439,7 +439,7 @@ export const weeklyActionsWorker = new Worker(
         logger.warn({ jobName: job.name }, 'Unknown weekly-actions job name')
     }
   },
-  { connection, concurrency: 1 },
+  { connection, concurrency: 1, lockDuration: 600_000, stalledInterval: 600_000 },
 )
 
 weeklyActionsWorker.on('completed', (job) => {

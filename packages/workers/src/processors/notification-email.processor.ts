@@ -210,6 +210,8 @@ const emailWorker = new Worker<EmailNotificationJobData>(
     connection,
     concurrency: 2,
     limiter: { max: 3, duration: 1000 }, // 3 emails/sec — Resend free plan limit is 5/s
+    lockDuration: 600_000,
+    stalledInterval: 600_000,
   },
 )
 

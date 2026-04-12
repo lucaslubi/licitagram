@@ -290,6 +290,8 @@ export const channelOnboardingWorker = new Worker<ChannelOnboardingJobData>(
   {
     connection,
     concurrency: 2,
+    lockDuration: 600_000,
+    stalledInterval: 600_000,
   },
 )
 

@@ -120,6 +120,8 @@ const whatsappNotificationWorker = new Worker<WhatsAppNotificationJobData>(
     connection,
     concurrency: 2,
     limiter: { max: 10, duration: 1000 }, // 10 msgs/sec — safe for Evolution API
+    lockDuration: 600_000,
+    stalledInterval: 600_000,
   },
 )
 

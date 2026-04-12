@@ -1027,6 +1027,8 @@ export const aiHealingWorker = new Worker(
     connection,
     concurrency: 1,
     limiter: { max: 1, duration: 5 * 60 * 1000 }, // At most 1 run per 5 min
+    lockDuration: 600_000,
+    stalledInterval: 600_000,
   },
 )
 

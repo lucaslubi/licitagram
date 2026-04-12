@@ -351,6 +351,8 @@ const pendingNotificationsWorker = new Worker(
   {
     connection,
     concurrency: 1,
+    lockDuration: 600_000,    // 10 min — processes many notifications per run
+    stalledInterval: 600_000,
   },
 )
 
