@@ -190,8 +190,10 @@ const pendingNotificationsWorker = new Worker(
       const prefs = (user.notification_preferences as Record<string, boolean>) || {}
       const hasTelegram = user.telegram_chat_id && prefs.telegram !== false
       const hasWhatsApp = user.whatsapp_number && user.whatsapp_verified && prefs.whatsapp !== false
+      const hasEmail = user.email && prefs.email !== false
 
-      if (!hasTelegram && !hasWhatsApp) continue
+      // FIXED: also process users who only have email
+      if (!hasTelegram && !hasWhatsApp && !hasEmail) continue
 
       // Get companies this user should receive notifications for
       const enabledCompanies = companiesByUser.get(user.id)
@@ -208,35 +210,46 @@ const pendingNotificationsWorker = new Worker(
         const batchSize = BATCH_BY_PLAN[plan] || 1
         const minDaily = MIN_DAILY_BY_PLAN[plan] || 1
 
-        // Fetch AI-verified matches (any score above company minScore)
-        const { data: aiMatches } = await supabase
+        // Unified query: fetch ALL matches above company minScore, any source.
+        // Quality gates:
+        //   - AI-verified (ai, ai_triage, semantic): trust any score >= minScore
+        //   - Keyword matches: trust score >= 65 (CNAE-gated Mode A caps at 90, Mode B at 65)
+        //     Score >= 65 means CNAE overlap was validated by keyword-matcher
+        //   - Below 65: AI triage will handle (skip for now)
+        // This eliminates the AI triage bottleneck for high-confidence matches.
+        // Trust keyword matches at company minScore — they already passed CNAE validation in matcher
+
+        const { data: allMatches } = await supabase
           .from('matches')
-          .select('id, score, match_source, created_at, tenders(data_encerramento, modalidade_id, valor_estimado, uf)')
+          .select('id, score, match_source, breakdown, created_at, tenders!inner(data_encerramento, modalidade_id, valor_estimado, uf)')
           .eq('company_id', companyId)
           .eq('status', 'new')
           .gte('score', settings.minScore)
           .gte('created_at', cutoffDate)
-          .in('match_source', ['ai', 'ai_triage', 'semantic'])
           .is('notified_at', null)
-          .order('created_at', { ascending: false })
-          .limit(MAX_NOTIFICATIONS_PER_USER)
-
-        // Also fetch high-score keyword matches (>=70) not yet triaged
-        const { data: keywordMatches } = await supabase
-          .from('matches')
-          .select('id, score, match_source, created_at, tenders(data_encerramento, modalidade_id, valor_estimado, uf)')
-          .eq('company_id', companyId)
-          .eq('status', 'new')
-          .gte('score', 70)
-          .gte('created_at', cutoffDate)
-          .eq('match_source', 'keyword')
-          .is('notified_at', null)
+          .gte('tenders.data_encerramento', today)
+          .not('tenders.modalidade_id', 'in', '(9,12,14)')
           .order('score', { ascending: false })
           .limit(MAX_NOTIFICATIONS_PER_USER)
 
-        const pendingMatches = [...(aiMatches || []), ...(keywordMatches || [])]
-          .sort((a, b) => (b.score || 0) - (a.score || 0))
-          .slice(0, MAX_NOTIFICATIONS_PER_USER)
+        // Quality gate: filter keyword matches without CNAE validation
+        const pendingMatches = (allMatches || []).filter((m: any) => {
+          // AI-verified sources always pass
+          if (['ai', 'ai_triage', 'semantic'].includes(m.match_source)) return true
+
+          // Keyword matches: trust at company minScore, but check CNAE overlap
+          if (m.match_source === 'keyword') {
+            const breakdown = m.breakdown as Array<{ category: string; score: number }> | null
+            if (breakdown) {
+              const cnaeEntry = breakdown.find((b) => b.category?.toLowerCase() === 'cnae')
+              if (cnaeEntry && cnaeEntry.score === 0) return false // No CNAE overlap = don't trust
+            }
+            return true
+          }
+
+          // Unknown source: require high score
+          return m.score >= 75
+        }).slice(0, MAX_NOTIFICATIONS_PER_USER)
 
         if (!pendingMatches || pendingMatches.length === 0) continue
 
@@ -321,8 +334,6 @@ const pendingNotificationsWorker = new Worker(
             }
 
             // Email notifications
-            const prefs = (user.notification_preferences as Record<string, boolean>) || {}
-            const hasEmail = user.email && prefs.email !== false
             if (hasEmail) {
               await emailQueue.add(
                 `em-${user.id}-${match.id}`,

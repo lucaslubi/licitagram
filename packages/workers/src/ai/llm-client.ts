@@ -1,14 +1,13 @@
 /**
- * LLM Client unificado — 100% FREE via OpenRouter (multi-key) + Groq
+ * LLM Client unificado — 100% FREE via OpenRouter (multi-key) + Groq + Ollama local
  *
  * Stack (all free, cascading fallback):
  *   1. Groq (llama-3.3-70b)       — free tier, fastest
- *   2. OpenRouter/Qwen3.6-Plus    — free, #1 Finance/Academia, 1M context
- *   3. OpenRouter/Nemotron-120B   — free, NVIDIA 120B MoE
- *   4. OpenRouter/Llama-3.3-70B   — free, strong general-purpose
- *   5. OpenRouter/Hermes-405B     — free, largest open model
- *   6. OpenRouter/Gemma-3-27B     — free, good classification
- *   7. OpenRouter/GPT-OSS-120B    — free, OpenAI open-source
+ *   2. OpenRouter/Llama-3.3-70B   — free, strong general-purpose
+ *   3. OpenRouter/Hermes-405B     — free, largest open model
+ *   4. OpenRouter/Gemma-3-27B     — free, good classification
+ *   5. OpenRouter/GPT-OSS-120B    — free, OpenAI open-source
+ *   6. Ollama/Qwen2.5-14B (local) — unlimited, no rate limit, always available
  *
  * Multi-key: set OPENROUTER_API_KEY=key1,key2,key3 for round-robin
  * across multiple accounts, multiplying rate limits.
@@ -40,6 +39,14 @@ const openrouterClients = openrouterKeys.map((key) =>
   }),
 )
 
+// Ollama local — unlimited, no rate limit, always-on fallback
+const OLLAMA_URL = process.env.OLLAMA_URL || 'http://127.0.0.1:11434'
+const OLLAMA_LLM_MODEL = process.env.OLLAMA_LLM_MODEL || 'qwen2.5:7b'
+const ollamaClient = new OpenAI({
+  apiKey: 'ollama', // Ollama doesn't need a real key
+  baseURL: `${OLLAMA_URL}/v1`,
+})
+
 // Round-robin counter for distributing calls across keys
 let _orKeyIdx = 0
 function nextORClient(): OpenAI {
@@ -52,8 +59,8 @@ function nextORClient(): OpenAI {
 }
 
 logger.info(
-  { groqConfigured: !!process.env.GROQ_API_KEY, openrouterKeys: openrouterKeys.length },
-  'LLM clients initialized (100% free)',
+  { groqConfigured: !!process.env.GROQ_API_KEY, openrouterKeys: openrouterKeys.length, ollamaUrl: OLLAMA_URL, ollamaModel: OLLAMA_LLM_MODEL },
+  'LLM clients initialized (100% free + local fallback)',
 )
 
 // ─── Task Configuration ─────────────────────────────────────────────────────
@@ -89,20 +96,19 @@ interface Provider {
 }
 
 const PROVIDERS: Provider[] = [
-  // Groq — fastest, 100K TPD free
+  // Groq — PRIMARY: fastest, 14.4K req/day free, Llama 3.3 70B
   { client: groqClient, model: 'llama-3.3-70b-versatile', label: 'Groq/Llama-3.3-70B' },
-  // OpenRouter free models — round-robin across all configured keys
-  { get client() { return nextORClient() }, model: 'qwen/qwen3.6-plus:free',                 label: 'OR/Qwen3.6-Plus' },
-  { get client() { return nextORClient() }, model: 'nvidia/nemotron-3-super-120b-a12b:free',  label: 'OR/Nemotron-120B' },
+  // Ollama local — unlimited fallback, no rate limit, ~12 tok/s with 7B
+  { client: ollamaClient, model: OLLAMA_LLM_MODEL, label: `Ollama/${OLLAMA_LLM_MODEL}` },
+  // OpenRouter free models — last resort (heavily rate-limited)
   { get client() { return nextORClient() }, model: 'meta-llama/llama-3.3-70b-instruct:free', label: 'OR/Llama-3.3-70B' },
   { get client() { return nextORClient() }, model: 'nousresearch/hermes-3-llama-3.1-405b:free', label: 'OR/Hermes-405B' },
   { get client() { return nextORClient() }, model: 'google/gemma-3-27b-it:free',             label: 'OR/Gemma-3-27B' },
-  { get client() { return nextORClient() }, model: 'openai/gpt-oss-120b:free',               label: 'OR/GPT-OSS-120B' },
 ]
 
 // ─── Concurrency Limiter (prevent free tier rate limit flooding) ─────────────
 
-const MAX_CONCURRENT = 3 // increased from 2 → multi-key can handle more
+const MAX_CONCURRENT = 4 // increased: multi-key + Ollama local fallback
 let activeCalls = 0
 const waitQueue: Array<() => void> = []
 
@@ -199,21 +205,31 @@ export async function callLLM(params: {
             'Calling LLM',
           )
 
+          const isOllama = provider.label.startsWith('Ollama/')
+
           const requestBody: OpenAI.ChatCompletionCreateParamsNonStreaming = {
             model: provider.model,
             max_tokens: config.maxTokens,
             temperature: config.temperature,
             messages: [
-              { role: 'system', content: system },
+              { role: 'system', content: system + (isOllama && jsonMode ? '\n\nIMPORTANT: Respond with valid JSON only, no markdown fences.' : '') },
               { role: 'user', content: prompt },
             ],
           }
 
+          // Ollama supports json format natively via the OpenAI-compatible API
           if (jsonMode) {
             requestBody.response_format = { type: 'json_object' }
           }
 
-          const response = await client.chat.completions.create(requestBody)
+          // Ollama on CPU is slower — use longer timeout (5 min vs default)
+          const timeoutMs = isOllama ? 300_000 : 60_000
+          const response = await Promise.race([
+            client.chat.completions.create(requestBody),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error(`LLM timeout after ${timeoutMs / 1000}s`)), timeoutMs),
+            ),
+          ])
           const text = response.choices[0]?.message?.content || ''
 
           if (text.length === 0 && attempt < maxRetries) {
