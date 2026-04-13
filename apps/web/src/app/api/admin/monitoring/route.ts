@@ -13,7 +13,7 @@ function getServiceClient() {
 }
 
 const VPS_MONITORING_URL = process.env.VPS_MONITORING_URL || 'http://85.31.60.53:3998'
-const MONITORING_AUTH_TOKEN = process.env.MONITORING_AUTH_TOKEN || ''
+const MONITORING_AUTH_TOKEN = process.env.MONITORING_API_KEY || process.env.MONITORING_AUTH_TOKEN || ''
 const VPS_MONITORING_URLS_STR = process.env.VPS_MONITORING_URLS || `${VPS_MONITORING_URL},http://187.77.241.93:3998`
 const monitoringUrls = VPS_MONITORING_URLS_STR.split(',').map(s => s.trim()).filter(Boolean)
 
@@ -238,7 +238,7 @@ function generateAlerts(
     alerts.push({
       level: 'critical',
       message: 'VPS monitoring endpoint unreachable',
-      detail: `Could not connect to ${VPS_MONITORING_URL}. Monitoring server may be down.`,
+      detail: `Could not connect to ${monitoringUrls.join(', ')}. Monitoring server may be down.`,
     })
     return alerts
   }
@@ -292,8 +292,8 @@ function generateAlerts(
     })
   }
 
-  // CPU load (1-min average vs 4 vCPUs on VPS)
-  const VPS_CPU_COUNT = 4
+  // CPU load (1-min average vs total vCPUs across all VPSes)
+  const VPS_CPU_COUNT = vps.vps.cpu_count || 8
   if (vps.vps.cpu_load[0] > VPS_CPU_COUNT * 2) {
     alerts.push({
       level: 'critical',
