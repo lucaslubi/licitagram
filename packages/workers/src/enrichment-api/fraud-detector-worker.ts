@@ -445,7 +445,7 @@ async function run() {
         // Mark as analyzed regardless (so we don't re-check tenders without competitors)
         const { error: updateErr } = await supabase
           .from('tenders')
-          .update({ fraud_analyzed: true, fraud_analyzed_at: new Date().toISOString() })
+          .update({ fraud_analyzed: true })
           .eq('id', tender.id)
 
         if (updateErr) {
@@ -458,7 +458,7 @@ async function run() {
         // Still mark as analyzed to avoid infinite retry
         await supabase
           .from('tenders')
-          .update({ fraud_analyzed: true, fraud_analyzed_at: new Date().toISOString() })
+          .update({ fraud_analyzed: true })
           .eq('id', tender.id)
       }
     }
