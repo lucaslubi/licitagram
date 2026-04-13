@@ -128,15 +128,24 @@ export default function SettingsPage() {
       })
       .eq('id', user.id)
 
-    // Save company-specific settings to companies table
+    // Save notification filters to ALL companies with notifications enabled
+    // This ensures the worker applies the same filters for every company
+    const enabledCompanyIds = companyNotifications
+      .filter((uc) => uc.notifications_enabled)
+      .map((uc) => uc.company_id)
+
+    // Also include the primary company
     const { data: profile } = await supabase
       .from('users')
       .select('company_id')
       .eq('id', user.id)
       .single()
 
+    const allCompanyIds = new Set(enabledCompanyIds)
+    if (profile?.company_id) allCompanyIds.add(profile.company_id)
+
     let companyError: { message: string } | null = null
-    if (profile?.company_id) {
+    for (const companyId of allCompanyIds) {
       const { error } = await supabase
         .from('companies')
         .update({
@@ -146,8 +155,8 @@ export default function SettingsPage() {
           ufs_interesse: settings.ufs_interesse,
           palavras_chave_filtro: settings.palavras_chave_filtro,
         })
-        .eq('id', profile.company_id)
-      companyError = error
+        .eq('id', companyId)
+      if (error) companyError = error
     }
 
     // Save multi-company notification toggles

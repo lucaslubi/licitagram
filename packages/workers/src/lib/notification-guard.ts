@@ -89,9 +89,10 @@ export async function validateNotification(matchId: string): Promise<GuardResult
     return { allowed: false, reason: `unverified_source_${match.match_source}` }
   }
 
-  // 4. Block low-score matches
-  if (match.score < MIN_NOTIFICATION_SCORE) {
-    return { allowed: false, reason: `low_score_${match.score}` }
+  // 4. Block low-score matches (use company min_score if set, otherwise fallback)
+  const companyMinScore = (settings.min_score as number) ?? MIN_NOTIFICATION_SCORE
+  if (match.score < companyMinScore) {
+    return { allowed: false, reason: `low_score_${match.score}_min_${companyMinScore}` }
   }
 
   // 5. Block expired tenders
@@ -114,11 +115,11 @@ export async function validateNotification(matchId: string): Promise<GuardResult
 
   // 7. Value Filter (The final gate)
   const valor = tender.valor_estimado as number | null
-  if (valor !== null) {
-    if (settings.min_valor && valor < settings.min_valor) {
+  if (valor != null) {
+    if (settings.min_valor != null && valor < settings.min_valor) {
       return { allowed: false, reason: `value_too_low_${valor}_min_${settings.min_valor}` }
     }
-    if (settings.max_valor && valor > settings.max_valor) {
+    if (settings.max_valor != null && valor > settings.max_valor) {
       return { allowed: false, reason: `value_too_high_${valor}_max_${settings.max_valor}` }
     }
   }
