@@ -378,8 +378,8 @@ export async function POST(request: NextRequest) {
 
   if (docsNeedingExtraction.length > 0) {
     // Use VPS proxy for PDF extraction (no timeout issues, direct access to PNCP)
-    const VPS_URL = (process.env.VPS_MONITORING_URL || 'http://85.31.60.53:3998').replace(/\/+$/, '')
-    const VPS_TOKEN = process.env.VPS_MONITORING_TOKEN || ''
+    const VPS_URL = (process.env.VPS_MONITORING_URL || 'http://187.77.241.93:3998').replace(/\/+$/, '')
+    const VPS_TOKEN = process.env.VPS_MONITORING_TOKEN || process.env.MONITORING_API_KEY || ''
 
     console.log(`[Chat PDF] Extracting ${docsNeedingExtraction.length} documents via VPS: ${VPS_URL}`)
 
