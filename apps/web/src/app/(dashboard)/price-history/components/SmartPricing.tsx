@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { formatCurrencyBR } from '@/lib/format'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -43,11 +44,6 @@ interface SmartPricingData {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-const formatBRL = new Intl.NumberFormat('pt-BR', {
-  style: 'currency',
-  currency: 'BRL',
-})
 
 const STRATEGY_CONFIG = {
   agressivo: {
@@ -168,7 +164,7 @@ function RecommendationCard({ rec }: { rec: Recommendation }) {
 
         {/* Price */}
         <p className="text-2xl font-bold text-white font-mono tracking-tight">
-          {formatBRL.format(rec.price)}
+          {formatCurrencyBR(rec.price)}
         </p>
 
         {/* Win probability bar */}

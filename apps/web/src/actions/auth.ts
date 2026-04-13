@@ -2,9 +2,18 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 export async function signIn(formData: FormData, redirectTo?: string) {
+  const headersList = await headers()
+  const ip = headersList.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const rl = await checkRateLimit(`auth-signIn:${ip}`, 5, 60)
+  if (!rl.allowed) {
+    return { error: 'Muitas tentativas. Tente novamente em alguns segundos.' }
+  }
+
   const supabase = await createClient()
 
   const { error } = await supabase.auth.signInWithPassword({
@@ -21,6 +30,13 @@ export async function signIn(formData: FormData, redirectTo?: string) {
 }
 
 export async function signUp(formData: FormData, redirectTo?: string) {
+  const headersList = await headers()
+  const ip = headersList.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const rl = await checkRateLimit(`auth-signUp:${ip}`, 5, 60)
+  if (!rl.allowed) {
+    return { error: 'Muitas tentativas. Tente novamente em alguns segundos.' }
+  }
+
   const supabase = await createClient()
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://licitagram.com'

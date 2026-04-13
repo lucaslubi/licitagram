@@ -43,22 +43,6 @@ export interface UfMapData {
   }>
 }
 
-/** Cor baseada no opportunityScore (0-100) — escala emerald→lime→amber→slate */
-export function getHeatColor(score: number): string {
-  if (score >= 90) return '#10B981' // Emerald — Excelente
-  if (score >= 80) return '#84CC16' // Lime — Bom
-  if (score >= 70) return '#F59E0B' // Amber — Moderado
-  if (score >= 50) return '#64748B' // Slate — Baixo
-  return '#EF4444'                  // Red — Fraco
-}
-
-/** Opacidade proporcional ao volume */
-export function getHeatOpacity(totalMatches: number, maxMatches: number): number {
-  if (maxMatches === 0) return 0.2
-  const ratio = totalMatches / maxMatches
-  return Math.max(0.3, Math.min(0.9, 0.3 + ratio * 0.6))
-}
-
 /** OpportunityScore composto para uma UF */
 export function calculateUfOpportunityScore(data: {
   avgScore: number
@@ -78,22 +62,6 @@ export function calculateUfOpportunityScore(data: {
   return Math.round(scoreComponent + volumeComponent + competitionComponent + valueComponent)
 }
 
-/** BRL compacto */
-export function formatCompactBRL(value: number): string {
-  if (value >= 1_000_000_000) return `R$${(value / 1_000_000_000).toFixed(1)}B`
-  if (value >= 1_000_000) return `R$${(value / 1_000_000).toFixed(1)}M`
-  if (value >= 1_000) return `R$${(value / 1_000).toFixed(0)}K`
-  return `R$${value.toFixed(0)}`
-}
+/** @deprecated Import from '@/lib/format' instead */
+export { formatCompactBRL } from '@/lib/format'
 
-/** Label de dificuldade */
-export function getDifficultyLabel(avgCompetitors: number | null): {
-  label: string; color: string
-} {
-  if (avgCompetitors === null) return { label: 'Sem dados', color: 'slate' }
-  if (avgCompetitors <= 2) return { label: 'Muito Fácil', color: 'emerald' }
-  if (avgCompetitors <= 4) return { label: 'Fácil', color: 'lime' }
-  if (avgCompetitors <= 7) return { label: 'Moderado', color: 'amber' }
-  if (avgCompetitors <= 12) return { label: 'Competitivo', color: 'orange' }
-  return { label: 'Muito Competitivo', color: 'red' }
-}

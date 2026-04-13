@@ -10,6 +10,7 @@ import { IntelOverview, type OverviewData } from './intel-overview'
 import { RadarTab } from './radar-tab'
 import { EmptyIntelMessage } from './empty-intel-message'
 import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
+import { formatCNPJ as formatCnpj } from '@/lib/format'
 
 export default async function CompetitorsPage({
   searchParams,
@@ -2318,7 +2319,3 @@ export default async function CompetitorsPage({
   )
 }
 
-function formatCnpj(cnpj: string): string {
-  if (cnpj.length !== 14) return cnpj
-  return cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')
-}

@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { updatePlan, togglePlanActive } from '@/actions/admin/plans'
 import type { PlanFeatures } from '@licitagram/shared'
+import { formatBRL } from '@/lib/format'
 
 const FEATURE_LABELS: Record<keyof PlanFeatures, string> = {
   portais: 'Portais',
@@ -23,10 +24,6 @@ const FEATURE_LABELS: Record<keyof PlanFeatures, string> = {
   lead_engine: 'Licitagram Prospector',
   radar_map: 'Licitagram GeoRadar',
   certidoes_bot: 'Guardian Compliance',
-}
-
-function formatBRL(cents: number): string {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100)
 }
 
 export function PlanEditCard({ plan }: { plan: any }) {

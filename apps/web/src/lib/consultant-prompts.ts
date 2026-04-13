@@ -13,7 +13,8 @@ export interface PageContext {
   data?: Record<string, unknown>
 }
 
-export interface CompanyProfile {
+/** Lightweight company shape used only by the consultant prompt builder. */
+interface ConsultantCompanyProfile {
   razao_social: string | null
   cnae: string | null
   descricao_servicos: string | null
@@ -157,20 +158,20 @@ Você domina os seguintes insights que só experts conhecem:
  */
 export function buildConsultantPrompt(
   pageContext: PageContext | ConsultantPageContext | null,
-  companyOrPlan?: CompanyProfile | string | null,
-  companyArg?: CompanyProfile | null,
+  companyOrPlan?: ConsultantCompanyProfile | string | null,
+  companyArg?: ConsultantCompanyProfile | null,
 ): string {
   // Support both call signatures:
   // 1. buildConsultantPrompt(pageContext, company)        — legacy
   // 2. buildConsultantPrompt(pageContext, userPlan, company) — new
   let userPlan: string | null = null
-  let company: CompanyProfile | null = null
+  let company: ConsultantCompanyProfile | null = null
 
   if (typeof companyOrPlan === 'string') {
     userPlan = companyOrPlan
     company = companyArg ?? null
   } else if (companyOrPlan && typeof companyOrPlan === 'object') {
-    company = companyOrPlan as CompanyProfile
+    company = companyOrPlan as ConsultantCompanyProfile
   }
 
   const parts: string[] = [SYSTEM_PROMPT_BASE]

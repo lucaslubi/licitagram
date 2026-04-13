@@ -5,14 +5,8 @@ import Link from 'next/link'
 
 const DATA_API_URL = process.env.DATA_API_URL || 'http://85.31.60.53:3997'
 
-function formatNumber(n: number): string {
-  return new Intl.NumberFormat('pt-BR').format(n)
-}
 
-function formatCurrency(value: number | null): string {
-  if (!value) return 'R$ 0'
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(value)
-}
+import { formatCurrencyWhole as formatCurrency, formatNumberPlain as formatNumber } from '@/lib/format'
 
 export default async function LeadsDashboardPage() {
   await requirePlatformAdmin()

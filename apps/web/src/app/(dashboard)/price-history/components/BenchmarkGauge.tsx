@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { formatCurrencyBR as formatBRL, formatDateShort, formatInputBRL } from '@/lib/format'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -71,15 +72,6 @@ interface BenchmarkData {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function formatBRL(value: number): string {
-  return value.toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })
-}
-
 function parseBRL(raw: string): number {
   const cleaned = raw
     .replace(/[R$\s]/g, '')
@@ -88,15 +80,6 @@ function parseBRL(raw: string): number {
   return parseFloat(cleaned) || 0
 }
 
-function formatInputBRL(raw: string): string {
-  const digits = raw.replace(/\D/g, '')
-  if (!digits) return ''
-  const numericValue = parseInt(digits, 10) / 100
-  return numericValue.toLocaleString('pt-BR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })
-}
 
 const RATING_CONFIG: Record<
   Rating,
@@ -326,19 +309,7 @@ function SimilarWinsTable({
     }
   })
 
-  function formatDate(dateStr: string): string {
-    if (!dateStr) return '—'
-    try {
-      const d = new Date(dateStr)
-      return d.toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: '2-digit',
-      })
-    } catch {
-      return dateStr
-    }
-  }
+  const fmtDate = (dateStr: string) => dateStr ? formatDateShort(dateStr) : '—'
 
   return (
     <div className="mt-6">
@@ -392,7 +363,7 @@ function SimilarWinsTable({
                   </td>
                   <td className="px-3 py-2 text-zinc-400">{w.uf || '—'}</td>
                   <td className="px-3 py-2 text-zinc-400 whitespace-nowrap">
-                    {formatDate(w.data)}
+                    {fmtDate(w.data)}
                   </td>
                   <td
                     className="px-3 py-2 text-zinc-400 max-w-[120px] truncate"

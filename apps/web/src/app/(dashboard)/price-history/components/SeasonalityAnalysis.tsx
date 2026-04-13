@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { formatCurrencyBR as formatCurrency, formatNumberPlain as formatNumber, formatPercentSigned as formatPercent, formatCompactBRLIntl as formatCurrencyCompact } from '@/lib/format'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -47,19 +48,8 @@ interface SeasonalityData {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const formatCurrency = (n: number): string =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n)
 
-const formatCurrencyCompact = (n: number): string =>
-  new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-    notation: 'compact',
-  }).format(n)
 
-const formatNumber = (n: number): string => n.toLocaleString('pt-BR')
-
-const formatPercent = (n: number): string => `${n > 0 ? '+' : ''}${n.toFixed(1)}%`
 
 function getIndexOpacity(index: number): number {
   return Math.min(0.3, (Math.abs(100 - index) / 100) * 0.3)

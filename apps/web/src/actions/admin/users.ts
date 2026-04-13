@@ -2,6 +2,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { requirePlatformAdmin } from '@/lib/auth-helpers'
+import { sanitizePostgrestFilterValue } from '@/lib/utils'
 import { logAction } from './audit'
 
 function getServiceSupabase() {
@@ -32,7 +33,8 @@ export async function listUsers(params?: {
     .range((page - 1) * pageSize, page * pageSize - 1)
 
   if (params?.search) {
-    query = query.or(`full_name.ilike.%${params.search}%,email.ilike.%${params.search}%`)
+    const safe = sanitizePostgrestFilterValue(params.search)
+    query = query.or(`full_name.ilike.%${safe}%,email.ilike.%${safe}%`)
   }
   if (params?.companyId) query = query.eq('company_id', params.companyId)
   if (params?.role) query = query.eq('role', params.role)

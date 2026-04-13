@@ -16,6 +16,14 @@ const WAHA_URL = process.env.WAHA_URL || process.env.EVOLUTION_API_URL || 'http:
 const WAHA_KEY = process.env.WAHA_API_KEY || process.env.EVOLUTION_API_KEY || ''
 const WAHA_SESSION = process.env.WAHA_SESSION || 'default'
 
+// Startup validation — log warnings for misconfigured WAHA
+if (WAHA_URL === 'http://127.0.0.1:3000' && !process.env.WAHA_URL && !process.env.EVOLUTION_API_URL) {
+  logger.warn('⚠️ WAHA_URL not set — using default localhost:3000. WhatsApp may not work if WAHA is remote.')
+}
+if (!WAHA_KEY) {
+  logger.warn('⚠️ WAHA_API_KEY not set — WhatsApp API calls will likely fail with 401.')
+}
+
 /** Cache de chatIds resolvidos para evitar lookup repetido */
 const chatIdCache = new Map<string, string>()
 

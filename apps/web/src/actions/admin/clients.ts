@@ -2,6 +2,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { requirePlatformAdmin } from '@/lib/auth-helpers'
+import { sanitizePostgrestFilterValue } from '@/lib/utils'
 import { logAction } from './audit'
 import { invalidateCompanySubscription } from '@/lib/plans'
 
@@ -32,7 +33,8 @@ export async function listClients(params?: {
     .range((page - 1) * pageSize, page * pageSize - 1)
 
   if (params?.search) {
-    query = query.or(`razao_social.ilike.%${params.search}%,cnpj.ilike.%${params.search}%,nome_fantasia.ilike.%${params.search}%`)
+    const safe = sanitizePostgrestFilterValue(params.search)
+    query = query.or(`razao_social.ilike.%${safe}%,cnpj.ilike.%${safe}%,nome_fantasia.ilike.%${safe}%`)
   }
   if (params?.planSlug) query = query.eq('plan_slug', params.planSlug)
   if (params?.status) query = query.eq('subscription_status', params.status)

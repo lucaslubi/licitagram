@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
+import { formatCurrencyBR as formatBRL } from '@/lib/format'
 
 type Regime = 'presumido' | 'real' | 'simples'
 
@@ -55,10 +56,6 @@ const REGIME_DEFAULTS: Record<Regime, { iss: number; pis: number; cofins: number
   presumido: { iss: 3.00, pis: 0.65, cofins: 3.00, irpj: 1.20, csll: 1.08, desc: 'Cumulativo — Lei 9.718/1998. ISS varia por município (2% a 5%).' },
   real: { iss: 3.00, pis: 1.65, cofins: 7.60, irpj: 1.20, csll: 1.08, desc: 'Não cumulativo — Leis 10.637/2002 e 10.833/2003. Permite créditos.' },
   simples: { iss: 0, pis: 0, cofins: 0, irpj: 0, csll: 0, desc: 'LC 123/2006 — Alíquota única. Para BDI, use a alíquota efetiva do DAS no campo ISS.' },
-}
-
-function formatBRL(value: number): string {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
 }
 
 // IMPORTANT: Defined outside BDICalculator to avoid remounting on every parent re-render

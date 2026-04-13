@@ -4,13 +4,7 @@ import { useState, useRef, useEffect, useTransition } from 'react'
 import { useCompanyContext } from '@/contexts/company-context'
 import { AddCompanyDialog } from './add-company-dialog'
 import { removeCompanyAction } from '@/actions/multi-company'
-
-/** Format CNPJ: 12345678000199 → 12.345.678/0001-99 */
-function formatCNPJ(cnpj: string): string {
-  const c = cnpj.replace(/\D/g, '')
-  if (c.length !== 14) return cnpj
-  return `${c.slice(0, 2)}.${c.slice(2, 5)}.${c.slice(5, 8)}/${c.slice(8, 12)}-${c.slice(12)}`
-}
+import { formatCNPJ } from '@/lib/format'
 
 interface CompanySwitcherProps {
   collapsed?: boolean

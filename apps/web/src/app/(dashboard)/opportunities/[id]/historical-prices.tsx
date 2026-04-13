@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { formatCurrencyBR } from '@/lib/format'
 
 interface HistoricalTender {
   id: string
@@ -18,10 +19,6 @@ interface HistoricalTender {
 
 interface ScoredTender extends HistoricalTender {
   relevance: number
-}
-
-function formatCurrencyBR(val: number): string {
-  return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
 /** Normalize text: lowercase, strip accents, remove special chars */

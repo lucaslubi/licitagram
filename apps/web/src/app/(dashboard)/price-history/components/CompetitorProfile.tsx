@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { formatCNPJ, formatCurrencyBR as formatBRL, formatDateNullable, formatMonthLabel, formatNumberPlain as formatNumber, formatPercent } from '@/lib/format'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -72,42 +73,10 @@ interface ProfileData {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function formatCNPJ(value: string): string {
-  const digits = value.replace(/\D/g, '').slice(0, 14)
-  let formatted = digits
-  if (digits.length > 2) formatted = digits.slice(0, 2) + '.' + digits.slice(2)
-  if (digits.length > 5) formatted = formatted.slice(0, 6) + '.' + formatted.slice(6)
-  if (digits.length > 8) formatted = formatted.slice(0, 10) + '/' + formatted.slice(10)
-  if (digits.length > 12) formatted = formatted.slice(0, 15) + '-' + formatted.slice(15)
-  return formatted
-}
 
-function formatBRL(value: number): string {
-  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-}
 
-function formatPercent(n: number): string {
-  return `${n.toFixed(1)}%`
-}
+const fmtDate = (dateStr: string) => formatDateNullable(dateStr) === '—' ? '-' : formatDateNullable(dateStr)
 
-function formatNumber(n: number): string {
-  return n.toLocaleString('pt-BR')
-}
-
-function formatDate(dateStr: string): string {
-  if (!dateStr) return '-'
-  const d = new Date(dateStr)
-  return d.toLocaleDateString('pt-BR')
-}
-
-const MONTHS_PTBR = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
-
-function formatMonthLabel(month: string): string {
-  const [year, m] = month.split('-')
-  const monthIndex = parseInt(m, 10) - 1
-  if (monthIndex < 0 || monthIndex > 11) return month
-  return `${MONTHS_PTBR[monthIndex]}/${year.slice(2)}`
-}
 
 function agressividadeColor(level: string): string {
   switch (level) {
@@ -338,8 +307,8 @@ export function CompetitorProfile({ query }: CompetitorProfileProps) {
                   </div>
                 </div>
                 <div className="text-right text-xs text-gray-400 space-y-1">
-                  <p>Primeira vez: <span className="text-gray-300">{formatDate(data.first_seen)}</span></p>
-                  <p>Ultima vez: <span className="text-gray-300">{formatDate(data.last_seen)}</span></p>
+                  <p>Primeira vez: <span className="text-gray-300">{fmtDate(data.first_seen)}</span></p>
+                  <p>Ultima vez: <span className="text-gray-300">{fmtDate(data.last_seen)}</span></p>
                 </div>
               </div>
             </CardContent>
@@ -469,7 +438,7 @@ export function CompetitorProfile({ query }: CompetitorProfileProps) {
                           }`}
                         >
                           <td className="px-4 py-2.5 text-gray-300 whitespace-nowrap font-mono">
-                            {formatDate(bid.data)}
+                            {fmtDate(bid.data)}
                           </td>
                           <td className="px-4 py-2.5 text-gray-200 max-w-[200px] truncate" title={bid.objeto}>
                             {bid.objeto}

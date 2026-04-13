@@ -1,7 +1,13 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { IntelligenceMap } from '@/components/map/IntelligenceMap'
+import nextDynamic from 'next/dynamic'
 import { UF_CENTERS } from '@/lib/geo/uf-centers'
+
+// Lazy-load mapbox-based component — requires browser APIs, skip SSR
+const IntelligenceMap = nextDynamic(
+  () => import('@/components/map/IntelligenceMap').then((mod) => ({ default: mod.IntelligenceMap })),
+  { ssr: false },
+)
 import { calculateUfOpportunityScore, type UfMapData, type MatchMarker } from '@/lib/geo/map-utils'
 import { batchGetMunicipalityCoords } from '@/lib/geo/municipalities'
 import { MIN_DISPLAY_SCORE, AI_VERIFIED_SOURCES } from '@/lib/cache'

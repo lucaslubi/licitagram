@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { GuidedCertidao } from './guided-certidao'
 import { saveToDrive } from '@/lib/drive-utils'
+import { formatCNPJ as formatCnpj } from '@/lib/format'
 
 interface CertidaoResultItem {
   tipo: string
@@ -454,8 +455,3 @@ export function ConsultaCertidoes({ cnpj }: { cnpj: string; hasApiKey?: boolean 
   )
 }
 
-function formatCnpj(cnpj: string): string {
-  const c = cnpj.replace(/\D/g, '')
-  if (c.length !== 14) return cnpj
-  return `${c.slice(0, 2)}.${c.slice(2, 5)}.${c.slice(5, 8)}/${c.slice(8, 12)}-${c.slice(12)}`
-}

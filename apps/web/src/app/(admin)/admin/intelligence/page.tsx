@@ -3,6 +3,7 @@ import { StatsCard } from '@/components/admin/stats-card'
 import { createClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 import { RefreshPanel } from '@/components/admin/refresh-panel'
+import { formatCNPJ, formatCurrencyNullable as formatCurrency, formatDateNullable } from '@/lib/format'
 
 const PAGE_SIZE = 30
 
@@ -136,17 +137,6 @@ function getCompanies(alert: any): Array<{ name: string; cnpj: string }> {
   return []
 }
 
-function formatCNPJ(cnpj: string): string {
-  const d = cnpj?.replace(/\D/g, '') || ''
-  if (d.length !== 14) return cnpj || ''
-  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`
-}
-
-function formatCurrency(value: number | null | undefined): string {
-  if (!value && value !== 0) return 'N/D'
-  return `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
-
 function timeAgo(dateStr: string): string {
   const now = new Date()
   const date = new Date(dateStr)
@@ -159,15 +149,6 @@ function timeAgo(dateStr: string): string {
   const diffDays = Math.floor(diffHours / 24)
   if (diffDays < 30) return `há ${diffDays}d`
   return `há ${Math.floor(diffDays / 30)} meses`
-}
-
-function formatDate(dateStr: string | null | undefined): string {
-  if (!dateStr) return 'N/D'
-  try {
-    return new Date(dateStr).toLocaleDateString('pt-BR')
-  } catch {
-    return dateStr
-  }
 }
 
 // ─── Intelligence Analysis per Fraud Type ──────────────────────────────────
@@ -291,9 +272,9 @@ function renderEmpresaRecenteAnalysis(evidence: Record<string, any>) {
         <p>
           A empresa vencedora <strong className="text-white">&quot;{razaoSocial}&quot;</strong>
           {evidence.cnpj && <span className="text-gray-400"> ({formatCNPJ(evidence.cnpj)})</span>}{' '}
-          foi constituída em <strong className="text-orange-400">{formatDate(dataAbertura)}</strong>,
+          foi constituída em <strong className="text-orange-400">{formatDateNullable(dataAbertura)}</strong>,
           apenas <strong className="text-red-400">{diasAntes} dias</strong> antes da abertura da licitação
-          ({formatDate(dataLicitacao)}).
+          ({formatDateNullable(dataLicitacao)}).
         </p>
       </AnalysisSection>
 
@@ -314,8 +295,8 @@ function renderEmpresaRecenteAnalysis(evidence: Record<string, any>) {
       <AnalysisSection title="Indicadores de risco">
         <RiskIndicator label="Empresa" value={razaoSocial} />
         {evidence.cnpj && <RiskIndicator label="CNPJ" value={formatCNPJ(evidence.cnpj)} />}
-        <RiskIndicator label="Data de constituição" value={formatDate(dataAbertura)} highlight />
-        <RiskIndicator label="Data da licitação" value={formatDate(dataLicitacao)} />
+        <RiskIndicator label="Data de constituição" value={formatDateNullable(dataAbertura)} highlight />
+        <RiskIndicator label="Data da licitação" value={formatDateNullable(dataLicitacao)} />
         <RiskIndicator label="Tempo de existência na abertura" value={`${diasAntes} dias`} highlight />
         <RiskIndicator label="Limiar de risco" value="< 180 dias (6 meses)" />
       </AnalysisSection>
@@ -435,8 +416,8 @@ function renderSancionadaAnalysis(alert: any) {
                       </div>
                     )}
                     <div className="text-xs text-gray-400 mt-0.5">
-                      Período: <span className="text-gray-300">{formatDate(s.inicio)}</span>
-                      {s.fim && <> ate <span className="text-gray-300">{formatDate(s.fim)}</span></>}
+                      Período: <span className="text-gray-300">{formatDateNullable(s.inicio)}</span>
+                      {s.fim && <> ate <span className="text-gray-300">{formatDateNullable(s.fim)}</span></>}
                       {!s.fim && <span className="text-red-400 ml-1">(vigente)</span>}
                     </div>
                   </div>

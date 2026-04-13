@@ -120,8 +120,8 @@ export const DEFAULT_FEATURES: PlanFeatures = {
 /** Cookie name for plan context */
 export const PLAN_CTX_COOKIE = 'x-plan-ctx'
 
-/** Plan context TTL in milliseconds (5 minutes) */
-export const PLAN_CTX_TTL_MS = 5 * 60 * 1000
+/** Plan context TTL in milliseconds (10 minutes) */
+export const PLAN_CTX_TTL_MS = 10 * 60 * 1000
 
 // ─── Multi-Company Types ────────────────────────────────────────────────────
 

@@ -2,15 +2,25 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { formatDateShort, formatCurrencyBR as formatBRL, formatCompactBRLIntl as formatCompact } from '@/lib/format'
 import type { PriceSearchResult, PriceStatistics, PriceTrend } from '@licitagram/price-history'
-import { PriceTrendChart } from './components/PriceTrendChart'
+
+// Lazy-load heavy recharts-based components to reduce initial bundle size
+const PriceTrendChart = dynamic(
+  () => import('./components/PriceTrendChart').then((mod) => ({ default: mod.PriceTrendChart })),
+  { ssr: false },
+)
+const CompetitorProfile = dynamic(
+  () => import('./components/CompetitorProfile').then((mod) => ({ default: mod.CompetitorProfile })),
+  { ssr: false },
+)
 
 // New module imports
 import { BenchmarkGauge } from './components/BenchmarkGauge'
-import { CompetitorProfile } from './components/CompetitorProfile'
 import { SmartPricingV2 } from './components/SmartPricingV2'
 import { PriceBandSelector } from './components/PriceBandSelector'
 import { PriceWatch } from './components/PriceWatch'
@@ -39,11 +49,6 @@ const TABS = [
 
 type TabId = typeof TABS[number]['id']
 
-const formatBRL = (value: number) =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
-
-const formatCompact = (value: number) =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' }).format(value)
 
 function TrendArrow({ direction }: { direction: PriceTrend['direction'] }) {
   if (direction === 'subindo') return <span className="text-red-400">&#9650;</span>
@@ -861,10 +866,4 @@ export function PriceHistoryClient() {
       )}
     </div>
   )
-}
-
-function formatDateShort(date: Date | string): string {
-  const d = typeof date === 'string' ? new Date(date) : date
-  if (isNaN(d.getTime())) return '-'
-  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })
 }

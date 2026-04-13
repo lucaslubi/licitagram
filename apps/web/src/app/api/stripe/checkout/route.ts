@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 function getServiceSupabase() {
   return createServiceClient(
@@ -36,6 +37,14 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const rl = await checkRateLimit(`stripe-checkout:${user.id}`, 5, 60)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests' },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } },
+      )
+    }
 
     let planId: string
     let billing: 'monthly' | 'annual' = 'monthly'

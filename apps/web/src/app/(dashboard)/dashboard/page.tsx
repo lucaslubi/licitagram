@@ -112,7 +112,7 @@ export default async function DashboardPage() {
       .gte('score', minScore)
       .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
-      .limit(1000),
+      .limit(100),
 
     // Top 5 matches
     supabase
@@ -156,7 +156,7 @@ export default async function DashboardPage() {
       .gte('score', minScore)
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
       .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
-      .limit(1000),
+      .limit(100),
 
     // Company documents
     supabase

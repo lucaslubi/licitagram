@@ -12,8 +12,7 @@ interface SegmentSummary {
   keyword: string
 }
 
-const formatBRL = (value: number) =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
+import { formatCurrencyBR as formatBRL } from '@/lib/format'
 
 export function SegmentPriceWidget() {
   const [data, setData] = useState<SegmentSummary | null>(null)

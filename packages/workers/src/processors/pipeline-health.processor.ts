@@ -691,6 +691,133 @@ async function checkEnrichmentPipeline(): Promise<{ issues: string[]; fixes: str
   return { issues, fixes }
 }
 
+// ─── WhatsApp / WAHA Connectivity Health ──────────────────────────────────────
+
+async function checkWhatsAppConnectivity(): Promise<{ issues: string[]; fixes: string[] }> {
+  const issues: string[] = []
+  const fixes: string[] = []
+
+  try {
+    const wahaUrl = process.env.WAHA_URL || process.env.EVOLUTION_API_URL || 'http://127.0.0.1:3000'
+    const wahaKey = process.env.WAHA_API_KEY || process.env.EVOLUTION_API_KEY || ''
+    const wahaSession = process.env.WAHA_SESSION || 'default'
+
+    // 1. Check if WAHA is reachable and session is WORKING
+    const res = await fetch(`${wahaUrl}/api/sessions/${wahaSession}`, {
+      headers: { 'X-Api-Key': wahaKey },
+      signal: AbortSignal.timeout(5000),
+    })
+
+    if (!res.ok) {
+      const failCount = trackFailure('waha-unreachable')
+      issues.push(`WAHA API returned ${res.status} at ${wahaUrl}`)
+
+      if (failCount >= 6) {
+        await alertAdmin(`⚠️ WhatsApp WAHA está inacessível (${wahaUrl}). Status HTTP ${res.status}. Notificações WhatsApp NÃO estão sendo enviadas!`)
+        clearFailure('waha-unreachable')
+      }
+    } else {
+      const data = await res.json() as { status?: string }
+      if (data.status !== 'WORKING') {
+        const failCount = trackFailure('waha-disconnected')
+        issues.push(`WAHA session "${wahaSession}" status: ${data.status} (not WORKING)`)
+
+        if (failCount >= 3) {
+          await alertAdmin(`⚠️ WhatsApp WAHA sessão "${wahaSession}" status: ${data.status}. Precisa escanear QR code novamente.`)
+          clearFailure('waha-disconnected')
+        }
+      } else {
+        clearFailure('waha-unreachable')
+        clearFailure('waha-disconnected')
+      }
+    }
+
+    // 2. Check for permanently failed WhatsApp jobs (max retries exhausted) and clean them
+    const waQueue = new Queue('notification-whatsapp', { connection })
+    const failedCount = await waQueue.getFailedCount()
+    if (failedCount > 20) {
+      const failedJobs = await waQueue.getFailed(0, 300)
+      let cleaned = 0
+      for (const job of failedJobs) {
+        // Clean permanently failed jobs (all retries exhausted) or jobs > 6h old
+        const isMaxed = job.attemptsMade >= (job.opts?.attempts || 5)
+        const age = Date.now() - (job.finishedOn || 0)
+        if (isMaxed || age > 6 * 60 * 60 * 1000) {
+          await job.remove()
+          cleaned++
+        }
+      }
+      if (cleaned > 0) {
+        fixes.push(`Cleaned ${cleaned} permanently failed WhatsApp jobs (unblocking re-enqueue)`)
+        logger.info({ cleaned }, '🧹 Cleaned permanently failed WhatsApp jobs')
+      }
+    }
+
+    // Same for Telegram
+    const tgQueue = new Queue('notification', { connection })
+    const tgFailedCount = await tgQueue.getFailedCount()
+    if (tgFailedCount > 20) {
+      const failedJobs = await tgQueue.getFailed(0, 300)
+      let cleaned = 0
+      for (const job of failedJobs) {
+        const isMaxed = job.attemptsMade >= (job.opts?.attempts || 3)
+        const age = Date.now() - (job.finishedOn || 0)
+        if (isMaxed || age > 6 * 60 * 60 * 1000) {
+          await job.remove()
+          cleaned++
+        }
+      }
+      if (cleaned > 0) {
+        fixes.push(`Cleaned ${cleaned} permanently failed Telegram jobs`)
+      }
+    }
+  } catch (err) {
+    logger.warn({ err }, 'Error checking WhatsApp connectivity')
+  }
+
+  return { issues, fixes }
+}
+
+// ─── Expired Matches Purge ─────────────────────────────────────────────────
+
+async function purgeExpiredMatches(): Promise<{ issues: string[]; fixes: string[] }> {
+  const issues: string[] = []
+  const fixes: string[] = []
+
+  try {
+    const today = new Date().toISOString().split('T')[0]
+
+    // Count matches that are 'new' + unnotified but their tender has expired
+    // This prevents expired matches from occupying query limits
+    const { data: expiredMatches } = await supabase
+      .from('matches')
+      .select('id, tenders!inner(data_encerramento)')
+      .eq('status', 'new')
+      .is('notified_at', null)
+      .lt('tenders.data_encerramento', today)
+      .limit(500)
+
+    if (expiredMatches && expiredMatches.length > 50) {
+      const ids = expiredMatches.map((m: any) => m.id)
+      const { error } = await supabase
+        .from('matches')
+        .update({ status: 'expired' })
+        .in('id', ids)
+
+      if (!error) {
+        fixes.push(`Marked ${ids.length} expired-tender matches as 'expired'`)
+        logger.info({ count: ids.length }, '🧹 Auto-purged expired matches')
+      } else {
+        logger.warn({ error: error.message, count: ids.length }, 'Failed to purge expired matches')
+      }
+    }
+  } catch (err) {
+    logger.warn({ err }, 'Error purging expired matches')
+  }
+
+  return { issues, fixes }
+}
+
 // ─── Main Health Check ───────────────────────────────────────────────────────
 
 export const pipelineHealthWorker = new Worker(
@@ -744,7 +871,17 @@ export const pipelineHealthWorker = new Worker(
     allIssues.push(...enrichResult.issues)
     allFixes.push(...enrichResult.fixes)
 
-    // 7. Get summary stats
+    // 7. WhatsApp/WAHA connectivity + permanently failed job cleanup
+    const waResult = await checkWhatsAppConnectivity()
+    allIssues.push(...waResult.issues)
+    allFixes.push(...waResult.fixes)
+
+    // 8. Expired matches purge (prevents expired tenders from filling query LIMIT)
+    const expiredResult = await purgeExpiredMatches()
+    allIssues.push(...expiredResult.issues)
+    allFixes.push(...expiredResult.fixes)
+
+    // 9. Get summary stats
     const [
       { count: totalTenders },
       { count: totalMatches },

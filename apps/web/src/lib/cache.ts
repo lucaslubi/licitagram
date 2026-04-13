@@ -314,10 +314,11 @@ async function fetchMatchListFromDB(params: MatchListParams): Promise<MatchListR
   const { companyId, page, pageSize, uf, modalidade, dataFrom, dataTo, fonte, ordemValor, ordemData } = params
   const effectiveMinScore = Math.max(MIN_DISPLAY_SCORE, (params.scoreMin && params.scoreMin > 0) ? params.scoreMin : params.minScore)
 
-  // NOTE: Supabase .order() with referencedTable only orders the EMBEDDED
-  // resource (nested tenders array), NOT the parent match rows. Since each
-  // match has exactly one tender (many-to-one), it has zero visible effect.
-  // Fix: fetch all matches, sort in JS, then paginate manually.
+  // Supabase .order() with referencedTable only orders the EMBEDDED resource
+  // (nested tenders array), NOT the parent match rows. When the user requests
+  // sorting by tender fields (valor/data), we must fetch a larger batch and
+  // sort in JS. When using the default sort (score desc), we paginate in SQL.
+  const needsJsSort = Boolean(ordemValor || ordemData)
 
   let query = supabase
     .from('matches')
@@ -353,8 +354,16 @@ async function fetchMatchListFromDB(params: MatchListParams): Promise<MatchListR
   if (params.minValor != null) query = query.gte('tenders.valor_estimado', params.minValor)
   if (params.maxValor != null) query = query.lte('tenders.valor_estimado', params.maxValor)
 
-  // Fetch all rows (up to 2000) — we paginate in JS after sorting
-  query = query.order('score', { ascending: false }).limit(2000)
+  // Default SQL ordering: highest score first
+  query = query.order('score', { ascending: false })
+
+  if (needsJsSort) {
+    // Custom sort on tender fields requires fetching a batch and sorting in JS
+    query = query.limit(500)
+  } else {
+    // Default sort (score desc) is handled in SQL — paginate directly
+    query = query.range((page - 1) * pageSize, page * pageSize - 1)
+  }
 
   const { data: allMatches, count } = await query
 
@@ -372,6 +381,16 @@ async function fetchMatchListFromDB(params: MatchListParams): Promise<MatchListR
 
   if (openMatches.length === 0) {
     return { matches: [], count: 0, totalPages: 0 }
+  }
+
+  // When using default sort (score desc), SQL already ordered and paginated
+  if (!needsJsSort) {
+    const total = count ?? openMatches.length
+    return {
+      matches: openMatches,
+      count: total,
+      totalPages: Math.ceil(total / pageSize),
+    }
   }
 
   // Sort in application code (valor and data sorts on nested tender fields)
@@ -405,7 +424,7 @@ async function fetchMatchListFromDB(params: MatchListParams): Promise<MatchListR
   // Manual pagination
   const start = (page - 1) * pageSize
   const paginatedMatches = sorted.slice(start, start + pageSize)
-  // Use the accurate count from { count: 'exact' } query — NOT .length which is capped by limit(2000)
+  // Use the accurate count from { count: 'exact' } query — NOT .length which is capped by limit
   const total = count ?? openMatches.length
 
   return {

@@ -1,51 +1,56 @@
 /**
- * In-memory cache layer for the web app.
+ * Cache layer backed by Redis (ioredis) with in-memory fallback.
  *
- * Replaces the previous Redis/ioredis dependency with a simple Map+TTL cache.
- * On Vercel serverless, this cache lives for the duration of the warm instance
- * (typically 5-15 minutes), which aligns well with the short TTLs used.
+ * Uses the ioredis client from redis-client.ts as the primary shared cache.
+ * Falls back to an in-memory Map when Redis is unavailable (no REDIS_URL,
+ * connection error, etc.) so the app never breaks due to cache issues.
  *
  * Benefits:
- * - Zero external dependency (no Upstash/Redis costs)
- * - Zero latency (no network round-trip)
- * - Graceful: cache misses just hit Supabase directly
- *
- * Trade-off: cache is per-instance, not shared across Vercel functions.
- * This is acceptable because:
- * - TTLs are short (1-10 min)
- * - The app already handled Redis being unavailable gracefully
- * - Supabase can handle the direct query load
+ * - Shared cache across all Vercel function instances
+ * - Automatic fallback to per-instance Map if Redis is down
+ * - Same exported API — callers don't need changes
  */
+
+import { getRedisClient } from './redis-client'
+
+// ─── In-memory fallback ─────────────────────────────────────────────────────
 
 interface CacheEntry<T = unknown> {
   value: T
   expiresAt: number
 }
 
-const cache = new Map<string, CacheEntry>()
+const memCache = new Map<string, CacheEntry>()
 
-// Periodic cleanup to prevent memory leaks in long-lived instances
-const CLEANUP_INTERVAL = 60_000 // 1 minute
+const CLEANUP_INTERVAL = 60_000
 let cleanupTimer: ReturnType<typeof setInterval> | null = null
 
 function ensureCleanup() {
   if (cleanupTimer) return
   cleanupTimer = setInterval(() => {
     const now = Date.now()
-    for (const [key, entry] of cache) {
+    for (const [key, entry] of memCache) {
       if (entry.expiresAt <= now) {
-        cache.delete(key)
+        memCache.delete(key)
       }
     }
-    // If cache is empty, stop the timer
-    if (cache.size === 0 && cleanupTimer) {
+    if (memCache.size === 0 && cleanupTimer) {
       clearInterval(cleanupTimer)
       cleanupTimer = null
     }
   }, CLEANUP_INTERVAL)
-  // Don't block Node.js from exiting
   if (cleanupTimer && typeof cleanupTimer === 'object' && 'unref' in cleanupTimer) {
     cleanupTimer.unref()
+  }
+}
+
+// ─── Redis helpers ──────────────────────────────────────────────────────────
+
+function getRedis() {
+  try {
+    return getRedisClient()
+  } catch {
+    return null
   }
 }
 
@@ -57,26 +62,48 @@ const STATS_TTL = 600 // 10 minutes
 
 /**
  * Get a cached value, or compute and cache it.
- * Uses in-memory Map with TTL expiration.
+ * Tries Redis first, falls back to in-memory Map.
  */
 export async function cached<T>(
   key: string,
   fn: () => Promise<T>,
   ttl: number = DEFAULT_TTL,
 ): Promise<T> {
-  const now = Date.now()
-  const entry = cache.get(key)
+  const redis = getRedis()
 
-  if (entry && entry.expiresAt > now) {
-    return entry.value as T
+  // --- Try Redis GET ---
+  if (redis) {
+    try {
+      const raw = await redis.get(key)
+      if (raw !== null) {
+        return JSON.parse(raw) as T
+      }
+    } catch (err) {
+      console.warn('[cache] Redis GET failed, falling back to memory:', (err as Error).message)
+    }
   }
 
+  // --- Try in-memory GET ---
+  const now = Date.now()
+  const memEntry = memCache.get(key)
+  if (memEntry && memEntry.expiresAt > now) {
+    return memEntry.value as T
+  }
+
+  // --- Cache miss: compute value ---
   const result = await fn()
 
-  cache.set(key, {
-    value: result,
-    expiresAt: now + ttl * 1000,
-  })
+  // --- Write to Redis ---
+  if (redis) {
+    try {
+      await redis.set(key, JSON.stringify(result), 'EX', ttl)
+    } catch (err) {
+      console.warn('[cache] Redis SET failed, using memory only:', (err as Error).message)
+    }
+  }
+
+  // --- Always write to in-memory as backup ---
+  memCache.set(key, { value: result, expiresAt: Date.now() + ttl * 1000 })
   ensureCleanup()
 
   return result
@@ -86,30 +113,70 @@ export async function cached<T>(
  * Invalidate cache keys by pattern (supports * glob at the end).
  */
 export async function invalidateCache(pattern: string): Promise<number> {
-  if (!pattern.includes('*')) {
-    // Exact key
-    const deleted = cache.has(pattern) ? 1 : 0
-    cache.delete(pattern)
-    return deleted
-  }
+  const redis = getRedis()
+  let redisCount = 0
 
-  // Glob pattern: "cache:tenders:*" → prefix match
-  const prefix = pattern.replace(/\*+$/, '')
-  let count = 0
-  for (const key of cache.keys()) {
-    if (key.startsWith(prefix)) {
-      cache.delete(key)
-      count++
+  // --- Invalidate in Redis ---
+  if (redis) {
+    try {
+      if (!pattern.includes('*')) {
+        redisCount = await redis.del(pattern)
+      } else {
+        // SCAN-based pattern deletion (safe for production, no KEYS command)
+        let cursor = '0'
+        const keysToDelete: string[] = []
+        do {
+          const [nextCursor, keys] = await redis.scan(
+            cursor,
+            'MATCH',
+            pattern,
+            'COUNT',
+            100,
+          )
+          cursor = nextCursor
+          keysToDelete.push(...keys)
+        } while (cursor !== '0')
+
+        if (keysToDelete.length > 0) {
+          redisCount = await redis.del(...keysToDelete)
+        }
+      }
+    } catch (err) {
+      console.warn('[cache] Redis invalidateCache failed:', (err as Error).message)
     }
   }
-  return count
+
+  // --- Invalidate in memory ---
+  let memCount = 0
+  if (!pattern.includes('*')) {
+    memCount = memCache.has(pattern) ? 1 : 0
+    memCache.delete(pattern)
+  } else {
+    const prefix = pattern.replace(/\*+$/, '')
+    for (const key of memCache.keys()) {
+      if (key.startsWith(prefix)) {
+        memCache.delete(key)
+        memCount++
+      }
+    }
+  }
+
+  return Math.max(redisCount, memCount)
 }
 
 /**
  * Invalidate a specific cache key.
  */
 export async function invalidateKey(key: string): Promise<void> {
-  cache.delete(key)
+  const redis = getRedis()
+  if (redis) {
+    try {
+      await redis.del(key)
+    } catch (err) {
+      console.warn('[cache] Redis invalidateKey failed:', (err as Error).message)
+    }
+  }
+  memCache.delete(key)
 }
 
 // ─── Cache Key Builders ──────────────────────────────────────────────────────

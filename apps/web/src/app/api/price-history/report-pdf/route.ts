@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
 import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, BorderStyle, HeadingLevel } from 'docx'
+import { formatCurrencyBR as formatBRL } from '@/lib/format'
 
 export const maxDuration = 30
-
-function formatBRL(v: number): string {
-  return `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
 
 /**
  * POST /api/price-history/report-pdf

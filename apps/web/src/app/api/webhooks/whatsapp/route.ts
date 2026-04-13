@@ -9,6 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { timingSafeEqual } from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
 
 function getSupabase() {
@@ -60,7 +61,8 @@ export async function POST(request: NextRequest) {
   // Validate Evolution API webhook secret (required in production)
   const apiKey = request.headers.get('apikey') || request.headers.get('x-api-key')
   const expectedKey = process.env.EVOLUTION_WEBHOOK_SECRET || process.env.EVOLUTION_API_KEY
-  if (!expectedKey || apiKey !== expectedKey) {
+  if (!expectedKey || !apiKey || apiKey.length !== expectedKey.length ||
+      !timingSafeEqual(Buffer.from(apiKey), Buffer.from(expectedKey))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

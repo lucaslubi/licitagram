@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { formatCNPJ as formatCnpj } from '@/lib/format'
 
 export type MercadoCompetitor = {
   cnpj: string
@@ -104,10 +105,6 @@ function SortIcon({ field, sortField, sortDir }: { field: SortField; sortField: 
   return <span className="text-orange-500 ml-1">{sortDir === 'asc' ? '\u25B4' : '\u25BE'}</span>
 }
 
-function formatCnpj(cnpj: string): string {
-  if (cnpj.length !== 14) return cnpj
-  return cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')
-}
 
 export function MercadoSummaryCards({ competitors }: { competitors: MercadoCompetitor[] }) {
   const totalCompetitors = competitors.length

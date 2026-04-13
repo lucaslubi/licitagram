@@ -13,8 +13,7 @@ import {
   ComposedChart,
   ReferenceLine,
 } from 'recharts'
-
-const MONTHS_PTBR = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+import { formatMonthLabel, formatYAxisBRL } from '@/lib/format'
 
 interface TrendPoint {
   month: string  // "2025-01"
@@ -33,18 +32,7 @@ interface PriceTrendChartProps {
   formatCurrency: (value: number) => string
 }
 
-function formatMonthLabel(month: string): string {
-  const [year, m] = month.split('-')
-  const monthIndex = parseInt(m, 10) - 1
-  if (monthIndex < 0 || monthIndex > 11) return month
-  return `${MONTHS_PTBR[monthIndex]}/${year.slice(2)}`
-}
-
-function formatYAxisValue(value: number): string {
-  if (value >= 1_000_000) return `R$ ${(value / 1_000_000).toFixed(1)}M`
-  if (value >= 1_000) return `R$ ${Math.round(value / 1_000).toLocaleString('pt-BR')}k`
-  return `R$ ${Math.round(value).toLocaleString('pt-BR')}`
-}
+const formatYAxisValue = formatYAxisBRL
 
 interface CustomTooltipProps {
   active?: boolean

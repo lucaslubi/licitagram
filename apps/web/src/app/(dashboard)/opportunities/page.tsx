@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { formatDate, PNCP_MODALITIES } from '@licitagram/shared'
+import { formatCurrencyBR as formatCurrencyFull } from '@/lib/format'
 import {
   getAuthAndProfile,
   getTenderList,
@@ -44,10 +45,6 @@ const TENDER_STATUS_MAP: Record<string, { label: string; cls: string }> = {
 
 function truncateText(text: string, max: number): string {
   return text.length > max ? text.slice(0, max - 3) + '...' : text
-}
-
-function formatCurrencyFull(value: number): string {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
 }
 
 function countdownText(dataEncerramento: string | null): { text: string; urgent: boolean } | null {

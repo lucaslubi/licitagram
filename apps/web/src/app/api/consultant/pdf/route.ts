@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserWithPlan } from '@/lib/auth-helpers'
-import { renderToStream } from '@react-pdf/renderer'
 import React from 'react'
-import { LicitagramReport, type ReportSection, type ReportMetadata } from '@/lib/pdf/templates'
+import type { ReportSection, ReportMetadata } from '@/lib/pdf/templates'
 
 export async function POST(request: NextRequest) {
   // Auth check — PDF export available to all authenticated users
@@ -47,6 +46,12 @@ export async function POST(request: NextRequest) {
   }))
 
   try {
+    // Lazy-load heavy PDF packages only when this handler is called
+    const [{ renderToStream }, { LicitagramReport }] = await Promise.all([
+      import('@react-pdf/renderer'),
+      import('@/lib/pdf/templates'),
+    ])
+
     // Render PDF
     const pdfStream = await renderToStream(
       React.createElement(LicitagramReport, {

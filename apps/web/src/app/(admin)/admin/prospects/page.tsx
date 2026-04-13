@@ -4,15 +4,8 @@ import { Badge } from '@/components/ui/badge'
 
 const PAGE_SIZE = 50
 
-function formatCurrency(value: number | null): string {
-  if (!value) return 'R$ 0'
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(value)
-}
+import { formatCurrencyWhole as formatCurrency, formatPercentFromRatio as formatPercent } from '@/lib/format'
 
-function formatPercent(value: number | null): string {
-  if (value === null || value === undefined) return '0%'
-  return `${(Number(value) * 100).toFixed(1)}%`
-}
 
 export default async function AdminProspectsPage({
   searchParams,

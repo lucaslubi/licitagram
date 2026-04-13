@@ -12,6 +12,7 @@ import {
 import { getPriceHistoryCacheAdapter, checkRedisRateLimit } from '@/lib/price-history-cache'
 import crypto from 'crypto'
 import OpenAI from 'openai'
+import { formatCompactNumber as formatCompact } from '@/lib/format'
 
 export const maxDuration = 30
 
@@ -274,8 +275,3 @@ Recomendações geradas:
   }
 }
 
-function formatCompact(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(0)} mil`
-  return n.toLocaleString('pt-BR')
-}

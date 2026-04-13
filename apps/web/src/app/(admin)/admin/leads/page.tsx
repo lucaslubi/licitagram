@@ -1,6 +1,7 @@
 import { requirePlatformAdmin } from '@/lib/auth-helpers'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
+import { formatCurrencyWhole as formatCurrency } from '@/lib/format'
 
 const DATA_API_URL = process.env.DATA_API_URL || 'http://85.31.60.53:3997'
 const PAGE_SIZE = 50
@@ -14,11 +15,6 @@ const SEGMENTOS = [
   'Serviços Administrativos','Equipamentos Médicos','Máquinas e Equipamentos',
   'Manutenção Industrial','Energia e Gás','Locação de Equipamentos',
 ]
-
-function formatCurrency(value: number | null): string {
-  if (!value) return 'R$ 0'
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(value)
-}
 
 function formatRelativeDate(dateStr: string | null): string {
   if (!dateStr) return '—'

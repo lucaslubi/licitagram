@@ -4,10 +4,7 @@ import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-
-function formatBRL(v: number): string {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
-}
+import { formatCurrencyBR as formatBRL } from '@/lib/format'
 
 interface SimResult {
   probabilidadeVitoria: number

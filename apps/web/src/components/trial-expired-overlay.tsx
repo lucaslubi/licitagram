@@ -48,9 +48,9 @@ export function TrialExpiredOverlay({ plans = [] }: TrialExpiredOverlayProps) {
   }
 
   return (
-    <div className="relative min-h-[80vh] flex items-center justify-center">
-      <div className="absolute inset-0 bg-background/90 backdrop-blur-md z-10 pointer-events-none" />
-      <div className="relative z-20 text-center max-w-lg mx-auto px-6">
+    <div className="absolute inset-0 z-40 flex items-center justify-center">
+      <div className="absolute inset-0 bg-background/90 backdrop-blur-md" />
+      <div className="relative z-10 text-center max-w-lg mx-auto px-6">
         <div className="w-20 h-20 rounded-2xl bg-red-900/20 border border-red-900/30 flex items-center justify-center mx-auto mb-6">
           <Lock className="w-10 h-10 text-red-400" />
         </div>
@@ -83,16 +83,14 @@ export function TrialExpiredOverlay({ plans = [] }: TrialExpiredOverlayProps) {
         </Button>
 
         {/* Secondary: see all plans */}
-        {plans.length > 1 && (
-          <div className="mt-4">
-            <a
-              href="/billing"
-              className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-4 transition-colors"
-            >
-              Ver todos os planos
-            </a>
-          </div>
-        )}
+        <div className="mt-4">
+          <a
+            href="/billing"
+            className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-4 transition-colors"
+          >
+            Ver todos os planos
+          </a>
+        </div>
 
         {error && (
           <p className="text-red-400 text-xs mt-4">{error}</p>

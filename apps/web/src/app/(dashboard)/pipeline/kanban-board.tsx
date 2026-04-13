@@ -15,6 +15,7 @@ import {
   type DragStartEvent,
 } from '@dnd-kit/core'
 import { updateMatchStatus } from '@/actions/update-match-status'
+import { formatCompactBRL as formatValue } from '@/lib/format'
 
 interface Match {
   id: string
@@ -42,12 +43,6 @@ const COLUMNS = [
 
 const INITIAL_DISPLAY = 20
 
-function formatValue(val: number): string {
-  if (val >= 1_000_000_000) return `R$${(val / 1_000_000_000).toFixed(1)}B`
-  if (val >= 1_000_000) return `R$${(val / 1_000_000).toFixed(1)}M`
-  if (val >= 1_000) return `R$${(val / 1_000).toFixed(0)}K`
-  return `R$${val.toFixed(0)}`
-}
 
 function countdownDays(dateStr: string | null): { days: number; urgent: boolean } | null {
   if (!dateStr) return null

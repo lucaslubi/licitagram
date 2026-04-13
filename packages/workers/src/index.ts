@@ -132,6 +132,7 @@ import { comprasgovScrapingQueue } from './queues/comprasgov-scraping.queue'
 import { resultsScrapingQueue } from './queues/results-scraping.queue'
 import { documentExpiryQueue } from './queues/document-expiry.queue'
 import { fornecedorEnrichmentQueue } from './queues/fornecedor-enrichment.queue'
+import { contactEnrichmentQueue } from './queues/contact-enrichment.queue'
 import { arpScrapingQueue } from './queues/comprasgov-arp.queue'
 import { legadoScrapingQueue } from './queues/comprasgov-legado.queue'
 import { hotAlertsQueue } from './queues/hot-alerts.queue'
@@ -952,7 +953,11 @@ async function main() {
       'analyze-relevance', {},
       { repeat: { every: 1 * 60 * 60 * 1000 }, jobId: 'competitor-relevance-1h-enrichment' },
     )
-    logger.info('Enrichment repeatable jobs scheduled (results 6h, fornecedor 8h, stats 3h, docs weekly, AI classifier 2h, proactive suppliers 4h, relevance 1h)')
+    await contactEnrichmentQueue.add(
+      'contact-enrich', { batch: 0 },
+      { repeat: { every: 4 * 60 * 60 * 1000 }, jobId: 'contact-enrichment-4h-repeat' },
+    )
+    logger.info('Enrichment repeatable jobs scheduled (results 6h, fornecedor 8h, stats 3h, docs weekly, AI classifier 2h, proactive suppliers 4h, relevance 1h, contacts 4h)')
 
     // Trigger immediate full materialization + enrichment on startup
     competitionAnalysisQueue.add('materialize-full-startup', { mode: 'full' }).catch(err => {

@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserWithPlan } from '@/lib/auth-helpers'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 const DATA_API_URL = process.env.DATA_API_URL || 'http://85.31.60.53:3997'
 
@@ -16,6 +17,14 @@ export async function GET(request: NextRequest) {
   const user = await getUserWithPlan()
   if (!user?.isPlatformAdmin) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  }
+
+  const rl = await checkRateLimit(`admin-leads:${user.userId}`, 10, 60)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests' },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } },
+    )
   }
 
   const searchParams = request.nextUrl.searchParams
@@ -37,6 +46,14 @@ export async function POST(request: NextRequest) {
   const user = await getUserWithPlan()
   if (!user?.isPlatformAdmin) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  }
+
+  const rlPost = await checkRateLimit(`admin-leads:${user.userId}`, 10, 60)
+  if (!rlPost.allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests' },
+      { status: 429, headers: { 'Retry-After': String(rlPost.retryAfter) } },
+    )
   }
 
   try {

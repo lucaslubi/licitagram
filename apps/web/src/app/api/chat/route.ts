@@ -11,27 +11,87 @@ export const maxDuration = 120
 
 
 /**
- * SSRF Protection: block private/internal IPs only.
+ * SSRF Protection: comprehensive blocking of private, internal, loopback,
+ * link-local, cloud metadata, and other non-routable addresses.
  */
 function isSafeUrl(url: string): boolean {
   try {
     const parsed = new URL(url)
     if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false
-    const hostname = parsed.hostname.toLowerCase()
+
+    // Block non-default ports that could target internal services
+    if (parsed.port && parsed.port !== '80' && parsed.port !== '443') return false
+
+    // Strip square brackets from IPv6 addresses for uniform checks
+    const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '')
+
+    // --- Blocked hostnames / suffixes ---
     if (
       hostname === 'localhost' ||
-      hostname === '127.0.0.1' ||
-      hostname.startsWith('10.') ||
-      hostname.startsWith('192.168.') ||
-      /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) ||
-      hostname === '0.0.0.0' ||
-      hostname === '::1' ||
-      hostname === '[::1]' ||
+      hostname.endsWith('.localhost') ||
       hostname.endsWith('.local') ||
-      hostname.endsWith('.internal')
+      hostname.endsWith('.internal') ||
+      hostname.endsWith('.corp') ||
+      hostname.endsWith('.home') ||
+      hostname.endsWith('.lan') ||
+      hostname.endsWith('.intranet')
     ) {
       return false
     }
+
+    // --- IPv4 checks ---
+    // Loopback 127.0.0.0/8
+    if (/^127\./.test(hostname)) return false
+    // 0.0.0.0/8 (current network)
+    if (/^0\./.test(hostname) || hostname === '0.0.0.0') return false
+    // Private 10.0.0.0/8
+    if (/^10\./.test(hostname)) return false
+    // Private 172.16.0.0/12
+    if (/^172\.(1[6-9]|2\d|3[01])\./.test(hostname)) return false
+    // Private 192.168.0.0/16
+    if (/^192\.168\./.test(hostname)) return false
+    // Link-local 169.254.0.0/16 (includes AWS metadata 169.254.169.254)
+    if (/^169\.254\./.test(hostname)) return false
+    // Shared address space 100.64.0.0/10 (CGN / Tailscale / internal)
+    if (/^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(hostname)) return false
+    // Documentation / TEST-NET ranges
+    if (/^192\.0\.2\./.test(hostname)) return false   // TEST-NET-1
+    if (/^198\.51\.100\./.test(hostname)) return false // TEST-NET-2
+    if (/^203\.0\.113\./.test(hostname)) return false  // TEST-NET-3
+    // Benchmarking 198.18.0.0/15
+    if (/^198\.1[89]\./.test(hostname)) return false
+    // Protocol assignments 192\.0\.0\.0/24
+    if (/^192\.0\.0\./.test(hostname)) return false
+
+    // --- IPv6 checks (hostname already stripped of brackets) ---
+    // Loopback ::1 and any zero-expanded form
+    if (/^(0*:)*:?0*1$/.test(hostname) || hostname === '::1') return false
+    // Unspecified address ::
+    if (/^(0*:)*:?0*$/.test(hostname) || hostname === '::') return false
+    // IPv4-mapped IPv6 ::ffff:x.x.x.x — re-check the embedded IPv4
+    const v4Mapped = hostname.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/)
+    if (v4Mapped) {
+      // Recursively validate the embedded IPv4
+      return isSafeUrl(`${parsed.protocol}//${v4Mapped[1]}${parsed.pathname}`)
+    }
+    // Unique local addresses fd00::/8 and fc00::/7
+    if (/^f[cd][0-9a-f]{2}:/.test(hostname)) return false
+    // Link-local fe80::/10
+    if (/^fe[89ab][0-9a-f]:/.test(hostname)) return false
+    // Any IPv6 starting with :: that could encode internal addresses
+    if (hostname.startsWith('::ffff:') || hostname.startsWith('::ffff:0:')) return false
+    // Teredo 2001:0000::/32
+    if (/^2001:0*:/.test(hostname)) return false
+    // 6to4 2002::/16 — can embed private IPv4
+    if (/^2002:/.test(hostname)) return false
+
+    // --- Cloud metadata endpoints ---
+    // GCP, Azure, DigitalOcean metadata (via link-local, already caught above)
+    // AWS IMDSv1/v2 fd00:ec2::254
+    if (hostname === 'fd00:ec2::254') return false
+    // Alibaba Cloud metadata
+    if (hostname === '100.100.100.200') return false
+
     return true
   } catch {
     return false
@@ -46,7 +106,64 @@ function getServiceSupabase() {
   )
 }
 
-/** Extract text from a PDF or ZIP URL */
+/** Process an already-fetched response into extracted PDF/ZIP text */
+async function extractPdfFromResponse(response: Response, url: string): Promise<{ text: string | null; error: string | null }> {
+  const contentType = response.headers.get('content-type') || ''
+  const isAcceptable =
+    contentType.includes('pdf') ||
+    contentType.includes('zip') ||
+    contentType.includes('octet-stream') ||
+    contentType.includes('binary') ||
+    url.toLowerCase().endsWith('.pdf') ||
+    url.toLowerCase().endsWith('.zip')
+  if (!isAcceptable && !contentType.includes('application/')) {
+    return { text: null, error: `Unexpected content-type: ${contentType}` }
+  }
+  const buffer = Buffer.from(await response.arrayBuffer())
+  if (buffer.length > 50 * 1024 * 1024) return { text: null, error: 'File too large' }
+  if (buffer.length < 100) return { text: null, error: 'File empty' }
+
+  // Detect ZIP (magic bytes PK\x03\x04)
+  const isZip = buffer[0] === 0x50 && buffer[1] === 0x4B && buffer[2] === 0x03 && buffer[3] === 0x04
+  const looksLikeZip = isZip || contentType.includes('zip') || url.toLowerCase().endsWith('.zip')
+
+  if (looksLikeZip) {
+    const { default: AdmZip } = await import('adm-zip')
+    const zip = new AdmZip(buffer)
+    const entries = zip.getEntries()
+    const pdfEntries = entries.filter((e: any) =>
+      !e.isDirectory && e.entryName.toLowerCase().endsWith('.pdf'),
+    )
+    if (pdfEntries.length === 0) {
+      return { text: null, error: 'ZIP contains no PDF files' }
+    }
+    const texts: string[] = []
+    for (const entry of pdfEntries) {
+      try {
+        const pdfBuffer = entry.getData()
+        const data = await pdf(pdfBuffer)
+        const t = data.text.replace(/\s+/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
+        if (t && t.length >= 50) {
+          texts.push(`--- ${entry.entryName} ---\n${t}`)
+        }
+      } catch { /* skip unreadable PDFs inside ZIP */ }
+    }
+    if (texts.length === 0) return { text: null, error: 'No text extracted from PDFs in ZIP' }
+    const combined = texts.join('\n\n')
+    console.log(`[Chat PDF] Extracted ${combined.length} chars from ${pdfEntries.length} PDFs in ZIP: ${url.slice(0, 80)}`)
+    return { text: combined, error: null }
+  }
+
+  // Regular PDF
+  const data = await pdf(buffer)
+  const text = data.text.replace(/\s+/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
+  if (!text || text.length < 50) return { text: null, error: 'No extractable text' }
+
+  console.log(`[Chat PDF] Extracted ${text.length} chars from ${url.slice(0, 80)}`)
+  return { text, error: null }
+}
+
+/** Extract text from a PDF or ZIP URL with SSRF-safe redirect handling */
 async function extractPdfText(url: string): Promise<{ text: string | null; error: string | null }> {
   try {
     const pdfResponse = await fetch(url, {
@@ -55,64 +172,34 @@ async function extractPdfText(url: string): Promise<{ text: string | null; error
         'User-Agent': 'Mozilla/5.0 (compatible; Licitagram/1.0; +https://licitagram.com.br)',
         Accept: 'application/pdf, application/zip, */*',
       },
-      redirect: 'follow',
+      redirect: 'manual',
     })
+    // If redirect, validate the target URL before following
+    if ([301, 302, 303, 307, 308].includes(pdfResponse.status)) {
+      const location = pdfResponse.headers.get('location')
+      if (!location) return { text: null, error: 'Redirect with no Location header' }
+      const redirectUrl = new URL(location, url).toString()
+      if (!isSafeUrl(redirectUrl)) {
+        return { text: null, error: 'Redirect target blocked by SSRF protection' }
+      }
+      // Follow one safe redirect manually (no further redirects allowed)
+      const redirectedResponse = await fetch(redirectUrl, {
+        signal: AbortSignal.timeout(60_000),
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; Licitagram/1.0; +https://licitagram.com.br)',
+          Accept: 'application/pdf, application/zip, */*',
+        },
+        redirect: 'error',
+      })
+      if (!redirectedResponse.ok) {
+        return { text: null, error: `HTTP ${redirectedResponse.status} after redirect` }
+      }
+      return extractPdfFromResponse(redirectedResponse, url)
+    }
     if (!pdfResponse.ok) {
       return { text: null, error: `HTTP ${pdfResponse.status}` }
     }
-    const contentType = pdfResponse.headers.get('content-type') || ''
-    const isAcceptable =
-      contentType.includes('pdf') ||
-      contentType.includes('zip') ||
-      contentType.includes('octet-stream') ||
-      contentType.includes('binary') ||
-      url.toLowerCase().endsWith('.pdf') ||
-      url.toLowerCase().endsWith('.zip')
-    if (!isAcceptable && !contentType.includes('application/')) {
-      return { text: null, error: `Unexpected content-type: ${contentType}` }
-    }
-    const buffer = Buffer.from(await pdfResponse.arrayBuffer())
-    if (buffer.length > 50 * 1024 * 1024) return { text: null, error: 'File too large' }
-    if (buffer.length < 100) return { text: null, error: 'File empty' }
-
-    // Detect ZIP (magic bytes PK\x03\x04)
-    const isZip = buffer[0] === 0x50 && buffer[1] === 0x4B && buffer[2] === 0x03 && buffer[3] === 0x04
-    const looksLikeZip = isZip || contentType.includes('zip') || url.toLowerCase().endsWith('.zip')
-
-    if (looksLikeZip) {
-      const { default: AdmZip } = await import('adm-zip')
-      const zip = new AdmZip(buffer)
-      const entries = zip.getEntries()
-      const pdfEntries = entries.filter((e: any) =>
-        !e.isDirectory && e.entryName.toLowerCase().endsWith('.pdf'),
-      )
-      if (pdfEntries.length === 0) {
-        return { text: null, error: 'ZIP contains no PDF files' }
-      }
-      const texts: string[] = []
-      for (const entry of pdfEntries) {
-        try {
-          const pdfBuffer = entry.getData()
-          const data = await pdf(pdfBuffer)
-          const t = data.text.replace(/\s+/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
-          if (t && t.length >= 50) {
-            texts.push(`--- ${entry.entryName} ---\n${t}`)
-          }
-        } catch { /* skip unreadable PDFs inside ZIP */ }
-      }
-      if (texts.length === 0) return { text: null, error: 'No text extracted from PDFs in ZIP' }
-      const combined = texts.join('\n\n')
-      console.log(`[Chat PDF] Extracted ${combined.length} chars from ${pdfEntries.length} PDFs in ZIP: ${url.slice(0, 80)}`)
-      return { text: combined, error: null }
-    }
-
-    // Regular PDF
-    const data = await pdf(buffer)
-    const text = data.text.replace(/\s+/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
-    if (!text || text.length < 50) return { text: null, error: 'No extractable text' }
-
-    console.log(`[Chat PDF] Extracted ${text.length} chars from ${url.slice(0, 80)}`)
-    return { text, error: null }
+    return extractPdfFromResponse(pdfResponse, url)
   } catch (err) {
     return { text: null, error: err instanceof Error ? err.message : String(err) }
   }

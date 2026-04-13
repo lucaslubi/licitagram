@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-import * as XLSX from 'xlsx'
 import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { AI_VERIFIED_SOURCES } from '@/lib/cache'
@@ -118,6 +117,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // Lazy-load xlsx only when export is actually requested
+    const XLSX = await import('xlsx')
+
     // Create Excel
     const ws = XLSX.utils.json_to_sheet(rows)
     const wb = XLSX.utils.book_new()

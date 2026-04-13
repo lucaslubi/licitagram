@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { formatCNPJ, formatCurrencyBR as formatBRL } from '@/lib/format'
 
 interface EmpresaData {
   cnpj: string
@@ -31,15 +32,6 @@ interface SanctionData {
     categoria: string
     observacoes: string
   }>
-}
-
-function formatCNPJ(cnpj: string): string {
-  const c = cnpj.replace(/\D/g, '').padStart(14, '0')
-  return `${c.slice(0,2)}.${c.slice(2,5)}.${c.slice(5,8)}/${c.slice(8,12)}-${c.slice(12,14)}`
-}
-
-function formatBRL(value: number): string {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
 }
 
 interface Props {

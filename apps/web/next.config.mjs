@@ -30,6 +30,20 @@ const nextConfig = {
           { key: 'X-XSS-Protection', value: '1; mode=block' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+          { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://apis.google.com",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.mapbox.com",
+              "img-src 'self' data: blob: https://*.stripe.com https://*.mapbox.com https://*.supabase.co",
+              "font-src 'self' https://fonts.gstatic.com",
+              "frame-src https://js.stripe.com https://accounts.google.com",
+              "connect-src 'self' https://*.supabase.co https://api.stripe.com https://api.mapbox.com https://*.tiles.mapbox.com https://events.mapbox.com wss://*.supabase.co",
+              "worker-src 'self' blob:",
+            ].join('; '),
+          },
         ],
       },
     ]

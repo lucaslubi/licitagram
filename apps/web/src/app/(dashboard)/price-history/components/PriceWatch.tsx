@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { formatCurrencyBR as formatBRL, formatDateTime } from '@/lib/format'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -66,17 +67,6 @@ const INITIAL_FORM: FormData = {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const formatBRL = (value: number) =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
-
-const formatDate = (iso: string) =>
-  new Date(iso).toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
 
 function describeThreshold(type: string, value: number | null): string {
   switch (type) {
@@ -480,7 +470,7 @@ export function PriceWatch() {
                       <span>
                         Ultimo acionamento:{' '}
                         {watch.last_triggered_at
-                          ? formatDate(watch.last_triggered_at)
+                          ? formatDateTime(watch.last_triggered_at)
                           : 'Nunca acionado'}
                       </span>
                       {watch.last_price !== null && (

@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateClientSubscription } from '@/actions/admin/clients'
+import { formatBRL } from '@/lib/format'
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   active: { label: 'Ativo', color: 'bg-emerald-900/20 text-emerald-400' },
@@ -74,10 +75,6 @@ export function ClientSubscriptionActions({
         router.refresh()
       }
     })
-  }
-
-  function formatBRL(cents: number) {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100)
   }
 
   const statusInfo = STATUS_LABELS[currentStatus] || { label: currentStatus, color: 'bg-[#2d2f33] text-gray-400' }

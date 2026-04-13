@@ -2,10 +2,7 @@ import { requirePlatformAdmin } from '@/lib/auth-helpers'
 import { getRevenueMetrics, getDelinquents } from '@/actions/admin/financial'
 import { StatsCard } from '@/components/admin/stats-card'
 import { Badge } from '@/components/ui/badge'
-
-function formatBRL(cents: number): string {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100)
-}
+import { formatBRL } from '@/lib/format'
 
 export default async function AdminFinancialPage() {
   await requirePlatformAdmin()

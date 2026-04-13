@@ -32,16 +32,5 @@ export async function saveToDrive(options: {
   }
 }
 
-export function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`
-}
-
-export function formatDatePtBr(date: string | Date): string {
-  const d = new Date(date)
-  const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
-  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`
-}
+/** @deprecated Import from '@/lib/format' instead */
+export { formatFileSize, formatDatePtBr } from '@/lib/format'

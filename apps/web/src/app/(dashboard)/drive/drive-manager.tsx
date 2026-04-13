@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { formatDatePtBr, formatFileSize } from '@/lib/format'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -66,19 +67,6 @@ const SORT_OPTIONS: { key: SortOption; label: string }[] = [
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 B'
-  const units = ['B', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(1024))
-  const size = bytes / Math.pow(1024, i)
-  return `${size < 10 ? size.toFixed(1) : Math.round(size)} ${units[i]}`
-}
-
-function formatDatePtBr(dateStr: string): string {
-  const d = new Date(dateStr)
-  const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
-  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`
-}
 
 function getFileTypeInfo(mimeType: string, fileName: string): { type: string; color: string; bgColor: string } {
   if (mimeType === 'application/pdf' || fileName.endsWith('.pdf'))

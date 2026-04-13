@@ -7,7 +7,14 @@ import type { Browser, Page } from 'puppeteer-core'
 // @ts-ignore
 puppeteer.use(StealthPlugin())
 
-const activeSessions = new Map<string, { browser: Browser, page: Page }>()
+const CHROMIUM_PATH = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium-browser'
+
+const activeSessions = new Map<string, { browser: Browser, page: Page, portal?: string }>()
+
+const CERTIDAO_URLS: Record<string, string> = {
+  receita: 'https://servicos.receitafederal.gov.br/servico/certidoes/#/home/cnpj',
+  fgts: 'https://consulta-crf.caixa.gov.br/consultacrf/pages/consultaEmpregador.jsf',
+}
 
 export class LoginServer {
   start(port: number) {
@@ -66,10 +73,22 @@ export class LoginServer {
               
               const result = await this.handleCookies(session_id)
               return this.sendJson(res, 200, result)
+            } else if (req.url === '/start_certidao') {
+              const { session_id, portal, cnpj } = body
+              if (!session_id || !portal || !cnpj) return this.sendJson(res, 400, { error: 'Missing session_id, portal or cnpj' })
+
+              const result = await this.handleStartCertidao(session_id, portal, cnpj)
+              return this.sendJson(res, 200, result)
+            } else if (req.url === '/check_result') {
+              const { session_id } = body
+              if (!session_id) return this.sendJson(res, 400, { error: 'Missing session_id' })
+
+              const result = await this.handleCheckResult(session_id)
+              return this.sendJson(res, 200, result)
             } else if (req.url === '/close') {
               const { session_id } = body
               if (!session_id) return this.sendJson(res, 400, { error: 'Missing session_id' })
-              
+
               const result = await this.handleClose(session_id)
               return this.sendJson(res, 200, result)
             } else {
@@ -104,7 +123,7 @@ export class LoginServer {
     const browser = await puppeteer.launch({
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+      executablePath: CHROMIUM_PATH,
     })
 
     const page = await browser.newPage()
@@ -177,6 +196,109 @@ export class LoginServer {
     const logged_in = url.includes('gov.br') && !url.includes('sso.acesso.gov.br') && !url.includes('login')
     
     return { logged_in, cookies }
+  }
+
+  private async handleStartCertidao(sessionId: string, portal: string, cnpj: string) {
+    // Close existing session if any
+    if (activeSessions.has(sessionId)) {
+      await this.handleClose(sessionId)
+    }
+
+    const url = CERTIDAO_URLS[portal]
+    if (!url) throw new Error(`Unknown certidao portal: ${portal}`)
+
+    const clean = cnpj.replace(/\D/g, '')
+
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+      executablePath: CHROMIUM_PATH,
+    })
+
+    const page = await browser.newPage()
+    await page.setViewport({ width: 1280, height: 800 })
+    activeSessions.set(sessionId, { browser, page, portal })
+
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 })
+    // Wait for SPA to render
+    await new Promise(r => setTimeout(r, 5000))
+
+    // Auto-fill CNPJ based on portal
+    try {
+      if (portal === 'receita') {
+        const selectors = ['input[placeholder*="CNPJ"]', 'input[formcontrolname]', 'input[type="text"]']
+        let filled = false
+        for (const sel of selectors) {
+          try {
+            await page.waitForSelector(sel, { timeout: 5000 })
+            await page.click(sel, { clickCount: 3 }) // select all
+            await page.type(sel, clean, { delay: 30 })
+            filled = true
+            break
+          } catch { continue }
+        }
+        if (!filled) logger.warn('Could not find CNPJ input on Receita page')
+      } else if (portal === 'fgts') {
+        await page.waitForSelector('input[id*="inscricao"]', { timeout: 10000 })
+        await page.click('input[id*="inscricao"]', { clickCount: 3 })
+        await page.type('input[id*="inscricao"]', clean, { delay: 30 })
+      }
+    } catch (err: any) {
+      logger.warn({ sessionId, err: err.message }, 'Certidao CNPJ fill failed')
+    }
+
+    await new Promise(r => setTimeout(r, 1000))
+    const screenshot = await page.screenshot({ encoding: 'base64', type: 'jpeg', quality: 60 })
+    return { screenshot, status: 'captcha_page', url: page.url() }
+  }
+
+  private async handleCheckResult(sessionId: string) {
+    const session = activeSessions.get(sessionId)
+    if (!session) throw new Error('Session not found')
+    const { page } = session
+
+    const pageText = await page.evaluate(() => document.body?.innerText || '')
+    const lower = pageText.toLowerCase()
+    const screenshot = await page.screenshot({ encoding: 'base64', type: 'jpeg', quality: 60 })
+
+    let result_status = 'pending'
+    let detalhes = ''
+
+    if (lower.includes('certidão negativa') || lower.includes('certidao negativa')) {
+      result_status = 'negativa'
+      detalhes = 'Certidão Negativa emitida com sucesso'
+    } else if (lower.includes('certidão positiva com efeitos de negativa')) {
+      result_status = 'positiva_negativa'
+      detalhes = 'Certidão Positiva com Efeitos de Negativa'
+    } else if (lower.includes('certidão positiva') || lower.includes('certidao positiva')) {
+      result_status = 'positiva'
+      detalhes = 'Certidão Positiva'
+    } else if (lower.includes('regularidade fiscal') && lower.includes('regular')) {
+      result_status = 'negativa'
+      detalhes = 'Situação Regular'
+    } else if (lower.includes('crf emitido') || lower.includes('certificado de regularidade')) {
+      result_status = 'negativa'
+      detalhes = 'CRF FGTS emitido'
+    } else if (lower.includes('situação irregular') || lower.includes('situacao irregular')) {
+      result_status = 'positiva'
+      detalhes = 'Situação Irregular'
+    } else if (lower.includes('erro') && (lower.includes('cnpj') || lower.includes('consulta'))) {
+      result_status = 'error'
+      detalhes = 'Erro na consulta'
+    }
+
+    // Try to find PDF download URL
+    let pdfUrl: string | null = null
+    if (result_status !== 'pending' && result_status !== 'error') {
+      try {
+        pdfUrl = await page.evaluate(() => {
+          const links = Array.from(document.querySelectorAll('a[href*=".pdf"], a[download]'))
+          return links.length > 0 ? (links[0] as HTMLAnchorElement).href : null
+        })
+      } catch { /* ignore */ }
+    }
+
+    return { result_status, detalhes, screenshot, url: page.url(), ...(pdfUrl ? { url: pdfUrl } : {}) }
   }
 
   private async handleClose(sessionId: string) {

@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
+import { formatDateShort } from '@/lib/format'
 
 interface CalendarEvent {
   id: string
@@ -30,10 +31,10 @@ function toDateOnly(dateStr: string): string {
   return (dateStr || '').substring(0, 10)
 }
 
-function formatDate(dateStr: string): string {
-  const parts = toDateOnly(dateStr).split('-')
-  if (parts.length < 3) return dateStr
-  return `${parts[2]}/${parts[1]}/${parts[0].slice(2)}`
+function formatCalendarDate(dateStr: string): string {
+  const clean = toDateOnly(dateStr)
+  if (!clean || clean.length < 10) return dateStr
+  return formatDateShort(clean)
 }
 
 function daysUntil(dateStr: string): string {
@@ -182,7 +183,7 @@ export function CalendarView({ events }: { events: CalendarEvent[] }) {
                         <p className="text-[10px] text-gray-400 truncate">{e.description}</p>
                       </div>
                       <div className="text-right shrink-0">
-                        <p className="text-xs font-mono text-gray-300">{formatDate(e.date)}</p>
+                        <p className="text-xs font-mono text-gray-300">{formatCalendarDate(e.date)}</p>
                         <p className={`text-[10px] ${e.urgency === 'urgent' ? 'text-red-400 font-semibold' : e.urgency === 'soon' ? 'text-amber-400' : 'text-gray-500'}`}>
                           {daysUntil(e.date)}
                         </p>
@@ -240,7 +241,7 @@ export function CalendarView({ events }: { events: CalendarEvent[] }) {
           {/* Selected day detail */}
           {selectedDay && (eventsByDate.get(selectedDay) || []).length > 0 && (
             <div className="mt-4 bg-[#1a1c1f] border border-[#2d2f33] rounded-xl p-4">
-              <h4 className="text-white text-sm font-semibold mb-3">{formatDate(selectedDay)}</h4>
+              <h4 className="text-white text-sm font-semibold mb-3">{formatCalendarDate(selectedDay)}</h4>
               <div className="space-y-2">
                 {(eventsByDate.get(selectedDay) || []).map(e => (
                   <Link key={e.id} href={e.link} className="flex items-center gap-2 p-2 rounded-lg hover:bg-[#2d2f33]/50">

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
+import { getRedisClient } from '@/lib/redis-client'
 
 function getStripe() {
   const key = process.env.STRIPE_SECRET_KEY
@@ -39,6 +40,23 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
+
+  // ─── Idempotency: skip duplicate webhook deliveries ───────────────────────
+  const redis = getRedisClient()
+  const idempotencyKey = `stripe:evt:${event.id}`
+  if (redis) {
+    try {
+      const already = await redis.get(idempotencyKey)
+      if (already) {
+        return NextResponse.json({ received: true, duplicate: true })
+      }
+    } catch (err) {
+      // Redis read failed — proceed with processing (safe: handlers are upsert-based)
+      console.warn('[stripe-webhook] Redis idempotency check failed:', (err as Error).message)
+    }
+  }
+
+  try {
 
   switch (event.type) {
     case 'checkout.session.completed': {
@@ -343,5 +361,19 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Mark event as processed in Redis (48h TTL — Stripe retries for up to 72h)
+  if (redis) {
+    try {
+      await redis.set(idempotencyKey, '1', 'EX', 172800)
+    } catch (err) {
+      console.warn('[stripe-webhook] Redis idempotency SET failed:', (err as Error).message)
+    }
+  }
+
   return NextResponse.json({ received: true })
+
+  } catch (err) {
+    console.error('[stripe-webhook] Unhandled error processing event:', event.type, err)
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+  }
 }

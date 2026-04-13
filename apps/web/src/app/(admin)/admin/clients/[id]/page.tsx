@@ -5,10 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ClientSubscriptionActions } from '@/components/admin/client-subscription-actions'
 import { UserActions } from '@/components/admin/user-actions'
-
-function formatBRL(cents: number): string {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100)
-}
+import { formatBRL } from '@/lib/format'
 
 export default async function ClientDetailPage({
   params,

@@ -1,15 +1,19 @@
 import 'dotenv/config'
 import * as http from 'http'
 import * as os from 'os'
-import { execFileSync } from 'child_process'
+import { execFile, execFileSync } from 'child_process'
+import { promisify } from 'util'
 import IORedis from 'ioredis'
 import { db as supabase } from './lib/db'
+
+const execFileAsync = promisify(execFile)
 
 // ── Config ───────────────────────────────────────────────────────────────────
 const PORT = parseInt(process.env.MONITORING_PORT || '3998', 10)
 const API_KEY = process.env.MONITORING_API_KEY || ''
 const METRICS_RECORD_INTERVAL = 5 * 60 * 1000 // 5 minutes
 const METRICS_RETENTION_DAYS = 7
+const CACHE_TTL_MS = 15_000 // serve cached metrics for 15s to stay responsive under load
 
 const QUEUE_NAMES = [
   'extraction',
@@ -27,6 +31,12 @@ const QUEUE_NAMES = [
 // Only allow alphanumeric, dash, underscore for process names
 const SAFE_NAME_RE = /^[a-zA-Z0-9_-]+$/
 
+// ── Metrics cache ───────────────────────────────────────────────────────────
+// Under high CPU load, pm2 jlist and Redis queries can block/stall.
+// We cache the last successful metrics snapshot and return it instantly.
+let metricsCache: { data: any; ts: number } | null = null
+let metricsFetchInProgress = false
+
 // ── Redis ────────────────────────────────────────────────────────────────────
 let redis: IORedis | null = null
 
@@ -35,6 +45,7 @@ function getRedis(): IORedis {
     redis = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
       maxRetriesPerRequest: 3,
       lazyConnect: true,
+      connectTimeout: 5000,
     })
     redis.on('error', (err) => {
       console.error('[monitoring] Redis error:', err.message)
@@ -53,9 +64,10 @@ function isAuthorized(req: http.IncomingMessage): boolean {
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
-function execSafe(cmd: string, args: string[]): string {
+async function execSafeAsync(cmd: string, args: string[]): Promise<string> {
   try {
-    return execFileSync(cmd, args, { timeout: 10_000, encoding: 'utf8' })
+    const { stdout } = await execFileAsync(cmd, args, { timeout: 15_000, encoding: 'utf8' })
+    return stdout
   } catch {
     return ''
   }
@@ -82,8 +94,8 @@ interface WorkerInfo {
   status: 'online' | 'stopping' | 'stopped' | 'errored' | 'launching'
 }
 
-function getWorkers(): WorkerInfo[] {
-  const raw = execSafe('pm2', ['jlist'])
+async function getWorkers(): Promise<WorkerInfo[]> {
+  const raw = await execSafeAsync('pm2', ['jlist'])
   if (!raw) return []
   try {
     const procs = JSON.parse(raw)
@@ -146,15 +158,15 @@ interface VpsInfo {
   uptime_hours: number
 }
 
-function getVps(): VpsInfo {
+async function getVps(): Promise<VpsInfo> {
   const totalMem = Math.round(os.totalmem() / 1024 / 1024)
   const freeMem = Math.round(os.freemem() / 1024 / 1024)
 
-  // Disk info from df
+  // Disk info from df (async to avoid blocking event loop)
   let diskTotal = 0
   let diskUsed = 0
   let diskPct = 0
-  const dfOutput = execSafe('df', ['-k', '/'])
+  const dfOutput = await execSafeAsync('df', ['-k', '/'])
   if (dfOutput) {
     const lines = dfOutput.trim().split('\n')
     if (lines.length >= 2) {
@@ -224,9 +236,11 @@ async function handleAction(body: any): Promise<{ success: boolean; error?: stri
 
 async function recordMetrics(): Promise<void> {
   try {
-    const workers = getWorkers()
-    const queues = await getQueues()
-    const vps = getVps()
+    const [workers, queues, vps] = await Promise.all([
+      getWorkers(),
+      getQueues(),
+      getVps(),
+    ])
 
     const now = new Date().toISOString()
 
@@ -335,19 +349,47 @@ const server = http.createServer(async (req, res) => {
       return
     }
 
-    // GET /metrics
+    // GET /metrics — returns cached data if fresh, fetches in background if stale
     if (req.method === 'GET' && url.pathname === '/metrics') {
-      const [workers, queues] = await Promise.all([
-        getWorkers(),
-        getQueues(),
-      ])
-      const vps = getVps()
-      sendJson(res, 200, {
-        workers,
-        queues,
-        vps,
-        timestamp: new Date().toISOString(),
-      })
+      const now = Date.now()
+
+      // If cache is fresh (< CACHE_TTL_MS old), return immediately
+      if (metricsCache && (now - metricsCache.ts) < CACHE_TTL_MS) {
+        sendJson(res, 200, metricsCache.data)
+        return
+      }
+
+      // If a fetch is already in progress, return stale cache (up to 60s) or wait
+      if (metricsFetchInProgress && metricsCache && (now - metricsCache.ts) < 60_000) {
+        sendJson(res, 200, metricsCache.data)
+        return
+      }
+
+      metricsFetchInProgress = true
+      try {
+        const [workers, queues, vps] = await Promise.all([
+          getWorkers(),
+          getQueues(),
+          getVps(),
+        ])
+        const data = {
+          workers,
+          queues,
+          vps,
+          timestamp: new Date().toISOString(),
+        }
+        metricsCache = { data, ts: Date.now() }
+        sendJson(res, 200, data)
+      } catch (metricsErr: any) {
+        // If we have stale cache, return it rather than erroring
+        if (metricsCache) {
+          sendJson(res, 200, metricsCache.data)
+        } else {
+          sendJson(res, 500, { error: 'Failed to collect metrics', detail: metricsErr.message })
+        }
+      } finally {
+        metricsFetchInProgress = false
+      }
       return
     }
 

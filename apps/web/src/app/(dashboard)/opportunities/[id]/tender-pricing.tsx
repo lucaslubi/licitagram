@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { formatCurrencyBR as formatBRL } from '@/lib/format'
 
 interface Recommendation {
   strategy: 'agressivo' | 'competitivo' | 'seguro'
@@ -18,10 +19,6 @@ interface TenderPricingProps {
   valorEstimado: number | null
   uf: string | null
   modalidade: string | null
-}
-
-function formatBRL(value: number): string {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
 }
 
 const STRATEGY_COLORS = {

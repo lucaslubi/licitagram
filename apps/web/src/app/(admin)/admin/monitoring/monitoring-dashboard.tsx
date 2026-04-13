@@ -2,6 +2,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { formatNumber } from '@/lib/format'
 
 /* ════════════════════════════════════════════════════════════════════════════
  * TYPES — match the API response from /api/admin/monitoring
@@ -73,11 +74,6 @@ interface QueueSparklinePoint {
  * HELPERS
  * ════════════════════════════════════════════════════════════════════════════ */
 
-function formatNumber(n: number): string {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
-  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K'
-  return n.toLocaleString('pt-BR')
-}
 
 function timeAgo(date: Date): string {
   const diff = Math.floor((Date.now() - date.getTime()) / 1000)

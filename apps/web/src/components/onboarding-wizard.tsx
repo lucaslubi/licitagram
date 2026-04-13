@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { formatPhoneBR } from '@/lib/format'
 import {
   X,
   ChevronRight,
@@ -33,12 +34,6 @@ interface OnboardingWizardProps {
 // --- Inline WhatsApp connect flow ---
 type WaStatus = 'idle' | 'sending' | 'code_sent' | 'verifying' | 'connected'
 
-function formatPhoneBR(value: string): string {
-  const digits = value.replace(/\D/g, '').slice(0, 11)
-  if (digits.length <= 2) return `(${digits}`
-  if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`
-  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
-}
 
 const ALL_UFS = [
   'AC', 'AL', 'AM', 'AP', 'BA', 'CE', 'DF', 'ES', 'GO',

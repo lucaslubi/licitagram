@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { formatNumber } from '@/lib/format'
 
 interface SystemHealth {
   timestamp: string
@@ -28,11 +29,6 @@ interface SystemHealth {
   alerts: Array<{ level: 'critical' | 'warning' | 'info'; message: string; detail?: string }>
 }
 
-function formatNumber(n: number): string {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
-  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K'
-  return n.toLocaleString('pt-BR')
-}
 
 function StatusDot({ status }: { status: 'ok' | 'warning' | 'error' }) {
   const colors = { ok: 'bg-emerald-500', warning: 'bg-amber-500', error: 'bg-red-500' }

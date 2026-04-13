@@ -17,12 +17,13 @@ const logger = pino({ name: 'db-router' })
 const USE_LOCAL = process.env.USE_LOCAL_DB !== 'false'
 
 // Tables that have local mirrors — reads go to PG local
+// NOTE: matches removed — pending-notifications needs fresh Supabase data with tenders JOIN
+// and the mirror was falling behind (stale since 2026-03-29), causing zero notifications.
 const MIRROR_MAP: Record<string, string> = {
   tenders: 'mirror_tenders',
   tender_documents: 'mirror_tender_documents',
   competitors: 'mirror_competitors',
   companies: 'mirror_companies',
-  matches: 'mirror_matches',
 }
 
 // Metrics for monitoring

@@ -12,6 +12,7 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { formatNumberPlain as formatNumber, formatPercent, formatMonthLabel } from '@/lib/format'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -76,22 +77,6 @@ interface DiscountData {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const MONTHS_PTBR = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
-
-function formatPercent(n: number): string {
-  return `${n.toFixed(1)}%`
-}
-
-function formatNumber(n: number): string {
-  return n.toLocaleString('pt-BR')
-}
-
-function formatMonthLabel(month: string): string {
-  const [year, m] = month.split('-')
-  const monthIndex = parseInt(m, 10) - 1
-  if (monthIndex < 0 || monthIndex > 11) return month
-  return `${MONTHS_PTBR[monthIndex]}/${year.slice(2)}`
-}
 
 /** Returns a color between red and emerald based on discount value. */
 function discountColor(discount: number): string {

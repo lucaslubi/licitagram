@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { WinCurveChart } from './WinCurveChart'
+import { formatCurrencyBR as formatBRL } from '@/lib/format'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -55,10 +56,6 @@ interface SmartPricingV2Props {
 }
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
-
-function formatBRL(value: number): string {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
-}
 
 function formatCompact(n: number): string {
   if (n >= 1_000_000) return `R$ ${(n / 1_000_000).toFixed(1)}M`

@@ -4,13 +4,7 @@ import { getRevenueMetrics } from '@/actions/admin/financial'
 import { listClients } from '@/actions/admin/clients'
 import { createClient } from '@supabase/supabase-js'
 import { SalesModeToggle } from '@/components/admin/SalesModeToggle'
-
-function formatBRL(cents: number): string {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  }).format(cents / 100)
-}
+import { formatBRL } from '@/lib/format'
 
 export default async function AdminDashboardPage() {
   await requirePlatformAdmin()

@@ -262,7 +262,7 @@ export function GuidedLogin({ portal, configId, onSuccess, onClose }: GuidedLogi
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-card rounded-xl border border-white/[0.06] shadow-lg w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="bg-[#1a1c1f] rounded-xl border shadow-lg w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
@@ -310,7 +310,7 @@ export function GuidedLogin({ portal, configId, onSuccess, onClose }: GuidedLogi
           </div>
 
           {/* Screenshot */}
-          <div className="relative mb-4 bg-white/[0.04] rounded-lg border border-white/[0.06] overflow-hidden min-h-[200px]">
+          <div className="relative mb-4 bg-[#2d2f33] rounded-lg border border-[#2d2f33] overflow-hidden min-h-[200px]">
             {screenshot ? (
               <img
                 src={`data:image/jpeg;base64,${screenshot}`}
@@ -355,7 +355,7 @@ export function GuidedLogin({ portal, configId, onSuccess, onClose }: GuidedLogi
                   onKeyDown={e => {
                     if (e.key === 'Enter') handleType()
                   }}
-                  className="w-full border border-white/[0.06] bg-card rounded-lg px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none"
+                  className="w-full border border-[#2d2f33] rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none"
                   autoFocus
                 />
               </div>
@@ -378,7 +378,7 @@ export function GuidedLogin({ portal, configId, onSuccess, onClose }: GuidedLogi
                 <button
                   onClick={handleRefresh}
                   disabled={loading}
-                  className="border border-white/[0.06] text-muted-foreground rounded-lg px-4 py-2 text-sm font-medium hover:bg-card disabled:opacity-50 transition-colors"
+                  className="border border-[#2d2f33] text-gray-300 rounded-lg px-4 py-2 text-sm font-medium hover:bg-[#1a1c1f] disabled:opacity-50 transition-colors"
                 >
                   Atualizar
                 </button>

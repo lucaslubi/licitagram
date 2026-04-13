@@ -1652,6 +1652,27 @@ export const dailyAuditWorker = new Worker(
       trackRecurringIssues(dimensions),
     ])
 
+    // PHASE 2.5: Detect client/business anomalies (churn risk, inactive accounts, etc.)
+    // This RPC upserts alerts into admin_alerts and returns the count of new alerts
+    try {
+      const { data: alertCount, error: anomalyError } = await supabase.rpc('detect_client_anomalies')
+      if (anomalyError) {
+        logger.warn({ error: anomalyError.message }, 'detect_client_anomalies failed')
+      } else {
+        logger.info({ alertCount }, 'Client anomaly detection completed')
+        // Store summary in audit_logs for traceability
+        const { error: insertErr } = await supabase.from('audit_logs').insert({
+          dimension: 'client_anomalies',
+          check_name: 'detect_client_anomalies',
+          status: (alertCount ?? 0) > 0 ? 'warning' : 'ok',
+          details: { new_alerts: alertCount ?? 0, run_at: new Date().toISOString() },
+        })
+        if (insertErr) logger.warn({ error: insertErr.message }, 'Failed to store anomaly run in audit_logs')
+      }
+    } catch (err) {
+      logger.warn({ err: (err as Error).message }, 'detect_client_anomalies RPC call failed')
+    }
+
     // PHASE 3: Get 24h metrics
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
     const [
