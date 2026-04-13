@@ -466,8 +466,8 @@ async function run() {
     offset += BATCH_SIZE
     if (tenders.length < BATCH_SIZE) break
 
-    // Safety: max 500 per cycle to avoid overloading
-    if (totalAnalyzed >= 500) {
+    // Safety: max 5000 per cycle to avoid overloading
+    if (totalAnalyzed >= 5000) {
       logger.info({ totalAnalyzed }, 'Hit cycle limit, continuing next run')
       break
     }
