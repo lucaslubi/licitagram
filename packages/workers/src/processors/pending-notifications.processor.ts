@@ -134,7 +134,7 @@ const pendingNotificationsWorker = new Worker(
 
     const { data: companyRows } = await supabase
       .from('companies')
-      .select('id, min_score, min_valor, max_valor, target_ufs')
+      .select('id, min_score, min_valor, max_valor, ufs_interesse')
       .in('id', companyIdList)
 
     const companySettingsMap = new Map<string, any>()
@@ -144,7 +144,7 @@ const pendingNotificationsWorker = new Worker(
         minScore: c.min_score ?? 50,
         minValor: c.min_valor ?? null,
         maxValor: c.max_valor ?? null,
-        targetUfs: (c.target_ufs as string[]) || [],
+        targetUfs: (c.ufs_interesse as string[]) || [],
       })
     }
 
@@ -266,7 +266,7 @@ const pendingNotificationsWorker = new Worker(
             if (settings.minValor != null && valor < settings.minValor) return false
             if (settings.maxValor != null && valor > settings.maxValor) return false
           }
-          // Geography filter: respect target_ufs
+          // Geography filter: respect ufs_interesse
           const tenderUf = m.tenders?.uf
           if (settings.targetUfs.length > 0 && tenderUf && !settings.targetUfs.includes(tenderUf)) return false
 

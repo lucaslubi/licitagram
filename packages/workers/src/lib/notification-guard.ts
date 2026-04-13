@@ -48,7 +48,7 @@ export async function validateNotification(matchId: string): Promise<GuardResult
         numero_compra, ano_compra, pncp_id, status
       ),
       companies (
-        id, min_score, min_valor, max_valor, target_ufs
+        id, min_score, min_valor, max_valor, ufs_interesse
       )
     `)
     .eq('id', matchId)
@@ -125,7 +125,7 @@ export async function validateNotification(matchId: string): Promise<GuardResult
 
   // 8. Geography Filter (UF Interest)
   const tenderUf = tender.uf as string | null
-  const targetUfs = (settings.target_ufs as string[]) || []
+  const targetUfs = (settings.ufs_interesse as string[]) || []
   if (targetUfs.length > 0 && tenderUf && !targetUfs.includes(tenderUf)) {
     return { allowed: false, reason: `uf_mismatch_${tenderUf}_allowed_${targetUfs.join(',')}` }
   }
