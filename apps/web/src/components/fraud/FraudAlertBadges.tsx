@@ -59,24 +59,33 @@ export function FraudAlertBadges({ tenderId, cnpj }: { tenderId: string; cnpj: s
   )
 }
 
-// Export a hook that fetches ALL alerts for a tender
+// Export a hook that fetches ALL alerts for a tender + whether analysis was run
 export function useFraudAlerts(tenderId: string) {
   const [alerts, setAlerts] = useState<FraudAlert[]>([])
   const [loading, setLoading] = useState(true)
+  const [analyzed, setAnalyzed] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
-    supabase
-      .from('fraud_alerts')
-      .select('*')
-      .eq('tender_id', tenderId)
-      .eq('resolved', false)
-      .order('severity', { ascending: true })
-      .then(({ data }) => {
-        if (data) setAlerts(data)
-        setLoading(false)
-      })
+    // Fetch alerts and check if fraud analysis was run for this tender
+    Promise.all([
+      supabase
+        .from('fraud_alerts')
+        .select('*')
+        .eq('tender_id', tenderId)
+        .eq('resolved', false)
+        .order('severity', { ascending: true }),
+      supabase
+        .from('tenders')
+        .select('fraud_analyzed')
+        .eq('id', tenderId)
+        .single(),
+    ]).then(([alertsRes, tenderRes]) => {
+      if (alertsRes.data) setAlerts(alertsRes.data)
+      setAnalyzed(tenderRes.data?.fraud_analyzed === true)
+      setLoading(false)
+    })
   }, [tenderId])
 
-  return { alerts, loading }
+  return { alerts, loading, analyzed }
 }
