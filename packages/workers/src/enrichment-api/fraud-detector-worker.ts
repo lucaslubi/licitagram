@@ -387,7 +387,6 @@ async function analyzeTender(tender: {
   data_abertura?: string
   data_publicacao?: string
   valor_estimado?: number
-  valor_total?: number
 }) {
   // Get competitors for this tender
   const { data: competitors, error } = await supabase
@@ -398,7 +397,7 @@ async function analyzeTender(tender: {
   if (error || !competitors || competitors.length === 0) return
 
   const tenderDate = tender.data_abertura || tender.data_publicacao || null
-  const valorContrato = tender.valor_total || tender.valor_estimado || null
+  const valorContrato = tender.valor_estimado || null
 
   await Promise.all([
     detectSocioEmComum(tender.id, competitors),
@@ -419,7 +418,7 @@ async function run() {
     // Get tenders that have results imported but not yet analyzed for fraud
     const { data: tenders, error } = await supabase
       .from('tenders')
-      .select('id, data_abertura, data_publicacao, valor_estimado, valor_total')
+      .select('id, data_abertura, data_publicacao, valor_estimado')
       .eq('resultado_importado', true)
       .or('fraud_analyzed.is.null,fraud_analyzed.eq.false')
       .order('created_at', { ascending: false })
