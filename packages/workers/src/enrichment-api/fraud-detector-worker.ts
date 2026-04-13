@@ -415,14 +415,27 @@ async function run() {
   let totalAnalyzed = 0
 
   while (true) {
-    // Get tenders that have results imported but not yet analyzed for fraud
+    // Get tenders that have competitors but haven't been fraud-analyzed yet
+    // Uses competitors table as the gate (instead of resultado_importado which is never set)
+    const { data: tenderIds, error: idsError } = await supabase
+      .from('competitors')
+      .select('tender_id')
+      .limit(BATCH_SIZE * 10)
+      .range(offset * 10, (offset + 1) * 10 * BATCH_SIZE - 1)
+
+    const uniqueIds = [...new Set((tenderIds || []).map((r: any) => r.tender_id))]
+    if (idsError || uniqueIds.length === 0) {
+      if (idsError) logger.error({ error: idsError }, 'Failed to query competitor tender_ids')
+      break
+    }
+
     const { data: tenders, error } = await supabase
       .from('tenders')
       .select('id, data_abertura, data_publicacao, valor_estimado')
-      .eq('resultado_importado', true)
+      .in('id', uniqueIds)
       .or('fraud_analyzed.is.null,fraud_analyzed.eq.false')
       .order('created_at', { ascending: false })
-      .range(offset, offset + BATCH_SIZE - 1)
+      .limit(BATCH_SIZE)
 
     if (error) {
       logger.error({ error }, 'Failed to query tenders for fraud analysis')
