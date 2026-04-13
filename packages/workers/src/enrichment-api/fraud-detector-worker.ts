@@ -414,28 +414,14 @@ async function run() {
   let offset = 0
   let totalAnalyzed = 0
 
+  // Simple approach: get tenders that have NOT been fraud-analyzed and check if they have competitors
   while (true) {
-    // Get tenders that have competitors but haven't been fraud-analyzed yet
-    // Uses competitors table as the gate (instead of resultado_importado which is never set)
-    const { data: tenderIds, error: idsError } = await supabase
-      .from('competitors')
-      .select('tender_id')
-      .limit(BATCH_SIZE * 10)
-      .range(offset * 10, (offset + 1) * 10 * BATCH_SIZE - 1)
-
-    const uniqueIds = [...new Set((tenderIds || []).map((r: any) => r.tender_id))]
-    if (idsError || uniqueIds.length === 0) {
-      if (idsError) logger.error({ error: idsError }, 'Failed to query competitor tender_ids')
-      break
-    }
-
     const { data: tenders, error } = await supabase
       .from('tenders')
       .select('id, data_abertura, data_publicacao, valor_estimado')
-      .in('id', uniqueIds)
       .or('fraud_analyzed.is.null,fraud_analyzed.eq.false')
       .order('created_at', { ascending: false })
-      .limit(BATCH_SIZE)
+      .range(offset, offset + BATCH_SIZE - 1)
 
     if (error) {
       logger.error({ error }, 'Failed to query tenders for fraud analysis')
@@ -445,19 +431,46 @@ async function run() {
     if (!tenders || tenders.length === 0) break
 
     for (const tender of tenders) {
-      await analyzeTender(tender)
+      try {
+        // Check if this tender has competitors before analyzing
+        const { count } = await supabase
+          .from('competitors')
+          .select('id', { count: 'exact', head: true })
+          .eq('tender_id', tender.id)
 
-      // Mark as analyzed
-      await supabase
-        .from('tenders')
-        .update({ fraud_analyzed: true, fraud_analyzed_at: new Date().toISOString() })
-        .eq('id', tender.id)
+        if (count && count > 0) {
+          await analyzeTender(tender)
+        }
 
-      totalAnalyzed++
+        // Mark as analyzed regardless (so we don't re-check tenders without competitors)
+        const { error: updateErr } = await supabase
+          .from('tenders')
+          .update({ fraud_analyzed: true, fraud_analyzed_at: new Date().toISOString() })
+          .eq('id', tender.id)
+
+        if (updateErr) {
+          logger.warn({ error: updateErr, tenderId: tender.id }, 'Failed to mark tender as fraud_analyzed')
+        }
+
+        totalAnalyzed++
+      } catch (err) {
+        logger.error({ err, tenderId: tender.id }, 'Error analyzing tender for fraud')
+        // Still mark as analyzed to avoid infinite retry
+        await supabase
+          .from('tenders')
+          .update({ fraud_analyzed: true, fraud_analyzed_at: new Date().toISOString() })
+          .eq('id', tender.id)
+      }
     }
 
     offset += BATCH_SIZE
     if (tenders.length < BATCH_SIZE) break
+
+    // Safety: max 500 per cycle to avoid overloading
+    if (totalAnalyzed >= 500) {
+      logger.info({ totalAnalyzed }, 'Hit cycle limit, continuing next run')
+      break
+    }
   }
 
   logger.info({ totalAnalyzed }, 'Fraud detection cycle complete')
