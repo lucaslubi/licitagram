@@ -58,6 +58,7 @@ interface CompanySettings {
   minScore: number
   minValor: number | null
   maxValor: number | null
+  targetUfs: string[]
 }
 
 /**
@@ -205,7 +206,7 @@ const pendingNotificationsWorker = new Worker(
 
       // ── Loop through each company ──
       for (const companyId of companyIdsForUser) {
-        const settings = companySettingsMap.get(companyId) || { companyId, minScore: 50, minValor: null, maxValor: null }
+        const settings = companySettingsMap.get(companyId) || { companyId, minScore: 50, minValor: null, maxValor: null, targetUfs: [] as string[] }
         const plan = planByCompany.get(companyId) || 'free'
         const batchSize = BATCH_BY_PLAN[plan] || 1
         const minDaily = MIN_DAILY_BY_PLAN[plan] || 1
