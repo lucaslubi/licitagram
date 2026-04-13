@@ -90,8 +90,15 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // ─── Billing page is always accessible (no plan check) ────────────────
-  if (pathname.startsWith('/billing')) {
+  // ─── Routes that skip plan context entirely ───────────────────────────
+  // These authenticated routes don't need plan/subscription checks,
+  // so we avoid the cookie parse and potential DB queries altogether.
+  if (
+    pathname.startsWith('/billing') ||
+    pathname.startsWith('/bot') ||
+    pathname.startsWith('/company') ||
+    pathname.startsWith('/onboarding')
+  ) {
     return supabaseResponse
   }
 
@@ -106,7 +113,7 @@ export async function updateSession(request: NextRequest) {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: 300, // 5 minutes
+        maxAge: 600, // 10 minutes (matches PLAN_CTX_TTL_MS)
         path: '/',
       })
     }
@@ -131,7 +138,11 @@ export async function updateSession(request: NextRequest) {
   const needsSub = SUBSCRIPTION_REQUIRED_ROUTES.some((r) => pathname.startsWith(r))
   if (needsSub && planCtx) {
     const status = planCtx.subscriptionStatus
-    if (!status || !['active', 'trialing'].includes(status)) {
+    // Allow new users without any subscription through — they haven't created
+    // a company yet, so the trial subscription hasn't been provisioned.
+    // planSlug=null + subscriptionStatus=null + NOT admin = brand new user.
+    const isBrandNewUser = !planCtx.planSlug && !status && !planCtx.planId
+    if (!isBrandNewUser && (!status || !['active', 'trialing'].includes(status))) {
       const url = request.nextUrl.clone()
       url.pathname = '/billing'
       url.searchParams.set('expired', '1')
@@ -197,27 +208,58 @@ async function buildPlanContextFromDB(
       }
     }
 
-    // ── 1. Check user-level plan override first ────────────────────────────
-    if (profile.plan_id) {
-      const { data: userPlan } = await supabase
-        .from('plans')
-        .select('slug, features')
-        .eq('id', profile.plan_id)
-        .single()
+    // ── Parallel fetch: user plan + company subscription ──────────────────
+    // Both queries are independent once we have the profile, so run them
+    // concurrently. This turns 2-3 sequential queries into 1 parallel batch.
+    const [userPlanResult, companySubResult] = await Promise.all([
+      // 1. User-level plan override
+      profile.plan_id
+        ? supabase
+            .from('plans')
+            .select('slug, features')
+            .eq('id', profile.plan_id)
+            .single()
+        : Promise.resolve({ data: null }),
 
-      if (userPlan) {
-        return {
-          planSlug: userPlan.slug,
-          planId: profile.plan_id,
-          features: userPlan.features as any,
-          isPlatformAdmin: false,
-          subscriptionStatus: (profile.subscription_status || 'active') as any,
-          ts: Date.now(),
-        }
+      // 2. Company-level subscription (with plan JOIN)
+      profile.company_id
+        ? supabase
+            .from('subscriptions')
+            .select(`status, plan_id, plans(slug, features)`)
+            .eq('company_id', profile.company_id)
+            .in('status', ['active', 'trialing'])
+            .single()
+        : Promise.resolve({ data: null }),
+    ])
+
+    // Prefer user-level plan override
+    const userPlan = userPlanResult.data
+    if (userPlan) {
+      return {
+        planSlug: userPlan.slug,
+        planId: profile.plan_id,
+        features: userPlan.features as any,
+        isPlatformAdmin: false,
+        subscriptionStatus: (profile.subscription_status || 'active') as any,
+        ts: Date.now(),
       }
     }
 
-    // ── 2. Fallback: company-level subscription ────────────────────────────
+    // Use company subscription if found
+    let sub = companySubResult.data
+    if (sub) {
+      const plan = (sub as any).plans
+      return {
+        planSlug: plan?.slug || null,
+        planId: sub.plan_id || null,
+        features: plan?.features || null,
+        isPlatformAdmin: false,
+        subscriptionStatus: sub.status as any,
+        ts: Date.now(),
+      }
+    }
+
+    // ── Fallback: check sibling companies in the same user group ──────────
     if (!profile.company_id) {
       return {
         planSlug: null,
@@ -229,59 +271,46 @@ async function buildPlanContextFromDB(
       }
     }
 
-    // Try current company first
-    let { data: sub } = await supabase
-      .from('subscriptions')
-      .select(`status, plan_id, plans(slug, features)`)
-      .eq('company_id', profile.company_id)
-      .in('status', ['active', 'trialing'])
-      .single()
+    const { data: siblings } = await supabase
+      .from('user_companies')
+      .select('company_id')
+      .eq('user_id', userId)
 
-    // Fallback: check sibling companies in the same user group
-    if (!sub) {
-      const { data: siblings } = await supabase
-        .from('user_companies')
-        .select('company_id')
-        .eq('user_id', userId)
+    if (siblings && siblings.length > 0) {
+      const siblingIds = siblings
+        .map((s: any) => s.company_id)
+        .filter((id: string) => id !== profile.company_id)
 
-      if (siblings && siblings.length > 0) {
-        const siblingIds = siblings
-          .map((s: any) => s.company_id)
-          .filter((id: string) => id !== profile.company_id)
+      if (siblingIds.length > 0) {
+        const { data: bestSub } = await supabase
+          .from('subscriptions')
+          .select(`status, plan_id, company_id, plans(slug, features)`)
+          .in('company_id', siblingIds)
+          .in('status', ['active', 'trialing'])
+          .order('plan_id', { ascending: false })
+          .limit(1)
+          .single()
 
-        if (siblingIds.length > 0) {
-          const { data: bestSub } = await supabase
-            .from('subscriptions')
-            .select(`status, plan_id, company_id, plans(slug, features)`)
-            .in('company_id', siblingIds)
-            .in('status', ['active', 'trialing'])
-            .order('plan_id', { ascending: false })
-            .limit(1)
-            .single()
-
-          if (bestSub) sub = bestSub
+        if (bestSub) {
+          const plan = (bestSub as any).plans
+          return {
+            planSlug: plan?.slug || null,
+            planId: bestSub.plan_id || null,
+            features: plan?.features || null,
+            isPlatformAdmin: false,
+            subscriptionStatus: bestSub.status as any,
+            ts: Date.now(),
+          }
         }
       }
     }
 
-    if (!sub) {
-      return {
-        planSlug: null,
-        planId: null,
-        features: null,
-        isPlatformAdmin: false,
-        subscriptionStatus: null,
-        ts: Date.now(),
-      }
-    }
-
-    const plan = (sub as any).plans
     return {
-      planSlug: plan?.slug || null,
-      planId: sub.plan_id || null,
-      features: plan?.features || null,
+      planSlug: null,
+      planId: null,
+      features: null,
       isPlatformAdmin: false,
-      subscriptionStatus: sub.status as any,
+      subscriptionStatus: null,
       ts: Date.now(),
     }
   } catch {

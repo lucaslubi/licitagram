@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { getUserWithPlan, hasFeature, hasActiveSubscription } from '@/lib/auth-helpers'
+import { getUserWithPlan, hasFeature, hasActiveSubscription, ensureTrialSubscription } from '@/lib/auth-helpers'
 import { createClient } from '@/lib/supabase/server'
 import { DashboardSidebar } from '@/components/dashboard-sidebar'
 import { DashboardAiWrapper } from '@/components/dashboard-ai-wrapper'
@@ -19,8 +19,19 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const user = await getUserWithPlan()
+  let user = await getUserWithPlan()
   if (!user) redirect('/login')
+
+  // ── Safety net: auto-create trial subscription if missing ────────────────
+  // This catches users who have a company but somehow ended up without a
+  // subscription (e.g., race condition during onboarding, trigger failure).
+  if (user.companyId && !user.subscription && !user.isPlatformAdmin) {
+    const trialCreated = await ensureTrialSubscription(user)
+    if (trialCreated) {
+      // Re-fetch user data to pick up the new subscription
+      user = (await getUserWithPlan())!
+    }
+  }
 
   // Collect all required features that this user's plan enables
   const allFeatures = [
@@ -47,7 +58,11 @@ export default async function DashboardLayout({
   // Show expired overlay for users without active subscription (non-admin).
   // The middleware already redirects most routes to /billing, but this catches
   // any routes that slip through and provides a graceful overlay UX.
-  const showExpiredOverlay = !isActive && !user.isPlatformAdmin
+  // IMPORTANT: Don't show expired overlay for brand-new users who haven't set up
+  // their company yet — they simply don't have a subscription row because the
+  // trial is created when the company is created during onboarding.
+  const isNewUserWithoutCompany = !user.companyId
+  const showExpiredOverlay = !isActive && !user.isPlatformAdmin && !isNewUserWithoutCompany
 
   // Show trial banner if trialing with 3 or fewer days left
   const showTrialBanner = isTrialing && trialDaysLeft <= 3 && !showExpiredOverlay
@@ -129,7 +144,7 @@ export default async function DashboardLayout({
 
         {/* Main content — add top padding on mobile for the fixed top bar */}
         <main className="flex-1 overflow-y-auto min-h-0 bg-background">
-          <div className="pt-14 md:pt-0 min-h-full">
+          <div className="relative pt-14 md:pt-0 min-h-full">
             {showTrialBanner && <TrialBanner daysLeft={trialDaysLeft} />}
             {matchingStatus && matchingStatus !== 'ready' && (
               <MatchingProgressBanner
@@ -138,20 +153,17 @@ export default async function DashboardLayout({
               />
             )}
             <ProfileHealthBanner />
-            {showExpiredOverlay ? (
-              <TrialExpiredOverlay plans={overlayPlans} />
-            ) : (
-              <DashboardAiWrapper
-                onboardingCompleted={user.onboardingCompleted}
-                userUfs={user.ufsInteresse}
-                userKeywords={user.palavrasChaveFiltro}
-                userEmail={userEmail}
-                hasTelegram={!!user.telegramChatId}
-                hasWhatsapp={hasWhatsapp}
-              >
-                <div className="p-4 md:p-8">{children}</div>
-              </DashboardAiWrapper>
-            )}
+            {showExpiredOverlay && <TrialExpiredOverlay plans={overlayPlans} />}
+            <DashboardAiWrapper
+              onboardingCompleted={user.onboardingCompleted}
+              userUfs={user.ufsInteresse}
+              userKeywords={user.palavrasChaveFiltro}
+              userEmail={userEmail}
+              hasTelegram={!!user.telegramChatId}
+              hasWhatsapp={hasWhatsapp}
+            >
+              <div className="p-4 md:p-8">{children}</div>
+            </DashboardAiWrapper>
           </div>
         </main>
       </div>

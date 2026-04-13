@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { redirect } from 'next/navigation'
 import type {
   Plan,
@@ -253,4 +254,61 @@ export function buildPlanContext(user: UserWithPlan): PlanContext {
     subscriptionStatus: user.subscription?.status || null,
     ts: Date.now(),
   }
+}
+
+// ─── Trial Subscription Provisioning ────────────────────────────────────────
+
+/**
+ * Ensure a trial subscription exists for a user who has a company but no subscription.
+ * This is called from the dashboard layout on every page load as a safety net.
+ * Uses service-role client to bypass RLS for the subscription insert.
+ *
+ * Returns true if a trial was created, false otherwise.
+ */
+export async function ensureTrialSubscription(user: UserWithPlan): Promise<boolean> {
+  // Skip if: no company, already has subscription, or is admin
+  if (!user.companyId || user.subscription || user.isPlatformAdmin) return false
+
+  const serviceSupabase = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
+
+  // Double-check: maybe subscription exists with a non-active status
+  // (e.g., 'canceled' or 'inactive' — don't create a new trial over it)
+  const { data: anySub } = await serviceSupabase
+    .from('subscriptions')
+    .select('id, status')
+    .eq('company_id', user.companyId)
+    .limit(1)
+    .maybeSingle()
+
+  if (anySub) return false // Subscription exists (possibly expired) — don't overwrite
+
+  const now = new Date()
+  const trialEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000) // 7 days
+
+  const { error } = await serviceSupabase.from('subscriptions').insert({
+    company_id: user.companyId,
+    plan: 'trial',
+    plan_id: null,
+    status: 'trialing',
+    started_at: now.toISOString(),
+    expires_at: trialEnd.toISOString(),
+    current_period_start: now.toISOString(),
+    current_period_end: trialEnd.toISOString(),
+    matches_used_this_month: 0,
+    matches_reset_at: now.toISOString(),
+  })
+
+  if (error) {
+    // 23505 = unique constraint violation — subscription already exists (race condition)
+    if (error.code !== '23505') {
+      console.error('[ensureTrialSubscription] Insert error:', error.message)
+    }
+    return false
+  }
+
+  console.log('[ensureTrialSubscription] Created trial for company:', user.companyId)
+  return true
 }

@@ -7,14 +7,7 @@ import { Suspense } from 'react'
 import { getUserWithPlan } from '@/lib/auth-helpers'
 import { getActivePlans, checkMatchLimit } from '@/lib/plans'
 import type { Plan, PlanFeatures } from '@licitagram/shared'
-
-/** Format cents to BRL currency string */
-function formatBRL(cents: number): string {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  }).format(cents / 100)
-}
+import { formatBRL } from '@/lib/format'
 
 /** Static feature lists per plan tier for display */
 const PLAN_FEATURES: Record<string, string[]> = {
@@ -261,6 +254,11 @@ export default async function BillingPage({
 
       {/* Available plans */}
       <h2 className="text-lg font-semibold mb-4">Planos Disponíveis</h2>
+      {plans.length === 0 && (
+        <div className="mb-6 p-4 bg-amber-900/20 border border-amber-900/30 rounded-lg text-amber-400 text-sm">
+          Erro ao carregar planos. Tente recarregar a página ou entre em contato com o suporte.
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {plans.map((plan) => {
           const isCurrent = currentPlanSlug === plan.slug

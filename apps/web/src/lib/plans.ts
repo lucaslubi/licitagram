@@ -1,3 +1,4 @@
+import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { cached, CacheKeys, TTL, invalidateCache } from './redis'
 import type {
@@ -19,17 +20,29 @@ import type {
  * - Workers after match creation (invalidateCompanySubscription)
  */
 
+// ─── Service-role client for plan queries ──────────────────────────────────
+// Plans are global/public data. Using the service-role client bypasses RLS
+// so that ALL users (including trial-expired) can read available plans.
+
+function getServiceSupabase() {
+  return createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
+}
+
 // ─── Plan Queries ───────────────────────────────────────────────────────────
 
 /**
  * Fetch all active plans ordered by sort_order.
  * Global data — same for all users. Cached 10 min.
+ * Uses service-role client to bypass RLS (plans are public data).
  */
 export async function getActivePlans(): Promise<Plan[]> {
   return cached(
     CacheKeys.activePlans,
     async () => {
-      const supabase = await createClient()
+      const supabase = getServiceSupabase()
       const { data } = await supabase
         .from('plans')
         .select('*')
@@ -44,12 +57,13 @@ export async function getActivePlans(): Promise<Plan[]> {
 
 /**
  * Fetch a single plan by slug. Cached 10 min.
+ * Uses service-role client to bypass RLS (plans are public data).
  */
 export async function getPlanBySlug(slug: string): Promise<Plan | null> {
   return cached(
     CacheKeys.planDetail(slug),
     async () => {
-      const supabase = await createClient()
+      const supabase = getServiceSupabase()
       const { data } = await supabase
         .from('plans')
         .select('*')
@@ -64,12 +78,13 @@ export async function getPlanBySlug(slug: string): Promise<Plan | null> {
 
 /**
  * Fetch a single plan by ID. Cached 10 min.
+ * Uses service-role client to bypass RLS (plans are public data).
  */
 export async function getPlanById(planId: string): Promise<Plan | null> {
   return cached(
     CacheKeys.planDetail(planId),
     async () => {
-      const supabase = await createClient()
+      const supabase = getServiceSupabase()
       const { data } = await supabase
         .from('plans')
         .select('*')

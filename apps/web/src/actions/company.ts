@@ -458,14 +458,19 @@ export async function saveCompany(payload: CompanyPayload, existingId?: string) 
 
       // Fallback: create trial if no plan to inherit
       if (!inheritedSub) {
+        const trialStart = new Date()
+        const trialEnd = new Date(trialStart.getTime() + 7 * 24 * 60 * 60 * 1000)
         const { error: subInsertError } = await serviceSupabase.from('subscriptions').insert({
           company_id: companyId,
           plan: 'trial',
           plan_id: null,
           status: 'trialing',
-          started_at: new Date().toISOString(),
-          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          started_at: trialStart.toISOString(),
+          expires_at: trialEnd.toISOString(),
+          current_period_start: trialStart.toISOString(),
+          current_period_end: trialEnd.toISOString(),
           matches_used_this_month: 0,
+          matches_reset_at: trialStart.toISOString(),
         })
 
         if (subInsertError) {
