@@ -39,12 +39,10 @@ const openrouterClients = openrouterKeys.map((key) =>
   }),
 )
 
-// Ollama local — unlimited, no rate limit, always-on fallback
-const OLLAMA_URL = process.env.OLLAMA_URL || 'http://127.0.0.1:11434'
-const OLLAMA_LLM_MODEL = process.env.OLLAMA_LLM_MODEL || 'qwen2.5:7b'
-const ollamaClient = new OpenAI({
-  apiKey: 'ollama', // Ollama doesn't need a real key
-  baseURL: `${OLLAMA_URL}/v1`,
+// Google Gemini Flash — free tier: 15 req/min, 1500/day
+const geminiClient = new OpenAI({
+  apiKey: process.env.GEMINI_API_KEY || '',
+  baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
 })
 
 // Round-robin counter for distributing calls across keys
@@ -59,8 +57,8 @@ function nextORClient(): OpenAI {
 }
 
 logger.info(
-  { groqConfigured: !!process.env.GROQ_API_KEY, openrouterKeys: openrouterKeys.length, ollamaUrl: OLLAMA_URL, ollamaModel: OLLAMA_LLM_MODEL },
-  'LLM clients initialized (100% free + local fallback)',
+  { groqConfigured: !!process.env.GROQ_API_KEY, geminiConfigured: !!process.env.GEMINI_API_KEY, openrouterKeys: openrouterKeys.length },
+  'LLM clients initialized (Groq + Gemini + OpenRouter)',
 )
 
 // ─── Task Configuration ─────────────────────────────────────────────────────
@@ -98,8 +96,8 @@ interface Provider {
 const PROVIDERS: Provider[] = [
   // Groq — PRIMARY: fastest, 14.4K req/day free, Llama 3.3 70B
   { client: groqClient, model: 'llama-3.3-70b-versatile', label: 'Groq/Llama-3.3-70B' },
-  // Ollama local — unlimited fallback, no rate limit, ~12 tok/s with 7B
-  { client: ollamaClient, model: OLLAMA_LLM_MODEL, label: `Ollama/${OLLAMA_LLM_MODEL}` },
+  // Google Gemini Flash — free tier: 15 req/min, 1500/day, very fast
+  { client: geminiClient, model: 'gemini-2.0-flash', label: 'Gemini/Flash-2.0' },
   // OpenRouter free models — last resort (heavily rate-limited)
   { get client() { return nextORClient() }, model: 'meta-llama/llama-3.3-70b-instruct:free', label: 'OR/Llama-3.3-70B' },
   { get client() { return nextORClient() }, model: 'nousresearch/hermes-3-llama-3.1-405b:free', label: 'OR/Hermes-405B' },
