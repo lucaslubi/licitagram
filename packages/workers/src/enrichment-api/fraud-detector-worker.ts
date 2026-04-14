@@ -414,48 +414,74 @@ async function run() {
   let offset = 0
   let totalAnalyzed = 0
 
-  // Simple approach: get tenders that have NOT been fraud-analyzed and check if they have competitors
+  // Step 1: Get ALL distinct tender_ids that have competitors (typically < 1000)
+  const allCompTenderIds = new Set<string>()
+  let compOffset = 0
   while (true) {
+    const { data: rows, error: compErr } = await supabase
+      .from('competitors')
+      .select('tender_id')
+      .range(compOffset, compOffset + 999)
+
+    if (compErr || !rows || rows.length === 0) break
+    for (const r of rows) allCompTenderIds.add(r.tender_id)
+    compOffset += 1000
+    if (rows.length < 1000) break
+  }
+
+  logger.info({ totalWithCompetitors: allCompTenderIds.size }, 'Found tenders with competitors')
+
+  if (allCompTenderIds.size === 0) {
+    logger.info('No tenders with competitors found, skipping')
+    return
+  }
+
+  // Step 2: Process only tenders with competitors that haven't been analyzed
+  const tenderIds = Array.from(allCompTenderIds)
+  let newAlerts = 0
+
+  for (let i = 0; i < tenderIds.length; i += BATCH_SIZE) {
+    const batch = tenderIds.slice(i, i + BATCH_SIZE)
+
     const { data: tenders, error } = await supabase
       .from('tenders')
-      .select('id, data_abertura, data_publicacao, valor_estimado')
-      .or('fraud_analyzed.is.null,fraud_analyzed.eq.false')
-      .order('created_at', { ascending: false })
-      .range(offset, offset + BATCH_SIZE - 1)
+      .select('id, data_abertura, data_publicacao, valor_estimado, fraud_analyzed')
+      .in('id', batch)
 
     if (error) {
-      logger.error({ error }, 'Failed to query tenders for fraud analysis')
-      break
+      logger.error({ error }, 'Failed to query tenders batch for fraud analysis')
+      continue
     }
 
-    if (!tenders || tenders.length === 0) break
+    for (const tender of tenders || []) {
+      // Skip already analyzed
+      if (tender.fraud_analyzed === true) continue
 
-    for (const tender of tenders) {
       try {
-        // Check if this tender has competitors before analyzing
-        const { count } = await supabase
-          .from('competitors')
+        const alertsBefore = await supabase
+          .from('fraud_alerts')
           .select('id', { count: 'exact', head: true })
           .eq('tender_id', tender.id)
 
-        if (count && count > 0) {
-          await analyzeTender(tender)
-        }
+        await analyzeTender(tender)
 
-        // Mark as analyzed regardless (so we don't re-check tenders without competitors)
-        const { error: updateErr } = await supabase
+        const alertsAfter = await supabase
+          .from('fraud_alerts')
+          .select('id', { count: 'exact', head: true })
+          .eq('tender_id', tender.id)
+
+        const found = (alertsAfter.count || 0) - (alertsBefore.count || 0)
+        if (found > 0) newAlerts += found
+
+        // Mark as analyzed
+        await supabase
           .from('tenders')
           .update({ fraud_analyzed: true })
           .eq('id', tender.id)
 
-        if (updateErr) {
-          logger.warn({ error: updateErr, tenderId: tender.id }, 'Failed to mark tender as fraud_analyzed')
-        }
-
         totalAnalyzed++
       } catch (err) {
         logger.error({ err, tenderId: tender.id }, 'Error analyzing tender for fraud')
-        // Still mark as analyzed to avoid infinite retry
         await supabase
           .from('tenders')
           .update({ fraud_analyzed: true })
@@ -463,17 +489,10 @@ async function run() {
       }
     }
 
-    offset += BATCH_SIZE
-    if (tenders.length < BATCH_SIZE) break
-
-    // Safety: max 5000 per cycle to avoid overloading
-    if (totalAnalyzed >= 5000) {
-      logger.info({ totalAnalyzed }, 'Hit cycle limit, continuing next run')
-      break
-    }
+    logger.info({ batch: Math.floor(i / BATCH_SIZE), totalAnalyzed, newAlerts }, 'Fraud detection batch progress')
   }
 
-  logger.info({ totalAnalyzed }, 'Fraud detection cycle complete')
+  logger.info({ totalAnalyzed, newAlerts, totalWithCompetitors: allCompTenderIds.size }, 'Fraud detection cycle complete')
 }
 
 // ─── Entry Point ────────────────────────────────────────────────────────────
