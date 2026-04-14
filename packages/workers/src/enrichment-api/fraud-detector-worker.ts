@@ -43,6 +43,11 @@ function formatCnpj14(cnpj: string): string {
   return cnpj.replace(/\D/g, '').padStart(14, '0')
 }
 
+/** Extract 8-digit root (cnpj_basico) from 14-digit CNPJ */
+function cnpjBasico(cnpj: string): string {
+  return formatCnpj14(cnpj).slice(0, 8)
+}
+
 function pairKey(cnpj1: string, cnpj2: string): string {
   return [cnpj1, cnpj2].sort().join('|')
 }
@@ -78,14 +83,14 @@ async function saveAlert(alert: FraudAlertRow): Promise<boolean> {
 async function scanSancionadas(): Promise<number> {
   logger.info('Strategy 1: Scanning sanctioned companies in tenders...')
 
-  // Get ALL sanctioned CNPJs from local PG
+  // Get ALL sanctioned CNPJs from local PG (cpf_cnpj is 14-digit)
   const { rows: sanctioned } = await pgPool.query(
-    `SELECT DISTINCT cnpj, tipo_sancao, orgao_sancionador, data_inicio, data_fim FROM sancoes`
+    `SELECT DISTINCT cpf_cnpj, nome, tipo_pessoa, categoria, orgao_sancionador, data_inicio, data_fim FROM sancoes WHERE LENGTH(cpf_cnpj) >= 14`
   )
 
   const sanctionedMap = new Map<string, typeof sanctioned>()
   for (const row of sanctioned) {
-    const cnpj = formatCnpj14(row.cnpj)
+    const cnpj = formatCnpj14(row.cpf_cnpj)
     if (!sanctionedMap.has(cnpj)) sanctionedMap.set(cnpj, [])
     sanctionedMap.get(cnpj)!.push(row)
   }
@@ -123,7 +128,7 @@ async function scanSancionadas(): Promise<number> {
         metadata: {
           is_winner: comp.is_winner,
           sancoes: sancoes.map(s => ({
-            tipo: s.tipo_sancao,
+            tipo: s.categoria,
             orgao: s.orgao_sancionador,
             inicio: s.data_inicio,
             fim: s.data_fim,
@@ -179,22 +184,26 @@ async function scanSociosEmComum(): Promise<number> {
 
       if (!competitors || competitors.length < 2) continue
 
-      const cnpjs = [...new Set(competitors.map(c => formatCnpj14(c.cnpj)))]
-      if (cnpjs.length < 2) continue
+      const basicos = [...new Set(competitors.map(c => cnpjBasico(c.cnpj)))]
+      if (basicos.length < 2) continue
+
+      // Map basico → full cnpj for alerts
+      const basicoToFull = new Map<string, string>()
+      for (const c of competitors) basicoToFull.set(cnpjBasico(c.cnpj), formatCnpj14(c.cnpj))
 
       try {
         const { rows } = await pgPool.query(
-          `SELECT cnpj, nome_socio, cnpj_cpf_socio FROM socios WHERE cnpj = ANY($1)`,
-          [cnpjs],
+          `SELECT cnpj_basico, nome_socio, cpf_cnpj_socio FROM socios WHERE cnpj_basico = ANY($1)`,
+          [basicos],
         )
 
         // Group by socio identifier
         const socioMap = new Map<string, { cnpjs: Set<string>; nome: string }>()
         for (const row of rows) {
-          const key = row.cnpj_cpf_socio || row.nome_socio
+          const key = row.cpf_cnpj_socio || row.nome_socio
           if (!key) continue
           if (!socioMap.has(key)) socioMap.set(key, { cnpjs: new Set(), nome: row.nome_socio })
-          socioMap.get(key)!.cnpjs.add(row.cnpj)
+          socioMap.get(key)!.cnpjs.add(row.cnpj_basico)
         }
 
         // Find shared socios
@@ -214,17 +223,20 @@ async function scanSociosEmComum(): Promise<number> {
         }
 
         for (const [_, { cnpj1, cnpj2, socios }] of pairAlerts) {
-          const c1 = competitors.find(c => formatCnpj14(c.cnpj) === cnpj1)
-          const c2 = competitors.find(c => formatCnpj14(c.cnpj) === cnpj2)
+          // cnpj1/cnpj2 are basico (8 dig) — resolve to full 14-digit
+          const full1 = basicoToFull.get(cnpj1) || cnpj1
+          const full2 = basicoToFull.get(cnpj2) || cnpj2
+          const c1 = competitors.find(c => cnpjBasico(c.cnpj) === cnpj1)
+          const c2 = competitors.find(c => cnpjBasico(c.cnpj) === cnpj2)
           const saved = await saveAlert({
             tender_id: tenderId,
             alert_type: 'SOCIO_EM_COMUM',
             severity: 'HIGH',
-            cnpj_1: cnpj1,
-            cnpj_2: cnpj2,
-            empresa_1: c1?.razao_social || cnpj1,
-            empresa_2: c2?.razao_social || cnpj2,
-            detail: `${c1?.razao_social || cnpj1} e ${c2?.razao_social || cnpj2} compartilham ${socios.length} socio(s): ${socios.slice(0, 3).join(', ')}${socios.length > 3 ? '...' : ''}.`,
+            cnpj_1: full1,
+            cnpj_2: full2,
+            empresa_1: c1?.razao_social || full1,
+            empresa_2: c2?.razao_social || full2,
+            detail: `${c1?.razao_social || full1} e ${c2?.razao_social || full2} compartilham ${socios.length} socio(s): ${socios.slice(0, 3).join(', ')}${socios.length > 3 ? '...' : ''}.`,
             metadata: { socios },
           })
           if (saved) alerts++
@@ -262,6 +274,7 @@ async function scanCapitalIncompativel(): Promise<number> {
 
   for (const winner of winners) {
     const cnpj14 = formatCnpj14(winner.cnpj)
+    const basico = cnpjBasico(winner.cnpj)
     const valor = (winner.tenders as any)?.valor_estimado
 
     if (!valor || valor <= 0) continue
@@ -269,8 +282,8 @@ async function scanCapitalIncompativel(): Promise<number> {
 
     try {
       const { rows } = await pgPool.query(
-        `SELECT capital_social FROM empresas WHERE cnpj = $1 LIMIT 1`,
-        [cnpj14],
+        `SELECT capital_social FROM empresas WHERE cnpj_basico = $1 LIMIT 1`,
+        [basico],
       )
 
       if (rows.length === 0) continue
@@ -316,6 +329,7 @@ async function scanEmpresaRecente(): Promise<number> {
 
   for (const winner of winners) {
     const cnpj14 = formatCnpj14(winner.cnpj)
+    const basico = cnpjBasico(winner.cnpj)
     const tenderDate = (winner.tenders as any)?.data_abertura
     if (!tenderDate) continue
 
@@ -325,8 +339,8 @@ async function scanEmpresaRecente(): Promise<number> {
 
     try {
       const { rows } = await pgPool.query(
-        `SELECT data_inicio_atividade FROM empresas WHERE cnpj = $1 LIMIT 1`,
-        [cnpj14],
+        `SELECT data_inicio_atividade FROM empresas WHERE cnpj_basico = $1 LIMIT 1`,
+        [basico],
       )
 
       if (rows.length === 0 || !rows[0].data_inicio_atividade) continue
@@ -384,9 +398,9 @@ async function scanMesmoEndereco(): Promise<number> {
 
     try {
       const { rows } = await pgPool.query(
-        `SELECT cnpj, logradouro, municipio, uf, numero
-         FROM empresas WHERE cnpj = ANY($1) AND logradouro IS NOT NULL AND municipio IS NOT NULL`,
-        [cnpjs],
+        `SELECT cnpj_basico, logradouro, municipio, uf, numero
+         FROM estabelecimentos WHERE cnpj_basico = ANY($1) AND logradouro IS NOT NULL AND municipio IS NOT NULL`,
+        [cnpjs.map(c => cnpjBasico(c))],
       )
 
       if (rows.length < 2) continue
@@ -395,7 +409,7 @@ async function scanMesmoEndereco(): Promise<number> {
       for (const row of rows) {
         const key = `${(row.logradouro || '').trim().toUpperCase()}|${(row.numero || '').trim().toUpperCase()}|${(row.municipio || '').trim().toUpperCase()}`
         if (!addrMap.has(key)) addrMap.set(key, { cnpjs: [], endereco: `${row.logradouro}${row.numero ? ', ' + row.numero : ''} - ${row.municipio}/${row.uf}` })
-        addrMap.get(key)!.cnpjs.push(row.cnpj)
+        addrMap.get(key)!.cnpjs.push(row.cnpj_basico)
       }
 
       for (const [_, { cnpjs: addrCnpjs, endereco }] of addrMap) {
@@ -403,8 +417,8 @@ async function scanMesmoEndereco(): Promise<number> {
         for (let a = 0; a < addrCnpjs.length; a++) {
           for (let b = a + 1; b < addrCnpjs.length; b++) {
             if (addrCnpjs[a] === addrCnpjs[b]) continue
-            const c1 = comps.find(c => formatCnpj14(c.cnpj) === addrCnpjs[a])
-            const c2 = comps.find(c => formatCnpj14(c.cnpj) === addrCnpjs[b])
+            const c1 = comps.find(c => cnpjBasico(c.cnpj) === addrCnpjs[a])
+            const c2 = comps.find(c => cnpjBasico(c.cnpj) === addrCnpjs[b])
             const saved = await saveAlert({
               tender_id: tenderId,
               alert_type: 'MESMO_ENDERECO',
@@ -446,7 +460,8 @@ async function run() {
   results.sociosEmComum = await scanSociosEmComum()
   results.capitalIncompativel = await scanCapitalIncompativel()
   results.empresaRecente = await scanEmpresaRecente()
-  results.mesmoEndereco = await scanMesmoEndereco()
+  // Strategy 5 disabled: requires estabelecimentos table (address data not yet imported)
+  // results.mesmoEndereco = await scanMesmoEndereco()
 
   const totalNew = Object.values(results).reduce((a, b) => a + b, 0)
 
@@ -483,7 +498,7 @@ async function main() {
   }
 
   // Count available data
-  const { rows: [{ count: sancoesCount }] } = await pgPool.query('SELECT count(DISTINCT cnpj) as count FROM sancoes')
+  const { rows: [{ count: sancoesCount }] } = await pgPool.query('SELECT count(DISTINCT cpf_cnpj) as count FROM sancoes')
   const { rows: [{ count: sociosCount }] } = await pgPool.query('SELECT count(*) as count FROM socios')
   const { rows: [{ count: empresasCount }] } = await pgPool.query('SELECT count(*) as count FROM empresas')
 
