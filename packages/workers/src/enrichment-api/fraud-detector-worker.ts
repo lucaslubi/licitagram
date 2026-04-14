@@ -38,28 +38,18 @@ interface FraudAlertRow {
   metadata: Record<string, unknown>
 }
 
-interface Competitor {
-  cnpj: string
-  razao_social?: string
-  valor_proposta?: number
-  is_winner?: boolean
-}
-
 // ─── Helpers ────────────────────────────────────────────────────────────────
 function formatCnpj14(cnpj: string): string {
   return cnpj.replace(/\D/g, '').padStart(14, '0')
 }
 
-/** Normalize pair key so A-B and B-A are the same */
 function pairKey(cnpj1: string, cnpj2: string): string {
   return [cnpj1, cnpj2].sort().join('|')
 }
 
-async function saveAlert(alert: FraudAlertRow) {
-  // CRITICAL: never save self-comparison
+async function saveAlert(alert: FraudAlertRow): Promise<boolean> {
   if (alert.cnpj_1 && alert.cnpj_2 && formatCnpj14(alert.cnpj_1) === formatCnpj14(alert.cnpj_2)) {
-    logger.warn({ cnpj: alert.cnpj_1, alert_type: alert.alert_type }, 'Skipping self-comparison alert')
-    return
+    return false
   }
 
   const { error } = await supabase
@@ -77,232 +67,62 @@ async function saveAlert(alert: FraudAlertRow) {
     })
 
   if (error) {
-    // Ignore duplicate constraint violations
-    if (error.code === '23505') {
-      logger.debug({ alert_type: alert.alert_type, tender_id: alert.tender_id }, 'Duplicate alert skipped')
-      return
-    }
+    if (error.code === '23505') return false // duplicate
     logger.error({ error, alert_type: alert.alert_type, tender_id: alert.tender_id }, 'Failed to save fraud alert')
+    return false
   }
+  return true
 }
 
-// ─── Detection 1: Socio em comum ────────────────────────────────────────────
-async function detectSocioEmComum(tenderId: string, competitors: Competitor[]) {
-  if (competitors.length < 2) return
+// ─── Strategy 1: SANCIONADAS → find all tenders they participate in ────────
+async function scanSancionadas(): Promise<number> {
+  logger.info('Strategy 1: Scanning sanctioned companies in tenders...')
 
-  const cnpjs = competitors.map(c => formatCnpj14(c.cnpj))
-  // Remove duplicates (same CNPJ appearing multiple times as competitor)
-  const uniqueCnpjs = [...new Set(cnpjs)]
-  if (uniqueCnpjs.length < 2) return
+  // Get ALL sanctioned CNPJs from local PG
+  const { rows: sanctioned } = await pgPool.query(
+    `SELECT DISTINCT cnpj, tipo_sancao, orgao_sancionador, data_inicio, data_fim FROM sancoes`
+  )
 
-  try {
-    const result = await pgPool.query(
-      `SELECT cnpj, nome_socio, cnpj_cpf_socio
-       FROM socios
-       WHERE cnpj = ANY($1)
-       ORDER BY cnpj, nome_socio`,
-      [uniqueCnpjs],
-    )
-
-    // Group socios by identifier (cpf/name)
-    const socioMap = new Map<string, { cnpjs: Set<string>; nome: string }>()
-    for (const row of result.rows) {
-      const key = row.cnpj_cpf_socio || row.nome_socio
-      if (!key) continue
-      if (!socioMap.has(key)) {
-        socioMap.set(key, { cnpjs: new Set(), nome: row.nome_socio })
-      }
-      socioMap.get(key)!.cnpjs.add(row.cnpj)
-    }
-
-    // Find socios present in 2+ DIFFERENT competitors of this tender
-    // Group shared socios by pair of companies to consolidate
-    const pairAlerts = new Map<string, { cnpj1: string; cnpj2: string; socios: string[] }>()
-
-    for (const [_key, { cnpjs: socioCnpjs, nome }] of socioMap) {
-      if (socioCnpjs.size < 2) continue
-
-      const cnpjArr = Array.from(socioCnpjs)
-      // Generate all unique pairs (avoid self-comparison)
-      for (let i = 0; i < cnpjArr.length; i++) {
-        for (let j = i + 1; j < cnpjArr.length; j++) {
-          // CRITICAL: skip if same CNPJ
-          if (cnpjArr[i] === cnpjArr[j]) continue
-
-          const pk = pairKey(cnpjArr[i], cnpjArr[j])
-          if (!pairAlerts.has(pk)) {
-            pairAlerts.set(pk, { cnpj1: cnpjArr[i], cnpj2: cnpjArr[j], socios: [] })
-          }
-          // Add socio name if not already there
-          const entry = pairAlerts.get(pk)!
-          if (!entry.socios.includes(nome)) {
-            entry.socios.push(nome)
-          }
-        }
-      }
-    }
-
-    // Save one alert per unique pair
-    for (const [_pk, { cnpj1, cnpj2, socios }] of pairAlerts) {
-      const comp1 = competitors.find(c => formatCnpj14(c.cnpj) === cnpj1)
-      const comp2 = competitors.find(c => formatCnpj14(c.cnpj) === cnpj2)
-
-      const nome1 = comp1?.razao_social || cnpj1
-      const nome2 = comp2?.razao_social || cnpj2
-
-      const maskedSocio = socios[0] // First shared partner for detail text
-      const totalSocios = socios.length
-
-      await saveAlert({
-        tender_id: tenderId,
-        alert_type: 'SOCIO_EM_COMUM',
-        severity: 'HIGH',
-        cnpj_1: cnpj1,
-        cnpj_2: cnpj2,
-        empresa_1: nome1,
-        empresa_2: nome2,
-        detail: `${nome1} e ${nome2} compartilham socio ${maskedSocio}. ${totalSocios} socio(s) em comum.`,
-        metadata: {
-          socios,
-        },
-      })
-    }
-  } catch (err) {
-    logger.error({ err, tenderId }, 'Error in detectSocioEmComum')
+  const sanctionedMap = new Map<string, typeof sanctioned>()
+  for (const row of sanctioned) {
+    const cnpj = formatCnpj14(row.cnpj)
+    if (!sanctionedMap.has(cnpj)) sanctionedMap.set(cnpj, [])
+    sanctionedMap.get(cnpj)!.push(row)
   }
-}
 
-// ─── Detection 2: Empresa recente ───────────────────────────────────────────
-async function detectEmpresaRecente(tenderId: string, competitors: Competitor[], tenderDate: string | null) {
-  if (!tenderDate) return
+  logger.info({ sanctionedCompanies: sanctionedMap.size }, 'Loaded sanctioned companies')
 
-  const winners = competitors.filter(c => c.is_winner)
-  if (winners.length === 0) return
+  // Find these CNPJs in competitors table (batch by 50)
+  const sanctionedCnpjs = Array.from(sanctionedMap.keys())
+  let alerts = 0
 
-  const tenderDateObj = new Date(tenderDate)
-  const sixMonthsBefore = new Date(tenderDateObj)
-  sixMonthsBefore.setMonth(sixMonthsBefore.getMonth() - 6)
+  for (let i = 0; i < sanctionedCnpjs.length; i += 50) {
+    const batch = sanctionedCnpjs.slice(i, i + 50)
 
-  for (const winner of winners) {
-    const cnpj14 = formatCnpj14(winner.cnpj)
+    const { data: competitors } = await supabase
+      .from('competitors')
+      .select('tender_id, cnpj, razao_social, is_winner')
+      .in('cnpj', batch)
 
-    try {
-      const result = await pgPool.query(
-        `SELECT data_inicio_atividade FROM empresas WHERE cnpj = $1 LIMIT 1`,
-        [cnpj14],
-      )
+    if (!competitors || competitors.length === 0) continue
 
-      if (result.rows.length === 0) continue
+    for (const comp of competitors) {
+      const cnpj14 = formatCnpj14(comp.cnpj)
+      const sancoes = sanctionedMap.get(cnpj14)
+      if (!sancoes) continue
 
-      const abertura = result.rows[0].data_inicio_atividade
-      if (!abertura) continue
-
-      const aberturaDate = new Date(abertura)
-      if (aberturaDate > sixMonthsBefore) {
-        const diasAntes = Math.floor((tenderDateObj.getTime() - aberturaDate.getTime()) / (1000 * 60 * 60 * 24))
-
-        await saveAlert({
-          tender_id: tenderId,
-          alert_type: 'EMPRESA_RECENTE',
-          severity: 'MEDIUM',
-          cnpj_1: cnpj14,
-          cnpj_2: null,
-          empresa_1: winner.razao_social || cnpj14,
-          empresa_2: null,
-          detail: `Empresa vencedora "${winner.razao_social || cnpj14}" foi aberta em ${abertura}, apenas ${diasAntes} dias antes da licitacao.`,
-          metadata: {
-            data_abertura_empresa: abertura,
-            data_licitacao: tenderDate,
-            dias_antes: diasAntes,
-          },
-        })
-      }
-    } catch (err) {
-      logger.error({ err, tenderId, cnpj: winner.cnpj }, 'Error in detectEmpresaRecente')
-    }
-  }
-}
-
-// ─── Detection 3: Capital incompativel ──────────────────────────────────────
-async function detectCapitalIncompativel(tenderId: string, competitors: Competitor[], valorContrato: number | null) {
-  if (!valorContrato || valorContrato <= 0) return
-
-  const winners = competitors.filter(c => c.is_winner)
-  if (winners.length === 0) return
-
-  const threshold = valorContrato * 0.01 // 1% of contract value
-
-  for (const winner of winners) {
-    const cnpj14 = formatCnpj14(winner.cnpj)
-
-    try {
-      const result = await pgPool.query(
-        `SELECT capital_social FROM empresas WHERE cnpj = $1 LIMIT 1`,
-        [cnpj14],
-      )
-
-      if (result.rows.length === 0) continue
-
-      const capitalSocial = Number(result.rows[0].capital_social)
-      if (!capitalSocial || capitalSocial <= 0) continue
-
-      if (capitalSocial < threshold) {
-        await saveAlert({
-          tender_id: tenderId,
-          alert_type: 'CAPITAL_INCOMPATIVEL',
-          severity: 'MEDIUM',
-          cnpj_1: cnpj14,
-          cnpj_2: null,
-          empresa_1: winner.razao_social || cnpj14,
-          empresa_2: null,
-          detail: `Empresa vencedora "${winner.razao_social || cnpj14}" tem capital social de R$ ${capitalSocial.toLocaleString('pt-BR')} para contrato de R$ ${valorContrato.toLocaleString('pt-BR')} (${((capitalSocial / valorContrato) * 100).toFixed(2)}%).`,
-          metadata: {
-            capital_social: capitalSocial,
-            valor_contrato: valorContrato,
-            percentual: ((capitalSocial / valorContrato) * 100).toFixed(4),
-          },
-        })
-      }
-    } catch (err) {
-      logger.error({ err, tenderId, cnpj: winner.cnpj }, 'Error in detectCapitalIncompativel')
-    }
-  }
-}
-
-// ─── Detection 4: Sancionada ────────────────────────────────────────────────
-async function detectSancionada(tenderId: string, competitors: Competitor[]) {
-  const cnpjs = competitors.map(c => formatCnpj14(c.cnpj))
-
-  try {
-    const result = await pgPool.query(
-      `SELECT DISTINCT cnpj, tipo_sancao, orgao_sancionador, data_inicio, data_fim
-       FROM sancoes
-       WHERE cnpj = ANY($1)`,
-      [cnpjs],
-    )
-
-    if (result.rows.length === 0) return
-
-    // Group by CNPJ
-    const sancoesMap = new Map<string, typeof result.rows>()
-    for (const row of result.rows) {
-      if (!sancoesMap.has(row.cnpj)) sancoesMap.set(row.cnpj, [])
-      sancoesMap.get(row.cnpj)!.push(row)
-    }
-
-    for (const [cnpj, sancoes] of sancoesMap) {
-      const comp = competitors.find(c => formatCnpj14(c.cnpj) === cnpj)
-      await saveAlert({
-        tender_id: tenderId,
+      const saved = await saveAlert({
+        tender_id: comp.tender_id,
         alert_type: 'EMPRESA_SANCIONADA',
         severity: 'CRITICAL',
-        cnpj_1: cnpj,
+        cnpj_1: cnpj14,
         cnpj_2: null,
-        empresa_1: comp?.razao_social || cnpj,
+        empresa_1: comp.razao_social || cnpj14,
         empresa_2: null,
-        detail: `Empresa "${comp?.razao_social || cnpj}" possui ${sancoes.length} sancao(oes) registrada(s) no CEIS/CNEP e participa desta licitacao.`,
+        detail: `"${comp.razao_social || cnpj14}" possui ${sancoes.length} sancao(oes) no CEIS/CNEP${comp.is_winner ? ' e VENCEU esta licitacao' : ''}.`,
         metadata: {
-          sancoes: sancoes.map((s: any) => ({
+          is_winner: comp.is_winner,
+          sancoes: sancoes.map(s => ({
             tipo: s.tipo_sancao,
             orgao: s.orgao_sancionador,
             inicio: s.data_inicio,
@@ -310,196 +130,350 @@ async function detectSancionada(tenderId: string, competitors: Competitor[]) {
           })),
         },
       })
+      if (saved) alerts++
     }
-  } catch (err) {
-    logger.error({ err, tenderId }, 'Error in detectSancionada')
+
+    if (i % 500 === 0 && i > 0) {
+      logger.info({ progress: i, total: sanctionedCnpjs.length, alerts }, 'Sancionadas scan progress')
+    }
   }
+
+  logger.info({ alerts }, 'Strategy 1 complete: Sancionadas')
+  return alerts
 }
 
-// ─── Detection 5: Mesmo endereco ────────────────────────────────────────────
-async function detectMesmoEndereco(tenderId: string, competitors: Competitor[]) {
-  if (competitors.length < 2) return
+// ─── Strategy 2: SOCIOS EM COMUM between competitors in same tender ────────
+async function scanSociosEmComum(): Promise<number> {
+  logger.info('Strategy 2: Scanning shared partners between competitors...')
 
-  const cnpjs = competitors.map(c => formatCnpj14(c.cnpj))
-  const uniqueCnpjs = [...new Set(cnpjs)]
-  if (uniqueCnpjs.length < 2) return
-
-  try {
-    const result = await pgPool.query(
-      `SELECT cnpj, logradouro, municipio, uf, numero
-       FROM empresas
-       WHERE cnpj = ANY($1) AND logradouro IS NOT NULL AND municipio IS NOT NULL`,
-      [uniqueCnpjs],
-    )
-
-    if (result.rows.length < 2) return
-
-    // Group by address key (logradouro + municipio + numero)
-    const addressMap = new Map<string, { cnpjs: string[]; endereco: string }>()
-    for (const row of result.rows) {
-      const key = `${(row.logradouro || '').trim().toUpperCase()}|${(row.numero || '').trim().toUpperCase()}|${(row.municipio || '').trim().toUpperCase()}`
-      if (!addressMap.has(key)) {
-        addressMap.set(key, {
-          cnpjs: [],
-          endereco: `${row.logradouro}${row.numero ? ', ' + row.numero : ''} - ${row.municipio}/${row.uf}`,
-        })
-      }
-      addressMap.get(key)!.cnpjs.push(row.cnpj)
-    }
-
-    for (const [_key, { cnpjs: addrCnpjs, endereco }] of addressMap) {
-      if (addrCnpjs.length < 2) continue
-
-      // Generate alerts for each unique pair at the same address
-      for (let i = 0; i < addrCnpjs.length; i++) {
-        for (let j = i + 1; j < addrCnpjs.length; j++) {
-          // CRITICAL: skip if same CNPJ
-          if (addrCnpjs[i] === addrCnpjs[j]) continue
-
-          const comp1 = competitors.find(c => formatCnpj14(c.cnpj) === addrCnpjs[i])
-          const comp2 = competitors.find(c => formatCnpj14(c.cnpj) === addrCnpjs[j])
-
-          await saveAlert({
-            tender_id: tenderId,
-            alert_type: 'MESMO_ENDERECO',
-            severity: 'HIGH',
-            cnpj_1: addrCnpjs[i],
-            cnpj_2: addrCnpjs[j],
-            empresa_1: comp1?.razao_social || addrCnpjs[i],
-            empresa_2: comp2?.razao_social || addrCnpjs[j],
-            detail: `${comp1?.razao_social || addrCnpjs[i]} e ${comp2?.razao_social || addrCnpjs[j]} concorrem na mesma licitacao e estao registradas no mesmo endereco: ${endereco}.`,
-            metadata: {
-              endereco,
-              total_empresas_no_endereco: addrCnpjs.length,
-            },
-          })
-        }
-      }
-    }
-  } catch (err) {
-    logger.error({ err, tenderId }, 'Error in detectMesmoEndereco')
-  }
-}
-
-// ─── Orchestrator ───────────────────────────────────────────────────────────
-async function analyzeTender(tender: {
-  id: string
-  data_abertura?: string
-  data_publicacao?: string
-  valor_estimado?: number
-}) {
-  // Get competitors for this tender
-  const { data: competitors, error } = await supabase
+  // Get all distinct tender_ids with 2+ competitors
+  const { data: tenderGroups } = await supabase
     .from('competitors')
-    .select('cnpj, razao_social, valor_proposta, is_winner')
-    .eq('tender_id', tender.id)
+    .select('tender_id')
 
-  if (error || !competitors || competitors.length === 0) return
+  if (!tenderGroups) return 0
 
-  const tenderDate = tender.data_abertura || tender.data_publicacao || null
-  const valorContrato = tender.valor_estimado || null
-
-  await Promise.all([
-    detectSocioEmComum(tender.id, competitors),
-    detectEmpresaRecente(tender.id, competitors, tenderDate),
-    detectCapitalIncompativel(tender.id, competitors, valorContrato),
-    detectSancionada(tender.id, competitors),
-    detectMesmoEndereco(tender.id, competitors),
-  ])
-}
-
-async function run() {
-  logger.info('Starting fraud detection cycle')
-
-  let offset = 0
-  let totalAnalyzed = 0
-
-  // Step 1: Get ALL distinct tender_ids that have competitors (typically < 1000)
-  const allCompTenderIds = new Set<string>()
-  let compOffset = 0
-  while (true) {
-    const { data: rows, error: compErr } = await supabase
-      .from('competitors')
-      .select('tender_id')
-      .range(compOffset, compOffset + 999)
-
-    if (compErr || !rows || rows.length === 0) break
-    for (const r of rows) allCompTenderIds.add(r.tender_id)
-    compOffset += 1000
-    if (rows.length < 1000) break
+  // Count competitors per tender
+  const tenderCounts = new Map<string, number>()
+  for (const row of tenderGroups) {
+    tenderCounts.set(row.tender_id, (tenderCounts.get(row.tender_id) || 0) + 1)
   }
 
-  logger.info({ totalWithCompetitors: allCompTenderIds.size }, 'Found tenders with competitors')
+  // Only process tenders with 2+ competitors
+  const multiCompTenders = Array.from(tenderCounts.entries())
+    .filter(([_, count]) => count >= 2)
+    .map(([id]) => id)
 
-  if (allCompTenderIds.size === 0) {
-    logger.info('No tenders with competitors found, skipping')
-    return
-  }
+  logger.info({ tendersToCheck: multiCompTenders.length }, 'Tenders with 2+ competitors')
 
-  // Step 2: Process only tenders with competitors that haven't been analyzed
-  const tenderIds = Array.from(allCompTenderIds)
-  let newAlerts = 0
+  let alerts = 0
 
-  for (let i = 0; i < tenderIds.length; i += BATCH_SIZE) {
-    const batch = tenderIds.slice(i, i + BATCH_SIZE)
+  for (let i = 0; i < multiCompTenders.length; i += BATCH_SIZE) {
+    const batch = multiCompTenders.slice(i, i + BATCH_SIZE)
 
-    const { data: tenders, error } = await supabase
-      .from('tenders')
-      .select('id, data_abertura, data_publicacao, valor_estimado, fraud_analyzed')
-      .in('id', batch)
+    for (const tenderId of batch) {
+      const { data: competitors } = await supabase
+        .from('competitors')
+        .select('cnpj, razao_social')
+        .eq('tender_id', tenderId)
 
-    if (error) {
-      logger.error({ error }, 'Failed to query tenders batch for fraud analysis')
-      continue
-    }
+      if (!competitors || competitors.length < 2) continue
 
-    for (const tender of tenders || []) {
-      // Skip already analyzed
-      if (tender.fraud_analyzed === true) continue
+      const cnpjs = [...new Set(competitors.map(c => formatCnpj14(c.cnpj)))]
+      if (cnpjs.length < 2) continue
 
       try {
-        const alertsBefore = await supabase
-          .from('fraud_alerts')
-          .select('id', { count: 'exact', head: true })
-          .eq('tender_id', tender.id)
+        const { rows } = await pgPool.query(
+          `SELECT cnpj, nome_socio, cnpj_cpf_socio FROM socios WHERE cnpj = ANY($1)`,
+          [cnpjs],
+        )
 
-        await analyzeTender(tender)
+        // Group by socio identifier
+        const socioMap = new Map<string, { cnpjs: Set<string>; nome: string }>()
+        for (const row of rows) {
+          const key = row.cnpj_cpf_socio || row.nome_socio
+          if (!key) continue
+          if (!socioMap.has(key)) socioMap.set(key, { cnpjs: new Set(), nome: row.nome_socio })
+          socioMap.get(key)!.cnpjs.add(row.cnpj)
+        }
 
-        const alertsAfter = await supabase
-          .from('fraud_alerts')
-          .select('id', { count: 'exact', head: true })
-          .eq('tender_id', tender.id)
+        // Find shared socios
+        const pairAlerts = new Map<string, { cnpj1: string; cnpj2: string; socios: string[] }>()
+        for (const [_, { cnpjs: socioCnpjs, nome }] of socioMap) {
+          if (socioCnpjs.size < 2) continue
+          const arr = Array.from(socioCnpjs)
+          for (let a = 0; a < arr.length; a++) {
+            for (let b = a + 1; b < arr.length; b++) {
+              if (arr[a] === arr[b]) continue
+              const pk = pairKey(arr[a], arr[b])
+              if (!pairAlerts.has(pk)) pairAlerts.set(pk, { cnpj1: arr[a], cnpj2: arr[b], socios: [] })
+              const entry = pairAlerts.get(pk)!
+              if (!entry.socios.includes(nome)) entry.socios.push(nome)
+            }
+          }
+        }
 
-        const found = (alertsAfter.count || 0) - (alertsBefore.count || 0)
-        if (found > 0) newAlerts += found
-
-        // Mark as analyzed
-        await supabase
-          .from('tenders')
-          .update({ fraud_analyzed: true })
-          .eq('id', tender.id)
-
-        totalAnalyzed++
+        for (const [_, { cnpj1, cnpj2, socios }] of pairAlerts) {
+          const c1 = competitors.find(c => formatCnpj14(c.cnpj) === cnpj1)
+          const c2 = competitors.find(c => formatCnpj14(c.cnpj) === cnpj2)
+          const saved = await saveAlert({
+            tender_id: tenderId,
+            alert_type: 'SOCIO_EM_COMUM',
+            severity: 'HIGH',
+            cnpj_1: cnpj1,
+            cnpj_2: cnpj2,
+            empresa_1: c1?.razao_social || cnpj1,
+            empresa_2: c2?.razao_social || cnpj2,
+            detail: `${c1?.razao_social || cnpj1} e ${c2?.razao_social || cnpj2} compartilham ${socios.length} socio(s): ${socios.slice(0, 3).join(', ')}${socios.length > 3 ? '...' : ''}.`,
+            metadata: { socios },
+          })
+          if (saved) alerts++
+        }
       } catch (err) {
-        logger.error({ err, tenderId: tender.id }, 'Error analyzing tender for fraud')
-        await supabase
-          .from('tenders')
-          .update({ fraud_analyzed: true })
-          .eq('id', tender.id)
+        logger.error({ err, tenderId }, 'Error checking socios for tender')
       }
     }
 
-    logger.info({ batch: Math.floor(i / BATCH_SIZE), totalAnalyzed, newAlerts }, 'Fraud detection batch progress')
+    if (i % 100 === 0 && i > 0) {
+      logger.info({ progress: i, total: multiCompTenders.length, alerts }, 'Socios scan progress')
+    }
   }
 
-  logger.info({ totalAnalyzed, newAlerts, totalWithCompetitors: allCompTenderIds.size }, 'Fraud detection cycle complete')
+  logger.info({ alerts }, 'Strategy 2 complete: Socios em Comum')
+  return alerts
+}
+
+// ─── Strategy 3: CAPITAL INCOMPATIVEL for winners ──────────────────────────
+async function scanCapitalIncompativel(): Promise<number> {
+  logger.info('Strategy 3: Scanning winners with incompatible capital...')
+
+  // Get all winners with tender value
+  const { data: winners } = await supabase
+    .from('competitors')
+    .select('tender_id, cnpj, razao_social, valor_proposta, tenders!inner(valor_estimado, data_abertura)')
+    .eq('is_winner', true)
+    .not('tenders.valor_estimado', 'is', null)
+    .gt('tenders.valor_estimado', 0)
+
+  if (!winners || winners.length === 0) return 0
+  logger.info({ winnersToCheck: winners.length }, 'Winners with value to check')
+
+  let alerts = 0
+
+  for (const winner of winners) {
+    const cnpj14 = formatCnpj14(winner.cnpj)
+    const valor = (winner.tenders as any)?.valor_estimado
+
+    if (!valor || valor <= 0) continue
+    const threshold = valor * 0.01
+
+    try {
+      const { rows } = await pgPool.query(
+        `SELECT capital_social FROM empresas WHERE cnpj = $1 LIMIT 1`,
+        [cnpj14],
+      )
+
+      if (rows.length === 0) continue
+      const capital = Number(rows[0].capital_social)
+      if (!capital || capital <= 0) continue
+
+      if (capital < threshold) {
+        const saved = await saveAlert({
+          tender_id: winner.tender_id,
+          alert_type: 'CAPITAL_INCOMPATIVEL',
+          severity: 'MEDIUM',
+          cnpj_1: cnpj14,
+          cnpj_2: null,
+          empresa_1: winner.razao_social || cnpj14,
+          empresa_2: null,
+          detail: `Vencedora "${winner.razao_social || cnpj14}" tem capital de R$ ${capital.toLocaleString('pt-BR')} para contrato de R$ ${valor.toLocaleString('pt-BR')} (${((capital / valor) * 100).toFixed(2)}%).`,
+          metadata: { capital_social: capital, valor_contrato: valor },
+        })
+        if (saved) alerts++
+      }
+    } catch (err) {
+      logger.error({ err, cnpj: winner.cnpj }, 'Error checking capital')
+    }
+  }
+
+  logger.info({ alerts }, 'Strategy 3 complete: Capital Incompativel')
+  return alerts
+}
+
+// ─── Strategy 4: EMPRESA RECENTE (winner opened < 6 months before) ─────────
+async function scanEmpresaRecente(): Promise<number> {
+  logger.info('Strategy 4: Scanning recently created winners...')
+
+  const { data: winners } = await supabase
+    .from('competitors')
+    .select('tender_id, cnpj, razao_social, tenders!inner(data_abertura)')
+    .eq('is_winner', true)
+    .not('tenders.data_abertura', 'is', null)
+
+  if (!winners || winners.length === 0) return 0
+
+  let alerts = 0
+
+  for (const winner of winners) {
+    const cnpj14 = formatCnpj14(winner.cnpj)
+    const tenderDate = (winner.tenders as any)?.data_abertura
+    if (!tenderDate) continue
+
+    const tenderDateObj = new Date(tenderDate)
+    const sixMonthsBefore = new Date(tenderDateObj)
+    sixMonthsBefore.setMonth(sixMonthsBefore.getMonth() - 6)
+
+    try {
+      const { rows } = await pgPool.query(
+        `SELECT data_inicio_atividade FROM empresas WHERE cnpj = $1 LIMIT 1`,
+        [cnpj14],
+      )
+
+      if (rows.length === 0 || !rows[0].data_inicio_atividade) continue
+
+      const abertura = new Date(rows[0].data_inicio_atividade)
+      if (abertura > sixMonthsBefore) {
+        const dias = Math.floor((tenderDateObj.getTime() - abertura.getTime()) / 86400000)
+        const saved = await saveAlert({
+          tender_id: winner.tender_id,
+          alert_type: 'EMPRESA_RECENTE',
+          severity: 'MEDIUM',
+          cnpj_1: cnpj14,
+          cnpj_2: null,
+          empresa_1: winner.razao_social || cnpj14,
+          empresa_2: null,
+          detail: `Vencedora "${winner.razao_social || cnpj14}" aberta apenas ${dias} dias antes da licitacao.`,
+          metadata: { data_abertura_empresa: rows[0].data_inicio_atividade, dias_antes: dias },
+        })
+        if (saved) alerts++
+      }
+    } catch (err) {
+      logger.error({ err, cnpj: winner.cnpj }, 'Error checking empresa recente')
+    }
+  }
+
+  logger.info({ alerts }, 'Strategy 4 complete: Empresa Recente')
+  return alerts
+}
+
+// ─── Strategy 5: MESMO ENDERECO between competitors ────────────────────────
+async function scanMesmoEndereco(): Promise<number> {
+  logger.info('Strategy 5: Scanning shared addresses between competitors...')
+
+  // Get tenders with 2+ competitors (reuse tender list)
+  const { data: allComps } = await supabase
+    .from('competitors')
+    .select('tender_id, cnpj, razao_social')
+
+  if (!allComps) return 0
+
+  // Group by tender
+  const byTender = new Map<string, Array<{ cnpj: string; razao_social: string }>>()
+  for (const c of allComps) {
+    if (!byTender.has(c.tender_id)) byTender.set(c.tender_id, [])
+    byTender.get(c.tender_id)!.push({ cnpj: c.cnpj, razao_social: c.razao_social })
+  }
+
+  let alerts = 0
+
+  for (const [tenderId, comps] of byTender) {
+    if (comps.length < 2) continue
+
+    const cnpjs = [...new Set(comps.map(c => formatCnpj14(c.cnpj)))]
+    if (cnpjs.length < 2) continue
+
+    try {
+      const { rows } = await pgPool.query(
+        `SELECT cnpj, logradouro, municipio, uf, numero
+         FROM empresas WHERE cnpj = ANY($1) AND logradouro IS NOT NULL AND municipio IS NOT NULL`,
+        [cnpjs],
+      )
+
+      if (rows.length < 2) continue
+
+      const addrMap = new Map<string, { cnpjs: string[]; endereco: string }>()
+      for (const row of rows) {
+        const key = `${(row.logradouro || '').trim().toUpperCase()}|${(row.numero || '').trim().toUpperCase()}|${(row.municipio || '').trim().toUpperCase()}`
+        if (!addrMap.has(key)) addrMap.set(key, { cnpjs: [], endereco: `${row.logradouro}${row.numero ? ', ' + row.numero : ''} - ${row.municipio}/${row.uf}` })
+        addrMap.get(key)!.cnpjs.push(row.cnpj)
+      }
+
+      for (const [_, { cnpjs: addrCnpjs, endereco }] of addrMap) {
+        if (addrCnpjs.length < 2) continue
+        for (let a = 0; a < addrCnpjs.length; a++) {
+          for (let b = a + 1; b < addrCnpjs.length; b++) {
+            if (addrCnpjs[a] === addrCnpjs[b]) continue
+            const c1 = comps.find(c => formatCnpj14(c.cnpj) === addrCnpjs[a])
+            const c2 = comps.find(c => formatCnpj14(c.cnpj) === addrCnpjs[b])
+            const saved = await saveAlert({
+              tender_id: tenderId,
+              alert_type: 'MESMO_ENDERECO',
+              severity: 'HIGH',
+              cnpj_1: addrCnpjs[a],
+              cnpj_2: addrCnpjs[b],
+              empresa_1: c1?.razao_social || addrCnpjs[a],
+              empresa_2: c2?.razao_social || addrCnpjs[b],
+              detail: `${c1?.razao_social || addrCnpjs[a]} e ${c2?.razao_social || addrCnpjs[b]} no mesmo endereco: ${endereco}.`,
+              metadata: { endereco },
+            })
+            if (saved) alerts++
+          }
+        }
+      }
+    } catch (err) {
+      logger.error({ err, tenderId }, 'Error checking endereco')
+    }
+  }
+
+  logger.info({ alerts }, 'Strategy 5 complete: Mesmo Endereco')
+  return alerts
+}
+
+// ─── Main Orchestrator ─────────────────────────────────────────────────────
+async function run() {
+  logger.info('=== Starting fraud detection cycle (top-down) ===')
+
+  const results = {
+    sancionadas: 0,
+    sociosEmComum: 0,
+    capitalIncompativel: 0,
+    empresaRecente: 0,
+    mesmoEndereco: 0,
+  }
+
+  // Run strategies in priority order (highest impact first)
+  results.sancionadas = await scanSancionadas()
+  results.sociosEmComum = await scanSociosEmComum()
+  results.capitalIncompativel = await scanCapitalIncompativel()
+  results.empresaRecente = await scanEmpresaRecente()
+  results.mesmoEndereco = await scanMesmoEndereco()
+
+  const totalNew = Object.values(results).reduce((a, b) => a + b, 0)
+
+  // Mark ALL tenders with competitors as fraud_analyzed
+  const { data: compTenders } = await supabase
+    .from('competitors')
+    .select('tender_id')
+
+  if (compTenders) {
+    const uniqueIds = [...new Set(compTenders.map(c => c.tender_id))]
+    for (let i = 0; i < uniqueIds.length; i += 50) {
+      const batch = uniqueIds.slice(i, i + 50)
+      await supabase
+        .from('tenders')
+        .update({ fraud_analyzed: true })
+        .in('id', batch)
+    }
+    logger.info({ marked: uniqueIds.length }, 'Marked tenders as fraud_analyzed')
+  }
+
+  logger.info({ results, totalNewAlerts: totalNew }, '=== Fraud detection cycle complete ===')
 }
 
 // ─── Entry Point ────────────────────────────────────────────────────────────
 async function main() {
-  logger.info('Fraud Detector Worker started')
+  logger.info('Fraud Detector Worker started (top-down strategy)')
 
-  // Verify PostgreSQL connection
   try {
     await pgPool.query('SELECT 1')
     logger.info('Local PostgreSQL connection verified')
@@ -507,6 +481,16 @@ async function main() {
     logger.fatal({ err }, 'Cannot connect to local PostgreSQL')
     process.exit(1)
   }
+
+  // Count available data
+  const { rows: [{ count: sancoesCount }] } = await pgPool.query('SELECT count(DISTINCT cnpj) as count FROM sancoes')
+  const { rows: [{ count: sociosCount }] } = await pgPool.query('SELECT count(*) as count FROM socios')
+  const { rows: [{ count: empresasCount }] } = await pgPool.query('SELECT count(*) as count FROM empresas')
+
+  logger.info(
+    { sancoes: Number(sancoesCount), socios: Number(sociosCount), empresas: Number(empresasCount) },
+    'Reference data loaded',
+  )
 
   await run()
   setInterval(run, RUN_INTERVAL_MS)
