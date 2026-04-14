@@ -120,8 +120,14 @@ export function SmartPricingV2({ query, valorEstimado, uf, modalidade, bandLabel
         }),
       })
 
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error || `Erro (${res.status})`)
+      const text = await res.text()
+      let json: any
+      try {
+        json = JSON.parse(text)
+      } catch {
+        throw new Error(res.status >= 500 ? 'Serviço temporariamente indisponível. Tente novamente.' : `Erro (${res.status})`)
+      }
+      if (!res.ok) throw new Error((json.error as string) || `Erro (${res.status})`)
 
       setData(json)
     } catch (e: unknown) {

@@ -271,7 +271,10 @@ Recomendações geradas:
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Erro interno'
     console.error('Contextual pricing error:', e)
-    return NextResponse.json({ error: message }, { status: 500 })
+    return NextResponse.json({ error: message, recommendations: [], context: null }, { status: 500 })
   }
 }
+
+// Prevent Vercel from returning HTML error pages
+export const runtime = 'nodejs'
 

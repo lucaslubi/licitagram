@@ -59,8 +59,14 @@ export function TenderPricing({ objeto, valorEstimado, uf, modalidade }: TenderP
         }),
       })
 
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || `Erro (${res.status})`)
+      const text = await res.text()
+      let data: any
+      try {
+        data = JSON.parse(text)
+      } catch {
+        throw new Error(res.status >= 500 ? 'Serviço temporariamente indisponível. Tente novamente.' : `Erro (${res.status})`)
+      }
+      if (!res.ok) throw new Error((data.error as string) || `Erro (${res.status})`)
 
       setRecommendations(data.recommendations || [])
       setConfidence(data.context?.confidence || null)
