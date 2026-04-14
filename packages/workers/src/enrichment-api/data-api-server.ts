@@ -546,6 +546,33 @@ const server = http.createServer(async (req, res) => {
       return
     }
 
+    // PM2 workers list — for monitoring dashboard aggregation
+    if (pathname === '/api/workers') {
+      try {
+        const { execFile } = await import('node:child_process')
+        const raw = await new Promise<string>((resolve, reject) => {
+          execFile('pm2', ['jlist'], { timeout: 5000 }, (err, stdout) => {
+            if (err) reject(err)
+            else resolve(stdout)
+          })
+        })
+        const procs = JSON.parse(raw)
+        const workers = procs.map((p: any) => ({
+          name: `[VPS2] ${p.name}`,
+          pid: p.pid,
+          memory: Math.round((p.monit?.memory || 0) / 1024 / 1024),
+          cpu: p.monit?.cpu || 0,
+          uptime: p.pm2_env?.pm_uptime ? Math.floor((Date.now() - p.pm2_env.pm_uptime) / 1000) : 0,
+          restarts: p.pm2_env?.restart_time || 0,
+          status: p.pm2_env?.status || 'stopped',
+        }))
+        jsonResponse(res, 200, { workers })
+      } catch (err: any) {
+        jsonResponse(res, 500, { error: err.message, workers: [] })
+      }
+      return
+    }
+
     jsonResponse(res, 404, { error: 'Not found' })
   } catch (err) {
     logger.error({ err, pathname }, 'Request error')

@@ -94,27 +94,50 @@ interface WorkerInfo {
   status: 'online' | 'stopping' | 'stopped' | 'errored' | 'launching'
 }
 
+const VPS2_DATA_API = process.env.DATA_API_URL || 'http://85.31.60.53:3997'
+
 async function getWorkers(): Promise<WorkerInfo[]> {
+  // Get local PM2 workers
   const raw = await execSafeAsync('pm2', ['jlist'])
-  if (!raw) return []
-  try {
-    const procs = JSON.parse(raw)
-    return procs.map((p: any) => ({
-      name: p.name,
-      pid: p.pid,
-      memory: Math.round((p.monit?.memory || 0) / 1024 / 1024),
-      cpu: p.monit?.cpu || 0,
-      uptime: formatUptime(
-        p.pm2_env?.pm_uptime
-          ? Math.floor((Date.now() - p.pm2_env.pm_uptime) / 1000)
-          : 0,
-      ),
-      restarts: p.pm2_env?.restart_time || 0,
-      status: p.pm2_env?.status || 'stopped',
-    }))
-  } catch {
-    return []
+  let localWorkers: WorkerInfo[] = []
+  if (raw) {
+    try {
+      const procs = JSON.parse(raw)
+      localWorkers = procs.map((p: any) => ({
+        name: p.name,
+        pid: p.pid,
+        memory: Math.round((p.monit?.memory || 0) / 1024 / 1024),
+        cpu: p.monit?.cpu || 0,
+        uptime: formatUptime(
+          p.pm2_env?.pm_uptime
+            ? Math.floor((Date.now() - p.pm2_env.pm_uptime) / 1000)
+            : 0,
+        ),
+        restarts: p.pm2_env?.restart_time || 0,
+        status: p.pm2_env?.status || 'stopped',
+      }))
+    } catch { /* ignore */ }
   }
+
+  // Get VPS2 workers via Data API
+  let vps2Workers: WorkerInfo[] = []
+  try {
+    const res = await fetch(`${VPS2_DATA_API}/api/workers`, { signal: AbortSignal.timeout(3000) })
+    if (res.ok) {
+      const data = await res.json() as { workers: Array<{ name: string; pid: number; memory: number; cpu: number; uptime: number; restarts: number; status: string }> }
+      vps2Workers = (data.workers || []).map((w) => ({
+        name: w.name,
+        pid: w.pid,
+        memory: w.memory,
+        cpu: w.cpu,
+        uptime: formatUptime(w.uptime),
+        restarts: w.restarts,
+        status: (w.status as WorkerInfo['status']) || 'stopped',
+      }))
+    }
+  } catch { /* VPS2 unreachable — skip */ }
+
+  return [...localWorkers, ...vps2Workers]
 }
 
 interface QueueStats {
