@@ -6,7 +6,6 @@ import type { TenderDetail } from '@/types/database'
 import { StatusChanger } from './status-changer'
 import { ComplianceChecker } from './compliance-checker'
 import { EditalChat } from './chat'
-import { HistoricalPrices } from './historical-prices'
 import { ScoreProvider, ScoreBadgeSlot, AnalysisSlot } from './score-header'
 import { AnalyzeWithAIButton } from './document-link'
 import { getAuthAndProfile, getMatchDetail } from '@/lib/cache'
@@ -15,9 +14,7 @@ import { createClient } from '@/lib/supabase/server'
 import { RiskAnalysisCard } from '@/components/fraud/RiskAnalysisCard'
 import { FraudAlertBadges } from '@/components/fraud/FraudAlertBadges'
 import { HabilitacaoChecklist } from './habilitacao-checklist'
-import { LanceSimulator } from './lance-simulator'
 import { ImpugnationCard } from './impugnation-card'
-import { TenderPricing } from './tender-pricing'
 import { formatCompactBRL } from '@/lib/geo/map-utils'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -347,54 +344,7 @@ export default async function OpportunityDetailPage({
             )}
           </div>
 
-          {/* Pricing Intelligence (Enterprise) */}
-          {isEnterprise ? (
-            <div className="card-refined">
-              <div className="card-refined-header">
-                <div className="flex items-center gap-2.5">
-                  <div className="card-refined-icon">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 6l-9.5 9.5-5-5L1 18" /><path d="M17 6h6v6" /></svg>
-                  </div>
-                  <h3 className="card-refined-title">Inteligência de Precificação</h3>
-                </div>
-              </div>
-              <TenderPricing
-                objeto={(tender?.objeto as string) || ''}
-                valorEstimado={(tender?.valor_estimado as number) || null}
-                uf={(tender?.uf as string) || null}
-                modalidade={(tender?.modalidade_nome as string) || null}
-              />
-              <div className="mt-4">
-                <HistoricalPrices
-                  currentObjeto={(tender?.objeto as string) || ''}
-                  currentValorEstimado={(tender?.valor_estimado as number) || null}
-                  currentTenderId={(tender?.id as string) || id}
-                />
-              </div>
-              {tender?.valor_estimado && (
-                <div className="mt-4">
-                  <LanceSimulator matchId={id} tenderId={tender.id as string} valorEstimado={Number(tender.valor_estimado)} />
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="card-refined relative overflow-hidden">
-              <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center p-6 text-center">
-                <h3 className="text-foreground font-semibold mb-1">Inteligência de Precificação</h3>
-                <p className="text-xs text-muted-foreground max-w-sm mb-4">Análise comparativa, histórico e simulador de lances.</p>
-                <Link href="/settings?tab=billing&upgrade=enterprise&source=pricing_intelligence" className="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg transition-colors">
-                  Disponível no Enterprise &rarr;
-                </Link>
-              </div>
-              <div className="filter blur-sm pointer-events-none p-6">
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="bg-background rounded-lg p-3"><div className="h-4 bg-foreground/5 rounded w-20 mb-2" /><div className="h-6 bg-foreground/5 rounded w-24" /></div>
-                  <div className="bg-background rounded-lg p-3"><div className="h-4 bg-foreground/5 rounded w-20 mb-2" /><div className="h-6 bg-foreground/5 rounded w-24" /></div>
-                  <div className="bg-background rounded-lg p-3"><div className="h-4 bg-foreground/5 rounded w-20 mb-2" /><div className="h-6 bg-foreground/5 rounded w-24" /></div>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Pricing Intelligence removed — available in /price-history */}
 
           {/* Tools Grid 2x2 */}
           <div>
