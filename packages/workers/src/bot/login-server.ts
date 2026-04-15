@@ -254,7 +254,7 @@ export class LoginServer {
       }
 
       // 5. Search in all script tags for sitekey patterns
-      const scripts = document.querySelectorAll('script')
+      const scripts = Array.from(document.querySelectorAll('script'))
       for (const s of scripts) {
         const text = s.textContent || ''
         // hcaptcha render call
