@@ -1,0 +1,80 @@
+# ============================================================
+# ComprasGov (Compras.gov.br) DOM selectors
+#
+# Hot-fixable: edit this file and restart the worker.
+# No recompile needed. Selectors WILL need adjustment after
+# first real portal test (CHECKPOINT 3).
+#
+# All selectors target the Comprasnet/ComprasGov web interface.
+# Fallback selectors are tried in order when primary fails.
+# ============================================================
+
+login:
+  # Login page URL (legacy flow)
+  url: "https://www.comprasnet.gov.br/seguro/loginPortal.asp"
+  # Alternative gov.br login flow
+  url_govbr: "https://sso.acesso.gov.br/authorize"
+
+  # Login form fields
+  username_input: "#txtLogin"
+  username_input_fallback: "input[name='txtLogin']"
+  password_input: "#txtSenha"
+  password_input_fallback: "input[name='txtSenha']"
+  submit_button: "#btnAcessar"
+  submit_button_fallback: "input[type='submit'][value*='Acessar']"
+
+  # Success detection (element visible after login)
+  success_indicator: "#lnkSair"
+  success_indicator_fallback: "a[href*='logout'], a[href*='sair']"
+  success_url_contains: "/seguro/"
+
+  # Error detection
+  error_message: ".alert-danger, .erro-login, #lblMensagem"
+  captcha_indicator: "#divCaptcha, .g-recaptcha, iframe[src*='recaptcha']"
+  mfa_indicator: ".mfa-container, #divMFA, input[name*='token']"
+
+pregao_room:
+  # Chat container
+  chat_container: "#divMensagens"
+  chat_container_fallback: ".mensagens-pregao, .chat-area, [class*='mensag']"
+
+  # Individual message elements (within chat_container)
+  message_item: ".mensagem-item"
+  message_item_fallback: "tr.msg, div[class*='mensagem'], .chat-msg"
+
+  # Fields within each message_item
+  message_sender: ".remetente, .autor"
+  message_sender_fallback: "td:first-child, span[class*='autor']"
+  message_content: ".conteudo, .texto-mensagem"
+  message_content_fallback: "td:nth-child(2), span[class*='conteudo']"
+  message_timestamp: ".data-hora, .timestamp"
+  message_timestamp_fallback: "td:last-child, span[class*='hora']"
+
+  # Timestamp format (moment.js compatible)
+  timestamp_format: "DD/MM/YYYY HH:mm:ss"
+
+phase_detection:
+  # Phase/status indicator element
+  status_element: "#lblFase, .fase-pregao"
+  status_element_fallback: "[class*='fase'], [class*='status'], .situacao"
+
+  # Phase text → enum mapping (case-insensitive partial match)
+  phase_map:
+    agendado: ["agendad", "programad"]
+    proposta: ["proposta", "recebimento"]
+    disputa: ["disputa", "lance"]
+    negociacao: ["negociaç", "negociacao"]
+    aceitacao: ["aceitaç", "aceitacao", "julgamento"]
+    habilitacao: ["habilitaç", "habilitacao"]
+    recurso: ["recurso", "recursal"]
+    suspenso: ["suspens"]
+    homologado: ["homologad"]
+    encerrado: ["encerrad", "finaliz"]
+
+pregao_info:
+  # Metadata extraction
+  orgao_nome: "#lblOrgao, .orgao-nome"
+  orgao_uasg: "#lblUasg, .uasg"
+  numero_pregao: "#lblNumeroPregao, .numero-pregao"
+  objeto_resumido: "#lblObjeto, .objeto-pregao"
+  data_abertura: "#lblDataAbertura, .data-abertura"
