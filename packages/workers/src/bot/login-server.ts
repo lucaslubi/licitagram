@@ -191,6 +191,13 @@ export class LoginServer {
         throw new Error(`No matching element found for selectors: ${selector}`)
       }
       await new Promise(r => setTimeout(r, 2000))
+    } else if (action === 'click_xy' && value) {
+      // Click at specific coordinates (x,y) — for captcha/interactive elements
+      const [x, y] = value.split(',').map(Number)
+      if (!isNaN(x) && !isNaN(y)) {
+        await page.mouse.click(x, y)
+        await new Promise(r => setTimeout(r, 1500))
+      }
     }
 
     const screenshot = await page.screenshot({ encoding: 'base64', type: 'jpeg', quality: 60 })

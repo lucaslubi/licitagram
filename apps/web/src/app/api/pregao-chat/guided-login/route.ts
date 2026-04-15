@@ -45,6 +45,11 @@ export async function POST(req: NextRequest) {
         payload = { session_id: sessionId, action: 'click', selector: params.selector }
         break
 
+      case 'click_xy':
+        endpoint = '/action'
+        payload = { session_id: sessionId, action: 'click_xy', value: `${params.x},${params.y}` }
+        break
+
       case 'type':
         endpoint = '/action'
         payload = { session_id: sessionId, action: 'type', selector: params.selector, value: params.value }

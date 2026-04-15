@@ -11,7 +11,7 @@ interface GuidedLoginProps {
   onCancel: () => void
 }
 
-type LoginStep = 'idle' | 'starting' | 'portal_loaded' | 'cpf_page' | 'password_page' | 'logged_in' | 'error'
+type LoginStep = 'idle' | 'starting' | 'portal_loaded' | 'cpf_page' | 'captcha_page' | 'password_page' | 'logged_in' | 'error'
 
 export function GuidedLogin({ onSuccess, onCancel }: GuidedLoginProps) {
   const [screenshot, setScreenshot] = useState<string | null>(null)
@@ -120,9 +120,10 @@ export function GuidedLogin({ onSuccess, onCancel }: GuidedLoginProps) {
       })
       await new Promise(r => setTimeout(r, 3000))
       await callLogin('screenshot')
-      setLoginStep('password_page')
+      // Gov.br may show captcha before password — go to captcha step
+      setLoginStep('captcha_page')
     } catch (err) {
-      setError('Erro ao preencher CPF. O campo pode ter um seletor diferente.')
+      setError('Erro ao preencher CPF. Tente atualizar a tela e verifique se o campo está visível.')
     } finally {
       setLoading(false)
     }
@@ -158,6 +159,24 @@ export function GuidedLogin({ onSuccess, onCancel }: GuidedLoginProps) {
       setLoading(false)
     }
   }, [senha, callLogin])
+
+  // ─── Click on screenshot (for captcha, etc) ───────────────────────────
+
+  const handleScreenshotClick = useCallback(async (e: React.MouseEvent<HTMLImageElement>) => {
+    const img = e.currentTarget
+    const rect = img.getBoundingClientRect()
+    // Map click position to browser viewport (1280x800)
+    const x = Math.round((e.clientX - rect.left) * (1280 / rect.width))
+    const y = Math.round((e.clientY - rect.top) * (800 / rect.height))
+
+    setLoading(true)
+    try {
+      await callLogin('click_xy', { x, y })
+      await new Promise(r => setTimeout(r, 1500))
+      await callLogin('screenshot')
+    } catch { /* ignore */ }
+    finally { setLoading(false) }
+  }, [callLogin])
 
   // ─── Check login status ───────────────────────────────────────────────
 
@@ -233,7 +252,13 @@ export function GuidedLogin({ onSuccess, onCancel }: GuidedLoginProps) {
               </div>
             </div>
             {screenshot ? (
-              <img src={screenshot} alt="Portal" className="w-full" />
+              <img
+                src={screenshot}
+                alt="Portal — clique para interagir"
+                className="w-full cursor-crosshair"
+                onClick={handleScreenshotClick}
+                title="Clique na imagem para interagir com o portal (resolver captcha, etc)"
+              />
             ) : (
               <div className="h-64 flex items-center justify-center text-gray-500">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white" />
@@ -283,6 +308,28 @@ export function GuidedLogin({ onSuccess, onCancel }: GuidedLoginProps) {
           </div>
         )}
 
+        {/* Captcha page — user clicks on screenshot to solve */}
+        {loginStep === 'captcha_page' && (
+          <div className="space-y-3">
+            <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 text-sm">
+              <p className="font-medium">Passo 3: Resolver captcha (se houver)</p>
+              <p className="text-muted-foreground">
+                Se aparecer um captcha na tela acima, <strong>clique diretamente na imagem</strong> para resolvê-lo.
+                Após resolver, clique &quot;Avançar para Senha&quot;.
+                Se não aparecer captcha, clique &quot;Avançar para Senha&quot; direto.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={() => setLoginStep('password_page')} disabled={loading}>
+                Avançar para Senha
+              </Button>
+              <Button variant="outline" size="sm" onClick={async () => { await callLogin('screenshot').catch(() => {}); }}>
+                Atualizar Tela
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Password page */}
         {loginStep === 'password_page' && (
           <div className="space-y-3">
@@ -310,7 +357,7 @@ export function GuidedLogin({ onSuccess, onCancel }: GuidedLoginProps) {
         )}
 
         {/* Verify button (always available during active session) */}
-        {['portal_loaded', 'cpf_page', 'password_page'].includes(loginStep) && (
+        {['portal_loaded', 'cpf_page', 'captcha_page', 'password_page'].includes(loginStep) && (
           <div className="flex gap-2 pt-2 border-t">
             <Button variant="outline" size="sm" onClick={checkLogin} disabled={loading}>
               Verificar Login
