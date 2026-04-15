@@ -2,8 +2,6 @@ import * as http from 'http'
 import puppeteer from 'puppeteer-extra'
 import StealthPlugin from 'puppeteer-extra-plugin-stealth'
 import { logger } from '../lib/logger'
-import { solveHCaptcha } from '../lib/captcha-solver'
-import { getCapSolverExtensionPath } from '../lib/capsolver-extension'
 import type { Browser, Page } from 'puppeteer-core'
 
 // @ts-ignore
@@ -87,12 +85,6 @@ export class LoginServer {
 
               const result = await this.handleCheckResult(session_id)
               return this.sendJson(res, 200, result)
-            } else if (req.url === '/solve_captcha') {
-              const { session_id } = body
-              if (!session_id) return this.sendJson(res, 400, { error: 'Missing session_id' })
-
-              const result = await this.handleSolveCaptcha(session_id)
-              return this.sendJson(res, 200, result)
             } else if (req.url === '/close') {
               const { session_id } = body
               if (!session_id) return this.sendJson(res, 400, { error: 'Missing session_id' })
@@ -128,31 +120,10 @@ export class LoginServer {
       await this.handleClose(sessionId)
     }
 
-    // Load CapSolver extension for automatic captcha solving inside the browser
-    let extensionArgs: string[] = []
-    try {
-      const extPath = await getCapSolverExtensionPath()
-      extensionArgs = [
-        `--disable-extensions-except=${extPath}`,
-        `--load-extension=${extPath}`,
-      ]
-      logger.info({ extPath }, 'CapSolver extension loaded for guided login')
-    } catch (err) {
-      logger.warn({ err }, 'CapSolver extension not available')
-    }
-
-    // headless: 'new' supports extensions (unlike old headless: true)
     const browser = await puppeteer.launch({
-      headless: 'new' as any,
-      args: [
-        '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
-        '--disable-gpu', '--disable-software-rasterizer',
-        '--disable-features=VizDisplayCompositor',
-        ...extensionArgs,
-      ],
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
       executablePath: CHROMIUM_PATH,
-      timeout: 60_000,
-      protocolTimeout: 60_000,
     })
 
     const page = await browser.newPage()
@@ -161,8 +132,8 @@ export class LoginServer {
     activeSessions.set(sessionId, { browser, page })
 
     const startUrls: Record<string, string> = {
-      'comprasnet': 'https://www.comprasnet.gov.br/seguro/loginPortalFornecedor.asp',
-      'comprasgov': 'https://www.comprasnet.gov.br/seguro/loginPortalFornecedor.asp',
+      'comprasnet': 'https://cnetmobile.estaleiro.serpro.gov.br/comprasnet-web/public/compras',
+      'comprasgov': 'https://cnetmobile.estaleiro.serpro.gov.br/comprasnet-web/public/compras',
       'pncp': 'https://pncp.gov.br/app/login',
     }
 
@@ -170,8 +141,13 @@ export class LoginServer {
     
     await page.goto(startUrl, { waitUntil: 'networkidle2' })
     
-    // Don't auto-click — let the guided login UI handle individual steps
+    // Some portals require clicking "Entrar com gov.br"
     await new Promise(r => setTimeout(r, 2000))
+    const loginButton = await page.$('button:has-text("Entrar"), a:has-text("gov.br"), button:has-text("gov.br")')
+    if (loginButton) {
+      await loginButton.click()
+      await new Promise(r => setTimeout(r, 2000))
+    }
 
     const screenshot = await page.screenshot({ encoding: 'base64', type: 'jpeg', quality: 60 })
     return { url: page.url(), screenshot }
@@ -182,156 +158,23 @@ export class LoginServer {
     if (!session) throw new Error('Session not active')
     const { page } = session
 
-    // Support multiple selectors separated by || (try each until one works)
-    const selectors = selector ? selector.split('||').map(s => s.trim()) : []
-
-    if (action === 'type' && selectors.length > 0 && value) {
-      const sel = await this.findFirstSelector(page, selectors)
-      await page.focus(sel)
-      await page.evaluate((s) => {
-        const input = document.querySelector(s) as HTMLInputElement
+    if (action === 'type' && selector && value) {
+      await page.waitForSelector(selector, { timeout: 5000 })
+      await page.focus(selector)
+      // clear input
+      await page.evaluate((sel) => {
+        const input = document.querySelector(sel) as HTMLInputElement
         if (input) input.value = ''
-      }, sel)
-      await page.type(sel, value, { delay: 30 })
-    } else if (action === 'click' && selectors.length > 0) {
-      // First try CSS selectors
-      let clicked = false
-      for (const sel of selectors) {
-        try {
-          await page.waitForSelector(sel, { timeout: 3000 })
-          await page.click(sel)
-          clicked = true
-          break
-        } catch { continue }
-      }
-      // If no CSS selector worked, try XPath text matching
-      if (!clicked && selector) {
-        const textMatch = selector.match(/text:(.+)/)
-        if (textMatch) {
-          const text = textMatch[1].trim()
-          const elements = await page.$$(`xpath/.//a[contains(text(), "${text}")] | .//button[contains(text(), "${text}")]`)
-          if (elements.length > 0) {
-            await elements[0].click()
-            clicked = true
-          }
-        }
-      }
-      if (!clicked) {
-        throw new Error(`No matching element found for selectors: ${selector}`)
-      }
+      }, selector)
+      await page.type(selector, value, { delay: 30 })
+    } else if (action === 'click' && selector) {
+      await page.waitForSelector(selector, { timeout: 5000 })
+      await page.click(selector)
       await new Promise(r => setTimeout(r, 2000))
-    } else if (action === 'click_xy' && value) {
-      // Click at specific coordinates (x,y) — for captcha/interactive elements
-      const [x, y] = value.split(',').map(Number)
-      if (!isNaN(x) && !isNaN(y)) {
-        await page.mouse.click(x, y)
-        await new Promise(r => setTimeout(r, 1500))
-      }
     }
 
     const screenshot = await page.screenshot({ encoding: 'base64', type: 'jpeg', quality: 60 })
     return { url: page.url(), screenshot }
-  }
-
-  private async findFirstSelector(page: Page, selectors: string[]): Promise<string> {
-    for (const sel of selectors) {
-      try {
-        await page.waitForSelector(sel, { timeout: 3000 })
-        return sel
-      } catch { continue }
-    }
-    throw new Error(`No matching element found for selectors: ${selectors.join(', ')}`)
-  }
-
-  private async handleSolveCaptcha(sessionId: string) {
-    const session = activeSessions.get(sessionId)
-    if (!session) throw new Error('Session not active')
-    const { page } = session
-
-    const pageUrl = page.url()
-    logger.info({ pageUrl }, 'Attempting to solve captcha')
-
-    // Strategy 1: The CapSolver browser extension auto-solves captchas.
-    // We just need to wait for it to complete (up to 60s).
-    // The extension detects hCaptcha/reCAPTCHA and solves automatically.
-    logger.info('Waiting for CapSolver extension to auto-solve captcha...')
-
-    const startTime = Date.now()
-    const maxWait = 60_000 // 60 seconds
-
-    while (Date.now() - startTime < maxWait) {
-      await new Promise(r => setTimeout(r, 3000))
-
-      // Check if captcha is solved by looking for:
-      // 1. The captcha error message disappeared
-      // 2. hCaptcha response textarea has a value
-      // 3. Page navigated away from login
-      const status = await page.evaluate(() => {
-        const errorEl = document.querySelector('[class*="error"], [class*="alert"]')
-        const errorText = errorEl?.textContent?.toLowerCase() || ''
-        const hasCaptchaError = errorText.includes('captcha')
-
-        // Check if hCaptcha response has value (means it was solved)
-        const hResponse = document.querySelector('[name="h-captcha-response"]') as HTMLTextAreaElement | null
-        const gResponse = document.querySelector('[name="g-recaptcha-response"]') as HTMLTextAreaElement | null
-        const hasToken = !!(hResponse?.value || gResponse?.value)
-
-        // Check if hCaptcha iframe shows solved state
-        const hcFrame = document.querySelector('iframe[src*="hcaptcha"]')
-        const isSolvedFrame = hcFrame?.getAttribute('data-hcaptcha-response') || false
-
-        return { hasCaptchaError, hasToken, isSolvedFrame: !!isSolvedFrame, url: window.location.href }
-      })
-
-      logger.info({ ...status, elapsed: Date.now() - startTime }, 'Captcha solve check')
-
-      if (status.hasToken || status.isSolvedFrame) {
-        logger.info('Captcha solved by extension!')
-        const screenshot = await page.screenshot({ encoding: 'base64', type: 'jpeg', quality: 60 })
-        return { solved: true, screenshot, url: page.url() }
-      }
-
-      // If page navigated away, captcha was solved and form submitted
-      if (!status.url.includes('login') && !status.url.includes('acesso.gov')) {
-        logger.info({ newUrl: status.url }, 'Page navigated — captcha+login succeeded')
-        const screenshot = await page.screenshot({ encoding: 'base64', type: 'jpeg', quality: 60 })
-        return { solved: true, screenshot, url: page.url() }
-      }
-    }
-
-    // Strategy 2: Extension didn't solve — try API fallback
-    logger.warn('Extension did not solve captcha in time, trying API fallback')
-
-    const sitekey = await page.evaluate(() => {
-      const el = document.querySelector('[data-sitekey]') as HTMLElement | null
-      if (el) return el.getAttribute('data-sitekey')
-      const iframe = document.querySelector('iframe[src*="hcaptcha"]') as HTMLIFrameElement | null
-      if (iframe) {
-        const m = iframe.src.match(/sitekey=([a-f0-9-]+)/)
-        if (m) return m[1]
-      }
-      return null
-    })
-
-    if (sitekey) {
-      const token = await solveHCaptcha(sitekey, pageUrl)
-      if (token) {
-        // Inject token
-        await page.evaluate((t: string) => {
-          const textarea = document.querySelector('[name="h-captcha-response"]') as HTMLTextAreaElement
-          if (textarea) textarea.value = t
-          const gTextarea = document.querySelector('[name="g-recaptcha-response"]') as HTMLTextAreaElement
-          if (gTextarea) gTextarea.value = t
-        }, token)
-        logger.info('Captcha solved via API fallback')
-        await new Promise(r => setTimeout(r, 1500))
-        const screenshot = await page.screenshot({ encoding: 'base64', type: 'jpeg', quality: 60 })
-        return { solved: true, screenshot, url: page.url() }
-      }
-    }
-
-    const screenshot = await page.screenshot({ encoding: 'base64', type: 'jpeg', quality: 60 })
-    return { solved: false, error: 'Captcha could not be solved. Try refreshing and trying again.', screenshot }
   }
 
   private async handleScreenshot(sessionId: string) {
@@ -345,43 +188,13 @@ export class LoginServer {
   private async handleCookies(sessionId: string) {
     const session = activeSessions.get(sessionId)
     if (!session) throw new Error('Session not active')
-
+    
     const cookies = await session.page.cookies()
+    // Gov.BR SSO sets cookies on both sso.acesso.gov.br and the target domain.
+    // If we have mostly target domain cookies, we are logged in.
     const url = session.page.url()
-
-    // Multiple ways to detect successful login:
-    // 1. URL is on comprasnet/compras domain (not on SSO login page)
-    // 2. Has session cookies from comprasnet or gov.br
-    // 3. Not on the login/SSO page anymore
-    const isOnLoginPage = url.includes('sso.acesso.gov.br') ||
-                          url.includes('loginPortal') ||
-                          url.includes('/login')
-
-    const hasSessionCookies = cookies.some((c: { name: string; domain: string }) =>
-      (c.domain.includes('comprasnet') || c.domain.includes('compras.gov') || c.domain.includes('gov.br')) &&
-      (c.name.includes('session') || c.name.includes('token') || c.name.includes('auth') ||
-       c.name.includes('JSESSIONID') || c.name.includes('ASP') || c.name.includes('sid'))
-    )
-
-    // Consider logged in if we have session cookies AND are not on the login page
-    // OR if we have a good number of cookies from the target domain
-    const targetDomainCookies = cookies.filter((c: { domain: string }) =>
-      c.domain.includes('comprasnet') || c.domain.includes('compras.gov') || c.domain.includes('estaleiro.serpro')
-    )
-
-    const logged_in = (!isOnLoginPage && hasSessionCookies) ||
-                      (!isOnLoginPage && targetDomainCookies.length >= 3) ||
-                      (!isOnLoginPage && cookies.length >= 5 && !url.includes('acesso.gov'))
-
-    logger.info({
-      url,
-      cookieCount: cookies.length,
-      targetCookies: targetDomainCookies.length,
-      hasSessionCookies,
-      isOnLoginPage,
-      logged_in
-    }, 'Login check')
-
+    const logged_in = url.includes('gov.br') && !url.includes('sso.acesso.gov.br') && !url.includes('login')
+    
     return { logged_in, cookies }
   }
 
