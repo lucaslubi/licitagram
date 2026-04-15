@@ -10,14 +10,12 @@
 # ============================================================
 
 login:
-  # Portal principal — gov.br/compras (migrado de comprasnet.gov.br)
-  url: "https://www.gov.br/compras/pt-br"
-  # SSO gov.br (redirecionamento automático ao clicar "Entrar")
-  url_govbr: "https://sso.acesso.gov.br"
+  # Página de login do Compras.gov.br (fornecedor)
+  url: "https://www.comprasnet.gov.br/seguro/loginPortalFornecedor.asp"
 
-  # Botão "Entrar" na página inicial do gov.br/compras
-  enter_button: "a[href*='acesso.gov.br'], a[href*='login'], .govbr-sign-in"
-  enter_button_fallback: "a[title*='Entrar'], button[class*='sign-in']"
+  # Step 1: Clicar "Entrar com Gov.br" no card "Fornecedor Brasileiro"
+  govbr_button: "a[href*='acesso.gov.br'], button:has-text('Entrar com Gov.br')"
+  govbr_button_fallback: "a[class*='govbr'], button[class*='govbr'], a:has-text('Gov.br')"
 
   # Login form fields (gov.br SSO - acesso.gov.br)
   username_input: "#accountId"

@@ -175,40 +175,88 @@ export class ComprasGovAdapter implements PortalAdapter {
 
     logger.info({ portal: this.slug }, 'Attempting portal login')
 
+    // Step 1: Navigate to comprasnet login page
     await rateLimitedGoto(page, selectors.login.url)
 
-    // Check for captcha BEFORE attempting login
+    // Step 2: Click "Entrar com Gov.br" button
+    const govbrBtn = await findElement(
+      page,
+      selectors.login.govbr_button,
+      selectors.login.govbr_button_fallback,
+    )
+
+    if (!govbrBtn) {
+      throw new InvalidCredentialsError('Botão "Entrar com Gov.br" não encontrado — layout do portal pode ter mudado')
+    }
+
+    await govbrBtn.click()
+
+    // Step 3: Wait for SSO gov.br page to load
+    await page.waitForLoadState('domcontentloaded', { timeout: 20_000 })
+    lastNavigation = Date.now()
+
+    // Check for captcha on SSO page
     const captcha = await findElement(page, selectors.login.captcha_indicator)
     if (captcha) {
       throw new CaptchaRequiredError()
     }
 
-    // Check for MFA
+    // Step 4: Fill CPF (gov.br asks CPF first, then password on next screen)
+    const cpfInput = await findElement(
+      page,
+      selectors.login.cpf_input,
+      selectors.login.username_input_fallback,
+    )
+
+    if (!cpfInput) {
+      throw new InvalidCredentialsError('Campo de CPF não encontrado na página do gov.br')
+    }
+
+    // Use the usuario field as CPF (user enters CPF in the wizard)
+    await cpfInput.fill(credentials.usuario)
+
+    // Click continue/submit to go to password step
+    const cpfSubmit = await findElement(
+      page,
+      selectors.login.cpf_submit,
+      selectors.login.submit_button_fallback,
+    )
+    if (cpfSubmit) {
+      await cpfSubmit.click()
+    } else {
+      await cpfInput.press('Enter')
+    }
+
+    // Wait for password page
+    await page.waitForLoadState('domcontentloaded', { timeout: 15_000 })
+    lastNavigation = Date.now()
+
+    // Check for MFA requirement
     const mfa = await findElement(page, selectors.login.mfa_indicator)
     if (mfa) {
       throw new MfaRequiredError()
     }
 
-    // Fill credentials
-    const usernameInput = await findElement(
-      page,
-      selectors.login.username_input,
-      selectors.login.username_input_fallback,
-    )
+    // Step 5: Fill password
     const passwordInput = await findElement(
       page,
       selectors.login.password_input,
       selectors.login.password_input_fallback,
     )
 
-    if (!usernameInput || !passwordInput) {
-      throw new InvalidCredentialsError('Login form not found — portal layout may have changed')
+    if (!passwordInput) {
+      // Maybe CPF was invalid and error is shown
+      const errorEl = await findElement(page, selectors.login.error_message)
+      if (errorEl) {
+        const errorText = (await errorEl.textContent())?.trim() ?? 'Erro no login'
+        throw new InvalidCredentialsError(errorText)
+      }
+      throw new InvalidCredentialsError('Campo de senha não encontrado — verifique o CPF informado')
     }
 
-    await usernameInput.fill(credentials.usuario)
     await passwordInput.fill(credentials.senha)
 
-    // Submit
+    // Submit password
     const submitBtn = await findElement(
       page,
       selectors.login.submit_button,
@@ -220,31 +268,42 @@ export class ComprasGovAdapter implements PortalAdapter {
       await passwordInput.press('Enter')
     }
 
-    // Wait for navigation
-    await page.waitForLoadState('domcontentloaded', { timeout: 15_000 })
+    // Step 6: Wait for redirect back to comprasnet
+    await page.waitForLoadState('domcontentloaded', { timeout: 20_000 })
     lastNavigation = Date.now()
 
-    // Check for error
+    // Check for error after password submit
     const errorEl = await findElement(page, selectors.login.error_message)
     if (errorEl) {
-      const errorText = (await errorEl.textContent())?.trim() ?? 'Unknown login error'
+      const errorText = (await errorEl.textContent())?.trim() ?? 'Credenciais inválidas'
       throw new InvalidCredentialsError(errorText)
     }
 
-    // Check for captcha post-submit
+    // Check for MFA after password
+    const postMfa = await findElement(page, selectors.login.mfa_indicator)
+    if (postMfa) {
+      throw new MfaRequiredError()
+    }
+
+    // Check for captcha post-login
     const postCaptcha = await findElement(page, selectors.login.captcha_indicator)
     if (postCaptcha) {
       throw new CaptchaRequiredError()
     }
 
-    // Verify login success
-    await page.waitForTimeout(2000) // Give portal time to render
+    // Step 7: Verify login success (may need another redirect wait)
+    await page.waitForTimeout(3000) // Give gov.br SSO time to redirect back
     const isNowLoggedIn = await this.isLoggedIn(context)
     if (!isNowLoggedIn) {
-      throw new InvalidCredentialsError('Login did not succeed — no success indicator found')
+      // Try waiting a bit more — SSO redirects can be slow
+      await page.waitForTimeout(3000)
+      const retryLogin = await this.isLoggedIn(context)
+      if (!retryLogin) {
+        throw new InvalidCredentialsError('Login não completou — redirecionamento do gov.br pode ter falhado')
+      }
     }
 
-    logger.info({ portal: this.slug }, 'Portal login successful')
+    logger.info({ portal: this.slug }, 'Portal login successful via gov.br SSO')
   }
 
   async openPregaoRoom(

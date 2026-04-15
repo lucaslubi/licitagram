@@ -145,23 +145,23 @@ export default function ConectarPortalPage() {
           <CardContent>
             <form onSubmit={handleCredentialsSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="usuario">Usuário do Portal</Label>
+                <Label htmlFor="usuario">CPF (login gov.br)</Label>
                 <Input
                   id="usuario"
                   value={form.usuario}
                   onChange={(e) => setForm({ ...form, usuario: e.target.value })}
-                  placeholder="Seu login no Compras.gov.br"
+                  placeholder="000.000.000-00"
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="senha">Senha</Label>
+                <Label htmlFor="senha">Senha gov.br</Label>
                 <Input
                   id="senha"
                   type="password"
                   value={form.senha}
                   onChange={(e) => setForm({ ...form, senha: e.target.value })}
-                  placeholder="Sua senha do portal"
+                  placeholder="Sua senha da conta gov.br"
                   required
                 />
               </div>
