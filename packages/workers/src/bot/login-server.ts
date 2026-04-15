@@ -141,19 +141,18 @@ export class LoginServer {
       logger.warn({ err }, 'CapSolver extension not available')
     }
 
-    // Use headless: false with Xvfb (virtual display) for extension support.
-    // Extensions work better with non-headless mode and captcha detection is reduced.
-    // Xvfb must be running: Xvfb :99 -screen 0 1280x800x24 &
-    // Set DISPLAY=:99 in environment.
-    const useDisplay = !!process.env.DISPLAY
+    // headless: 'new' supports extensions (unlike old headless: true)
     const browser = await puppeteer.launch({
-      headless: useDisplay ? false : ('new' as any),
+      headless: 'new' as any,
       args: [
         '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
-        '--disable-gpu',
+        '--disable-gpu', '--disable-software-rasterizer',
+        '--disable-features=VizDisplayCompositor',
         ...extensionArgs,
       ],
       executablePath: CHROMIUM_PATH,
+      timeout: 60_000,
+      protocolTimeout: 60_000,
     })
 
     const page = await browser.newPage()
