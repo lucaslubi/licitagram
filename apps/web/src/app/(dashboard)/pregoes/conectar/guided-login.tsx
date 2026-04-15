@@ -338,7 +338,7 @@ export function GuidedLogin({ onSuccess, onCancel }: GuidedLoginProps) {
                     setError(data.error || 'Falha ao resolver captcha. Tente novamente.')
                   }
                 } catch (err) {
-                  setError('Erro ao resolver captcha. Verifique se CAPSOLVER_API_KEY está configurada.')
+                  setError('Erro ao resolver captcha. Verifique se a conta do Anti-Captcha tem saldo (anti-captcha.com).')
                 } finally {
                   setLoading(false)
                 }
