@@ -84,9 +84,9 @@ export function GuidedLogin({ onSuccess, onCancel }: GuidedLoginProps) {
     setLoading(true)
     setError(null)
     try {
-      // Use || separator for fallback selectors + text: prefix for XPath text matching
+      // button.br-button.is-primary is the "Entrar com Gov.br" button on comprasnet
       await callLogin('click', {
-        selector: 'a[href*="acesso.gov.br"] || a[href*="sso.acesso"] || a[href*="gov.br/login"] || text:Entrar com gov.br || text:gov.br || text:Entrar'
+        selector: 'button.br-button.is-primary || button.is-primary || text:Entrar com Gov.br'
       })
       await new Promise(r => setTimeout(r, 3000))
       await callLogin('screenshot')
