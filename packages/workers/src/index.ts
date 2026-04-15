@@ -18,7 +18,7 @@ import type { Worker } from 'bullmq'
 const queuesArg = process.argv.find(a => a.startsWith('--queues='))?.split('=')[1]
   || (process.argv.indexOf('--queues') >= 0 ? process.argv[process.argv.indexOf('--queues') + 1] : null)
 
-const ALL_GROUPS = ['scraping', 'extraction', 'matching', 'alerts', 'telegram', 'whatsapp', 'email', 'enrichment', 'notification', 'analysis', 'certidoes']
+const ALL_GROUPS = ['scraping', 'extraction', 'matching', 'alerts', 'telegram', 'whatsapp', 'email', 'enrichment', 'notification', 'analysis', 'certidoes', 'pregao-chat']
 const selectedGroups = queuesArg ? queuesArg.split(',').map(g => g.trim()) : ALL_GROUPS
 const isFullMode = !queuesArg
 
@@ -107,6 +107,14 @@ async function loadWorkers(): Promise<Worker[]> {
   if (isFullMode || selectedGroups.includes('certidoes')) {
     const { certidoesWorker } = await import('./processors/certidoes.processor')
     workers.push(certidoesWorker)
+  }
+
+  // Pregão Chat Monitor: scraping + classification + test-login
+  if (isFullMode || selectedGroups.includes('pregao-chat')) {
+    const { pregaoChatPollWorker } = await import('./pregao-chat-monitor/processors/pregao-chat-poll.processor')
+    const { pregaoChatClassifyWorker } = await import('./pregao-chat-monitor/processors/pregao-chat-classify.processor')
+    const { pregaoPortalTestWorker } = await import('./pregao-chat-monitor/processors/pregao-portal-test.processor')
+    workers.push(pregaoChatPollWorker, pregaoChatClassifyWorker, pregaoPortalTestWorker)
   }
 
   if (isFullMode || selectedGroups.includes('analysis')) {

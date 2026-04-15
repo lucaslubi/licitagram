@@ -16,6 +16,7 @@ export interface PlanFeatures {
   lead_engine: boolean
   radar_map: boolean
   certidoes_bot: boolean
+  pregao_chat_monitor: boolean
 }
 
 export interface Plan {
@@ -32,6 +33,7 @@ export interface Plan {
   max_ai_analyses_per_month: number | null
   max_alerts_per_day: number | null
   extra_user_price_cents: number
+  max_pregao_monitors: number | null  // null = unlimited
   features: PlanFeatures
   is_active: boolean
   sort_order: number
@@ -115,6 +117,7 @@ export const DEFAULT_FEATURES: PlanFeatures = {
   lead_engine: false,
   radar_map: false,
   certidoes_bot: false,
+  pregao_chat_monitor: false,
 }
 
 /** Cookie name for plan context */
