@@ -119,35 +119,53 @@ export async function solveHCaptcha(
     throw new Error('CAPSOLVER_API_KEY not set')
   }
 
-  log.info({ sitekey, pageUrl }, 'Submitting hCaptcha to CapSolver')
+  // Try Enterprise first (gov.br uses hCaptcha Enterprise), then standard
+  const taskTypes = [
+    'HCaptchaEnterpriseTaskProxyLess',
+    'HCaptchaTaskProxyLess',
+  ]
 
-  const data = await createTask({
-    type: 'HCaptchaTaskProxyLess',
-    websiteURL: pageUrl,
-    websiteKey: sitekey,
-  })
+  for (const taskType of taskTypes) {
+    log.info({ sitekey, pageUrl, taskType }, 'Submitting hCaptcha to CapSolver')
 
-  if (data.errorId !== 0) {
-    log.warn({ errorCode: data.errorCode, errorDescription: data.errorDescription }, 'CapSolver hCaptcha submit failed')
-    return null
+    const data = await createTask({
+      type: taskType,
+      websiteURL: pageUrl,
+      websiteKey: sitekey,
+      isInvisible: true,
+      enterprisePayload: taskType.includes('Enterprise') ? { rqdata: '' } : undefined,
+    })
+
+    if (data.errorId !== 0) {
+      log.warn({ errorCode: data.errorCode, errorDescription: data.errorDescription, taskType }, 'CapSolver hCaptcha submit failed, trying next type')
+      continue
+    }
+
+    // Check for instant solution
+    if (data.status === 'ready' && (data.solution?.gRecaptchaResponse || data.solution?.token)) {
+      log.info({ taskType }, 'hCaptcha solved instantly')
+      return data.solution.gRecaptchaResponse || data.solution.token || null
+    }
+
+    if (!data.taskId) {
+      log.warn({ taskType }, 'CapSolver did not return a taskId for hCaptcha')
+      continue
+    }
+
+    const taskId = data.taskId
+    log.info({ taskId, taskType }, 'hCaptcha submitted, polling...')
+
+    const result = await pollResult(taskId)
+    if (result) {
+      log.info({ taskId, taskType }, 'hCaptcha solved')
+      return result
+    }
+
+    log.warn({ taskId, taskType }, 'Failed to solve hCaptcha with this type')
   }
 
-  if (!data.taskId) {
-    log.warn('CapSolver did not return a taskId for hCaptcha')
-    return null
-  }
-
-  const taskId = data.taskId
-  log.info({ taskId }, 'hCaptcha submitted, polling...')
-
-  const result = await pollResult(taskId)
-  if (!result) {
-    log.warn({ taskId }, 'Failed to solve hCaptcha')
-    return null
-  }
-
-  log.info({ taskId }, 'hCaptcha solved')
-  return result
+  log.error({ sitekey }, 'All hCaptcha task types failed')
+  return null
 }
 
 export async function solveReCaptchaV2(
