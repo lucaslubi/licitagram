@@ -308,22 +308,47 @@ export function GuidedLogin({ onSuccess, onCancel }: GuidedLoginProps) {
           </div>
         )}
 
-        {/* Captcha page — user clicks on screenshot to solve */}
+        {/* Captcha page — auto-solve via CapSolver */}
         {loginStep === 'captcha_page' && (
           <div className="space-y-3">
             <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 text-sm">
-              <p className="font-medium">Passo 3: Resolver captcha (se houver)</p>
+              <p className="font-medium">Passo 3: Resolver captcha</p>
               <p className="text-muted-foreground">
-                Se aparecer um captcha na tela acima, <strong>clique diretamente na imagem</strong> para resolvê-lo.
-                Após resolver, clique &quot;Avançar para Senha&quot;.
-                Se não aparecer captcha, clique &quot;Avançar para Senha&quot; direto.
+                O gov.br exige captcha. Clique em &quot;Resolver Captcha&quot; para resolver automaticamente (pode levar até 30s).
               </p>
             </div>
             <div className="flex gap-2">
-              <Button onClick={() => setLoginStep('password_page')} disabled={loading}>
-                Avançar para Senha
+              <Button onClick={async () => {
+                setLoading(true)
+                setError(null)
+                try {
+                  const data = await callLogin('solve_captcha')
+                  if (data.solved) {
+                    // After solving, try to submit the CPF form again
+                    await new Promise(r => setTimeout(r, 1000))
+                    try {
+                      await callLogin('click', {
+                        selector: 'button[type="submit"] || input[type="submit"] || text:Continuar',
+                      })
+                    } catch { /* submit may have auto-triggered */ }
+                    await new Promise(r => setTimeout(r, 3000))
+                    await callLogin('screenshot')
+                    setLoginStep('password_page')
+                  } else {
+                    setError(data.error || 'Falha ao resolver captcha. Tente novamente.')
+                  }
+                } catch (err) {
+                  setError('Erro ao resolver captcha. Verifique se CAPSOLVER_API_KEY está configurada.')
+                } finally {
+                  setLoading(false)
+                }
+              }} disabled={loading}>
+                {loading ? 'Resolvendo captcha...' : 'Resolver Captcha Automaticamente'}
               </Button>
-              <Button variant="outline" size="sm" onClick={async () => { await callLogin('screenshot').catch(() => {}); }}>
+              <Button variant="outline" size="sm" onClick={() => setLoginStep('password_page')} disabled={loading}>
+                Pular (sem captcha)
+              </Button>
+              <Button variant="ghost" size="sm" onClick={async () => { await callLogin('screenshot').catch(() => {}); }}>
                 Atualizar Tela
               </Button>
             </div>

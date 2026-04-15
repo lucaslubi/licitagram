@@ -55,6 +55,11 @@ export async function POST(req: NextRequest) {
         payload = { session_id: sessionId, action: 'type', selector: params.selector, value: params.value }
         break
 
+      case 'solve_captcha':
+        endpoint = '/solve_captcha'
+        payload = { session_id: sessionId }
+        break
+
       case 'cookies':
         endpoint = '/cookies'
         payload = { session_id: sessionId }

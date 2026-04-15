@@ -2,6 +2,7 @@ import * as http from 'http'
 import puppeteer from 'puppeteer-extra'
 import StealthPlugin from 'puppeteer-extra-plugin-stealth'
 import { logger } from '../lib/logger'
+import { solveHCaptcha } from '../lib/captcha-solver'
 import type { Browser, Page } from 'puppeteer-core'
 
 // @ts-ignore
@@ -84,6 +85,12 @@ export class LoginServer {
               if (!session_id) return this.sendJson(res, 400, { error: 'Missing session_id' })
 
               const result = await this.handleCheckResult(session_id)
+              return this.sendJson(res, 200, result)
+            } else if (req.url === '/solve_captcha') {
+              const { session_id } = body
+              if (!session_id) return this.sendJson(res, 400, { error: 'Missing session_id' })
+
+              const result = await this.handleSolveCaptcha(session_id)
               return this.sendJson(res, 200, result)
             } else if (req.url === '/close') {
               const { session_id } = body
@@ -212,6 +219,86 @@ export class LoginServer {
       } catch { continue }
     }
     throw new Error(`No matching element found for selectors: ${selectors.join(', ')}`)
+  }
+
+  private async handleSolveCaptcha(sessionId: string) {
+    const session = activeSessions.get(sessionId)
+    if (!session) throw new Error('Session not active')
+    const { page } = session
+
+    const pageUrl = page.url()
+    logger.info({ pageUrl }, 'Attempting to solve captcha on page')
+
+    // Extract hCaptcha sitekey from the page
+    const sitekey = await page.evaluate(() => {
+      // hCaptcha: look for data-sitekey attribute
+      const hcaptchaEl = document.querySelector('[data-sitekey]') as HTMLElement | null
+      if (hcaptchaEl) return hcaptchaEl.getAttribute('data-sitekey')
+      // Also check iframe src
+      const iframe = document.querySelector('iframe[src*="hcaptcha"]') as HTMLIFrameElement | null
+      if (iframe) {
+        const match = iframe.src.match(/sitekey=([a-f0-9-]+)/)
+        if (match) return match[1]
+      }
+      return null
+    })
+
+    if (!sitekey) {
+      // No hCaptcha found — try checking if it's a different captcha type
+      logger.warn({ pageUrl }, 'No hCaptcha sitekey found on page')
+      const screenshot = await page.screenshot({ encoding: 'base64', type: 'jpeg', quality: 60 })
+      return { solved: false, error: 'Captcha sitekey not found on page', screenshot }
+    }
+
+    logger.info({ sitekey, pageUrl }, 'Found hCaptcha sitekey, solving via CapSolver')
+
+    // Solve via CapSolver
+    const token = await solveHCaptcha(sitekey, pageUrl)
+
+    if (!token) {
+      const screenshot = await page.screenshot({ encoding: 'base64', type: 'jpeg', quality: 60 })
+      return { solved: false, error: 'CapSolver failed to solve captcha', screenshot }
+    }
+
+    // Inject the solved token into the page
+    await page.evaluate((t: string) => {
+      // Set hCaptcha response textarea
+      const textarea = document.querySelector('[name="h-captcha-response"]') as HTMLTextAreaElement
+      if (textarea) {
+        textarea.value = t
+        textarea.style.display = 'block'
+      }
+      // Also set g-recaptcha-response (some implementations use this name)
+      const gTextarea = document.querySelector('[name="g-recaptcha-response"]') as HTMLTextAreaElement
+      if (gTextarea) {
+        gTextarea.value = t
+      }
+      // Trigger hCaptcha callback if available
+      if (typeof (window as any).hcaptcha !== 'undefined') {
+        try {
+          // Call the hCaptcha submit callback
+          const widgetId = (window as any).hcaptcha.getWidgetID?.()
+          if (widgetId !== undefined) {
+            (window as any).hcaptcha.execute?.(widgetId)
+          }
+        } catch {}
+      }
+      // Also try setting via global callback
+      const callbacks = document.querySelectorAll('[data-callback]')
+      callbacks.forEach((el) => {
+        const cbName = el.getAttribute('data-callback')
+        if (cbName && typeof (window as any)[cbName] === 'function') {
+          (window as any)[cbName](t)
+        }
+      })
+    }, token)
+
+    logger.info({ sitekey }, 'hCaptcha token injected')
+
+    // Wait a moment and take screenshot
+    await new Promise(r => setTimeout(r, 1500))
+    const screenshot = await page.screenshot({ encoding: 'base64', type: 'jpeg', quality: 60 })
+    return { solved: true, screenshot, url: page.url() }
   }
 
   private async handleScreenshot(sessionId: string) {
