@@ -132,8 +132,8 @@ export class LoginServer {
     activeSessions.set(sessionId, { browser, page })
 
     const startUrls: Record<string, string> = {
-      'comprasnet': 'https://cnetmobile.estaleiro.serpro.gov.br/comprasnet-web/public/compras',
-      'comprasgov': 'https://cnetmobile.estaleiro.serpro.gov.br/comprasnet-web/public/compras',
+      'comprasnet': 'https://www.comprasnet.gov.br/seguro/loginPortalFornecedor.asp',
+      'comprasgov': 'https://www.comprasnet.gov.br/seguro/loginPortalFornecedor.asp',
       'pncp': 'https://pncp.gov.br/app/login',
     }
 
