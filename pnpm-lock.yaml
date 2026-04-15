@@ -230,6 +230,9 @@ importers:
 
   packages/workers:
     dependencies:
+      '@2captcha/captcha-solver':
+        specifier: ^1.3.5
+        version: 1.3.5
       '@google/generative-ai':
         specifier: ^0.24.1
         version: 0.24.1
@@ -320,6 +323,9 @@ importers:
         version: 5.9.3
 
 packages:
+
+  '@2captcha/captcha-solver@1.3.5':
+    resolution: {integrity: sha512-Kki6bcIrP9hhEwEsXih9Z8Lr17hZPmfFpuGzgarEEgHv76xTr0UPaNk+86hQzo4m9wAuybqZzMZ4MkFaDClbPw==}
 
   '@alloc/quick-lru@5.2.0':
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
@@ -5007,6 +5013,12 @@ packages:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
 
 snapshots:
+
+  '@2captcha/captcha-solver@1.3.5':
+    dependencies:
+      node-fetch: 2.7.0
+    transitivePeerDependencies:
+      - encoding
 
   '@alloc/quick-lru@5.2.0': {}
 
