@@ -13,7 +13,7 @@ interface CreateTaskResponse {
   errorDescription?: string
   taskId?: string
   // Some tasks return solution inline (instant)
-  solution?: { text?: string; gRecaptchaResponse?: string }
+  solution?: { text?: string; gRecaptchaResponse?: string; token?: string }
   status?: string
 }
 
