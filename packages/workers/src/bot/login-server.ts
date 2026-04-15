@@ -229,31 +229,72 @@ export class LoginServer {
     const pageUrl = page.url()
     logger.info({ pageUrl }, 'Attempting to solve captcha on page')
 
-    // Extract hCaptcha sitekey from the page
+    // Extract captcha sitekey — gov.br uses a SPA so we need to search broadly
     const sitekey = await page.evaluate(() => {
-      // hCaptcha: look for data-sitekey attribute
+      // 1. hCaptcha: data-sitekey attribute
       const hcaptchaEl = document.querySelector('[data-sitekey]') as HTMLElement | null
-      if (hcaptchaEl) return hcaptchaEl.getAttribute('data-sitekey')
-      // Also check iframe src
-      const iframe = document.querySelector('iframe[src*="hcaptcha"]') as HTMLIFrameElement | null
-      if (iframe) {
-        const match = iframe.src.match(/sitekey=([a-f0-9-]+)/)
-        if (match) return match[1]
+      if (hcaptchaEl) return { key: hcaptchaEl.getAttribute('data-sitekey'), type: 'hcaptcha' }
+
+      // 2. hCaptcha iframe
+      const hcIframe = document.querySelector('iframe[src*="hcaptcha"]') as HTMLIFrameElement | null
+      if (hcIframe) {
+        const m = hcIframe.src.match(/sitekey=([a-f0-9-]+)/)
+        if (m) return { key: m[1], type: 'hcaptcha' }
       }
-      return null
+
+      // 3. reCAPTCHA: data-sitekey
+      const recapEl = document.querySelector('.g-recaptcha[data-sitekey]') as HTMLElement | null
+      if (recapEl) return { key: recapEl.getAttribute('data-sitekey'), type: 'recaptcha' }
+
+      // 4. reCAPTCHA iframe
+      const rcIframe = document.querySelector('iframe[src*="recaptcha"]') as HTMLIFrameElement | null
+      if (rcIframe) {
+        const m = rcIframe.src.match(/k=([A-Za-z0-9_-]+)/)
+        if (m) return { key: m[1], type: 'recaptcha' }
+      }
+
+      // 5. Search in all script tags for sitekey patterns
+      const scripts = document.querySelectorAll('script')
+      for (const s of scripts) {
+        const text = s.textContent || ''
+        // hcaptcha render call
+        const hcMatch = text.match(/hcaptcha\.render\([^)]*sitekey['":\s]*['"]([a-f0-9-]+)['"]/)
+        if (hcMatch) return { key: hcMatch[1], type: 'hcaptcha' }
+        // grecaptcha render call
+        const rcMatch = text.match(/grecaptcha\.render\([^)]*sitekey['":\s]*['"]([A-Za-z0-9_-]+)['"]/)
+        if (rcMatch) return { key: rcMatch[1], type: 'recaptcha' }
+      }
+
+      // 6. Check for Cloudflare Turnstile
+      const cfEl = document.querySelector('.cf-turnstile[data-sitekey]') as HTMLElement | null
+      if (cfEl) return { key: cfEl.getAttribute('data-sitekey'), type: 'turnstile' }
+
+      // 7. Dump all iframes for debugging
+      const iframes = Array.from(document.querySelectorAll('iframe')).map(f => f.src).filter(Boolean)
+
+      // 8. Check if the error message mentions captcha (gov.br pattern)
+      const errorEl = document.querySelector('.text-error, [class*="error"], [class*="alert"]')
+      const errorText = errorEl?.textContent || ''
+
+      return { key: null, type: 'not_found', iframes, errorText, bodyLen: document.body.innerHTML.length }
     })
 
-    if (!sitekey) {
-      // No hCaptcha found — try checking if it's a different captcha type
-      logger.warn({ pageUrl }, 'No hCaptcha sitekey found on page')
+    logger.info({ sitekey, pageUrl }, 'Captcha detection result')
+
+    if (!sitekey || !sitekey.key) {
+      // No captcha found — dump debug info
+      logger.warn({ pageUrl, sitekey }, 'No captcha sitekey found on page')
       const screenshot = await page.screenshot({ encoding: 'base64', type: 'jpeg', quality: 60 })
-      return { solved: false, error: 'Captcha sitekey not found on page', screenshot }
+      return { solved: false, error: 'Captcha sitekey not found on page', debug: sitekey, screenshot }
     }
 
-    logger.info({ sitekey, pageUrl }, 'Found hCaptcha sitekey, solving via CapSolver')
+    const captchaType = sitekey.type
+    const captchaKey = sitekey.key
+
+    logger.info({ captchaKey, captchaType, pageUrl }, 'Found captcha, solving via CapSolver')
 
     // Solve via CapSolver
-    const token = await solveHCaptcha(sitekey, pageUrl)
+    const token = await solveHCaptcha(captchaKey, pageUrl)
 
     if (!token) {
       const screenshot = await page.screenshot({ encoding: 'base64', type: 'jpeg', quality: 60 })
