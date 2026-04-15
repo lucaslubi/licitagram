@@ -141,13 +141,8 @@ export class LoginServer {
     
     await page.goto(startUrl, { waitUntil: 'networkidle2' })
     
-    // Some portals require clicking "Entrar com gov.br"
+    // Don't auto-click — let the guided login UI handle individual steps
     await new Promise(r => setTimeout(r, 2000))
-    const loginButton = await page.$('button:has-text("Entrar"), a:has-text("gov.br"), button:has-text("gov.br")')
-    if (loginButton) {
-      await loginButton.click()
-      await new Promise(r => setTimeout(r, 2000))
-    }
 
     const screenshot = await page.screenshot({ encoding: 'base64', type: 'jpeg', quality: 60 })
     return { url: page.url(), screenshot }
@@ -158,23 +153,58 @@ export class LoginServer {
     if (!session) throw new Error('Session not active')
     const { page } = session
 
-    if (action === 'type' && selector && value) {
-      await page.waitForSelector(selector, { timeout: 5000 })
-      await page.focus(selector)
-      // clear input
-      await page.evaluate((sel) => {
-        const input = document.querySelector(sel) as HTMLInputElement
+    // Support multiple selectors separated by || (try each until one works)
+    const selectors = selector ? selector.split('||').map(s => s.trim()) : []
+
+    if (action === 'type' && selectors.length > 0 && value) {
+      const sel = await this.findFirstSelector(page, selectors)
+      await page.focus(sel)
+      await page.evaluate((s) => {
+        const input = document.querySelector(s) as HTMLInputElement
         if (input) input.value = ''
-      }, selector)
-      await page.type(selector, value, { delay: 30 })
-    } else if (action === 'click' && selector) {
-      await page.waitForSelector(selector, { timeout: 5000 })
-      await page.click(selector)
+      }, sel)
+      await page.type(sel, value, { delay: 30 })
+    } else if (action === 'click' && selectors.length > 0) {
+      // First try CSS selectors
+      let clicked = false
+      for (const sel of selectors) {
+        try {
+          await page.waitForSelector(sel, { timeout: 3000 })
+          await page.click(sel)
+          clicked = true
+          break
+        } catch { continue }
+      }
+      // If no CSS selector worked, try XPath text matching
+      if (!clicked && selector) {
+        const textMatch = selector.match(/text:(.+)/)
+        if (textMatch) {
+          const text = textMatch[1].trim()
+          const elements = await page.$$(`xpath/.//a[contains(text(), "${text}")] | .//button[contains(text(), "${text}")]`)
+          if (elements.length > 0) {
+            await elements[0].click()
+            clicked = true
+          }
+        }
+      }
+      if (!clicked) {
+        throw new Error(`No matching element found for selectors: ${selector}`)
+      }
       await new Promise(r => setTimeout(r, 2000))
     }
 
     const screenshot = await page.screenshot({ encoding: 'base64', type: 'jpeg', quality: 60 })
     return { url: page.url(), screenshot }
+  }
+
+  private async findFirstSelector(page: Page, selectors: string[]): Promise<string> {
+    for (const sel of selectors) {
+      try {
+        await page.waitForSelector(sel, { timeout: 3000 })
+        return sel
+      } catch { continue }
+    }
+    throw new Error(`No matching element found for selectors: ${selectors.join(', ')}`)
   }
 
   private async handleScreenshot(sessionId: string) {

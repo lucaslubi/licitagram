@@ -84,17 +84,10 @@ export function GuidedLogin({ onSuccess, onCancel }: GuidedLoginProps) {
     setLoading(true)
     setError(null)
     try {
-      // Try multiple selectors for the gov.br button
-      try {
-        await callLogin('click', { selector: 'a[href*="acesso.gov.br"]' })
-      } catch {
-        try {
-          await callLogin('click', { selector: 'a[href*="gov.br"]' })
-        } catch {
-          await callLogin('click', { selector: 'button' })
-        }
-      }
-      // Wait for SSO page to load
+      // Use || separator for fallback selectors + text: prefix for XPath text matching
+      await callLogin('click', {
+        selector: 'a[href*="acesso.gov.br"] || a[href*="sso.acesso"] || a[href*="gov.br/login"] || text:Entrar com gov.br || text:gov.br || text:Entrar'
+      })
       await new Promise(r => setTimeout(r, 3000))
       await callLogin('screenshot')
       setLoginStep('cpf_page')
@@ -115,15 +108,16 @@ export function GuidedLogin({ onSuccess, onCancel }: GuidedLoginProps) {
     setLoading(true)
     setError(null)
     try {
-      // Type CPF in the field
-      await callLogin('type', { selector: '#accountId', value: cpf.replace(/\D/g, '') })
-      // Click submit/continue
+      // Type CPF — try multiple selectors for the input field
+      await callLogin('type', {
+        selector: '#accountId || input[name="accountId"] || input[type="text"] || input[inputmode="numeric"]',
+        value: cpf.replace(/\D/g, ''),
+      })
       await new Promise(r => setTimeout(r, 500))
-      try {
-        await callLogin('click', { selector: 'button[type="submit"]' })
-      } catch {
-        await callLogin('click', { selector: '[data-testid="select-cpf"]' })
-      }
+      // Click submit/continue
+      await callLogin('click', {
+        selector: 'button[type="submit"] || input[type="submit"] || text:Continuar || text:Avançar || text:Próximo',
+      })
       await new Promise(r => setTimeout(r, 3000))
       await callLogin('screenshot')
       setLoginStep('password_page')
@@ -144,9 +138,14 @@ export function GuidedLogin({ onSuccess, onCancel }: GuidedLoginProps) {
     setLoading(true)
     setError(null)
     try {
-      await callLogin('type', { selector: '#password', value: senha })
+      await callLogin('type', {
+        selector: '#password || input[name="password"] || input[type="password"]',
+        value: senha,
+      })
       await new Promise(r => setTimeout(r, 500))
-      await callLogin('click', { selector: 'button[type="submit"]' })
+      await callLogin('click', {
+        selector: 'button[type="submit"] || input[type="submit"] || text:Entrar || text:Acessar',
+      })
       // Wait for redirect
       await new Promise(r => setTimeout(r, 5000))
       await callLogin('screenshot')
