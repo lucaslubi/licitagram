@@ -11,6 +11,7 @@ import {
   ScrollText,
   FolderOpen,
   Bot,
+  Radio,
   Building,
   CreditCard,
   Settings,
@@ -58,6 +59,7 @@ export const navigationGroups: NavGroup[] = [
     label: 'Força Autônoma',
     items: [
       { id: 'robo', label: 'Agente IA de Lances', icon: Bot, href: '/bot', requiredFeature: 'bidding_bot' },
+      { id: 'pregao-monitor', label: 'Monitor de Pregão', icon: Radio, href: '/pregoes', requiredFeature: 'pregao_chat_monitor' },
     ],
   },
 ]
@@ -84,6 +86,7 @@ export const NAV_TOUR_IDS: Record<string, string> = {
   '/competitors': 'nav-competitors',
   '/price-history': 'nav-precos',
   '/bot': 'nav-bot',
+  '/pregoes': 'nav-pregao-monitor',
   '/documents': 'nav-certidoes',
   '/drive': 'nav-drive',
   '/proposals': 'nav-propostas',
