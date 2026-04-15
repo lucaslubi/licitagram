@@ -10,10 +10,10 @@ const CONFIG_FILE = path.join(EXTENSION_DIR, 'assets', 'config.js')
 const MARKER_FILE = path.join(EXTENSION_DIR, '.installed')
 
 const RELEASE_URL =
-  'https://github.com/nicefan/capsolver-browser-extension/releases/latest/download/CapSolver.Browser.Extension-chrome.zip'
+  'https://github.com/capsolver/capsolver-browser-extension/releases/download/v.1.17.0/CapSolver.Browser.Extension-chrome-v1.17.0.zip'
 
 const FALLBACK_URL =
-  'https://cdn.capsolver.com/extension/capsolver-chrome.zip'
+  'https://github.com/capsolver/capsolver-browser-extension/releases/latest/download/CapSolver.Browser.Extension-chrome.zip'
 
 /**
  * Ensures the CapSolver Chrome extension is downloaded, extracted, and
