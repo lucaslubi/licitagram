@@ -78,36 +78,9 @@ export default function ConectarPortalPage() {
         return
       }
 
-      // Credential created — worker will test login async
-      // For MVP, we show "testando" and let user proceed
-      setTestResult({ status: 'testando' })
-
-      // Poll for result (simple approach for MVP)
-      const credId = data.credential?.id
-      if (credId) {
-        let attempts = 0
-        const poll = setInterval(async () => {
-          attempts++
-          try {
-            const statusRes = await fetch('/api/pregao-chat/credentials')
-            if (statusRes.ok) {
-              const statusData = await statusRes.json()
-              const cred = statusData.credentials?.find((c: { id: string }) => c.id === credId)
-              if (cred && cred.status !== 'testando' && cred.status !== 'nao_testado') {
-                clearInterval(poll)
-                setTestResult({
-                  status: cred.status,
-                  error: cred.ultimo_teste_erro,
-                })
-              }
-            }
-          } catch { /* ignore polling errors */ }
-          if (attempts > 30) {
-            clearInterval(poll)
-            setTestResult({ status: 'ativo' }) // Assume success after timeout
-          }
-        }, 3000)
-      }
+      // MVP: credential saved and encrypted successfully = mark as active
+      // The real portal login test will happen on first poll
+      setTestResult({ status: 'ativo' })
     } catch (err) {
       setTestResult({ status: 'invalido', error: 'Erro de conexão' })
       setError('Erro de conexão com o servidor')

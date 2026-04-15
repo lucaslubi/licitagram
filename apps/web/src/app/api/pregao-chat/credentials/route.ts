@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
         login_senha_cipher: loginSenhaCipher,
         login_nonce: loginNonce,
         metodo_login: metodo_login || 'usuario_senha',
-        status: 'nao_testado',
+        status: 'ativo', // MVP: mark active on save, real test on first poll
       })
       .select('id, portal_slug, cnpj_licitante, status, created_at')
       .single()
@@ -142,15 +142,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Erro ao salvar credencial' }, { status: 500 })
     }
 
-    // Enqueue test-login job via Redis/BullMQ
-    // The worker will pick this up and test the credentials
-    // For now, we'll update status to 'testando' and let the client poll
-    await serviceSupabase
-      .from('pregao_portais_credenciais')
-      .update({ status: 'testando' })
-      .eq('id', credential.id)
-
-    return NextResponse.json({ credential: { ...credential, status: 'testando' } }, { status: 201 })
+    return NextResponse.json({ credential }, { status: 201 })
   } catch (err) {
     console.error('[API pregao-chat/credentials] POST error:', err)
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
