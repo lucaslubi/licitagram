@@ -188,13 +188,43 @@ export class LoginServer {
   private async handleCookies(sessionId: string) {
     const session = activeSessions.get(sessionId)
     if (!session) throw new Error('Session not active')
-    
+
     const cookies = await session.page.cookies()
-    // Gov.BR SSO sets cookies on both sso.acesso.gov.br and the target domain.
-    // If we have mostly target domain cookies, we are logged in.
     const url = session.page.url()
-    const logged_in = url.includes('gov.br') && !url.includes('sso.acesso.gov.br') && !url.includes('login')
-    
+
+    // Multiple ways to detect successful login:
+    // 1. URL is on comprasnet/compras domain (not on SSO login page)
+    // 2. Has session cookies from comprasnet or gov.br
+    // 3. Not on the login/SSO page anymore
+    const isOnLoginPage = url.includes('sso.acesso.gov.br') ||
+                          url.includes('loginPortal') ||
+                          url.includes('/login')
+
+    const hasSessionCookies = cookies.some((c: { name: string; domain: string }) =>
+      (c.domain.includes('comprasnet') || c.domain.includes('compras.gov') || c.domain.includes('gov.br')) &&
+      (c.name.includes('session') || c.name.includes('token') || c.name.includes('auth') ||
+       c.name.includes('JSESSIONID') || c.name.includes('ASP') || c.name.includes('sid'))
+    )
+
+    // Consider logged in if we have session cookies AND are not on the login page
+    // OR if we have a good number of cookies from the target domain
+    const targetDomainCookies = cookies.filter((c: { domain: string }) =>
+      c.domain.includes('comprasnet') || c.domain.includes('compras.gov') || c.domain.includes('estaleiro.serpro')
+    )
+
+    const logged_in = (!isOnLoginPage && hasSessionCookies) ||
+                      (!isOnLoginPage && targetDomainCookies.length >= 3) ||
+                      (!isOnLoginPage && cookies.length >= 5 && !url.includes('acesso.gov'))
+
+    logger.info({
+      url,
+      cookieCount: cookies.length,
+      targetCookies: targetDomainCookies.length,
+      hasSessionCookies,
+      isOnLoginPage,
+      logged_in
+    }, 'Login check')
+
     return { logged_in, cookies }
   }
 
