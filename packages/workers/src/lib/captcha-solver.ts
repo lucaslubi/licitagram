@@ -2,6 +2,8 @@ import { logger } from './logger'
 
 const CAPSOLVER_KEY = process.env.CAPSOLVER_API_KEY || ''
 const CAPSOLVER_BASE = 'https://api.capsolver.com'
+const TWOCAPTCHA_KEY = process.env.TWOCAPTCHA_API_KEY || ''
+const TWOCAPTCHA_BASE = 'https://api.2captcha.com'
 const POLL_INTERVAL = 3000
 const TIMEOUT = 120000
 
@@ -164,7 +166,60 @@ export async function solveHCaptcha(
     log.warn({ taskId, taskType }, 'Failed to solve hCaptcha with this type')
   }
 
-  log.error({ sitekey }, 'All hCaptcha task types failed')
+  log.warn({ sitekey }, 'All CapSolver hCaptcha task types failed, trying 2Captcha')
+
+  // Fallback: 2Captcha (supports all hCaptcha sites including gov.br)
+  if (TWOCAPTCHA_KEY) {
+    return solveHCaptchaVia2Captcha(sitekey, pageUrl)
+  }
+
+  log.error({ sitekey }, 'All captcha providers failed')
+  return null
+}
+
+// ─── 2Captcha Provider ──────────────────────────────────────────────────────
+
+async function solveHCaptchaVia2Captcha(
+  sitekey: string,
+  pageUrl: string,
+): Promise<string | null> {
+  log.info({ sitekey, pageUrl }, 'Submitting hCaptcha to 2Captcha')
+
+  // Step 1: Submit task
+  const submitUrl = `${TWOCAPTCHA_BASE}/in.php?key=${TWOCAPTCHA_KEY}&method=hcaptcha&sitekey=${sitekey}&pageurl=${encodeURIComponent(pageUrl)}&json=1`
+
+  const submitRes = await fetch(submitUrl)
+  const submitData = (await submitRes.json()) as { status: number; request: string }
+
+  if (submitData.status !== 1) {
+    log.error({ error: submitData.request }, '2Captcha hCaptcha submit failed')
+    return null
+  }
+
+  const taskId = submitData.request
+  log.info({ taskId }, '2Captcha hCaptcha submitted, polling...')
+
+  // Step 2: Poll for result
+  const start = Date.now()
+  while (Date.now() - start < TIMEOUT) {
+    await new Promise(r => setTimeout(r, 5000)) // 2Captcha recommends 5s intervals
+
+    const resultUrl = `${TWOCAPTCHA_BASE}/res.php?key=${TWOCAPTCHA_KEY}&action=get&id=${taskId}&json=1`
+    const resultRes = await fetch(resultUrl)
+    const resultData = (await resultRes.json()) as { status: number; request: string }
+
+    if (resultData.status === 1) {
+      log.info({ taskId }, '2Captcha hCaptcha solved')
+      return resultData.request
+    }
+
+    if (resultData.request !== 'CAPCHA_NOT_READY') {
+      log.error({ taskId, error: resultData.request }, '2Captcha error')
+      return null
+    }
+  }
+
+  log.error({ taskId }, '2Captcha solve timed out')
   return null
 }
 
