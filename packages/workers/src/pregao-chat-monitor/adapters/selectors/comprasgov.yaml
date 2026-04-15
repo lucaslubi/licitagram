@@ -10,28 +10,36 @@
 # ============================================================
 
 login:
-  # Login page URL (legacy flow)
-  url: "https://www.comprasnet.gov.br/seguro/loginPortal.asp"
-  # Alternative gov.br login flow
-  url_govbr: "https://sso.acesso.gov.br/authorize"
+  # Portal principal — gov.br/compras (migrado de comprasnet.gov.br)
+  url: "https://www.gov.br/compras/pt-br"
+  # SSO gov.br (redirecionamento automático ao clicar "Entrar")
+  url_govbr: "https://sso.acesso.gov.br"
 
-  # Login form fields
-  username_input: "#txtLogin"
-  username_input_fallback: "input[name='txtLogin']"
-  password_input: "#txtSenha"
-  password_input_fallback: "input[name='txtSenha']"
-  submit_button: "#btnAcessar"
-  submit_button_fallback: "input[type='submit'][value*='Acessar']"
+  # Botão "Entrar" na página inicial do gov.br/compras
+  enter_button: "a[href*='acesso.gov.br'], a[href*='login'], .govbr-sign-in"
+  enter_button_fallback: "a[title*='Entrar'], button[class*='sign-in']"
 
-  # Success detection (element visible after login)
-  success_indicator: "#lnkSair"
-  success_indicator_fallback: "a[href*='logout'], a[href*='sair']"
-  success_url_contains: "/seguro/"
+  # Login form fields (gov.br SSO - acesso.gov.br)
+  username_input: "#accountId"
+  username_input_fallback: "input[name='accountId'], input[type='text'][id*='account']"
+  password_input: "#password"
+  password_input_fallback: "input[name='password'], input[type='password']"
+  submit_button: "[type='submit'], button[data-testid*='enter'], .signin-button"
+  submit_button_fallback: "button[type='submit']"
+
+  # CPF step (gov.br asks CPF first, then password)
+  cpf_input: "#accountId"
+  cpf_submit: "button[type='submit'], [data-testid*='continue']"
+
+  # Success detection (after SSO redirect back to gov.br/compras)
+  success_indicator: ".user-menu, [class*='usuario'], [class*='logged']"
+  success_indicator_fallback: "a[href*='logout'], a[href*='sair'], span[class*='nome-usuario']"
+  success_url_contains: "/compras/"
 
   # Error detection
-  error_message: ".alert-danger, .erro-login, #lblMensagem"
-  captcha_indicator: "#divCaptcha, .g-recaptcha, iframe[src*='recaptcha']"
-  mfa_indicator: ".mfa-container, #divMFA, input[name*='token']"
+  error_message: ".alert-danger, .feedback-message, [class*='error'], [class*='erro']"
+  captcha_indicator: ".g-recaptcha, iframe[src*='recaptcha'], [class*='captcha']"
+  mfa_indicator: "[class*='mfa'], [class*='two-factor'], input[name*='code'], [class*='qrcode']"
 
 pregao_room:
   # Chat container
