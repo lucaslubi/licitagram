@@ -185,38 +185,70 @@ async function solveHCaptchaVia2Captcha(
 ): Promise<string | null> {
   log.info({ sitekey, pageUrl }, 'Submitting hCaptcha to 2Captcha')
 
-  // Step 1: Submit task
-  const submitUrl = `${TWOCAPTCHA_BASE}/in.php?key=${TWOCAPTCHA_KEY}&method=hcaptcha&sitekey=${sitekey}&pageurl=${encodeURIComponent(pageUrl)}&json=1`
+  // Step 1: Submit task via createTask API (v2)
+  const submitRes = await fetch(`${TWOCAPTCHA_BASE}/createTask`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      clientKey: TWOCAPTCHA_KEY,
+      task: {
+        type: 'HCaptchaTaskProxyless',
+        websiteURL: pageUrl,
+        websiteKey: sitekey,
+      },
+    }),
+  })
 
-  const submitRes = await fetch(submitUrl)
-  const submitData = (await submitRes.json()) as { status: number; request: string }
+  const submitData = (await submitRes.json()) as { errorId: number; errorCode?: string; errorDescription?: string; taskId?: number }
 
-  if (submitData.status !== 1) {
-    log.error({ error: submitData.request }, '2Captcha hCaptcha submit failed')
+  if (submitData.errorId !== 0) {
+    log.error({ errorCode: submitData.errorCode, errorDescription: submitData.errorDescription }, '2Captcha hCaptcha submit failed')
     return null
   }
 
-  const taskId = submitData.request
+  if (!submitData.taskId) {
+    log.error('2Captcha did not return taskId')
+    return null
+  }
+
+  const taskId = submitData.taskId
   log.info({ taskId }, '2Captcha hCaptcha submitted, polling...')
 
   // Step 2: Poll for result
   const start = Date.now()
   while (Date.now() - start < TIMEOUT) {
-    await new Promise(r => setTimeout(r, 5000)) // 2Captcha recommends 5s intervals
+    await new Promise(r => setTimeout(r, 5000))
 
-    const resultUrl = `${TWOCAPTCHA_BASE}/res.php?key=${TWOCAPTCHA_KEY}&action=get&id=${taskId}&json=1`
-    const resultRes = await fetch(resultUrl)
-    const resultData = (await resultRes.json()) as { status: number; request: string }
+    const resultRes = await fetch(`${TWOCAPTCHA_BASE}/getTaskResult`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        clientKey: TWOCAPTCHA_KEY,
+        taskId,
+      }),
+    })
 
-    if (resultData.status === 1) {
-      log.info({ taskId }, '2Captcha hCaptcha solved')
-      return resultData.request
+    const resultData = (await resultRes.json()) as {
+      errorId: number
+      errorCode?: string
+      status: string
+      solution?: { token?: string; gRecaptchaResponse?: string }
     }
 
-    if (resultData.request !== 'CAPCHA_NOT_READY') {
-      log.error({ taskId, error: resultData.request }, '2Captcha error')
+    if (resultData.errorId !== 0) {
+      log.error({ taskId, errorCode: resultData.errorCode }, '2Captcha poll error')
       return null
     }
+
+    if (resultData.status === 'ready') {
+      const token = resultData.solution?.token || resultData.solution?.gRecaptchaResponse
+      if (token) {
+        log.info({ taskId }, '2Captcha hCaptcha solved')
+        return token
+      }
+    }
+
+    // status === 'processing' — keep polling
   }
 
   log.error({ taskId }, '2Captcha solve timed out')
