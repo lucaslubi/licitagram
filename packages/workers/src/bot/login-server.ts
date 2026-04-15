@@ -143,11 +143,21 @@ export class LoginServer {
     
     // Some portals require clicking "Entrar com gov.br"
     await new Promise(r => setTimeout(r, 2000))
-    const loginButton = await page.$('button:has-text("Entrar"), a:has-text("gov.br"), button:has-text("gov.br")')
-    if (loginButton) {
-      await loginButton.click()
-      await new Promise(r => setTimeout(r, 2000))
-    }
+    try {
+      // Try CSS selector first, fall back to XPath if has-text is not supported
+      let loginButton = null
+      try {
+        loginButton = await page.$('button.br-button.is-primary')
+      } catch { /* ignore selector errors */ }
+      if (!loginButton) {
+        const xpathButtons = await page.$$('xpath/.//button[contains(text(), "gov.br")] | .//a[contains(text(), "gov.br")]')
+        loginButton = xpathButtons[0] || null
+      }
+      if (loginButton) {
+        await loginButton.click()
+        await new Promise(r => setTimeout(r, 2000))
+      }
+    } catch { /* ignore — auto-click is optional, user can click manually */ }
 
     const screenshot = await page.screenshot({ encoding: 'base64', type: 'jpeg', quality: 60 })
     return { url: page.url(), screenshot }
