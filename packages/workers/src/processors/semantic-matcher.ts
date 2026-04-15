@@ -459,18 +459,9 @@ export async function runSemanticMatching(companyId: string): Promise<{
     }
   }
 
-  // Enqueue AI triage for new semantic matches (to get detailed breakdown)
+  // AI triage disabled — pgvector semantic matching provides sufficient accuracy
   if (newMatchIds.length > 0) {
-    try {
-      await aiTriageQueue.add(
-        `semantic-triage-${companyId}`,
-        { companyId, matchIds: newMatchIds },
-        { jobId: `semantic-triage-${companyId}-${Date.now()}` },
-      )
-      logger.info({ companyId, count: newMatchIds.length }, 'Enqueued semantic matches for AI triage')
-    } catch (err) {
-      logger.error({ companyId, err }, 'Failed to enqueue semantic matches for AI triage')
-    }
+    logger.info({ companyId, count: newMatchIds.length }, 'AI triage SKIPPED for semantic matches (disabled — pgvector sufficient)')
   }
 
   // Invalidate caches

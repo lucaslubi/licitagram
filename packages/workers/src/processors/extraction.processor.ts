@@ -206,17 +206,10 @@ const extractionWorker = new Worker<ExtractionJobData>(
       logger.warn({ tenderId, err }, 'Keyword matching failed')
     }
 
-    // 8. Enqueue AI triage for new keyword matches (background, non-blocking)
-    for (const [companyId, matchIds] of newMatchesByCompany) {
-      try {
-        await aiTriageQueue.add(
-          `triage-${companyId}-${tenderId}`,
-          { companyId, matchIds },
-          { jobId: `triage-${companyId}-${tenderId}` },
-        )
-      } catch (err) {
-        logger.warn({ companyId, tenderId, err }, 'Failed to enqueue AI triage (non-critical)')
-      }
+    // 8. AI triage disabled — pgvector semantic matching provides sufficient accuracy
+    // Matches go directly to notification pipeline without LLM re-scoring
+    if (newMatchesByCompany.size > 0) {
+      logger.info({ tenderId, companies: newMatchesByCompany.size }, 'AI triage SKIPPED for extraction matches (disabled)')
     }
 
     // 9. Refresh map cache for companies that got new matches from this tender

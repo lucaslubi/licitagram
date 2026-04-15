@@ -168,17 +168,9 @@ async function setupRedisEvents() {
               offset += PAGE
             }
 
+            // AI triage disabled — pgvector semantic matching provides sufficient accuracy
             if (allMatchIds.length > 0) {
-              const CHUNK = 50
-              for (let i = 0; i < allMatchIds.length; i += CHUNK) {
-                const chunk = allMatchIds.slice(i, i + CHUNK)
-                await aiTriageQueue.add(
-                  `company-save-triage-${companyId}-${i}`,
-                  { companyId, matchIds: chunk },
-                  { jobId: `company-save-triage-${companyId}-${i}-${Date.now()}` },
-                )
-              }
-              logger.info({ companyId, matchCount: allMatchIds.length }, '✅ Step 5/6: AI triage enqueued')
+              logger.info({ companyId, matchCount: allMatchIds.length }, '✅ Step 5/6: AI triage SKIPPED (disabled — pgvector sufficient)')
             }
           } catch (err) {
             logger.error({ companyId, err }, '❌ Step 5/6: Failed to enqueue AI triage')
