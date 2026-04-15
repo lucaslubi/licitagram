@@ -3,6 +3,7 @@ import puppeteer from 'puppeteer-extra'
 import StealthPlugin from 'puppeteer-extra-plugin-stealth'
 import { logger } from '../lib/logger'
 import { solveHCaptcha } from '../lib/captcha-solver'
+import { getCapSolverExtensionPath } from '../lib/capsolver-extension'
 import type { Browser, Page } from 'puppeteer-core'
 
 // @ts-ignore
@@ -127,9 +128,25 @@ export class LoginServer {
       await this.handleClose(sessionId)
     }
 
+    // Load CapSolver extension for automatic captcha solving inside the browser
+    let extensionArgs: string[] = []
+    try {
+      const extPath = await getCapSolverExtensionPath()
+      extensionArgs = [
+        `--disable-extensions-except=${extPath}`,
+        `--load-extension=${extPath}`,
+      ]
+      logger.info({ extPath }, 'CapSolver extension loaded for guided login')
+    } catch (err) {
+      logger.warn({ err }, 'CapSolver extension not available')
+    }
+
     const browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+      headless: 'new' as any, // 'new' headless mode required for extensions
+      args: [
+        '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
+        ...extensionArgs,
+      ],
       executablePath: CHROMIUM_PATH,
     })
 
@@ -227,119 +244,89 @@ export class LoginServer {
     const { page } = session
 
     const pageUrl = page.url()
-    logger.info({ pageUrl }, 'Attempting to solve captcha on page')
+    logger.info({ pageUrl }, 'Attempting to solve captcha')
 
-    // Extract captcha sitekey — gov.br uses a SPA so we need to search broadly
+    // Strategy 1: The CapSolver browser extension auto-solves captchas.
+    // We just need to wait for it to complete (up to 60s).
+    // The extension detects hCaptcha/reCAPTCHA and solves automatically.
+    logger.info('Waiting for CapSolver extension to auto-solve captcha...')
+
+    const startTime = Date.now()
+    const maxWait = 60_000 // 60 seconds
+
+    while (Date.now() - startTime < maxWait) {
+      await new Promise(r => setTimeout(r, 3000))
+
+      // Check if captcha is solved by looking for:
+      // 1. The captcha error message disappeared
+      // 2. hCaptcha response textarea has a value
+      // 3. Page navigated away from login
+      const status = await page.evaluate(() => {
+        const errorEl = document.querySelector('[class*="error"], [class*="alert"]')
+        const errorText = errorEl?.textContent?.toLowerCase() || ''
+        const hasCaptchaError = errorText.includes('captcha')
+
+        // Check if hCaptcha response has value (means it was solved)
+        const hResponse = document.querySelector('[name="h-captcha-response"]') as HTMLTextAreaElement | null
+        const gResponse = document.querySelector('[name="g-recaptcha-response"]') as HTMLTextAreaElement | null
+        const hasToken = !!(hResponse?.value || gResponse?.value)
+
+        // Check if hCaptcha iframe shows solved state
+        const hcFrame = document.querySelector('iframe[src*="hcaptcha"]')
+        const isSolvedFrame = hcFrame?.getAttribute('data-hcaptcha-response') || false
+
+        return { hasCaptchaError, hasToken, isSolvedFrame: !!isSolvedFrame, url: window.location.href }
+      })
+
+      logger.info({ ...status, elapsed: Date.now() - startTime }, 'Captcha solve check')
+
+      if (status.hasToken || status.isSolvedFrame) {
+        logger.info('Captcha solved by extension!')
+        const screenshot = await page.screenshot({ encoding: 'base64', type: 'jpeg', quality: 60 })
+        return { solved: true, screenshot, url: page.url() }
+      }
+
+      // If page navigated away, captcha was solved and form submitted
+      if (!status.url.includes('login') && !status.url.includes('acesso.gov')) {
+        logger.info({ newUrl: status.url }, 'Page navigated — captcha+login succeeded')
+        const screenshot = await page.screenshot({ encoding: 'base64', type: 'jpeg', quality: 60 })
+        return { solved: true, screenshot, url: page.url() }
+      }
+    }
+
+    // Strategy 2: Extension didn't solve — try API fallback
+    logger.warn('Extension did not solve captcha in time, trying API fallback')
+
     const sitekey = await page.evaluate(() => {
-      // 1. hCaptcha: data-sitekey attribute
-      const hcaptchaEl = document.querySelector('[data-sitekey]') as HTMLElement | null
-      if (hcaptchaEl) return { key: hcaptchaEl.getAttribute('data-sitekey'), type: 'hcaptcha' }
-
-      // 2. hCaptcha iframe
-      const hcIframe = document.querySelector('iframe[src*="hcaptcha"]') as HTMLIFrameElement | null
-      if (hcIframe) {
-        const m = hcIframe.src.match(/sitekey=([a-f0-9-]+)/)
-        if (m) return { key: m[1], type: 'hcaptcha' }
+      const el = document.querySelector('[data-sitekey]') as HTMLElement | null
+      if (el) return el.getAttribute('data-sitekey')
+      const iframe = document.querySelector('iframe[src*="hcaptcha"]') as HTMLIFrameElement | null
+      if (iframe) {
+        const m = iframe.src.match(/sitekey=([a-f0-9-]+)/)
+        if (m) return m[1]
       }
-
-      // 3. reCAPTCHA: data-sitekey
-      const recapEl = document.querySelector('.g-recaptcha[data-sitekey]') as HTMLElement | null
-      if (recapEl) return { key: recapEl.getAttribute('data-sitekey'), type: 'recaptcha' }
-
-      // 4. reCAPTCHA iframe
-      const rcIframe = document.querySelector('iframe[src*="recaptcha"]') as HTMLIFrameElement | null
-      if (rcIframe) {
-        const m = rcIframe.src.match(/k=([A-Za-z0-9_-]+)/)
-        if (m) return { key: m[1], type: 'recaptcha' }
-      }
-
-      // 5. Search in all script tags for sitekey patterns
-      const scripts = Array.from(document.querySelectorAll('script'))
-      for (const s of scripts) {
-        const text = s.textContent || ''
-        // hcaptcha render call
-        const hcMatch = text.match(/hcaptcha\.render\([^)]*sitekey['":\s]*['"]([a-f0-9-]+)['"]/)
-        if (hcMatch) return { key: hcMatch[1], type: 'hcaptcha' }
-        // grecaptcha render call
-        const rcMatch = text.match(/grecaptcha\.render\([^)]*sitekey['":\s]*['"]([A-Za-z0-9_-]+)['"]/)
-        if (rcMatch) return { key: rcMatch[1], type: 'recaptcha' }
-      }
-
-      // 6. Check for Cloudflare Turnstile
-      const cfEl = document.querySelector('.cf-turnstile[data-sitekey]') as HTMLElement | null
-      if (cfEl) return { key: cfEl.getAttribute('data-sitekey'), type: 'turnstile' }
-
-      // 7. Dump all iframes for debugging
-      const iframes = Array.from(document.querySelectorAll('iframe')).map(f => f.src).filter(Boolean)
-
-      // 8. Check if the error message mentions captcha (gov.br pattern)
-      const errorEl = document.querySelector('.text-error, [class*="error"], [class*="alert"]')
-      const errorText = errorEl?.textContent || ''
-
-      return { key: null, type: 'not_found', iframes, errorText, bodyLen: document.body.innerHTML.length }
+      return null
     })
 
-    logger.info({ sitekey, pageUrl }, 'Captcha detection result')
-
-    if (!sitekey || !sitekey.key) {
-      // No captcha found — dump debug info
-      logger.warn({ pageUrl, sitekey }, 'No captcha sitekey found on page')
-      const screenshot = await page.screenshot({ encoding: 'base64', type: 'jpeg', quality: 60 })
-      return { solved: false, error: 'Captcha sitekey not found on page', debug: sitekey, screenshot }
+    if (sitekey) {
+      const token = await solveHCaptcha(sitekey, pageUrl)
+      if (token) {
+        // Inject token
+        await page.evaluate((t: string) => {
+          const textarea = document.querySelector('[name="h-captcha-response"]') as HTMLTextAreaElement
+          if (textarea) textarea.value = t
+          const gTextarea = document.querySelector('[name="g-recaptcha-response"]') as HTMLTextAreaElement
+          if (gTextarea) gTextarea.value = t
+        }, token)
+        logger.info('Captcha solved via API fallback')
+        await new Promise(r => setTimeout(r, 1500))
+        const screenshot = await page.screenshot({ encoding: 'base64', type: 'jpeg', quality: 60 })
+        return { solved: true, screenshot, url: page.url() }
+      }
     }
 
-    const captchaType = sitekey.type
-    const captchaKey = sitekey.key
-
-    logger.info({ captchaKey, captchaType, pageUrl }, 'Found captcha, solving via CapSolver')
-
-    // Solve via CapSolver
-    const token = await solveHCaptcha(captchaKey, pageUrl)
-
-    if (!token) {
-      const screenshot = await page.screenshot({ encoding: 'base64', type: 'jpeg', quality: 60 })
-      return { solved: false, error: 'CapSolver failed to solve captcha', screenshot }
-    }
-
-    // Inject the solved token into the page
-    await page.evaluate((t: string) => {
-      // Set hCaptcha response textarea
-      const textarea = document.querySelector('[name="h-captcha-response"]') as HTMLTextAreaElement
-      if (textarea) {
-        textarea.value = t
-        textarea.style.display = 'block'
-      }
-      // Also set g-recaptcha-response (some implementations use this name)
-      const gTextarea = document.querySelector('[name="g-recaptcha-response"]') as HTMLTextAreaElement
-      if (gTextarea) {
-        gTextarea.value = t
-      }
-      // Trigger hCaptcha callback if available
-      if (typeof (window as any).hcaptcha !== 'undefined') {
-        try {
-          // Call the hCaptcha submit callback
-          const widgetId = (window as any).hcaptcha.getWidgetID?.()
-          if (widgetId !== undefined) {
-            (window as any).hcaptcha.execute?.(widgetId)
-          }
-        } catch {}
-      }
-      // Also try setting via global callback
-      const callbacks = document.querySelectorAll('[data-callback]')
-      callbacks.forEach((el) => {
-        const cbName = el.getAttribute('data-callback')
-        if (cbName && typeof (window as any)[cbName] === 'function') {
-          (window as any)[cbName](t)
-        }
-      })
-    }, token)
-
-    logger.info({ sitekey }, 'hCaptcha token injected')
-
-    // Wait a moment and take screenshot
-    await new Promise(r => setTimeout(r, 1500))
     const screenshot = await page.screenshot({ encoding: 'base64', type: 'jpeg', quality: 60 })
-    return { solved: true, screenshot, url: page.url() }
+    return { solved: false, error: 'Captcha could not be solved. Try refreshing and trying again.', screenshot }
   }
 
   private async handleScreenshot(sessionId: string) {
