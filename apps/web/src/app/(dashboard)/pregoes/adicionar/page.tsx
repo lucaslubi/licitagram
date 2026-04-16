@@ -165,12 +165,6 @@ export default function AdicionarPregaoPage() {
             <Button type="button" variant="ghost">Cancelar</Button>
           </Link>
         </div>
-
-        <p className="text-[11px] text-muted-foreground">
-          <strong className="text-foreground">Como funciona:</strong> o Licitagram abre a URL em um navegador
-          headless, captura cada mensagem do pregoeiro, classifica com IA e dispara WhatsApp
-          quando há urgência. Nenhuma credencial é necessária para portais públicos.
-        </p>
       </form>
     </div>
   )
