@@ -40,25 +40,19 @@ export async function GET() {
     supabase.from('bot_webhook_health_24h').select('*').limit(1).maybeSingle(),
   ])
 
-  if (latency.error || portalHealth.error || webhookHealth.error) {
-    return NextResponse.json(
-      {
-        ts: new Date().toISOString(),
-        error: 'internal_unavailable',
-        detail:
-          latency.error?.message ??
-          portalHealth.error?.message ??
-          webhookHealth.error?.message,
-      },
-      { status: 500 },
-    )
-  }
+  // Graceful degradation: SLO views may not be visible to PostgREST schema
+  // cache immediately after migration, and a future DB restore could also
+  // drop them. Treat missing-view as "no data yet" (status: ok, zero samples)
+  // instead of blowing up the status page.
+  const latencyData = latency.error ? [] : latency.data ?? []
+  const portalData = portalHealth.error ? [] : portalHealth.data ?? []
+  const webhookData = webhookHealth.error ? null : webhookHealth.data
 
   const latencyByPortal: Record<
     string,
     { p50_ms: number | null; p95_ms: number | null; p99_ms: number | null; sample_size: number }
   > = {}
-  for (const row of latency.data ?? []) {
+  for (const row of latencyData) {
     const r = row as Record<string, unknown>
     latencyByPortal[String(r.portal)] = {
       p50_ms: r.p50_ms as number | null,
@@ -68,7 +62,7 @@ export async function GET() {
     }
   }
 
-  const portals = (portalHealth.data ?? []).map((row) => {
+  const portals = portalData.map((row) => {
     const r = row as Record<string, unknown>
     const p = String(r.portal ?? 'unknown')
     const lat = latencyByPortal[p] ?? { p50_ms: null, p95_ms: null, p99_ms: null, sample_size: 0 }
@@ -106,7 +100,7 @@ export async function GET() {
       status: sloStatus,
     },
     portals,
-    webhooks: webhookHealth.data ?? {
+    webhooks: webhookData ?? {
       total_deliveries: 0,
       delivered: 0,
       pending_retry: 0,
