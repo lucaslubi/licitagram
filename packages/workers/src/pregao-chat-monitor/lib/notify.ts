@@ -52,7 +52,8 @@ export async function dispararNotificacaoWhatsApp(mensagemId: string): Promise<v
     ? `\n\u2705 Ação: ${msg.resumo_acao}`
     : ''
 
-  const deepLink = `https://app.licitagram.com.br/dashboard/pregoes/${msg.pregao_id}`
+  const appUrl = process.env.APP_URL || 'https://app.licitagram.com.br'
+  const deepLink = `${appUrl}/pregoes?monitor=${msg.pregao_id}`
 
   // Sign as "Equipe Licitagram" per memory: feedback_no_personal_name.md
   const texto = [

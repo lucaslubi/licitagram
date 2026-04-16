@@ -147,7 +147,8 @@ export async function scrapeReceita(cnpj: string): Promise<CertidaoResult> {
 
       try {
         const { solveHCaptcha } = await import('../lib/captcha-solver')
-        const token = await solveHCaptcha(page.url(), finalSitekey)
+        // signature: solveHCaptcha(sitekey, pageUrl)
+        const token = await solveHCaptcha(finalSitekey, page.url())
 
         if (!token) {
           log.warn('CapSolver failed to solve hCaptcha')

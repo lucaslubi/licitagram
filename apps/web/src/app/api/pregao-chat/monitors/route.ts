@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getUserWithPlan, hasFeature, hasActiveSubscription } from '@/lib/auth-helpers'
+import { enqueuePregaoFirstPoll } from '@/lib/queues/pregao-chat-producer'
 
 /**
  * GET /api/pregao-chat/monitors
@@ -153,8 +154,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Erro ao criar monitor' }, { status: 500 })
     }
 
-    // TODO: Enqueue first poll job via BullMQ
-    // The poll scheduler will pick this up based on proximo_poll_em
+    // Enqueue first poll job via BullMQ — worker self-schedules subsequent polls
+    try {
+      await enqueuePregaoFirstPoll(monitor.id, 0)
+    } catch (enqueueErr) {
+      console.error('[API pregao-chat/monitors] enqueue error:', enqueueErr)
+      // Non-fatal: the record is persisted. A background sweeper could re-enqueue
+      // based on proximo_poll_em if we add one later. For now, surface the error.
+      return NextResponse.json({
+        monitor,
+        warning: 'Monitor criado, mas a fila de polling está indisponível. Tente retomar o monitor em instantes.',
+      }, { status: 201 })
+    }
 
     return NextResponse.json({ monitor }, { status: 201 })
   } catch (err) {
@@ -208,6 +219,15 @@ export async function PATCH(req: NextRequest) {
     if (error) {
       console.error('[API pregao-chat/monitors] PATCH error:', error)
       return NextResponse.json({ error: 'Erro ao atualizar monitor' }, { status: 500 })
+    }
+
+    // If the user is resuming monitoring, re-enqueue a poll so the worker picks it up
+    if (action === 'retomar' && updated?.id) {
+      try {
+        await enqueuePregaoFirstPoll(updated.id, 0)
+      } catch (enqueueErr) {
+        console.error('[API pregao-chat/monitors] retomar enqueue error:', enqueueErr)
+      }
     }
 
     return NextResponse.json({ monitor: updated })

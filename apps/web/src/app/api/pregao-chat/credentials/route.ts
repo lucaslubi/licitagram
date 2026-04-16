@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getUserWithPlan, hasFeature, hasActiveSubscription } from '@/lib/auth-helpers'
+import { enqueuePregaoPortalTest } from '@/lib/queues/pregao-chat-producer'
 
 /**
  * GET /api/pregao-chat/credentials
@@ -143,12 +144,26 @@ export async function POST(req: NextRequest) {
     }
 
     // Enqueue test-login job via Redis/BullMQ
-    // The worker will pick this up and test the credentials
-    // For now, we'll update status to 'testando' and let the client poll
+    // The worker will pick this up, attempt login, and update status accordingly
     await serviceSupabase
       .from('pregao_portais_credenciais')
       .update({ status: 'testando' })
       .eq('id', credential.id)
+
+    try {
+      await enqueuePregaoPortalTest(credential.id)
+    } catch (enqueueErr) {
+      // If the queue is unreachable, revert status so the client can retry
+      console.error('[API pregao-chat/credentials] enqueue error:', enqueueErr)
+      await serviceSupabase
+        .from('pregao_portais_credenciais')
+        .update({
+          status: 'nao_testado',
+          ultimo_teste_erro: 'Fila de testes indisponível — tente novamente.',
+        })
+        .eq('id', credential.id)
+      return NextResponse.json({ error: 'Fila de processamento indisponível' }, { status: 503 })
+    }
 
     return NextResponse.json({ credential: { ...credential, status: 'testando' } }, { status: 201 })
   } catch (err) {

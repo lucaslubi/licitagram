@@ -201,6 +201,7 @@ export async function getCompanyFeatures(companyId: string): Promise<PlanFeature
       lead_engine: false,
       radar_map: false,
       certidoes_bot: false,
+      pregao_chat_monitor: false,
     }
   }
   if (!['active', 'trialing'].includes(sub.status)) {
@@ -220,6 +221,7 @@ export async function getCompanyFeatures(companyId: string): Promise<PlanFeature
       lead_engine: false,
       radar_map: false,
       certidoes_bot: false,
+      pregao_chat_monitor: false,
     }
   }
 

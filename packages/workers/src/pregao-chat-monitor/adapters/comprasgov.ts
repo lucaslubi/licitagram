@@ -112,6 +112,107 @@ function classifySender(senderText: string): RawMessage['remetente'] {
   return 'outro_licitante'
 }
 
+// ─── CapSolver Integration ──────────────────────────────────────────────────
+
+/**
+ * Best-effort captcha solver for the comprasgov login flow.
+ * Tries (in order): image captcha, reCAPTCHA v2, hCaptcha.
+ * Returns true if any was solved + injected. Returns false when CAPSOLVER is
+ * unavailable or the captcha is of an unsupported kind.
+ */
+async function trySolveCaptcha(page: Page): Promise<boolean> {
+  if (!process.env.CAPSOLVER_API_KEY) {
+    logger.warn('CAPSOLVER_API_KEY not set — cannot auto-solve portal captcha')
+    return false
+  }
+
+  try {
+    // 1) Image captcha (legacy Comprasnet)
+    const imgEl = await page.$('#divCaptcha img, img[id*="captcha"], img[id*="Captcha"], img.captcha')
+    const inputEl = await page.$('input[id*="captcha"], input[id*="Captcha"], input[name*="captcha"]')
+    if (imgEl && inputEl) {
+      const src = await imgEl.getAttribute('src')
+      let base64: string | null = null
+      if (src?.startsWith('data:image')) {
+        base64 = src.split(',')[1] ?? null
+      } else {
+        // Fetch image through the page context and convert to base64
+        base64 = await page.evaluate(async (imgSrc: string | null) => {
+          if (!imgSrc) return null
+          try {
+            const res = await fetch(imgSrc, { credentials: 'include' })
+            const buf = await res.arrayBuffer()
+            let binary = ''
+            const bytes = new Uint8Array(buf)
+            for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i])
+            return btoa(binary)
+          } catch {
+            return null
+          }
+        }, src)
+      }
+
+      if (base64) {
+        const { solveImageCaptcha } = await import('../../lib/captcha-solver')
+        const answer = await solveImageCaptcha(base64)
+        if (answer) {
+          await inputEl.fill(answer)
+          return true
+        }
+      }
+    }
+
+    // 2) reCAPTCHA v2
+    const recaptchaSitekey = await page.evaluate(() => {
+      const el = document.querySelector<HTMLElement>('.g-recaptcha[data-sitekey]')
+      return el?.getAttribute('data-sitekey') ?? null
+    })
+    if (recaptchaSitekey) {
+      const { solveReCaptchaV2 } = await import('../../lib/captcha-solver')
+      const token = await solveReCaptchaV2(recaptchaSitekey, page.url())
+      if (token) {
+        await page.evaluate((t: string) => {
+          const ta = document.querySelector<HTMLTextAreaElement>('textarea[name="g-recaptcha-response"]')
+          if (ta) {
+            ta.value = t
+            ta.dispatchEvent(new Event('input', { bubbles: true }))
+          }
+        }, token)
+        return true
+      }
+    }
+
+    // 3) hCaptcha
+    const hcaptchaSitekey = await page.evaluate(() => {
+      const hc = document.querySelector<HTMLElement>('.h-captcha[data-sitekey]')
+      if (hc) return hc.getAttribute('data-sitekey')
+      const iframe = document.querySelector<HTMLIFrameElement>('iframe[src*="hcaptcha"]')
+      if (iframe) {
+        const match = iframe.src.match(/sitekey=([^&]+)/)
+        if (match) return match[1]
+      }
+      return null
+    })
+    if (hcaptchaSitekey) {
+      const { solveHCaptcha } = await import('../../lib/captcha-solver')
+      const token = await solveHCaptcha(hcaptchaSitekey, page.url())
+      if (token) {
+        await page.evaluate((t: string) => {
+          const ta = document.querySelector<HTMLTextAreaElement>('textarea[name="h-captcha-response"]')
+          if (ta) {
+            ta.value = t
+            ta.dispatchEvent(new Event('input', { bubbles: true }))
+          }
+        }, token)
+        return true
+      }
+    }
+  } catch (err) {
+    logger.warn({ err }, 'Captcha auto-solve failed')
+  }
+  return false
+}
+
 // ─── DOM text extractor for message items ───────────────────────────────────
 
 async function extractFieldText(
@@ -166,13 +267,17 @@ export class ComprasGovAdapter implements PortalAdapter {
 
     await rateLimitedGoto(page, selectors.login.url)
 
-    // Check for captcha BEFORE attempting login
+    // Check for captcha BEFORE attempting login — try to auto-solve via CapSolver
     const captcha = await findElement(page, selectors.login.captcha_indicator)
     if (captcha) {
-      throw new CaptchaRequiredError()
+      const solved = await trySolveCaptcha(page)
+      if (!solved) {
+        throw new CaptchaRequiredError()
+      }
+      logger.info({ portal: this.slug }, 'Pre-login captcha solved via CapSolver')
     }
 
-    // Check for MFA
+    // Check for MFA (not solvable via captcha service — needs human)
     const mfa = await findElement(page, selectors.login.mfa_indicator)
     if (mfa) {
       throw new MfaRequiredError()
@@ -220,10 +325,25 @@ export class ComprasGovAdapter implements PortalAdapter {
       throw new InvalidCredentialsError(errorText)
     }
 
-    // Check for captcha post-submit
+    // Check for captcha post-submit — attempt auto-solve again before bailing
     const postCaptcha = await findElement(page, selectors.login.captcha_indicator)
     if (postCaptcha) {
-      throw new CaptchaRequiredError()
+      const solved = await trySolveCaptcha(page)
+      if (!solved) {
+        throw new CaptchaRequiredError()
+      }
+      logger.info({ portal: this.slug }, 'Post-submit captcha solved via CapSolver, resubmitting')
+      // Re-submit if we needed to solve a captcha after the initial submit
+      const resubmit = await findElement(
+        page,
+        selectors.login.submit_button,
+        selectors.login.submit_button_fallback,
+      )
+      if (resubmit) {
+        await resubmit.click()
+        await page.waitForLoadState('domcontentloaded', { timeout: 15_000 }).catch(() => undefined)
+        lastNavigation = Date.now()
+      }
     }
 
     // Verify login success

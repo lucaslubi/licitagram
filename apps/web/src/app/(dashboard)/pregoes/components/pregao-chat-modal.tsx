@@ -33,23 +33,23 @@ interface Props {
 // ─── Urgency Colors ─────────────────────────────────────────────────────────
 
 const urgencyBg: Record<string, string> = {
-  critica: 'bg-red-50 border-l-4 border-l-red-500',
-  alta: 'bg-orange-50 border-l-4 border-l-orange-500',
-  normal: 'bg-gray-50 border-l-4 border-l-gray-300',
-  baixa: 'bg-white border-l-4 border-l-gray-200',
+  critica: 'bg-red-50 border-l-4 border-l-red-500 text-red-950',
+  alta: 'bg-orange-50 border-l-4 border-l-orange-500 text-orange-950',
+  normal: 'bg-slate-50 border-l-4 border-l-slate-300 text-slate-900',
+  baixa: 'bg-white border-l-4 border-l-slate-200 text-slate-800',
 }
 
 const tipoBadgeColors: Record<string, string> = {
-  convocacao: 'bg-red-100 text-red-800',
-  diligencia: 'bg-orange-100 text-orange-800',
-  suspensao: 'bg-gray-200 text-gray-700',
-  retomada: 'bg-green-100 text-green-800',
-  aceitacao: 'bg-blue-100 text-blue-800',
-  desclassificacao: 'bg-red-200 text-red-900',
-  habilitacao: 'bg-purple-100 text-purple-800',
-  recurso: 'bg-yellow-100 text-yellow-800',
-  esclarecimento: 'bg-cyan-100 text-cyan-800',
-  geral: 'bg-gray-100 text-gray-600',
+  convocacao: 'bg-red-600 text-white',
+  diligencia: 'bg-orange-600 text-white',
+  suspensao: 'bg-slate-600 text-white',
+  retomada: 'bg-green-600 text-white',
+  aceitacao: 'bg-blue-600 text-white',
+  desclassificacao: 'bg-red-800 text-white',
+  habilitacao: 'bg-purple-600 text-white',
+  recurso: 'bg-yellow-600 text-white',
+  esclarecimento: 'bg-cyan-600 text-white',
+  geral: 'bg-slate-500 text-white',
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -153,93 +153,104 @@ export function PregaoChatModal({ pregaoId, pregaoInfo, onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl h-[85vh] flex flex-col">
+    <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col ring-1 ring-slate-200">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b">
+        <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-white rounded-t-lg">
           <div>
-            <h2 className="font-semibold text-lg">
+            <h2 className="font-semibold text-lg text-slate-900">
               {pregaoInfo.orgaoNome} — Pregão {pregaoInfo.numeroPregao}
             </h2>
             <div className="flex items-center gap-2 mt-1">
-              <Badge variant="outline">{pregaoInfo.faseAtual}</Badge>
-              <span className="text-sm text-muted-foreground">
+              <Badge variant="outline" className="border-slate-300 bg-slate-50 text-slate-700">{pregaoInfo.faseAtual}</Badge>
+              <span className="text-sm text-slate-600">
                 {total} mensagens capturadas
               </span>
             </div>
           </div>
-          <Button variant="ghost" size="sm" onClick={onClose}>
+          <Button variant="ghost" size="sm" onClick={onClose} className="text-slate-700 hover:text-slate-900 hover:bg-slate-100">
             ✕
           </Button>
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-100">
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
             </div>
           ) : messages.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
+            <div className="flex items-center justify-center h-full text-slate-600">
               Aguardando mensagens do pregoeiro...
             </div>
           ) : (
-            messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`rounded-lg p-3 ${urgencyBg[msg.classificacao_urgencia ?? 'baixa'] ?? urgencyBg.baixa}`}
-              >
-                {/* Header row */}
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm">
-                      {msg.remetente_identificacao || msg.remetente}
+            messages.map((msg) => {
+              const senderRole = msg.remetente
+              const senderColor =
+                senderRole === 'pregoeiro'
+                  ? 'text-blue-800'
+                  : senderRole === 'sistema'
+                    ? 'text-slate-700'
+                    : senderRole === 'licitante_proprio'
+                      ? 'text-emerald-800'
+                      : 'text-slate-800'
+              return (
+                <div
+                  key={msg.id}
+                  className={`rounded-lg p-3 shadow-sm ${urgencyBg[msg.classificacao_urgencia ?? 'baixa'] ?? urgencyBg.baixa}`}
+                >
+                  {/* Header row */}
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className={`font-semibold text-sm ${senderColor}`}>
+                        {msg.remetente_identificacao || msg.remetente}
+                      </span>
+                      {msg.classificacao_tipo && (
+                        <Badge className={`text-xs font-semibold ${tipoBadgeColors[msg.classificacao_tipo] ?? tipoBadgeColors.geral}`}>
+                          {msg.classificacao_tipo}
+                        </Badge>
+                      )}
+                      {msg.classificacao_urgencia && ['critica', 'alta'].includes(msg.classificacao_urgencia) && (
+                        <Badge variant="destructive" className="text-xs font-semibold">
+                          {msg.classificacao_urgencia === 'critica' ? '🔴 CRÍTICA' : '🟠 ALTA'}
+                        </Badge>
+                      )}
+                    </div>
+                    <span
+                      className="text-xs text-slate-600 cursor-help"
+                      title={formatTimestamp(msg.data_hora_portal)}
+                    >
+                      há {relativeTime(msg.data_hora_portal)}
                     </span>
-                    {msg.classificacao_tipo && (
-                      <Badge className={`text-xs ${tipoBadgeColors[msg.classificacao_tipo] ?? tipoBadgeColors.geral}`}>
-                        {msg.classificacao_tipo}
-                      </Badge>
-                    )}
-                    {msg.classificacao_urgencia && ['critica', 'alta'].includes(msg.classificacao_urgencia) && (
-                      <Badge variant="destructive" className="text-xs">
-                        {msg.classificacao_urgencia === 'critica' ? '🔴 CRÍTICA' : '🟠 ALTA'}
-                      </Badge>
-                    )}
                   </div>
-                  <span
-                    className="text-xs text-muted-foreground cursor-help"
-                    title={formatTimestamp(msg.data_hora_portal)}
-                  >
-                    há {relativeTime(msg.data_hora_portal)}
-                  </span>
+
+                  {/* Content */}
+                  <p className="text-sm whitespace-pre-wrap text-slate-900 leading-relaxed">{msg.conteudo}</p>
+
+                  {/* Action / Deadline bar */}
+                  {(msg.resumo_acao || msg.prazo_detectado_ate) && (
+                    <div className="mt-2 flex items-center gap-3 text-xs">
+                      {msg.resumo_acao && (
+                        <span className="text-blue-900 font-semibold">
+                          ✅ {msg.resumo_acao}
+                        </span>
+                      )}
+                      {msg.prazo_detectado_ate && (
+                        <span className={`font-semibold ${countdown(msg.prazo_detectado_ate) === 'EXPIRADO' ? 'text-red-700' : 'text-orange-700'}`}>
+                          ⏰ {countdown(msg.prazo_detectado_ate)}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
-
-                {/* Content */}
-                <p className="text-sm whitespace-pre-wrap">{msg.conteudo}</p>
-
-                {/* Action / Deadline bar */}
-                {(msg.resumo_acao || msg.prazo_detectado_ate) && (
-                  <div className="mt-2 flex items-center gap-3 text-xs">
-                    {msg.resumo_acao && (
-                      <span className="text-blue-700 font-medium">
-                        ✅ {msg.resumo_acao}
-                      </span>
-                    )}
-                    {msg.prazo_detectado_ate && (
-                      <span className={`font-medium ${countdown(msg.prazo_detectado_ate) === 'EXPIRADO' ? 'text-red-600' : 'text-orange-600'}`}>
-                        ⏰ {countdown(msg.prazo_detectado_ate)}
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))
+              )
+            })
           )}
           <div ref={bottomRef} />
         </div>
 
         {/* Footer — read-only notice */}
-        <div className="p-3 border-t bg-gray-50 text-center text-sm text-muted-foreground">
+        <div className="p-3 border-t border-slate-200 bg-white rounded-b-lg text-center text-sm text-slate-700">
           Leitura passiva — responda pelo portal oficial do pregão
         </div>
       </div>

@@ -227,7 +227,7 @@ export default function ConectarPortalPage() {
                 seu nome, utilizando as credenciais informadas, exclusivamente para fins de monitoramento de pregões eletrônicos.
               </p>
               <p>
-                Suas credenciais são criptografadas com algoritmo XSalsa20-Poly1305 e nunca são armazenadas em texto legível.
+                Suas credenciais são criptografadas com algoritmo AES-256-GCM e nunca são armazenadas em texto legível.
                 O acesso é limitado à leitura de mensagens do chat do pregoeiro.
               </p>
             </div>

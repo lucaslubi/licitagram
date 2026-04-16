@@ -29,12 +29,11 @@ import {
   MfaRequiredError,
 } from '../adapters/types'
 import { getOrCreateContext, getStorageState, closeContext } from '../lib/browser-manager'
-import { decryptCredentials } from '../lib/crypto'
+import { decryptCredentials, decryptCredential, encryptCredential } from '../lib/crypto'
 import { hashMessage } from '../lib/hash'
 import { pregaoChatPollQueue } from '../queues/pregao-chat-poll.queue'
 import { pregaoChatClassifyQueue } from '../queues/pregao-chat-classify.queue'
 import type { PregaoChatPollJobData } from '../queues/pregao-chat-poll.queue'
-import { encryptCredential } from '../lib/crypto'
 
 const MAX_CONSECUTIVE_ERRORS = 5
 
@@ -73,7 +72,6 @@ export const pregaoChatPollWorker = new Worker<PregaoChatPollJobData>(
     let storageStateJson: string | undefined
     if (sessao?.storage_state_cipher && sessao?.storage_state_nonce) {
       try {
-        const { decryptCredential } = await import('../lib/crypto')
         storageStateJson = decryptCredential(
           Buffer.from(sessao.storage_state_cipher),
           Buffer.from(sessao.storage_state_nonce),
