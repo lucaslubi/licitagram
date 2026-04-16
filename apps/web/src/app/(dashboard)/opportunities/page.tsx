@@ -12,6 +12,7 @@ import {
 } from '@/lib/cache'
 import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
 import { PipelineTag } from '@/components/pipeline-tag'
+import { ModalidadeBadge } from '@/components/modalidade-badge'
 import { createClient } from '@/lib/supabase/server'
 import type { PlanFeatures } from '@licitagram/shared'
 import { formatCompactBRL } from '@/lib/geo/map-utils'
@@ -314,13 +315,12 @@ export default async function OpportunitiesPage({
                               <span>{truncateText((tender?.orgao_nome as string) || '', 40)}</span>
                               <span className="opp-dot">·</span>
                               <span>{(tender?.uf as string) || '-'}</span>
-                              {!!(tender?.modalidade_nome) && (
-                                <>
-                                  <span className="opp-dot">·</span>
-                                  <span>{truncateText(String(tender?.modalidade_nome), 20)}</span>
-                                </>
-                              )}
                             </div>
+                            {!!(tender?.modalidade_nome || tender?.modalidade_id) && (
+                              <div className="mt-0.5">
+                                <ModalidadeBadge modalidadeId={tender?.modalidade_id as number} modalidadeNome={tender?.modalidade_nome as string} compact />
+                              </div>
+                            )}
                           </Link>
                         </td>
                         <td className="opp-col-value">
@@ -569,6 +569,11 @@ export default async function OpportunitiesPage({
                             <span className="opp-dot">·</span>
                             <span>{tender.uf || '-'}</span>
                           </div>
+                          {!!(tender.modalidade_nome || tender.modalidade_id) && (
+                            <div className="mt-0.5">
+                              <ModalidadeBadge modalidadeId={tender.modalidade_id} modalidadeNome={tender.modalidade_nome} compact />
+                            </div>
+                          )}
                         </Link>
                       </td>
                       <td className="opp-col-value">
