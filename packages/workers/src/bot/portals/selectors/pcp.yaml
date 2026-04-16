@@ -1,0 +1,39 @@
+# Portal de Compras Públicas (PCP).
+#
+# Third-party exchange. R$149/mo for fornecedores. Has a documented
+# webservice API for integration (rare in the market) — the adapter
+# prefers the API where possible and falls back to Playwright.
+#
+# Marketing: https://www.portaldecompraspublicas.com.br/
+# Fornecedor portal: https://www.portaldecompraspublicas.com.br/18/Fornecedores
+# Webservice reference (to be confirmed during adapter implementation):
+# https://www.portaldecompraspublicas.com.br/18/Integracao
+
+host: https://www.portaldecompraspublicas.com.br
+
+paths:
+  fornecedor_entry: /18/Fornecedores
+  disputa_by_id: /18/Processos/Detalhes?id={id}
+
+login:
+  login_link: 'a:has-text("Entrar"), a:has-text("Acesso")'
+  username_input: 'input[name*="User" i], input[name*="login" i]'
+  password_input: 'input[type="password"]'
+  submit_button: 'button:has-text("Entrar"), input[type="submit"]'
+  success_url_contains: '/18/'
+  error_message: '.alert-danger, .validation-summary-errors'
+
+disputa:
+  item_card: '[class*="item"], tr[data-item-id]'
+  best_bid_label: 'text=/Melhor lance|Menor preço/i'
+  my_last_bid_label: 'text=/Meu lance/i'
+  my_position_label: 'text=/Posição|Classificação/i'
+  phase_indicator: 'text=/Aberta|Fechada|Homologada|Suspensa|Encerrada/i'
+  bid_input: 'input[inputmode="decimal"], input[class*="lance"]'
+  bid_submit: 'button:has-text("Enviar"), button:has-text("Cadastrar lance")'
+  bid_success_toast: '.toast-success, [role="status"]:has-text(/sucesso/i)'
+  bid_error_toast: '.toast-error, [role="alert"]:has-text(/erro/i)'
+
+timing:
+  min_bid_interval_seconds_default: 6
+  snipe_safety_margin_ms: 1500

@@ -37,9 +37,9 @@ import {
   type BotState,
   type PortalCredentials,
 } from './portals/base-portal'
-import { ComprasGovPortal } from './portals/comprasgov'
-import { MockPortal } from './portals/mock-portal'
+import { getPortalAdapter } from './portals/index'
 import { decide, type StrategyConfig, type StrategyInput, type StrategyKind } from './lib/strategy'
+import { fanoutEvent } from './lib/webhook-fanout'
 
 const TICK_MS = 6_000 // IN 73/2022 minimum interval
 const MAX_TICKS_PER_JOB = 200 // ~20 minutes of work per BullMQ job, then re-enqueue
@@ -75,6 +75,7 @@ export class BotSessionRunner {
   private portal: BasePortal | null = null
   private context: BrowserContext | null = null
   private startedAtMs = 0
+  private companyId: string | null = null
 
   constructor(
     public readonly sessionId: string,
@@ -92,6 +93,7 @@ export class BotSessionRunner {
     if (!session) {
       return { reEnqueue: false, reason: 'session_not_found' }
     }
+    this.companyId = session.company_id
     if (session.status !== 'pending' && session.status !== 'active') {
       return { reEnqueue: false, reason: `session_not_runnable:${session.status}` }
     }
@@ -361,19 +363,10 @@ export class BotSessionRunner {
   }
 
   private makePortal(session: SessionRow): BasePortal {
-    const meta = {
+    return getPortalAdapter(session.portal, {
       portal: session.portal,
       configId: session.bot_configs?.id ?? session.config_id ?? 'unknown',
-    }
-    if (session.portal === 'comprasgov' || session.portal === 'comprasnet') {
-      return new ComprasGovPortal(meta)
-    }
-    if (session.portal === 'simulator' || session.portal === 'mock') {
-      return new MockPortal(meta)
-    }
-    throw new UnsupportedOperationError(
-      `Portal "${session.portal}" not supported in Phase 1 (supported: comprasgov, simulator)`,
-    )
+    })
   }
 
   private async loadSession(): Promise<SessionRow | null> {
@@ -478,6 +471,12 @@ export class BotSessionRunner {
         { sessionId, kind, err: err instanceof Error ? err.message : err },
         'Failed to insert bot_event',
       )
+    }
+
+    // Fire-and-forget webhook fan-out. Never let a bad webhook break
+    // the bidding loop.
+    if (this.companyId) {
+      fanoutEvent(this.companyId, sessionId, kind, payload).catch(() => undefined)
     }
   }
 

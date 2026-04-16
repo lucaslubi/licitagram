@@ -1,0 +1,40 @@
+# BLL Compras (Bolsa de Licitações e Leilões).
+#
+# Third-party exchange portal. Used by 3000+ public entities for their
+# disputes. No native robô — full Playwright replay required.
+#
+# Marketing URL: https://bll.org.br/
+# Fornecedor portal: https://bll.org.br/fornecedores
+# Dispute room URL pattern is session-bound (no deep link by number alone);
+# the portal navigates via its own SPA state machine.
+
+host: https://bll.org.br
+
+paths:
+  fornecedor_entry: /fornecedores
+  disputa_search: /fornecedores/disputas
+
+login:
+  login_link: 'a:has-text("Entrar"), a[href*="login"]'
+  username_input: 'input[name="login"], input[name="username"], input[type="email"]'
+  password_input: 'input[name="password"], input[name="senha"], input[type="password"]'
+  submit_button: 'button:has-text("Entrar"), button[type="submit"]'
+  success_url_contains: '/fornecedores/'
+  error_message: '.alert-danger, .error-message, [role="alert"]'
+
+disputa:
+  item_card: '[class*="item"], [data-testid^="item-"]'
+  best_bid_label: 'text=/Melhor lance|Lance Atual/i'
+  my_last_bid_label: 'text=/Meu lance|Último lance/i'
+  my_position_label: 'text=/Posição|Colocação/i'
+  phase_indicator: 'text=/Aberta|Encerrada|Homologada|Suspensa/i'
+  bid_input: 'input[inputmode="decimal"], input[placeholder*="lance" i]'
+  bid_submit: 'button:has-text("Enviar"), button:has-text("Dar lance")'
+  bid_success_toast: '[role="status"]:has-text(/enviado|registrado/i)'
+  bid_error_toast: '[role="alert"]:has-text(/erro|inválido/i)'
+
+timing:
+  # BLL historically enforces a 3s interval between different bidders,
+  # 10s between same bidder. We use 10s as the safe floor.
+  min_bid_interval_seconds_default: 10
+  snipe_safety_margin_ms: 2000

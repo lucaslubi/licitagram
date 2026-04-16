@@ -1,0 +1,51 @@
+# Licitações-e (Banco do Brasil).
+#
+# The BB exchange historically deploys anti-robot mechanisms. Fornecedores
+# access via certificado digital A1 or login + password. The new UI moved
+# to https://licitacoes-e2.bb.com.br/ in 2024; some orgaos still on the
+# legacy host.
+#
+# Adapter must run in HEADED mode for first login + A3 certificate-based
+# auth is UNSUPPORTED (hardware-bound). A1 file certs can be uploaded via
+# the guided login flow but are regulated sensitive data — we use the
+# same encrypted storage as password.
+
+host: https://licitacoes-e2.bb.com.br
+legacy_host: https://www.licitacoes-e.com.br
+
+paths:
+  fornecedor_entry: /acesso/fornecedor
+  disputa_by_id: /acesso/fornecedor/disputa?id={id}
+
+login:
+  username_input: 'input[name="usuario"], input#usuario'
+  password_input: 'input[name="senha"], input[type="password"]'
+  submit_button: 'button:has-text("Entrar"), button[type="submit"]'
+  success_url_contains: '/acesso/fornecedor/'
+  error_message: '.alert-danger, [class*="erro"]'
+
+disputa:
+  item_card: '[class*="item"], tr[data-item]'
+  best_bid_label: 'text=/Melhor lance|Lance vencedor/i'
+  my_last_bid_label: 'text=/Meu lance/i'
+  my_position_label: 'text=/Posição/i'
+  phase_indicator: 'text=/Aberta|Disputa|Encerrada|Homologada|Suspensa/i'
+  bid_input: 'input[inputmode="decimal"]'
+  bid_submit: 'button:has-text("Enviar lance")'
+  bid_success_toast: '[role="status"]:has-text(/enviado/i)'
+  bid_error_toast: '[role="alert"]'
+
+timing:
+  # BB's historical rule: 10s between bids from same licitante, 3s between
+  # different licitantes. We respect the stricter floor.
+  min_bid_interval_seconds_default: 10
+  snipe_safety_margin_ms: 2500
+
+anti_bot:
+  # BB employs aggressive challenge mechanisms. Keep headless in production
+  # conservatively; always stealth. Treat rate-limit 429 as a hard back-off.
+  launch_args:
+    - --disable-blink-features=AutomationControlled
+    - --lang=pt-BR
+  locale: pt-BR
+  timezone: America/Sao_Paulo
