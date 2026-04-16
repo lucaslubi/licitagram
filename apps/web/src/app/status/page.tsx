@@ -70,10 +70,10 @@ export default async function StatusPage() {
             </p>
           </div>
           <Link
-            href="/"
+            href="/bot"
             className="text-sm text-slate-600 hover:text-slate-900"
           >
-            ← Voltar
+            ← Dashboard
           </Link>
         </header>
 
