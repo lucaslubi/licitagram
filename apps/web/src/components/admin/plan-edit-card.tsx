@@ -25,6 +25,7 @@ const FEATURE_LABELS: Record<keyof PlanFeatures, string> = {
   radar_map: 'Licitagram GeoRadar',
   certidoes_bot: 'Guardian Compliance',
   pregao_chat_monitor: 'Monitor de Pregão',
+  bidding_bot_supreme: 'Supreme Bot (Robô + Replay Forense)',
 }
 
 export function PlanEditCard({ plan }: { plan: any }) {

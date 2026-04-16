@@ -117,12 +117,13 @@ async function loadWorkers(): Promise<Worker[]> {
     workers.push(pregaoChatPollWorker, pregaoChatClassifyWorker, pregaoPortalTestWorker)
   }
 
-  // Licitagram Supreme Bot: watchdog + session executor
+  // Licitagram Supreme Bot: watchdog + session executor + pre-dispute checklist
   if (isFullMode || selectedGroups.includes('bot')) {
     const { botWatchdogWorker } = await import('./bot/processors/bot-watchdog.processor')
     const { ensureBotWatchdogScheduled } = await import('./bot/queues/bot-watchdog.queue')
     const { botSessionExecuteWorker } = await import('./bot/processors/bot-session-execute.processor')
-    workers.push(botWatchdogWorker, botSessionExecuteWorker)
+    const { botPreDisputeChecklistWorker } = await import('./bot/processors/bot-pre-dispute-checklist.processor')
+    workers.push(botWatchdogWorker, botSessionExecuteWorker, botPreDisputeChecklistWorker)
     // Register the repeatable watchdog sweep at boot. Idempotent — BullMQ
     // dedupes by jobId so re-registering is a no-op.
     await ensureBotWatchdogScheduled().catch((err) => {

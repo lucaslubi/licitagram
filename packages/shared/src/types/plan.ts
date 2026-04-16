@@ -17,6 +17,14 @@ export interface PlanFeatures {
   radar_map: boolean
   certidoes_bot: boolean
   pregao_chat_monitor: boolean
+  /**
+   * Licitagram Supreme Bot — executor + forensic replay + shadow mode +
+   * pre-dispute checklist + floor optimizer. Strictly superior to
+   * `bidding_bot` (which remains a legacy name kept for back-compat).
+   * Plans shipping both `bidding_bot=true` and `bidding_bot_supreme=true`
+   * get the Supreme feature set.
+   */
+  bidding_bot_supreme: boolean
 }
 
 export interface Plan {
@@ -118,6 +126,7 @@ export const DEFAULT_FEATURES: PlanFeatures = {
   radar_map: false,
   certidoes_bot: false,
   pregao_chat_monitor: false,
+  bidding_bot_supreme: false,
 }
 
 /** Cookie name for plan context */

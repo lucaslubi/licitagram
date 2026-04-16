@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { GuidedLogin } from './guided-login'
 
 /* ── Types ──────────────────────────────────────────────────────────────────── */
@@ -536,6 +537,12 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                     >
                       Cancelar
                     </button>
+                    <Link
+                      href={`/bot/${session.id}/replay`}
+                      className="ml-auto text-sm px-3 py-1.5 rounded-md border border-brand/30 text-brand hover:bg-brand/10 transition-colors font-medium"
+                    >
+                      Replay forense →
+                    </Link>
                   </div>
                 </div>
               ))}
