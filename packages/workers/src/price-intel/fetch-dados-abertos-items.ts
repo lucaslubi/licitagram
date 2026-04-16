@@ -143,7 +143,7 @@ async function main() {
   for (const item of popularItems || []) {
     if (item.descricao) {
       // Extract key words (first 3-4 significant words)
-      const words = item.descricao.split(/\s+/).filter(w => w.length > 3).slice(0, 3)
+      const words = (item.descricao as string).split(/\s+/).filter((w: string) => w.length > 3).slice(0, 3)
       if (words.length >= 2) terms.add(words.join(' '))
     }
   }
