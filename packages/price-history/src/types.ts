@@ -68,15 +68,36 @@ export interface PriceTrend {
   projected_price_next_month: number | undefined
 }
 
+// ─── Data Quality ─────────────────────────────────────────────
+export interface DataQualityInfo {
+  total_records: number
+  proposal_records: number
+  homologado_records: number
+  external_records?: number
+  excluded_outliers: number
+  avg_confidence: number
+  confidence_level: 'alta' | 'media' | 'baixa'
+  sources: string[]
+  source_count?: number
+  validated?: boolean
+  partially_validated?: boolean
+  validation_label?: string
+}
+
 // ─── Search Result ────────────────────────────────────────────
 export interface PriceSearchResult {
   records: PriceRecord[]
   statistics: PriceStatistics
   trend: PriceTrend
   total_count: number
+  valid_count?: number
+  excluded_count?: number
+  data_quality?: DataQualityInfo
   page: number
   page_size: number
   query: PriceSearchQuery
+  cache_hit?: boolean
+  query_time_ms?: number
 }
 
 // ─── Cache ────────────────────────────────────────────────────
