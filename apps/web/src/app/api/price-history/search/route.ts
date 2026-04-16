@@ -48,6 +48,9 @@ export async function GET(req: NextRequest) {
   const dateFrom = url.searchParams.get('date_from') || undefined
   const dateTo = url.searchParams.get('date_to') || undefined
   const winOnly = url.searchParams.get('win_only') === 'true'
+  // homologated_only defaults to FALSE — include all tenders with competitor proposals
+  // to maximize data available for price analysis
+  const homologatedOnly = url.searchParams.get('homologated_only') === 'true'
   const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10))
   const pageSize = Math.min(100, Math.max(1, parseInt(url.searchParams.get('page_size') || '20', 10)))
 
@@ -59,13 +62,13 @@ export async function GET(req: NextRequest) {
   try {
     const cache = getPriceHistoryCacheAdapter()
 
-    // Cache keys: stats ignores page/page_size (shared), data includes them
+    // Cache keys include version v2 to invalidate old caches after search logic update
     const filterHash = crypto.createHash('md5').update(
-      JSON.stringify({ q: q.toLowerCase(), uf, modalidade, dateFrom, dateTo, winOnly })
+      JSON.stringify({ q: q.toLowerCase(), uf, modalidade, dateFrom, dateTo, winOnly, homologatedOnly })
     ).digest('hex').slice(0, 12)
 
-    const statsCacheKey = `stats:${filterHash}`
-    const dataCacheKey = `data:${filterHash}:p${page}:s${pageSize}`
+    const statsCacheKey = `stats:v2:${filterHash}`
+    const dataCacheKey = `data:v2:${filterHash}:p${page}:s${pageSize}`
 
     // Try cache first for both stats and data
     const cachedStats = await cache.get<{ statistics: PriceSearchResult['statistics']; trend: PriceSearchResult['trend']; total_count: number }>(statsCacheKey)
@@ -99,6 +102,8 @@ export async function GET(req: NextRequest) {
     const offset = (page - 1) * pageSize
 
     // Build the Supabase query using textSearch on objeto
+    // NOTE: we do NOT filter by valor_homologado — include all tenders with competitor
+    // proposals even if still in progress (maximizes data for price analysis)
     let query = supabase
       .from('tenders')
       .select(
@@ -106,7 +111,10 @@ export async function GET(req: NextRequest) {
         { count: 'exact' },
       )
       .textSearch('objeto', q, { type: 'websearch', config: 'portuguese' })
-      .not('valor_homologado', 'is', null)
+
+    if (homologatedOnly) {
+      query = query.not('valor_homologado', 'is', null)
+    }
 
     // Apply filters
     if (uf) {
@@ -142,10 +150,10 @@ export async function GET(req: NextRequest) {
           'id, objeto, valor_estimado, valor_homologado, uf, municipio, modalidade_nome, orgao_nome, data_publicacao, data_encerramento, competitors!inner(cnpj, nome, valor_proposta, situacao, porte, uf_fornecedor)',
         )
         .textSearch('objeto', q, { type: 'websearch', config: 'portuguese' })
-        .not('valor_homologado', 'is', null)
         .order('data_encerramento', { ascending: false })
-        .limit(500) // Up to 500 tenders for stats calculation
+        .limit(1000) // Increased from 500 to 1000 tenders for richer stats
 
+      if (homologatedOnly) statsQuery = statsQuery.not('valor_homologado', 'is', null)
       if (uf) statsQuery = statsQuery.eq('uf', uf)
       if (modalidade) statsQuery = statsQuery.eq('modalidade_nome', modalidade)
       if (dateFrom) statsQuery = statsQuery.gte('data_encerramento', dateFrom)
@@ -247,6 +255,62 @@ export async function GET(req: NextRequest) {
           }
         }
       }
+    }
+
+    // DIRECT ITEM SEARCH: query tender_items by description — finds items across
+    // ALL tenders in the database (not just the ones in current page)
+    // This dramatically increases available data for price analysis
+    try {
+      const { data: itemSearch } = await supabase
+        .from('tender_items')
+        .select('id, tender_id, numero_item, descricao, quantidade, unidade_medida, valor_unitario_estimado, valor_total_estimado')
+        .textSearch('descricao', q, { type: 'websearch', config: 'portuguese' })
+        .gt('valor_unitario_estimado', 0)
+        .order('valor_unitario_estimado', { ascending: false })
+        .limit(200)
+
+      if (itemSearch && itemSearch.length > 0) {
+        // Fetch tender context for these items
+        const itemTenderIds = [...new Set(itemSearch.map(i => i.tender_id))]
+        const { data: tenderCtx } = await supabase
+          .from('tenders')
+          .select('id, orgao_nome, uf, municipio, modalidade_nome, data_encerramento, data_publicacao')
+          .in('id', itemTenderIds)
+
+        const tenderCtxMap = new Map((tenderCtx || []).map(t => [t.id, t]))
+
+        for (const item of itemSearch) {
+          const ctx = tenderCtxMap.get(item.tender_id) as Record<string, unknown> | undefined
+          const vu = item.valor_unitario_estimado as number
+          if (!vu || vu <= 0 || vu > 1e10) continue
+
+          records.push({
+            id: `item-${item.id}`,
+            licitacao_id: item.tender_id,
+            licitacao_numero: item.tender_id,
+            licitacao_modalidade: (ctx?.modalidade_nome as string) || 'N/I',
+            orgao_nome: (ctx?.orgao_nome as string) || 'N/I',
+            orgao_uf: (ctx?.uf as string) || '',
+            orgao_municipio: (ctx?.municipio as string) || '',
+            fonte: 'pncp_item',
+            item_description: item.descricao || q,
+            item_unit: item.unidade_medida || 'UN',
+            item_quantity: item.quantidade || 1,
+            unit_price: vu,
+            total_price: (item.valor_total_estimado as number) || vu,
+            supplier_name: 'Estimado (item)',
+            supplier_cnpj: '',
+            supplier_uf: '',
+            supplier_porte: 'N/A',
+            date_homologation: new Date((ctx?.data_encerramento as string) || (ctx?.data_publicacao as string) || Date.now()),
+            date_opening: new Date((ctx?.data_publicacao as string) || Date.now()),
+            is_valid: true,
+            confidence_score: 0.8, // Item-level estimated prices have good confidence
+          })
+        }
+      }
+    } catch (e) {
+      console.warn('Item-level search failed, continuing:', e)
     }
 
     // Also fetch item-level prices from tender_items + price_history (higher precision)

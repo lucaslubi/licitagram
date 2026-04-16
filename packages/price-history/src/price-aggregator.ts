@@ -39,22 +39,22 @@ export interface OutlierConfig {
 }
 
 export const DEFAULT_OUTLIER_CONFIG: OutlierConfig = {
-  multiplier_above: 3,    // was 5 — tightened: reject prices > 3x median
-  multiplier_below: 0.15, // was 0.1 — tightened: reject prices < 15% of median
+  multiplier_above: 5,    // allow up to 5x median (was too aggressive at 3x)
+  multiplier_below: 0.1,  // allow down to 10% of median (was 0.15)
   min_records: 5,
 }
 
 /**
  * Adaptive outlier multipliers by price band.
- * Low-value items (< R$1k) have tighter bounds — a R$10 item at R$50 is suspicious.
- * High-value items (> R$100k) have wider bounds — IT systems have legitimate wide ranges.
+ * More permissive to preserve data breadth.
+ * Only marks as outlier when clearly extreme (5-8x median).
  */
 function getAdaptiveMultipliers(median: number): { above: number; below: number } {
-  if (median < 100) return { above: 2.5, below: 0.2 }       // micro: R$0-100
-  if (median < 1_000) return { above: 2.5, below: 0.15 }    // small: R$100-1k
-  if (median < 10_000) return { above: 3.0, below: 0.15 }   // medium: R$1k-10k
-  if (median < 100_000) return { above: 3.5, below: 0.1 }   // large: R$10k-100k
-  return { above: 4.0, below: 0.1 }                          // mega: R$100k+
+  if (median < 100) return { above: 5, below: 0.1 }        // micro: R$0-100
+  if (median < 1_000) return { above: 5, below: 0.1 }      // small: R$100-1k
+  if (median < 10_000) return { above: 6, below: 0.08 }    // medium: R$1k-10k
+  if (median < 100_000) return { above: 7, below: 0.05 }   // large: R$10k-100k
+  return { above: 8, below: 0.05 }                          // mega: R$100k+
 }
 
 /**
@@ -83,8 +83,9 @@ export function filterOutliers(
   const adaptive = getAdaptiveMultipliers(median)
 
   // Combine IQR method with adaptive median multiplier for robust detection
-  const iqrUpperBound = p75 + 2.5 * iqr // Tightened from 3x IQR
-  const iqrLowerBound = Math.max(0, p25 - 2.5 * iqr)
+  // Use 3x IQR (standard statistical outlier definition) — more permissive
+  const iqrUpperBound = p75 + 3 * iqr
+  const iqrLowerBound = Math.max(0, p25 - 3 * iqr)
   const medianUpperBound = median * adaptive.above
   const medianLowerBound = median * adaptive.below
 
