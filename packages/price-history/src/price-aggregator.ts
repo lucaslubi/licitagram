@@ -39,8 +39,8 @@ export interface OutlierConfig {
 }
 
 export const DEFAULT_OUTLIER_CONFIG: OutlierConfig = {
-  multiplier_above: 5,
-  multiplier_below: 0.1,
+  multiplier_above: 3,    // was 5 — tightened: reject prices > 3x median
+  multiplier_below: 0.15, // was 0.1 — tightened: reject prices < 15% of median
   min_records: 5,
 }
 
@@ -98,7 +98,8 @@ export function deduplicateRecords(records: PriceRecord[]): PriceRecord[] {
     const dateStr = r.date_homologation instanceof Date
       ? r.date_homologation.toISOString().split('T')[0]
       : String(r.date_homologation).split('T')[0]
-    const key = `${r.orgao_nome}|${r.unit_price}|${dateStr}`
+    // Include supplier CNPJ in dedup key — different suppliers with same price are distinct records
+    const key = `${r.orgao_nome}|${r.supplier_cnpj || ''}|${r.unit_price}|${dateStr}`
 
     if (!groups.has(key)) {
       groups.set(key, { record: { ...r }, count: 1 })

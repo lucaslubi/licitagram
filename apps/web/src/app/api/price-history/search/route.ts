@@ -151,11 +151,16 @@ export async function GET(req: NextRequest) {
           uf_fornecedor: string | null
         }>
 
-        // If there are competitors with proposals, create one record per competitor
-        // Otherwise create one record using valor_homologado
-        if (competitors.length > 0) {
-          for (const comp of competitors) {
-            if (!comp.valor_proposta || comp.valor_proposta <= 0) continue
+        // Create one record per competitor with valid proposals
+        // Tenders without competitors use valor_homologado as "preço praticado" (lower confidence)
+        const validComps = competitors.filter(c => c.valor_proposta && c.valor_proposta > 0)
+
+        if (validComps.length > 0) {
+          for (const comp of validComps) {
+            // Sanity check: reject absurd values (> 10 billion or negative)
+            if (comp.valor_proposta! > 1e10 || comp.valor_proposta! < 0) continue
+
+            const isWinner = comp.situacao === 'Informado' || comp.situacao === 'Homologado'
 
             records.push({
               id: `${tender.id}-${comp.cnpj || 'unknown'}`,
@@ -169,8 +174,8 @@ export async function GET(req: NextRequest) {
               item_description: tender.objeto || '',
               item_unit: 'SV',
               item_quantity: 1,
-              unit_price: comp.valor_proposta,
-              total_price: comp.valor_proposta,
+              unit_price: comp.valor_proposta!,
+              total_price: comp.valor_proposta!,
               supplier_name: comp.nome || 'N/I',
               supplier_cnpj: comp.cnpj || '',
               supplier_uf: comp.uf_fornecedor || '',
@@ -178,34 +183,44 @@ export async function GET(req: NextRequest) {
               date_homologation: new Date(tender.data_encerramento || tender.data_publicacao || Date.now()),
               date_opening: new Date(tender.data_publicacao || Date.now()),
               is_valid: true,
-              confidence_score: 1,
+              // Winner proposals have highest confidence, losing proposals are still valuable
+              confidence_score: isWinner ? 1.0 : 0.9,
             })
           }
-        } else {
-          // Fallback: use valor_homologado as unit_price
-          records.push({
-            id: tender.id,
-            licitacao_id: tender.id,
-            licitacao_numero: tender.id,
-            licitacao_modalidade: tender.modalidade_nome || 'N/I',
-            orgao_nome: tender.orgao_nome || 'N/I',
-            orgao_uf: tender.uf || '',
-            orgao_municipio: tender.municipio || '',
-            fonte: 'pncp',
-            item_description: tender.objeto || '',
-            item_unit: 'SV',
-            item_quantity: 1,
-            unit_price: tender.valor_homologado as number,
-            total_price: tender.valor_homologado as number,
-            supplier_name: 'N/I',
-            supplier_cnpj: '',
-            supplier_uf: '',
-            supplier_porte: 'N/A',
-            date_homologation: new Date(tender.data_encerramento || tender.data_publicacao || Date.now()),
-            date_opening: new Date(tender.data_publicacao || Date.now()),
-            is_valid: true,
-            confidence_score: 0.7,
-          })
+        }
+
+        // If no competitor data, use valor_homologado as "preço praticado" (winning price only)
+        // This is LESS reliable than individual proposals — lower confidence and marked as such
+        if (validComps.length === 0 && tender.valor_homologado) {
+          const homologado = tender.valor_homologado as number
+          // Sanity check
+          if (homologado > 0 && homologado < 1e10) {
+            records.push({
+              id: tender.id,
+              licitacao_id: tender.id,
+              licitacao_numero: tender.id,
+              licitacao_modalidade: tender.modalidade_nome || 'N/I',
+              orgao_nome: tender.orgao_nome || 'N/I',
+              orgao_uf: tender.uf || '',
+              orgao_municipio: tender.municipio || '',
+              fonte: 'pncp',
+              item_description: tender.objeto || '',
+              item_unit: 'SV',
+              item_quantity: 1,
+              unit_price: homologado,
+              total_price: homologado,
+              supplier_name: 'Vencedor (dados consolidados)',
+              supplier_cnpj: '',
+              supplier_uf: '',
+              supplier_porte: 'N/A',
+              date_homologation: new Date(tender.data_encerramento || tender.data_publicacao || Date.now()),
+              date_opening: new Date(tender.data_publicacao || Date.now()),
+              is_valid: true,
+              // Lower confidence: this is a single winning price, not individual proposals
+              // Cannot compute discount analysis or competitive landscape from this alone
+              confidence_score: 0.5,
+            })
+          }
         }
       }
     }
@@ -225,8 +240,27 @@ export async function GET(req: NextRequest) {
     // 4. Count excluded for metadata
     const excludedCount = processedRecords.filter((r) => !r.is_valid).length
 
+    // 5. Compute data quality metadata
+    const proposalRecords = validRecords.filter(r => r.confidence_score >= 0.9)
+    const homologadoRecords = validRecords.filter(r => r.confidence_score < 0.9)
+    const avgConfidence = validRecords.length > 0
+      ? validRecords.reduce((sum, r) => sum + r.confidence_score, 0) / validRecords.length
+      : 0
+
+    const dataQuality = {
+      total_records: validRecords.length,
+      proposal_records: proposalRecords.length,      // registros de propostas individuais (alta confiança)
+      homologado_records: homologadoRecords.length,   // registros de valor homologado apenas (baixa confiança)
+      excluded_outliers: excludedCount,
+      avg_confidence: Math.round(avgConfidence * 100) / 100,
+      confidence_level: avgConfidence >= 0.85 && validRecords.length >= 10 ? 'alta'
+        : avgConfidence >= 0.7 && validRecords.length >= 5 ? 'media'
+        : 'baixa',
+      sources: ['pncp'] as string[],
+    }
+
     // Cache stats (2h) and data (1h) in background
-    cache.set(statsCacheKey, { statistics, trend, total_count: totalCount, valid_count: validRecords.length, excluded_count: excludedCount }, 7200).catch(() => {})
+    cache.set(statsCacheKey, { statistics, trend, total_count: totalCount, valid_count: validRecords.length, excluded_count: excludedCount, data_quality: dataQuality }, 7200).catch(() => {})
     cache.set(dataCacheKey, { records: processedRecords }, 3600).catch(() => {})
 
     const searchQuery: PriceSearchQuery = {
@@ -246,6 +280,7 @@ export async function GET(req: NextRequest) {
       total_count: totalCount,
       valid_count: validRecords.length,
       excluded_count: excludedCount,
+      data_quality: dataQuality,
       page,
       page_size: pageSize,
       query: searchQuery,
