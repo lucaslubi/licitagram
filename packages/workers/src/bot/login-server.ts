@@ -190,9 +190,37 @@ export class LoginServer {
   private async handleScreenshot(sessionId: string) {
     const session = activeSessions.get(sessionId)
     if (!session) throw new Error('Session not active')
-    
+
     const screenshot = await session.page.screenshot({ encoding: 'base64', type: 'jpeg', quality: 60 })
-    return { url: session.page.url(), screenshot }
+    const url = session.page.url()
+
+    // Auto-detect if captcha is present on the page
+    let has_captcha = false
+    let has_password_field = false
+    try {
+      const detection = await session.page.evaluate(() => {
+        // hCaptcha
+        const hcaptcha = document.querySelector('[data-sitekey]') as HTMLElement | null
+        const hcaptchaIframe = document.querySelector('iframe[src*="hcaptcha"]')
+        // reCAPTCHA
+        const recaptcha = document.querySelector('.g-recaptcha') as HTMLElement | null
+        const recaptchaIframe = document.querySelector('iframe[src*="recaptcha"]')
+        // Cloudflare Turnstile
+        const turnstile = document.querySelector('.cf-turnstile') as HTMLElement | null
+        // Password field detection
+        const pw = document.querySelector('input[type="password"]')
+        return {
+          captcha: !!(hcaptcha || hcaptchaIframe || recaptcha || recaptchaIframe || turnstile),
+          password: !!pw,
+        }
+      })
+      has_captcha = detection.captcha
+      has_password_field = detection.password
+    } catch {
+      // ignore detection errors
+    }
+
+    return { url, screenshot, has_captcha, has_password_field }
   }
 
   private async handleCookies(sessionId: string) {

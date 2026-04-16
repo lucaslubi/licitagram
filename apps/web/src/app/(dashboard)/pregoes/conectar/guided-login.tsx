@@ -119,9 +119,17 @@ export function GuidedLogin({ onSuccess, onCancel }: GuidedLoginProps) {
         selector: 'button[type="submit"] || input[type="submit"] || text:Continuar || text:Avançar || text:Próximo',
       })
       await new Promise(r => setTimeout(r, 3000))
-      await callLogin('screenshot')
-      // Gov.br may show captcha before password — go to captcha step
-      setLoginStep('captcha_page')
+      const result = await callLogin('screenshot')
+
+      // DETECT CAPTCHA AUTOMATICALLY — only go to captcha_page if captcha is present
+      // If no captcha detected, skip directly to password page
+      const hasCaptcha = result?.has_captcha === true
+      if (hasCaptcha) {
+        setLoginStep('captcha_page')
+      } else {
+        // Skip captcha step — go directly to password
+        setLoginStep('password_page')
+      }
     } catch (err) {
       setError('Erro ao preencher CPF. Tente atualizar a tela e verifique se o campo está visível.')
     } finally {
