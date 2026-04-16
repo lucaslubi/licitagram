@@ -117,14 +117,14 @@ async function loadWorkers(): Promise<Worker[]> {
     workers.push(pregaoChatPollWorker, pregaoChatClassifyWorker, pregaoPortalTestWorker)
   }
 
-  // Licitagram Supreme Bot: Phase 0 = watchdog only. Phase 1 adds the
-  // session executor queue + worker.
+  // Licitagram Supreme Bot: watchdog + session executor
   if (isFullMode || selectedGroups.includes('bot')) {
     const { botWatchdogWorker } = await import('./bot/processors/bot-watchdog.processor')
     const { ensureBotWatchdogScheduled } = await import('./bot/queues/bot-watchdog.queue')
-    workers.push(botWatchdogWorker)
-    // Register the repeatable sweep at boot. Idempotent — BullMQ dedupes
-    // by jobId so re-registering is a no-op.
+    const { botSessionExecuteWorker } = await import('./bot/processors/bot-session-execute.processor')
+    workers.push(botWatchdogWorker, botSessionExecuteWorker)
+    // Register the repeatable watchdog sweep at boot. Idempotent — BullMQ
+    // dedupes by jobId so re-registering is a no-op.
     await ensureBotWatchdogScheduled().catch((err) => {
       logger.error({ err: err instanceof Error ? err.message : err }, 'Failed to schedule bot watchdog')
     })

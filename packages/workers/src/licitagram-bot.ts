@@ -1,68 +1,33 @@
-// Ensure .env gets loaded properly in PM2 regardless of CWD.
-import { resolve } from 'path'
-import { config } from 'dotenv'
-config({ path: resolve(__dirname, '../../.env') })
-config({ path: resolve(__dirname, '../.env') })
+/**
+ * Licitagram Bot — legacy DB-polling entrypoint (DEPRECATED, retained as no-op).
+ *
+ * The DB-polling loop was superseded in Phase 1 by the BullMQ executor
+ * (see `src/bot/processors/bot-session-execute.processor.ts`). The new
+ * worker is started via `src/index.ts` when the `bot` group is enabled.
+ *
+ * We keep this file as a safe no-op entry so any PM2 process still
+ * configured to run it just sleeps and logs — it will not compete with
+ * the BullMQ worker for sessions. Once the PM2 config is updated on the
+ * VPS to drop this process, the file can be deleted.
+ */
+
 import { logger } from './lib/logger'
-import { supabase } from './lib/supabase'
-import { BotSessionRunner } from './bot/bot-session-runner'
 
-const activeRunners = new Map<string, BotSessionRunner>()
-const MAX_CONCURRENT_SESSIONS = 3
-
-async function pollPendingSessions() {
-  if (activeRunners.size >= MAX_CONCURRENT_SESSIONS) return
-
-  const { data: pendingSessions, error } = await supabase
-    .from('bot_sessions')
-    .select('id')
-    .eq('status', 'pending')
-    .order('created_at', { ascending: true })
-    .limit(MAX_CONCURRENT_SESSIONS - activeRunners.size)
-
-  if (error) {
-    logger.error({ err: error.message }, 'Error polling bot sessions')
-    return
-  }
-
-  if (pendingSessions && pendingSessions.length > 0) {
-    for (const session of pendingSessions) {
-      if (activeRunners.has(session.id)) continue
-
-      logger.info({ sessionId: session.id }, 'Found pending session, starting runner')
-      const runner = new BotSessionRunner(session.id)
-      activeRunners.set(session.id, runner)
-
-      runner.start().catch((err) => {
-        logger.error({ sessionId: session.id, err: err.message }, 'Runner failed')
-      }).finally(() => {
-        activeRunners.delete(session.id)
-        logger.info({ sessionId: session.id }, 'Runner stopped')
-      })
-    }
-  }
-}
-
-async function main() {
-  logger.info('Starting licitagram-bot poller...')
-  
-  setInterval(() => {
-    pollPendingSessions().catch(err => {
-      logger.error({ err: err.message }, 'Poll interval error')
-    })
-  }, 10000)
-
-  // graceful shutdown
-  process.on('SIGINT', async () => {
-    logger.info('Shutting down runners...')
-    for (const [id, runner] of activeRunners.entries()) {
-      await runner.stop()
-    }
-    process.exit(0)
+async function main(): Promise<void> {
+  logger.warn(
+    'licitagram-bot legacy entrypoint is deprecated; sessions are now handled ' +
+      'by the BullMQ worker started via src/index.ts --queues=bot. This process ' +
+      'will sleep indefinitely. Remove it from the PM2 config to reclaim the slot.',
+  )
+  // Keep the process alive without consuming CPU, so PM2 doesn't restart us
+  // in a loop. SIGTERM/SIGINT still exits cleanly.
+  await new Promise<void>((resolve) => {
+    process.on('SIGINT', () => resolve())
+    process.on('SIGTERM', () => resolve())
   })
 }
 
-main().catch(err => {
-  logger.error({ err: err.message }, 'Fatal bot error')
+main().catch((err) => {
+  logger.error({ err: err instanceof Error ? err.message : err }, 'Fatal bot error')
   process.exit(1)
 })

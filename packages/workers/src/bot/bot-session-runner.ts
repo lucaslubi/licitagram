@@ -1,339 +1,494 @@
 /**
- * Bot Session Runner — PHASE 0 HARDENED VERSION.
+ * Bot Session Runner — Phase 1 rewrite.
+ *
+ * Drives a single bot_session from `pending` → `active` → terminal state.
  *
  * Responsibilities:
- *   1. Load session + bot_config from DB.
- *   2. Decrypt credentials (or fail loud if the master key is missing).
- *   3. Instantiate the correct portal adapter.
- *   4. Drive the tick loop, update heartbeat on every iteration.
- *   5. Persist state ONLY to columns that exist (post-migration).
- *   6. On any error, mark the session as `failed` with a useful reason
- *      (instead of leaving it `active` forever).
+ *   - Resolve the BrowserContext via the shared pool (reuses storageState
+ *     from prior sessions — skips SSO re-login in the common case).
+ *   - Attach the portal adapter to that context.
+ *   - Login if not already authenticated.
+ *   - Open the pregão room and install the XHR tap for forensic replay.
+ *   - Drive the tick loop with proper reentrance guard.
+ *   - For every tick: read state, consult the strategy, act accordingly,
+ *     persist storage state after writes, emit bot_events.
+ *   - Release the DB lock when done.
  *
- * Known limitations (to be fixed in Phase 1):
- *   - No distributed lock yet. Two workers would race. The new
- *     `locked_until` / `worker_id` columns are in place but the BullMQ
- *     queue + Redlock integration lands with the Phase 1 rewrite.
- *   - The ComprasGovPortal adapter throws UnsupportedOperationError until
- *     Phase 1 — that is INTENTIONAL. It's better to surface "not yet
- *     supported" than to pretend a lance was submitted.
- *   - The MockPortal remains available for end-to-end pipeline testing.
- *
- * What changed vs the previous version:
- *   - Writes `bids_placed` / `current_price` / `last_heartbeat` — these
- *     columns exist now (migration 20260416200000).
- *   - Decrements by `min_decrease_value` from the bot_config, not a
- *     hardcoded R$0.01.
- *   - Guards `minPrice` null correctly (was `state.melhor_lance > minPrice`
- *     which was always false when minPrice was null).
- *   - Emits explicit `action_type`s that survive the CHECK constraint
- *     (the old `'bid'` is still accepted, but we now also emit
- *     `'bid_submitted'` / `'heartbeat'` / `'session_failed'`).
- *   - Reads password from the ciphertext columns via readBotConfigSecrets.
- *   - Catches UnsupportedOperationError specifically and fails the
- *     session cleanly.
+ * The BullMQ processor (bot-session-execute.processor.ts) is responsible
+ * for acquiring the lock before calling start() — this class assumes the
+ * lock is already held.
  */
 
+import type { BrowserContext } from 'playwright'
 import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
-import { BasePortal } from './portals/base-portal'
-import { ComprasGovPortal, UnsupportedOperationError } from './portals/comprasgov'
+import { getOrCreateContext, getStorageState, closeContext } from './lib/browser-manager'
+import {
+  readBotConfigSecrets,
+  encryptSecret,
+  type BotConfigRow,
+} from './lib/crypto'
+import {
+  BasePortal,
+  CaptchaRequiredError,
+  InvalidCredentialsError,
+  MfaRequiredError,
+  UnsupportedOperationError,
+  type BotState,
+  type PortalCredentials,
+} from './portals/base-portal'
+import { ComprasGovPortal } from './portals/comprasgov'
 import { MockPortal } from './portals/mock-portal'
-import { readBotConfigSecrets, type BotConfigRow } from './lib/crypto'
+import { decide, type StrategyConfig, type StrategyInput, type StrategyKind } from './lib/strategy'
 
-const TICK_MS = 3000
+const TICK_MS = 6_000 // IN 73/2022 minimum interval
+const MAX_TICKS_PER_JOB = 200 // ~20 minutes of work per BullMQ job, then re-enqueue
 
-interface BotSessionRow {
+export interface SessionRow {
   id: string
+  company_id: string
+  config_id: string | null
   pregao_id: string
   portal: string
   status: string
+  mode: string
   strategy_config: Record<string, unknown> | null
   min_price: number | null
   max_bids: number | null
   bids_placed: number
   current_price: number | null
-  mode: string
-  bot_configs: (BotConfigRow & {
-    username: string
-    portal: string
-    min_decrease_value: number | null
-    min_decrease_percent: number | null
-  }) | null
+  started_at: string | null
+  bot_configs:
+    | (BotConfigRow & {
+        id: string
+        username: string
+        portal: string
+        min_decrease_value: number | null
+        min_decrease_percent: number | null
+        bid_times: number[] | null
+      })
+    | null
 }
 
 export class BotSessionRunner {
+  private ticks = 0
   private portal: BasePortal | null = null
-  private pollInterval: NodeJS.Timeout | null = null
-  private stopping = false
+  private context: BrowserContext | null = null
+  private startedAtMs = 0
 
-  constructor(public sessionId: string) {}
+  constructor(
+    public readonly sessionId: string,
+    private readonly workerTag: string,
+  ) {}
 
-  async start(): Promise<void> {
-    let session: BotSessionRow | null = null
+  /**
+   * Execute until the session reaches a terminal state OR the job budget is
+   * exhausted. When the budget is exhausted, we release the lock and return
+   * a `reEnqueue: true` signal so the processor can schedule a follow-up.
+   */
+  async run(): Promise<{ reEnqueue: boolean; reason: string }> {
+    const session = await this.loadSession()
+
+    if (!session) {
+      return { reEnqueue: false, reason: 'session_not_found' }
+    }
+    if (session.status !== 'pending' && session.status !== 'active') {
+      return { reEnqueue: false, reason: `session_not_runnable:${session.status}` }
+    }
+    if (!session.bot_configs) {
+      await this.markFailed(session.id, 'Session has no linked bot_config')
+      return { reEnqueue: false, reason: 'no_config' }
+    }
+
+    // Decrypt credentials first so we fail fast on key mismatch.
+    let secrets: ReturnType<typeof readBotConfigSecrets>
+    try {
+      secrets = readBotConfigSecrets(session.bot_configs)
+    } catch (err) {
+      await this.markFailed(
+        session.id,
+        `Failed to decrypt credentials: ${err instanceof Error ? err.message : err}`,
+      )
+      return { reEnqueue: false, reason: 'decrypt_failed' }
+    }
+
+    if (secrets.legacyPlaintext) {
+      logger.warn(
+        { sessionId: session.id, configId: session.bot_configs.id },
+        'bot_config is using legacy plaintext — run migrate-plaintext-passwords',
+      )
+    }
 
     try {
-      const { data, error } = await supabase
-        .from('bot_sessions')
-        .select('*, bot_configs(*)')
-        .eq('id', this.sessionId)
-        .single()
+      this.context = await getOrCreateContext(session.bot_configs.id, secrets.cookies ?? undefined)
+      this.portal = this.makePortal(session)
+      this.portal.attach(this.context)
 
-      if (error || !data) {
-        throw new Error(`Session not found: ${this.sessionId}`)
-      }
-      session = data as BotSessionRow
+      // Wire the portal's observed events into bot_events.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(this.portal as any).onObservedEvent = (kind: string, payload: Record<string, unknown>) =>
+        this.emitEvent(session.id, kind, payload).catch(() => undefined)
 
-      if (!session.bot_configs) {
-        throw new Error('Session has no linked bot_config — cannot resolve credentials')
-      }
+      if (!(await this.portal.isLoggedIn())) {
+        const creds: PortalCredentials = {
+          usuario: session.bot_configs.username,
+          senha: secrets.password,
+          cnpjLicitante: undefined,
+        }
+        await this.portal.login(creds)
 
-      // Decrypt credentials. If the master key is missing or the cipher is
-      // corrupt this throws — we want that to fail the session explicitly
-      // instead of silently continuing with an empty password.
-      const secrets = readBotConfigSecrets(session.bot_configs)
-      if (secrets.legacyPlaintext) {
-        logger.warn(
-          { sessionId: this.sessionId, configId: session.bot_configs.username },
-          'bot_config row is still using legacy plaintext credentials — schedule backfill encryption',
-        )
-      }
+        // Persist the freshly-captured storage state (encrypted).
+        await this.persistStorageState(session.bot_configs.id, this.context)
 
-      // Instantiate the correct portal adapter.
-      if (session.portal === 'comprasgov' || session.portal === 'comprasnet') {
-        this.portal = new ComprasGovPortal({
-          username: session.bot_configs.username,
+        await this.emitEvent(session.id, 'login_refresh', {
+          mode: session.mode,
           portal: session.portal,
         })
-      } else if (session.portal === 'simulator' || session.portal === 'mock') {
-        this.portal = new MockPortal({ username: 'sim', portal: 'simulator' })
-      } else {
-        throw new UnsupportedOperationError(
-          `Portal "${session.portal}" is not yet supported. ` +
-            'Supported in Phase 0: simulator. Phase 1 will add comprasgov (supervisor + auto-bid).',
-        )
       }
 
-      // Move to active + stamp the initial heartbeat.
+      await this.portal.openPregaoRoom(session.pregao_id)
+
+      // Transition to active
+      this.startedAtMs = session.started_at ? Date.parse(session.started_at) : Date.now()
       await supabase
         .from('bot_sessions')
         .update({
           status: 'active',
-          started_at: new Date().toISOString(),
+          started_at: session.started_at ?? new Date().toISOString(),
           last_heartbeat: new Date().toISOString(),
-          worker_id: `${process.env.HOSTNAME || 'local'}-${process.pid}`,
+          worker_id: this.workerTag,
         })
-        .eq('id', this.sessionId)
+        .eq('id', session.id)
 
-      await supabase.from('bot_actions').insert({
-        session_id: this.sessionId,
-        action_type: 'session_start',
-        details: { mode: session.mode, portal: session.portal },
-      })
+      await this.emitEvent(session.id, 'snapshot', { event: 'session_started' })
 
-      // Login. Note: secrets.cookies is the JSON storage state (post-guided-login)
-      // or null; the adapter decides how to use it.
-      const storageState = secrets.cookies ? (JSON.parse(secrets.cookies) as unknown[]) : []
-      const loggedIn = await this.portal.login(storageState)
-      if (!loggedIn) {
-        throw new Error('Portal rejected login')
+      // If supervisor mode, set the floor once and loop as observer.
+      if (session.mode === 'supervisor' && session.min_price !== null) {
+        try {
+          await this.portal.setFloor({
+            valorFinalMinimo: session.min_price,
+            intervaloMinimoSegundos:
+              session.bot_configs.min_decrease_value && session.bot_configs.min_decrease_value >= 1
+                ? Math.ceil(session.bot_configs.min_decrease_value)
+                : 6,
+          })
+          await this.emitEvent(session.id, 'supervisor_handoff', {
+            valorFinalMinimo: session.min_price,
+          })
+        } catch (err) {
+          // setFloor can fail if the portal UI isn't at the right screen
+          // yet — not fatal. Fall through to observation loop.
+          logger.warn(
+            { sessionId: session.id, err: err instanceof Error ? err.message : err },
+            'supervisor setFloor failed — continuing as observer',
+          )
+        }
       }
 
-      await this.portal.navigateToPregao(session.pregao_id)
-
-      // Start the monitoring loop. We explicitly guard against overlapping
-      // ticks because Puppeteer operations can exceed the interval — the
-      // previous version had no reentrance guard and could submit twice.
-      let tickInFlight = false
-      this.pollInterval = setInterval(() => {
-        if (tickInFlight || this.stopping) return
-        tickInFlight = true
-        this.tick(session!)
-          .catch((err: Error) => {
-            logger.error(
-              { sessionId: this.sessionId, err: err.message },
-              'Error in bot tick',
-            )
-          })
-          .finally(() => {
-            tickInFlight = false
-          })
-      }, TICK_MS)
+      return await this.tickLoop(session)
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error'
-      logger.error(
-        { sessionId: this.sessionId, err: message },
-        'Failed to start bot runner',
-      )
-      await this.markFailed(message)
-      await this.stop()
+      await this.handleTerminalError(session, err)
+      return { reEnqueue: false, reason: 'error' }
+    } finally {
+      if (this.portal) {
+        await this.portal.close().catch(() => undefined)
+      }
     }
   }
 
-  private async tick(session: BotSessionRow): Promise<void> {
-    if (!this.portal || this.stopping) return
+  private async tickLoop(session: SessionRow): Promise<{ reEnqueue: boolean; reason: string }> {
+    const strategyKind = (session.strategy_config?.type as StrategyKind | undefined) ?? 'minimal_decrease'
+    const cfg: StrategyConfig = {
+      kind: session.mode === 'shadow' ? 'shadow' : strategyKind,
+      minPrice: session.min_price,
+      maxBids: session.max_bids,
+      bidsPlacedSoFar: session.bids_placed,
+      minDecValue: session.bot_configs?.min_decrease_value ?? 0.01,
+      minDecPercent: session.bot_configs?.min_decrease_percent ?? 0,
+      bidTimes: session.bot_configs?.bid_times ?? [60, 30, 10, 3],
+      snipeSafetyMarginMs: 1500,
+    }
 
-    // Re-check status from DB (user may have paused/cancelled).
-    const { data: fresh } = await supabase
+    let bidsPlaced = session.bids_placed
+
+    while (this.ticks < MAX_TICKS_PER_JOB) {
+      this.ticks++
+
+      // Re-read status each tick so paused/cancelled is honored within 6 s.
+      const { data: fresh } = await supabase
+        .from('bot_sessions')
+        .select('status')
+        .eq('id', session.id)
+        .single()
+
+      if (!fresh) return { reEnqueue: false, reason: 'session_vanished' }
+      if (fresh.status === 'paused') return { reEnqueue: false, reason: 'paused' }
+      if (fresh.status === 'cancelled') return { reEnqueue: false, reason: 'cancelled' }
+      if (fresh.status === 'failed') return { reEnqueue: false, reason: 'failed' }
+
+      let state: BotState
+      try {
+        state = await this.portal!.getState()
+      } catch (err) {
+        await this.emitEvent(session.id, 'error', {
+          phase: 'getState',
+          err: err instanceof Error ? err.message : String(err),
+        })
+        await this.heartbeat(session.id)
+        await this.sleep(TICK_MS)
+        continue
+      }
+
+      await this.emitEvent(session.id, 'tick', {
+        fase: state.fase,
+        melhor_lance: state.melhor_lance,
+        nossa_posicao: state.nossa_posicao,
+        nosso_lance: state.nosso_lance,
+        segundos_restantes: state.segundos_restantes ?? null,
+      })
+
+      if (state.encerrado) {
+        await supabase
+          .from('bot_sessions')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+            last_heartbeat: new Date().toISOString(),
+            locked_until: null,
+            worker_id: null,
+          })
+          .eq('id', session.id)
+        await this.emitEvent(session.id, 'phase_encerrado', { fase: state.fase })
+        return { reEnqueue: false, reason: 'completed' }
+      }
+
+      const strategyInput: StrategyInput = {
+        fase: state.fase,
+        ativo: state.ativo,
+        encerrado: state.encerrado,
+        melhor_lance: state.melhor_lance,
+        nosso_lance: state.nosso_lance,
+        nossa_posicao: state.nossa_posicao,
+        segundos_restantes: state.segundos_restantes ?? null,
+      }
+      const decision = decide(strategyInput, { ...cfg, bidsPlacedSoFar: bidsPlaced })
+
+      if (decision.kind === 'stop') {
+        await supabase
+          .from('bot_sessions')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+            last_heartbeat: new Date().toISOString(),
+            locked_until: null,
+            worker_id: null,
+          })
+          .eq('id', session.id)
+        await this.emitEvent(session.id, 'phase_encerrado', { reason: decision.reason })
+        return { reEnqueue: false, reason: 'stop_decision' }
+      }
+
+      if (decision.kind === 'wait') {
+        // Shadow mode: if the ghost strategy would have bid, log it.
+        if (session.mode === 'shadow' && decision.reason.startsWith('shadow_would_bid')) {
+          await this.emitEvent(session.id, 'shadow_observation', { reason: decision.reason })
+        }
+        await this.heartbeat(session.id)
+        await this.sleep(TICK_MS)
+        continue
+      }
+
+      // decision.kind === 'bid'
+      if (session.mode === 'supervisor') {
+        // Supervisor mode relies on the portal's native auto-bidder. We do
+        // NOT click Submit ourselves. Record what the native robô should
+        // be doing, but don't compete with it.
+        await this.emitEvent(session.id, 'supervisor_handoff', {
+          would_bid: decision.valor,
+          reason: decision.reason,
+        })
+        await this.heartbeat(session.id)
+        await this.sleep(TICK_MS)
+        continue
+      }
+
+      // Auto-bid mode: actually submit.
+      const ok = await this.portal!.submitLance(decision.valor)
+      if (ok) {
+        bidsPlaced++
+        await supabase
+          .from('bot_sessions')
+          .update({
+            bids_placed: bidsPlaced,
+            current_price: decision.valor,
+            last_heartbeat: new Date().toISOString(),
+          })
+          .eq('id', session.id)
+        await supabase.from('bot_actions').insert({
+          session_id: session.id,
+          action_type: 'bid_submitted',
+          details: { valor: decision.valor, reason: decision.reason },
+        })
+        await this.emitEvent(session.id, 'our_bid', {
+          valor: decision.valor,
+          reason: decision.reason,
+        })
+      } else {
+        await supabase.from('bot_actions').insert({
+          session_id: session.id,
+          action_type: 'bid_rejected',
+          details: { valor: decision.valor, reason: decision.reason },
+        })
+        await this.emitEvent(session.id, 'our_bid_nack', {
+          valor: decision.valor,
+          reason: decision.reason,
+        })
+      }
+
+      await this.sleep(TICK_MS)
+    }
+
+    // Budget exhausted — release the lock and request a re-enqueue.
+    await supabase
       .from('bot_sessions')
-      .select('status, bids_placed')
+      .update({
+        last_heartbeat: new Date().toISOString(),
+        locked_until: null,
+      })
+      .eq('id', session.id)
+
+    return { reEnqueue: true, reason: 'tick_budget_exhausted' }
+  }
+
+  private makePortal(session: SessionRow): BasePortal {
+    const meta = {
+      portal: session.portal,
+      configId: session.bot_configs?.id ?? session.config_id ?? 'unknown',
+    }
+    if (session.portal === 'comprasgov' || session.portal === 'comprasnet') {
+      return new ComprasGovPortal(meta)
+    }
+    if (session.portal === 'simulator' || session.portal === 'mock') {
+      return new MockPortal(meta)
+    }
+    throw new UnsupportedOperationError(
+      `Portal "${session.portal}" not supported in Phase 1 (supported: comprasgov, simulator)`,
+    )
+  }
+
+  private async loadSession(): Promise<SessionRow | null> {
+    const { data, error } = await supabase
+      .from('bot_sessions')
+      .select('*, bot_configs(*)')
       .eq('id', this.sessionId)
       .single()
+    if (error || !data) return null
+    return data as SessionRow
+  }
 
-    if (!fresh) return
-
-    if (fresh.status === 'paused' || fresh.status === 'cancelled' || fresh.status === 'failed') {
-      await this.stop()
-      return
-    }
-
-    // Heartbeat: prove to the watchdog we're still alive.
-    const heartbeatTs = new Date().toISOString()
-    const state = await this.portal.getState()
-
-    if (state.encerrado) {
+  private async persistStorageState(configId: string, context: BrowserContext): Promise<void> {
+    try {
+      const json = await getStorageState(context)
+      const { cipher, nonce } = encryptSecret(json)
       await supabase
-        .from('bot_sessions')
-        .update({
-          status: 'completed',
-          completed_at: heartbeatTs,
-          last_heartbeat: heartbeatTs,
-        })
-        .eq('id', this.sessionId)
-
-      await supabase.from('bot_actions').insert({
-        session_id: this.sessionId,
-        action_type: 'session_completed',
-        details: { final_state: state },
-      })
-      await this.stop()
-      return
-    }
-
-    if (!state.ativo) {
-      // Dispute not open yet — just heartbeat and wait.
-      await supabase
-        .from('bot_sessions')
-        .update({ last_heartbeat: heartbeatTs })
-        .eq('id', this.sessionId)
-      return
-    }
-
-    // Evaluate strategy
-    const minPrice = session.min_price
-    const maxBids = session.max_bids
-    const bidsPlaced = fresh.bids_placed ?? 0
-
-    if (maxBids !== null && bidsPlaced >= maxBids) {
-      // Limit reached — just heartbeat and wait for encerramento.
-      await supabase
-        .from('bot_sessions')
-        .update({ last_heartbeat: heartbeatTs })
-        .eq('id', this.sessionId)
-      return
-    }
-
-    // Correct guards:
-    //   - we only bid when we are NOT already in first place (nossa_posicao === 1 means we're winning)
-    //   - melhor_lance must be a real number
-    //   - if min_price is null, we have no floor and should NOT bid blindly
-    if (state.nossa_posicao === 1 || state.melhor_lance === null || minPrice === null) {
-      await supabase
-        .from('bot_sessions')
-        .update({ last_heartbeat: heartbeatTs })
-        .eq('id', this.sessionId)
-      return
-    }
-
-    // Compute next bid using the config's min_decrease_value (+percent) rather
-    // than a hardcoded R$0.01.
-    const minDecValue = session.bot_configs?.min_decrease_value ?? 0.01
-    const minDecPercent = session.bot_configs?.min_decrease_percent ?? 0
-    const percentStep = state.melhor_lance * (minDecPercent / 100)
-    const step = Math.max(minDecValue, percentStep)
-    let proposedBid = state.melhor_lance - step
-
-    if (proposedBid < minPrice) proposedBid = minPrice
-    proposedBid = Math.round(proposedBid * 100) / 100 // 2 decimals
-
-    if (proposedBid >= state.melhor_lance) {
-      // Our floor is already >= current best — we cannot undercut.
-      await supabase.from('bot_actions').insert({
-        session_id: this.sessionId,
-        action_type: 'bid_below_min',
-        details: { current_best: state.melhor_lance, floor: minPrice },
-      })
-      await supabase
-        .from('bot_sessions')
-        .update({ last_heartbeat: heartbeatTs })
-        .eq('id', this.sessionId)
-      return
-    }
-
-    // Submit. UnsupportedOperationError from the stub will bubble up to
-    // the catch in start() and mark the session failed.
-    const startTs = Date.now()
-    const success = await this.portal.submitLance(proposedBid)
-    const latencyMs = Date.now() - startTs
-
-    if (success) {
-      await supabase
-        .from('bot_sessions')
-        .update({
-          bids_placed: bidsPlaced + 1,
-          current_price: proposedBid,
-          last_heartbeat: heartbeatTs,
-        })
-        .eq('id', this.sessionId)
-
-      await supabase.from('bot_actions').insert({
-        session_id: this.sessionId,
-        action_type: 'bid_submitted',
-        details: { valor: proposedBid, original_best: state.melhor_lance, step },
-        latency_ms: latencyMs,
-      })
-    } else {
-      await supabase.from('bot_actions').insert({
-        session_id: this.sessionId,
-        action_type: 'bid_rejected',
-        details: { valor: proposedBid, original_best: state.melhor_lance },
-        latency_ms: latencyMs,
-      })
+        .from('bot_configs')
+        .update({ cookies_cipher: cipher, cookies_nonce: nonce, cookies: null })
+        .eq('id', configId)
+    } catch (err) {
+      logger.warn(
+        { configId, err: err instanceof Error ? err.message : err },
+        'Failed to persist storage state after login',
+      )
     }
   }
 
-  private async markFailed(reason: string): Promise<void> {
+  private async handleTerminalError(session: SessionRow, err: unknown): Promise<void> {
+    const message = err instanceof Error ? err.message : String(err)
+    logger.error({ sessionId: session.id, err: message }, 'Session terminal error')
+
+    if (err instanceof InvalidCredentialsError) {
+      // Invalidate stored cookies so next attempt does a fresh SSO.
+      if (session.bot_configs?.id) {
+        await supabase
+          .from('bot_configs')
+          .update({ cookies_cipher: null, cookies_nonce: null, cookies: null })
+          .eq('id', session.bot_configs.id)
+        await closeContext(session.bot_configs.id)
+      }
+      await this.markFailed(session.id, `Invalid credentials: ${message}`)
+      return
+    }
+
+    if (err instanceof CaptchaRequiredError || err instanceof MfaRequiredError) {
+      await supabase
+        .from('bot_sessions')
+        .update({
+          status: 'paused',
+          result: { error: message, needs_human: true },
+          last_heartbeat: new Date().toISOString(),
+          locked_until: null,
+          worker_id: null,
+        })
+        .eq('id', session.id)
+      await supabase.from('bot_actions').insert({
+        session_id: session.id,
+        action_type: err instanceof MfaRequiredError ? 'captcha_failed' : 'captcha_failed',
+        details: { reason: message },
+      })
+      return
+    }
+
+    await this.markFailed(session.id, message)
+  }
+
+  private async markFailed(sessionId: string, reason: string): Promise<void> {
     await supabase
       .from('bot_sessions')
       .update({
         status: 'failed',
-        completed_at: new Date().toISOString(),
         result: { error: reason },
+        completed_at: new Date().toISOString(),
+        last_heartbeat: new Date().toISOString(),
+        locked_until: null,
+        worker_id: null,
       })
-      .eq('id', this.sessionId)
-
+      .eq('id', sessionId)
     await supabase.from('bot_actions').insert({
-      session_id: this.sessionId,
+      session_id: sessionId,
       action_type: 'session_failed',
       details: { reason },
     })
   }
 
-  async stop(): Promise<void> {
-    this.stopping = true
-    if (this.pollInterval) {
-      clearInterval(this.pollInterval)
-      this.pollInterval = null
-    }
-    if (this.portal) {
-      try {
-        await this.portal.close()
-      } catch (err) {
-        logger.warn(
-          { sessionId: this.sessionId, err: err instanceof Error ? err.message : err },
-          'Portal close errored',
-        )
+  private async emitEvent(
+    sessionId: string,
+    kind: string,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    const tMs = this.startedAtMs ? Date.now() - this.startedAtMs : 0
+    try {
+      const { error } = await supabase
+        .from('bot_events')
+        .insert({ session_id: sessionId, kind, t_ms: tMs, payload })
+      if (error) {
+        logger.warn({ sessionId, kind, err: error.message }, 'Failed to insert bot_event')
       }
+    } catch (err) {
+      logger.warn(
+        { sessionId, kind, err: err instanceof Error ? err.message : err },
+        'Failed to insert bot_event',
+      )
     }
+  }
+
+  private async heartbeat(sessionId: string): Promise<void> {
+    await supabase
+      .from('bot_sessions')
+      .update({ last_heartbeat: new Date().toISOString() })
+      .eq('id', sessionId)
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((r) => setTimeout(r, ms))
   }
 }

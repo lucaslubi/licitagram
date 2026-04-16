@@ -1,0 +1,109 @@
+# Compras.gov.br (comprasnet-web SPA) bot adapter selectors.
+#
+# Loaded at boot. Edit this file + restart the worker to hot-fix selector
+# drift — no recompile needed.
+#
+# Preference order: role+name > aria-label > data-* > text > xpath. CSS
+# class hashes are NEVER used because the SPA rebundles them per deploy.
+#
+# See packages/workers/src/bot/portals/comprasgov.ts for consumption.
+
+host: https://cnetmobile.estaleiro.serpro.gov.br
+
+paths:
+  area_trabalho: /comprasnet-web/seguro/fornecedor/area-trabalho
+  fornecedor_entry: /comprasnet-web/seguro/fornecedor/compras
+  disputa_by_identificador: /comprasnet-web/seguro/fornecedor/disputa?identificador={identificador}
+  proposta_edit: /comprasnet-web/seguro/fornecedor/proposta/{id}
+  session_ended: /comprasnet-area-trabalho-web/sessao-encerrada
+
+sso:
+  # gov.br SSO is a separate origin. The SPA issues a redirect to the
+  # authorize endpoint with its client_id embedded.
+  host: https://sso.acesso.gov.br
+  login_url: https://sso.acesso.gov.br/login
+  cpf_input: 'input#accountId, input[name="accountId"]'
+  cpf_submit: 'button:has-text("Continuar"), button:has-text("Próxima")'
+  password_input: 'input[name="password"], input#password'
+  password_submit: 'button:has-text("Entrar"), button[type="submit"]'
+  mfa_otp_input: 'input[name="codigo"], input[autocomplete="one-time-code"]'
+  captcha_recaptcha_sitekey_attr: '.g-recaptcha[data-sitekey]'
+  captcha_hcaptcha_sitekey_attr: '.h-captcha[data-sitekey]'
+  error_message: '.feedback-message, [class*="erro"], [role="alert"]'
+
+login:
+  # Button inside the comprasnet-web SPA that triggers the SSO redirect.
+  govbr_button: 'button:has-text("Entrar com gov.br"), a:has-text("Entrar com gov.br")'
+  govbr_button_fallback: '[class*="govbr"] button, [aria-label*="gov.br" i]'
+  # URL substring that indicates a successful return from SSO.
+  success_url_contains: /comprasnet-web/seguro/fornecedor/
+  success_indicator: 'nav, header[role="banner"]'
+
+disputa:
+  # Top-level identification of the current pregão on the dispute screen.
+  pregao_header: 'text=/Pregão N[oº]/i'
+  orgao_header: 'text=/Órgão|UASG/i'
+
+  # Per-item card / row. The SPA renders one card per item with its own
+  # bid controls. All subsequent selectors are scoped INSIDE this item
+  # container by the adapter code.
+  item_card: '[data-testid^="item-"], [class*="item-disputa"]'
+
+  # State readers — role+text based to survive CSS rebundling.
+  best_bid_label: 'text=/Melhor lance/i'
+  best_bid_value_after_label: 'xpath=./following-sibling::*[1] | xpath=./following::*[1]'
+  my_last_bid_label: 'text=/Meu último lance|Meu lance/i'
+  my_position_label: 'text=/Posição|Classificação/i'
+  min_decrement_label: 'text=/Intervalo mínimo|Decremento mínimo|Valor do decremento/i'
+  phase_indicator: 'text=/Aberta|Aberto|Fechada|Fechado|Aleatório|Encerramento|Encerrada|Homologada|Suspensa/i'
+  countdown_timer: '[class*="cronometro"], [class*="timer"], text=/\d{1,2}:\d{2}/'
+
+  # Bid form.
+  bid_input: 'input[inputmode="decimal"], input[aria-label*="lance" i]'
+  bid_submit: 'button:has-text("Enviar lance"), button:has-text("Registrar lance"), button:has-text("Dar lance")'
+  bid_confirm_modal_confirm: 'button:has-text("Confirmar"):visible'
+  bid_success_toast: '[role="status"]:has-text(/enviado|registrado/i), [class*="toast"]:has-text(/enviado|registrado/i)'
+  bid_error_toast: '[role="alert"]:has-text(/erro|inválido/i), [class*="toast"]:has-text(/erro|inválido/i)'
+
+  # Chat (mirrored from pregao-chat-monitor selectors for consistency).
+  chat_list: '[data-testid*="chat"] li, [class*="chat"] [class*="mensagem"]'
+  chat_message_text: '[class*="conteudo"], [class*="mensagem-texto"]'
+
+proposta:
+  # Supervisor-mode floor parameters — set BEFORE the dispute opens.
+  # These live on the "Cadastrar proposta" screen.
+  valor_final_minimo_input: 'input[name*="valorFinalMinimo" i], input[aria-label*="valor final" i]'
+  intervalo_minimo_input: 'input[name*="intervaloMinimo" i], input[aria-label*="intervalo" i]'
+  save_parametrizacao: 'button:has-text("Salvar"), button:has-text("Confirmar")'
+  edit_parametrizacao_button: 'button:has-text("Editar parametrização"), button:has-text("Parametrizar robô")'
+
+# XHR / WebSocket observability. The adapter installs a `page.on('response')`
+# hook that filters these and emits bot_events.
+xhr:
+  # Patterns (substrings) for interesting traffic. We DO NOT depend on exact
+  # URLs because the SPA can change them; the adapter matches substrings.
+  ranking_endpoint_substr: '/api/v1/disputa'
+  lance_endpoint_substr: '/lance'
+  parametrizacao_endpoint_substr: '/parametrizacao'
+
+timing:
+  # IN SEGES/ME 73/2022: the minimum interval between bids from the same
+  # licitante is set by the edital, but in practice the platform enforces
+  # ~6 s. We respect the edital's value when it is higher.
+  min_bid_interval_seconds_default: 6
+  # Safety margin before the closing phase clock runs out — do not bid
+  # within this window unless explicitly overridden.
+  snipe_safety_margin_ms: 1500
+  # How often to refresh the session if no XHR activity has been observed.
+  session_refresh_every_min: 30
+
+anti_bot:
+  launch_args:
+    - --disable-blink-features=AutomationControlled
+    - --lang=pt-BR
+  locale: pt-BR
+  timezone: America/Sao_Paulo
+  # Re-auth cadence: gov.br access tokens typically last 1 hour, refresh
+  # rotates. We force a full re-login after this many hours of continuous
+  # use.
+  session_max_age_hours: 6

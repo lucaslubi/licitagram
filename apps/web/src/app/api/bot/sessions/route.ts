@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getUserWithPlan, hasActiveSubscription } from '@/lib/auth-helpers'
+import { enqueueBotSession } from '@/lib/queues/bot-producer'
 
 /**
  * GET /api/bot/sessions
@@ -178,10 +179,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Erro ao criar sessao' }, { status: 500 })
     }
 
-    // TODO(phase-1): enqueue BullMQ job `bot.session.start` here — the
-    // dedicated queue + worker lands in Phase 1. Until then, sessions sit
-    // in `pending` and the legacy Python worker picks them up (if running)
-    // or the watchdog reaps them after heartbeat timeout.
+    // Enqueue the execution job. The worker picks up the session, acquires
+    // the DB soft lock, logs in if needed, opens the pregão room, and
+    // drives the tick loop.
+    try {
+      await enqueueBotSession(session.id, 'initial', 0)
+    } catch (enqueueErr) {
+      console.error('[API bot/sessions] enqueue error:', enqueueErr)
+      // Non-fatal: the session row is persisted. The watchdog + manual
+      // resume give us a second chance. Surface the warning to the client.
+      return NextResponse.json({
+        session,
+        warning: 'Sessão criada, mas a fila de execução está indisponível. Tente retomar em instantes.',
+      }, { status: 201 })
+    }
 
     return NextResponse.json({ session }, { status: 201 })
   } catch (err) {
@@ -281,6 +292,16 @@ export async function PATCH(req: NextRequest) {
     if (error) {
       console.error('[API bot/sessions] PATCH error:', error)
       return NextResponse.json({ error: 'Erro ao atualizar sessao' }, { status: 500 })
+    }
+
+    // On resume, re-enqueue the execution job so the worker picks it up
+    // again. pause/cancel do not enqueue.
+    if (action === 'resume' && updated?.id) {
+      try {
+        await enqueueBotSession(updated.id, 'resume', 0)
+      } catch (enqueueErr) {
+        console.error('[API bot/sessions] resume enqueue error:', enqueueErr)
+      }
     }
 
     return NextResponse.json({ session: updated })
