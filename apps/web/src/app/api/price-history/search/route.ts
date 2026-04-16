@@ -225,6 +225,64 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Also fetch item-level prices from tender_items + price_history (higher precision)
+    // This gives us unit prices per item instead of global tender prices
+    if (records.length > 0) {
+      const tenderIds = [...new Set(records.map(r => r.licitacao_id))]
+
+      // Fetch tender_items for these tenders
+      const { data: itemData } = await supabase
+        .from('tender_items')
+        .select('tender_id, numero_item, descricao, quantidade, unidade_medida, valor_unitario_estimado, valor_total_estimado')
+        .in('tender_id', tenderIds.slice(0, 100)) // Limit to avoid query explosion
+        .gt('valor_unitario_estimado', 0)
+
+      // Fetch price_history (winning prices per item)
+      const { data: priceData } = await supabase
+        .from('price_history')
+        .select('tender_id, tender_item_number, cnpj_vencedor, nome_vencedor, valor_unitario_vencido, valor_total_vencido, data_homologacao, marca')
+        .in('tender_id', tenderIds.slice(0, 100))
+        .gt('valor_unitario_vencido', 0)
+
+      // Add item-level records with higher confidence
+      if (priceData && priceData.length > 0) {
+        // Find corresponding tender info for each price_history record
+        const tenderMap = new Map(records.map(r => [r.licitacao_id, r]))
+
+        for (const ph of priceData) {
+          const baseTender = tenderMap.get(ph.tender_id)
+          if (!baseTender) continue
+
+          // Find item description
+          const item = itemData?.find(i => i.tender_id === ph.tender_id && i.numero_item === ph.tender_item_number)
+
+          records.push({
+            id: `${ph.tender_id}-item-${ph.tender_item_number}-${ph.cnpj_vencedor || 'win'}`,
+            licitacao_id: ph.tender_id,
+            licitacao_numero: ph.tender_id,
+            licitacao_modalidade: baseTender.licitacao_modalidade,
+            orgao_nome: baseTender.orgao_nome,
+            orgao_uf: baseTender.orgao_uf,
+            orgao_municipio: baseTender.orgao_municipio,
+            fonte: 'pncp_item', // Distinguish item-level data
+            item_description: item?.descricao || baseTender.item_description,
+            item_unit: item?.unidade_medida || 'UN',
+            item_quantity: item?.quantidade || 1,
+            unit_price: ph.valor_unitario_vencido!,
+            total_price: ph.valor_total_vencido || ph.valor_unitario_vencido! * (item?.quantidade || 1),
+            supplier_name: ph.nome_vencedor || 'Vencedor',
+            supplier_cnpj: ph.cnpj_vencedor || '',
+            supplier_uf: '',
+            supplier_porte: 'N/A',
+            date_homologation: new Date(ph.data_homologacao || Date.now()),
+            date_opening: baseTender.date_opening,
+            is_valid: true,
+            confidence_score: 1.0, // Item-level winning prices are highest confidence
+          })
+        }
+      }
+    }
+
     // 1. Deduplicate identical records (same org + value + date)
     const dedupedRecords = deduplicateRecords(records)
 
