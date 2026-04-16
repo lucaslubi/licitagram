@@ -522,7 +522,18 @@ export function PriceHistoryClient() {
               {/* Statistics card */}
               <Card className="bg-[#23262a] border-[#2d2f33]">
                 <CardHeader>
-                  <CardTitle className="text-white text-base">Estatísticas</CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-white text-base">Estatísticas</CardTitle>
+                    {result.data_quality && (
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${
+                        result.data_quality.validated ? 'bg-emerald-500/10 text-emerald-400' :
+                        result.data_quality.partially_validated ? 'bg-blue-500/10 text-blue-400' :
+                        'bg-gray-500/10 text-gray-400'
+                      }`}>
+                        {result.data_quality.validation_label || `${result.data_quality.source_count || 1} fonte(s)`}
+                      </span>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

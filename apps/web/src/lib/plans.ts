@@ -1,13 +1,13 @@
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { cached, CacheKeys, TTL, invalidateCache } from './redis'
+import { DEFAULT_FEATURES } from '@licitagram/shared'
 import type {
   Plan,
   PlanFeatureKey,
   SubscriptionWithPlan,
   MatchLimitResult,
   PlanFeatures,
-  DEFAULT_FEATURES,
 } from '@licitagram/shared'
 
 /**
@@ -185,44 +185,10 @@ export async function checkFeature(
 export async function getCompanyFeatures(companyId: string): Promise<PlanFeatures> {
   const sub = await getCompanySubscription(companyId)
   if (!sub || !sub.plans) {
-    return {
-      portais: [],
-      chat_ia: false,
-      compliance_checker: false,
-      competitive_intel: false,
-      export_excel: false,
-      multi_cnpj: false,
-      api_integration: false,
-      proposal_generator: false,
-      bidding_bot: false,
-      priority_support: false,
-      whatsapp_alerts: false,
-      telegram_alerts: false,
-      lead_engine: false,
-      radar_map: false,
-      certidoes_bot: false,
-      pregao_chat_monitor: false,
-    }
+    return { ...DEFAULT_FEATURES }
   }
   if (!['active', 'trialing'].includes(sub.status)) {
-    return {
-      portais: [],
-      chat_ia: false,
-      compliance_checker: false,
-      competitive_intel: false,
-      export_excel: false,
-      multi_cnpj: false,
-      api_integration: false,
-      proposal_generator: false,
-      bidding_bot: false,
-      priority_support: false,
-      whatsapp_alerts: false,
-      telegram_alerts: false,
-      lead_engine: false,
-      radar_map: false,
-      certidoes_bot: false,
-      pregao_chat_monitor: false,
-    }
+    return { ...DEFAULT_FEATURES }
   }
 
   return sub.plans.features as PlanFeatures

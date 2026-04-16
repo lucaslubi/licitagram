@@ -39,16 +39,29 @@ export interface OutlierConfig {
 }
 
 export const DEFAULT_OUTLIER_CONFIG: OutlierConfig = {
-  multiplier_above: 5,
-  multiplier_below: 0.1,
+  multiplier_above: 5,    // allow up to 5x median (was too aggressive at 3x)
+  multiplier_below: 0.1,  // allow down to 10% of median (was 0.15)
   min_records: 5,
 }
 
 /**
- * Filter outliers using IQR method + median multiplier.
+ * Adaptive outlier multipliers by price band.
+ * More permissive to preserve data breadth.
+ * Only marks as outlier when clearly extreme (5-8x median).
+ */
+function getAdaptiveMultipliers(median: number): { above: number; below: number } {
+  if (median < 100) return { above: 5, below: 0.1 }        // micro: R$0-100
+  if (median < 1_000) return { above: 5, below: 0.1 }      // small: R$100-1k
+  if (median < 10_000) return { above: 6, below: 0.08 }    // medium: R$1k-10k
+  if (median < 100_000) return { above: 7, below: 0.05 }   // large: R$10k-100k
+  return { above: 8, below: 0.05 }                          // mega: R$100k+
+}
+
+/**
+ * Filter outliers using IQR method + adaptive median multiplier.
+ * Multipliers adjust by price band for category-aware detection.
  * Returns the same array with `is_valid` set to false for outliers,
  * and `confidence_score` set to 0 for excluded records.
- * Also adds an `exclusion_reason` field.
  */
 export function filterOutliers(
   records: PriceRecord[],
@@ -66,11 +79,15 @@ export function filterOutliers(
   const p75 = calculatePercentile(prices, 75)
   const iqr = p75 - p25
 
-  // Combine IQR method with median multiplier for robust detection
+  // Adaptive multipliers by price band
+  const adaptive = getAdaptiveMultipliers(median)
+
+  // Combine IQR method with adaptive median multiplier for robust detection
+  // Use 3x IQR (standard statistical outlier definition) — more permissive
   const iqrUpperBound = p75 + 3 * iqr
   const iqrLowerBound = Math.max(0, p25 - 3 * iqr)
-  const medianUpperBound = median * cfg.multiplier_above
-  const medianLowerBound = median * cfg.multiplier_below
+  const medianUpperBound = median * adaptive.above
+  const medianLowerBound = median * adaptive.below
 
   // Use the tighter of the two bounds
   const upperBound = Math.min(iqrUpperBound, medianUpperBound)
@@ -98,7 +115,8 @@ export function deduplicateRecords(records: PriceRecord[]): PriceRecord[] {
     const dateStr = r.date_homologation instanceof Date
       ? r.date_homologation.toISOString().split('T')[0]
       : String(r.date_homologation).split('T')[0]
-    const key = `${r.orgao_nome}|${r.unit_price}|${dateStr}`
+    // Include supplier CNPJ in dedup key — different suppliers with same price are distinct records
+    const key = `${r.orgao_nome}|${r.supplier_cnpj || ''}|${r.unit_price}|${dateStr}`
 
     if (!groups.has(key)) {
       groups.set(key, { record: { ...r }, count: 1 })

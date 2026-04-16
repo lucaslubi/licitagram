@@ -796,17 +796,10 @@ async function main() {
               offset += PAGE
             }
 
+            // AI triage disabled — pgvector semantic matching provides sufficient accuracy
+            // TODO: remove ai-triage code entirely in cleanup sprint
             if (allMatchIds.length > 0) {
-              const CHUNK = 50
-              for (let i = 0; i < allMatchIds.length; i += CHUNK) {
-                const chunk = allMatchIds.slice(i, i + CHUNK)
-                await aiTriageQueue.add(
-                  `company-save-triage-${companyId}-${i}`,
-                  { companyId, matchIds: chunk },
-                  { jobId: `company-save-triage-${companyId}-${i}-${Date.now()}` },
-                )
-              }
-              logger.info({ companyId, matchCount: allMatchIds.length }, 'Step 5: AI triage enqueued')
+              logger.info({ companyId, matchCount: allMatchIds.length }, 'Step 5: AI triage SKIPPED (disabled — pgvector sufficient)')
             }
           } catch (err) {
             logger.error({ companyId, err }, 'Step 5: Failed to enqueue AI triage')
@@ -869,58 +862,9 @@ async function main() {
     // Schedule monthly match counter reset
     scheduleMonthlyReset()
 
-    // Schedule AI triage sweep for keyword-only matches every 2 hours
-    // This catches tenders that were keyword-matched but never AI-triaged
-    // (e.g., tenders stuck in 'new' status that skipped extraction)
-    const runAiTriageSweep = async () => {
-      try {
-        const { data: companies } = await supabase
-          .from('companies')
-          .select('id')
-        if (!companies) return
-
-        const { Queue: Q } = await import('bullmq')
-        const { connection: conn } = await import('./queues/connection')
-        const triageQueue = new Q('ai-triage', { connection: conn })
-
-        let totalEnqueued = 0
-        for (const company of companies) {
-          // Find keyword matches that never got AI triaged
-          const { data: untriaged } = await supabase
-            .from('matches')
-            .select('id')
-            .eq('company_id', company.id)
-            .eq('match_source', 'keyword')
-            .gte('score', 30)
-            .limit(500)
-
-          if (!untriaged || untriaged.length === 0) continue
-
-          const CHUNK = 50
-          for (let i = 0; i < untriaged.length; i += CHUNK) {
-            const chunk = untriaged.slice(i, i + CHUNK).map((m: { id: string }) => m.id)
-            await triageQueue.add(
-              `sweep-triage-${company.id}-${i}`,
-              { companyId: company.id, matchIds: chunk },
-              { jobId: `sweep-triage-${company.id}-${i}-${Date.now()}` },
-            )
-            totalEnqueued += chunk.length
-          }
-        }
-
-        if (totalEnqueued > 0) {
-          logger.info({ totalEnqueued }, 'AI triage sweep: enqueued keyword matches for upgrade')
-        }
-      } catch (err) {
-        logger.error({ err }, 'AI triage sweep failed')
-      }
-    }
-
-    // Run once on startup (after 2 min delay to let other init finish)
-    setTimeout(runAiTriageSweep, 2 * 60 * 1000)
-    // Then every 1 hour (accelerated to drain 10K+ keyword backlog)
-    setInterval(runAiTriageSweep, 60 * 60 * 1000)
-    logger.info('AI triage sweep scheduled (every 1h — upgrades keyword matches)')
+    // AI triage sweep DISABLED — pgvector semantic matching provides sufficient accuracy
+    // Matches go directly to notification pipeline without LLM re-scoring
+    logger.info('AI triage sweep DISABLED (pgvector sufficient)')
   }
 
   if (isFullMode || selectedGroups.includes('scraping')) {

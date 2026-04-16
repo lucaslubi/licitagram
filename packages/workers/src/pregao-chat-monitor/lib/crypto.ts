@@ -4,12 +4,12 @@
  * Uses AES-256-GCM authenticated encryption with a master key from env
  * PREGAO_CREDENTIALS_MASTER_KEY (32 bytes, hex-encoded).
  *
- * Format of `login_nonce`: 56 bytes total = iv1 (12) + tag1 (16) + iv2 (12) + tag2 (16)
- * where iv/tag pair positions correspond to usuario/senha respectively.
- * NOTE: Historically (v1 wizard) we stored only 24 bytes (iv1 + iv2) and appended
- * the auth tag inside the cipher. The decrypt path supports both formats.
+ * Format of `login_nonce`: 24 bytes = iv_u (12) || iv_s (12) for usuario/senha fields.
+ * Each cipher blob is: ciphertext || tag (16 bytes) — matches what the web wizard
+ * writes at apps/web/src/app/api/pregao-chat/credentials/route.ts (POST).
  *
  * For single-field encrypt/decrypt (storage_state), the nonce is 12 (iv) + 16 (tag) = 28 bytes.
+ * The decrypt path also supports the legacy 12-byte iv layout (cipher has tag suffix).
  *
  * NEVER log plaintext credentials. NEVER return them in API responses.
  */

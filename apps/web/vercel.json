@@ -24,5 +24,11 @@
     "src/app/api/admin/monitoring/**/*.ts": {
       "maxDuration": 30
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/price-history/refresh-views",
+      "schedule": "0 6 * * *"
+    }
+  ]
 }

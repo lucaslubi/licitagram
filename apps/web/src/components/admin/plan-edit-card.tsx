@@ -24,7 +24,7 @@ const FEATURE_LABELS: Record<keyof PlanFeatures, string> = {
   lead_engine: 'Licitagram Prospector',
   radar_map: 'Licitagram GeoRadar',
   certidoes_bot: 'Guardian Compliance',
-  pregao_chat_monitor: 'Monitor de Pregões',
+  pregao_chat_monitor: 'Monitor de Pregão',
 }
 
 export function PlanEditCard({ plan }: { plan: any }) {
