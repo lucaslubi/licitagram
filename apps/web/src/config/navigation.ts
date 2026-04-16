@@ -16,6 +16,8 @@ import {
   CreditCard,
   Settings,
   Shield,
+  KeyRound,
+  Activity,
 } from 'lucide-react'
 import type { PlanFeatureKey } from '@licitagram/shared'
 import type { LucideIcon } from 'lucide-react'
@@ -60,6 +62,8 @@ export const navigationGroups: NavGroup[] = [
     items: [
       { id: 'robo', label: 'Agente IA de Lances', icon: Bot, href: '/bot', requiredFeature: 'bidding_bot' },
       { id: 'pregao-monitor', label: 'Monitor de Pregão', icon: Radio, href: '/pregoes', requiredFeature: 'pregao_chat_monitor' },
+      { id: 'bot-api-keys', label: 'Chaves de API', icon: KeyRound, href: '/bot/api-keys', requiredFeature: 'bidding_bot_supreme' },
+      { id: 'bot-status', label: 'Saúde do Robô', icon: Activity, href: '/status' },
     ],
   },
 ]
@@ -86,7 +90,9 @@ export const NAV_TOUR_IDS: Record<string, string> = {
   '/competitors': 'nav-competitors',
   '/price-history': 'nav-precos',
   '/bot': 'nav-bot',
+  '/bot/api-keys': 'nav-bot-api-keys',
   '/pregoes': 'nav-pregao-monitor',
+  '/status': 'nav-bot-status',
   '/documents': 'nav-certidoes',
   '/drive': 'nav-drive',
   '/proposals': 'nav-propostas',
