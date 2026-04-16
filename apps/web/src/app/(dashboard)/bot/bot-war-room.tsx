@@ -31,12 +31,12 @@ export function BotWarRoom({ configs, sessions, companyId, tenders, competitors 
   return (
     <div className="relative">
       {/* Header */}
-      <div className="mb-8 flex items-start justify-between gap-4">
+      <div className="mb-5 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-medium tracking-tight text-foreground">
+          <h1 className="text-xl font-semibold tracking-tight text-foreground">
             Robô de Lances
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-xs text-muted-foreground">
             Automação inteligente para pregões eletrônicos
           </p>
         </div>
@@ -56,7 +56,7 @@ export function BotWarRoom({ configs, sessions, companyId, tenders, competitors 
       </div>
 
       <Tabs value={view} onValueChange={(v) => setView(v as View)}>
-        <TabsList className="mb-8 h-auto w-full justify-start gap-1 rounded-none border-b border-white/[0.06] bg-transparent p-0">
+        <TabsList className="mb-5 h-auto w-full justify-start gap-1 rounded-none border-b border-border bg-transparent p-0">
           {TABS.map((tab) => (
             <TabsTrigger
               key={tab.id}

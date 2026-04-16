@@ -331,29 +331,29 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
   /* ── Render ────────────────────────────────────────────────────────────── */
 
   return (
-    <div className="space-y-6">
-      {/* Stats Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="rounded-xl border border-white/[0.06] bg-card shadow-sm p-6">
-          <p className="text-sm text-gray-400 font-medium uppercase tracking-wider">Total sessões</p>
-          <p className="text-3xl font-bold text-white mt-1">{sessions.length}</p>
+    <div>
+      {/* Stats Row — compact pipeline-style */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+        <div className="bg-card border border-border rounded-xl p-3.5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1">Total sessões</p>
+          <p className="text-xl font-semibold text-foreground font-mono tabular-nums tracking-tight">{sessions.length}</p>
         </div>
-        <div className="rounded-xl border border-white/[0.06] bg-card shadow-sm p-6">
-          <p className="text-sm text-gray-400 font-medium uppercase tracking-wider">Bots ativos</p>
-          <p className="text-3xl font-bold text-blue-400 mt-1">{activeSessions.length}</p>
+        <div className="bg-card border border-border rounded-xl p-3.5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1">Bots ativos</p>
+          <p className="text-xl font-semibold font-mono tabular-nums tracking-tight text-blue-400">{activeSessions.length}</p>
         </div>
-        <div className="rounded-xl border border-white/[0.06] bg-card shadow-sm p-6">
-          <p className="text-sm text-gray-400 font-medium uppercase tracking-wider">Taxa de sucesso</p>
-          <p className="text-3xl font-bold text-emerald-400 mt-1">{winRate}%</p>
+        <div className="bg-card border border-border rounded-xl p-3.5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1">Taxa de sucesso</p>
+          <p className="text-xl font-semibold font-mono tabular-nums tracking-tight text-emerald-400">{winRate}%</p>
         </div>
-        <div className="rounded-xl border border-white/[0.06] bg-card shadow-sm p-6">
-          <p className="text-sm text-gray-400 font-medium uppercase tracking-wider">Lances realizados</p>
-          <p className="text-3xl font-bold text-white mt-1">{totalBids}</p>
+        <div className="bg-card border border-border rounded-xl p-3.5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1">Lances realizados</p>
+          <p className="text-xl font-semibold text-foreground font-mono tabular-nums tracking-tight">{totalBids}</p>
         </div>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="flex gap-1 border-b border-white/[0.06]">
+      {/* Tab Navigation — inline pills */}
+      <div className="flex gap-1 border-b border-border mb-5">
         {[
           { key: 'configs' as const, label: 'Portais Configurados' },
           { key: 'sessions' as const, label: `Sessões Ativas (${activeSessions.length})` },
@@ -362,10 +362,10 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`px-4 py-2.5 text-base font-medium transition-colors border-b-2 -mb-px ${
+            className={`px-3 py-2 text-xs font-medium transition-colors border-b-2 -mb-px ${
               activeTab === tab.key
-                ? 'border-brand text-brand'
-                : 'border-transparent text-gray-400 hover:text-white'
+                ? 'border-brand text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             {tab.label}
