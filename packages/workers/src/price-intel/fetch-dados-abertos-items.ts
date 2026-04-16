@@ -149,7 +149,7 @@ async function main() {
   }
   for (const t of tenderTerms || []) {
     if (t.objeto) {
-      const words = t.objeto.split(/\s+/).filter((w: string) => w.length > 3).slice(0, 3)
+      const words = (t.objeto as string).split(/\s+/).filter((w: string) => w.length > 3).slice(0, 3)
       if (words.length >= 2) terms.add(words.join(' '))
     }
   }
