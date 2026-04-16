@@ -7,7 +7,7 @@ export interface PriceRecord {
   orgao_nome: string
   orgao_uf: string
   orgao_municipio: string
-  fonte: 'pncp' | 'comprasnet' | 'bec' | 'licitanet' | 'manual'
+  fonte: 'pncp' | 'pncp_item' | 'comprasnet' | 'bec' | 'licitanet' | 'dados_abertos' | 'manual'
   item_description: string
   item_catmat_catser?: string
   item_unit: string
