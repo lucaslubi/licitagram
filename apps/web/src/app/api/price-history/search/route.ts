@@ -374,7 +374,7 @@ export async function GET(req: NextRequest) {
               item_description: '', item_unit: '', item_quantity: 1,
               unit_price: c.valor_proposta!,
               total_price: c.valor_proposta!,
-              supplier_name: '', supplier_cnpj: '', supplier_uf: '', supplier_porte: '',
+              supplier_name: '', supplier_cnpj: '', supplier_uf: '', supplier_porte: 'N/A',
               date_homologation: new Date(), date_opening: new Date(),
               is_valid: true, confidence_score: 1,
             })
@@ -387,7 +387,7 @@ export async function GET(req: NextRequest) {
               orgao_nome: '', orgao_uf: '', orgao_municipio: '', fonte: 'pncp',
               item_description: '', item_unit: '', item_quantity: 1,
               unit_price: vh, total_price: vh,
-              supplier_name: '', supplier_cnpj: '', supplier_uf: '', supplier_porte: '',
+              supplier_name: '', supplier_cnpj: '', supplier_uf: '', supplier_porte: 'N/A',
               date_homologation: new Date(), date_opening: new Date(),
               is_valid: true, confidence_score: 0.5,
             })
