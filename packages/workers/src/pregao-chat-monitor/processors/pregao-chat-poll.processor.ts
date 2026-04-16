@@ -62,31 +62,39 @@ export const pregaoChatPollWorker = new Worker<PregaoChatPollJobData>(
     // 2. Get adapter
     const adapter = getAdapter(pregao.portal_slug)
 
-    // 3. Load session state if exists
-    const { data: sessao } = await supabase
-      .from('pregao_sessoes_portal')
-      .select('*')
-      .eq('credencial_id', pregao.credencial_id)
-      .maybeSingle()
+    // Public monitoring mode: no credencial_id means read-only public scrape.
+    // Used for portals like Compras.gov.br where the pregoeiro chat is
+    // publicly readable without fornecedor login.
+    const isPublicMode = !pregao.credencial_id
 
+    // 3. Load session state if exists (only in authenticated mode)
     let storageStateJson: string | undefined
-    if (sessao?.storage_state_cipher && sessao?.storage_state_nonce) {
-      try {
-        storageStateJson = decryptCredential(
-          Buffer.from(sessao.storage_state_cipher),
-          Buffer.from(sessao.storage_state_nonce),
-        )
-      } catch (err) {
-        log.warn({ err }, 'Failed to decrypt session state, starting fresh')
+    if (!isPublicMode) {
+      const { data: sessao } = await supabase
+        .from('pregao_sessoes_portal')
+        .select('*')
+        .eq('credencial_id', pregao.credencial_id)
+        .maybeSingle()
+
+      if (sessao?.storage_state_cipher && sessao?.storage_state_nonce) {
+        try {
+          storageStateJson = decryptCredential(
+            Buffer.from(sessao.storage_state_cipher),
+            Buffer.from(sessao.storage_state_nonce),
+          )
+        } catch (err) {
+          log.warn({ err }, 'Failed to decrypt session state, starting fresh')
+        }
       }
     }
 
-    // 4. Get browser context
-    const context = await getOrCreateContext(pregao.credencial_id, storageStateJson)
+    // 4. Get browser context — keyed by credencial_id (or a public pool id)
+    const contextKey = pregao.credencial_id ?? `public:${pregao.portal_slug}`
+    const context = await getOrCreateContext(contextKey, storageStateJson)
 
     try {
-      // 5. Ensure login
-      if (!(await adapter.isLoggedIn(context))) {
+      // 5. Ensure login — skipped entirely in public mode
+      if (!isPublicMode && !(await adapter.isLoggedIn(context))) {
         const cred = pregao.credencial
         if (!cred) {
           throw new UnrecoverableError('Credential record missing')

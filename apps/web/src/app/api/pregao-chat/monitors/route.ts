@@ -99,46 +99,77 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json()
     const { credencial_id, portal_pregao_url, portal_pregao_id, orgao_nome, numero_pregao, objeto_resumido } = body as {
-      credencial_id: string
+      credencial_id?: string | null
       portal_pregao_url: string
       portal_pregao_id?: string
-      orgao_nome: string
-      numero_pregao: string
+      orgao_nome?: string
+      numero_pregao?: string
       objeto_resumido?: string
     }
 
-    if (!credencial_id || !portal_pregao_url || !orgao_nome || !numero_pregao) {
-      return NextResponse.json({ error: 'Campos obrigatórios: credencial_id, portal_pregao_url, orgao_nome, numero_pregao' }, { status: 400 })
+    if (!portal_pregao_url) {
+      return NextResponse.json({ error: 'URL do pregão é obrigatória' }, { status: 400 })
     }
 
-    // Verify credential belongs to this company
-    const { data: cred } = await supabase
-      .from('pregao_portais_credenciais')
-      .select('id, portal_slug, status')
-      .eq('id', credencial_id)
-      .single()
+    // Auto-detect portal from URL when not tied to an explicit credential.
+    // Public monitoring (no credential) covers the Compras.gov.br use case
+    // where the pregoeiro chat is readable without fornecedor login.
+    let portalSlug: string | null = null
+    let finalCredencialId: string | null = null
 
-    if (!cred) {
-      return NextResponse.json({ error: 'Credencial não encontrada' }, { status: 404 })
+    if (credencial_id) {
+      const { data: cred } = await supabase
+        .from('pregao_portais_credenciais')
+        .select('id, portal_slug, status')
+        .eq('id', credencial_id)
+        .single()
+      if (!cred) return NextResponse.json({ error: 'Credencial não encontrada' }, { status: 404 })
+      if (cred.status !== 'ativo') {
+        return NextResponse.json({ error: 'Credencial precisa estar ativa' }, { status: 400 })
+      }
+      portalSlug = cred.portal_slug
+      finalCredencialId = cred.id
+    } else {
+      try {
+        const host = new URL(portal_pregao_url).hostname.toLowerCase()
+        if (host.includes('comprasnet.gov.br') || host.includes('compras.gov.br') || host.includes('estaleiro.serpro')) portalSlug = 'comprasgov'
+        else if (host.includes('bll')) portalSlug = 'bll'
+        else if (host.includes('licitanet')) portalSlug = 'licitanet'
+        else if (host.includes('portaldecompraspublicas')) portalSlug = 'pcp'
+      } catch { /* invalid URL caught below */ }
+
+      if (!portalSlug) {
+        return NextResponse.json({
+          error: 'Portal não reconhecido pela URL. Portais suportados no modo público: Compras.gov.br',
+        }, { status: 400 })
+      }
+      if (portalSlug !== 'comprasgov') {
+        return NextResponse.json({
+          error: `O portal ${portalSlug} exige credenciais. Use o fluxo autenticado.`,
+        }, { status: 400 })
+      }
     }
 
-    if (cred.status !== 'ativo') {
-      return NextResponse.json({ error: 'Credencial precisa estar ativa (testada com sucesso)' }, { status: 400 })
+    // Auto-derive pregão id from URL when not provided
+    let finalPortalPregaoId = portal_pregao_id
+    if (!finalPortalPregaoId) {
+      try {
+        finalPortalPregaoId = new URL(portal_pregao_url).pathname.split('/').filter(Boolean).pop() || `manual-${Date.now()}`
+      } catch {
+        finalPortalPregaoId = `manual-${Date.now()}`
+      }
     }
-
-    // Generate a portal_pregao_id if not provided
-    const finalPortalPregaoId = portal_pregao_id || new URL(portal_pregao_url).pathname.split('/').filter(Boolean).pop() || `manual-${Date.now()}`
 
     const { data: monitor, error: insertError } = await supabase
       .from('pregoes_monitorados')
       .insert({
         company_id: user.companyId,
-        credencial_id,
-        portal_slug: cred.portal_slug,
+        credencial_id: finalCredencialId,
+        portal_slug: portalSlug,
         portal_pregao_id: finalPortalPregaoId,
         portal_pregao_url,
-        orgao_nome,
-        numero_pregao,
+        orgao_nome: orgao_nome || 'A identificar',
+        numero_pregao: numero_pregao || 'A identificar',
         objeto_resumido: objeto_resumido || null,
         status_monitoramento: 'ativo',
         proximo_poll_em: new Date().toISOString(), // immediate first poll
