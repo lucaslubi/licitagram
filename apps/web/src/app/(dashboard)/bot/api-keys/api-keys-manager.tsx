@@ -75,52 +75,56 @@ export function ApiKeysManager() {
   const revoked = (data?.keys ?? []).filter((k) => !!k.revoked_at)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {justCreated && (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-          <h3 className="font-semibold text-emerald-900">Chave criada — guarde AGORA</h3>
-          <p className="text-sm text-emerald-800 mt-1">
+        <div className="bg-card border border-emerald-500/30 rounded-xl p-4">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-emerald-400 mb-2">
+            Chave criada — guarde AGORA
+          </p>
+          <p className="text-sm text-foreground">
             Este token será mostrado apenas uma vez. Copie-o para o seu gerenciador de segredos.
           </p>
-          <code className="block mt-3 bg-white p-3 rounded font-mono text-xs break-all text-slate-900 border border-emerald-200">
+          <code className="block mt-3 bg-muted p-3 rounded-lg font-mono text-xs break-all text-foreground border border-border">
             {justCreated.plaintext}
           </code>
-          <Button
-            variant="outline"
-            className="mt-3"
-            onClick={() => {
-              navigator.clipboard.writeText(justCreated.plaintext)
-            }}
-          >
-            Copiar
-          </Button>
-          <Button
-            variant="ghost"
-            className="mt-3 ml-2"
-            onClick={() => setJustCreated(null)}
-          >
-            Já guardei
-          </Button>
+          <div className="flex gap-2 mt-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigator.clipboard.writeText(justCreated.plaintext)}
+            >
+              Copiar
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setJustCreated(null)}>
+              Já guardei
+            </Button>
+          </div>
         </div>
       )}
 
-      <div className="rounded-lg border border-slate-200 bg-white p-4">
-        <h2 className="font-semibold mb-3">Criar nova chave</h2>
+      <div className="bg-card border border-border rounded-xl p-4">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-3">
+          Criar nova chave
+        </p>
         <div className="flex flex-col md:flex-row gap-3 md:items-end">
           <div className="flex-1">
-            <Label htmlFor="name">Nome (apenas para identificação)</Label>
+            <Label htmlFor="name" className="text-xs text-muted-foreground">
+              Nome (apenas para identificação)
+            </Label>
             <Input
               id="name"
               placeholder="Ex: integração SAP produção"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              className="mt-1"
             />
           </div>
-          <label className="flex items-center gap-2 text-sm text-slate-700">
+          <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
             <input
               type="checkbox"
               checked={writeScope}
               onChange={(e) => setWriteScope(e.target.checked)}
+              className="h-4 w-4 rounded border-border"
             />
             Permitir gravação (POST/PATCH)
           </label>
@@ -128,40 +132,46 @@ export function ApiKeysManager() {
             Gerar chave
           </Button>
         </div>
-        {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
+        {error && <p className="text-xs text-destructive mt-2">{error}</p>}
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
-        <div className="px-4 py-3 border-b border-slate-200 font-semibold">Chaves ativas</div>
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="px-4 py-3 border-b border-border">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+            Chaves ativas
+          </p>
+        </div>
         {isLoading ? (
-          <div className="p-4 text-slate-600">Carregando…</div>
+          <div className="p-4 text-sm text-muted-foreground">Carregando…</div>
         ) : active.length === 0 ? (
-          <div className="p-4 text-slate-600">Nenhuma chave ativa.</div>
+          <div className="p-4 text-sm text-muted-foreground">Nenhuma chave ativa.</div>
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-slate-600">
+            <thead className="bg-muted/50">
               <tr>
-                <th className="text-left px-4 py-2">Nome</th>
-                <th className="text-left px-4 py-2">Preview</th>
-                <th className="text-left px-4 py-2">Escopos</th>
-                <th className="text-left px-4 py-2">Último uso</th>
-                <th className="text-right px-4 py-2">Ação</th>
+                <th className="text-left px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Nome</th>
+                <th className="text-left px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Preview</th>
+                <th className="text-left px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Escopos</th>
+                <th className="text-left px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Último uso</th>
+                <th className="text-right px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Ação</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-border">
               {active.map((k) => (
                 <tr key={k.id}>
-                  <td className="px-4 py-2 font-medium text-slate-900">{k.name}</td>
-                  <td className="px-4 py-2 font-mono text-xs text-slate-700">{k.key_preview}••••</td>
-                  <td className="px-4 py-2 space-x-1">
+                  <td className="px-4 py-2.5 font-medium text-foreground">{k.name}</td>
+                  <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{k.key_preview}••••</td>
+                  <td className="px-4 py-2.5 space-x-1">
                     {k.scopes.map((s) => (
-                      <Badge key={s} className="bg-slate-200 text-slate-800">{s}</Badge>
+                      <Badge key={s} variant="secondary" className="text-[10px] uppercase tracking-wider">
+                        {s}
+                      </Badge>
                     ))}
                   </td>
-                  <td className="px-4 py-2 text-slate-600">
+                  <td className="px-4 py-2.5 text-xs text-muted-foreground font-mono tabular-nums">
                     {k.last_used_at ? new Date(k.last_used_at).toLocaleString('pt-BR') : 'nunca'}
                   </td>
-                  <td className="px-4 py-2 text-right">
+                  <td className="px-4 py-2.5 text-right">
                     <Button variant="ghost" size="sm" onClick={() => revoke(k.id)} disabled={busy}>
                       Revogar
                     </Button>
@@ -174,17 +184,17 @@ export function ApiKeysManager() {
       </div>
 
       {revoked.length > 0 && (
-        <details className="rounded-lg border border-slate-200 bg-white">
-          <summary className="px-4 py-3 cursor-pointer text-slate-600">
+        <details className="bg-card border border-border rounded-xl">
+          <summary className="px-4 py-3 cursor-pointer text-xs text-muted-foreground hover:text-foreground transition-colors">
             Chaves revogadas ({revoked.length})
           </summary>
-          <table className="w-full text-sm">
-            <tbody className="divide-y divide-slate-100">
+          <table className="w-full text-sm border-t border-border">
+            <tbody className="divide-y divide-border">
               {revoked.map((k) => (
-                <tr key={k.id} className="text-slate-500">
-                  <td className="px-4 py-2 font-mono text-xs">{k.key_preview}••••</td>
-                  <td className="px-4 py-2">{k.name}</td>
-                  <td className="px-4 py-2">
+                <tr key={k.id} className="text-muted-foreground">
+                  <td className="px-4 py-2.5 font-mono text-xs">{k.key_preview}••••</td>
+                  <td className="px-4 py-2.5">{k.name}</td>
+                  <td className="px-4 py-2.5 text-xs font-mono tabular-nums">
                     revogada em {k.revoked_at ? new Date(k.revoked_at).toLocaleString('pt-BR') : '?'}
                   </td>
                 </tr>

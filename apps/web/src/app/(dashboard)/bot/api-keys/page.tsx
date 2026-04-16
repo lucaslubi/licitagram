@@ -18,21 +18,28 @@ export default async function ApiKeysPage() {
   // bidding_bot_supreme gate: API + webhooks é Enterprise-only.
   if (!hasFeature(planUser, 'bidding_bot_supreme')) {
     return (
-      <div className="container mx-auto p-6">
-        <h1 className="text-2xl font-semibold">API Keys</h1>
-        <p className="mt-4 text-slate-600">
-          Esta feature faz parte do plano Enterprise (Licitagram Supreme Bot).{' '}
-          <Link href="/pricing" className="text-brand underline">Ver planos →</Link>
-        </p>
+      <div>
+        <div className="mb-5">
+          <h1 className="text-xl font-semibold text-foreground tracking-tight">Chaves de API</h1>
+          <p className="text-xs text-muted-foreground mt-1">
+            Tokens de acesso à API pública v1
+          </p>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-6">
+          <p className="text-sm text-muted-foreground">
+            Esta feature faz parte do plano Enterprise (Licitagram Supreme Bot).{' '}
+            <Link href="/pricing" className="text-brand underline">Ver planos →</Link>
+          </p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-slate-900">API Keys</h1>
-        <p className="text-sm text-slate-600 mt-1">
+    <div>
+      <div className="mb-5">
+        <h1 className="text-xl font-semibold text-foreground tracking-tight">Chaves de API</h1>
+        <p className="text-xs text-muted-foreground mt-1">
           Tokens de acesso à API pública v1. Consulte a{' '}
           <Link className="text-brand underline" href="/api/v1/bot/README.md">documentação</Link>.
         </p>
