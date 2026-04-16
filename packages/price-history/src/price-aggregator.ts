@@ -45,10 +45,23 @@ export const DEFAULT_OUTLIER_CONFIG: OutlierConfig = {
 }
 
 /**
- * Filter outliers using IQR method + median multiplier.
+ * Adaptive outlier multipliers by price band.
+ * Low-value items (< R$1k) have tighter bounds — a R$10 item at R$50 is suspicious.
+ * High-value items (> R$100k) have wider bounds — IT systems have legitimate wide ranges.
+ */
+function getAdaptiveMultipliers(median: number): { above: number; below: number } {
+  if (median < 100) return { above: 2.5, below: 0.2 }       // micro: R$0-100
+  if (median < 1_000) return { above: 2.5, below: 0.15 }    // small: R$100-1k
+  if (median < 10_000) return { above: 3.0, below: 0.15 }   // medium: R$1k-10k
+  if (median < 100_000) return { above: 3.5, below: 0.1 }   // large: R$10k-100k
+  return { above: 4.0, below: 0.1 }                          // mega: R$100k+
+}
+
+/**
+ * Filter outliers using IQR method + adaptive median multiplier.
+ * Multipliers adjust by price band for category-aware detection.
  * Returns the same array with `is_valid` set to false for outliers,
  * and `confidence_score` set to 0 for excluded records.
- * Also adds an `exclusion_reason` field.
  */
 export function filterOutliers(
   records: PriceRecord[],
@@ -66,11 +79,14 @@ export function filterOutliers(
   const p75 = calculatePercentile(prices, 75)
   const iqr = p75 - p25
 
-  // Combine IQR method with median multiplier for robust detection
-  const iqrUpperBound = p75 + 3 * iqr
-  const iqrLowerBound = Math.max(0, p25 - 3 * iqr)
-  const medianUpperBound = median * cfg.multiplier_above
-  const medianLowerBound = median * cfg.multiplier_below
+  // Adaptive multipliers by price band
+  const adaptive = getAdaptiveMultipliers(median)
+
+  // Combine IQR method with adaptive median multiplier for robust detection
+  const iqrUpperBound = p75 + 2.5 * iqr // Tightened from 3x IQR
+  const iqrLowerBound = Math.max(0, p25 - 2.5 * iqr)
+  const medianUpperBound = median * adaptive.above
+  const medianLowerBound = median * adaptive.below
 
   // Use the tighter of the two bounds
   const upperBound = Math.min(iqrUpperBound, medianUpperBound)

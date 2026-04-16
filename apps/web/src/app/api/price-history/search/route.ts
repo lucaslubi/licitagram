@@ -125,12 +125,36 @@ export async function GET(req: NextRequest) {
       query = query.in('competitors.situacao', ['Informado', 'Homologado'])
     }
 
-    // Order and paginate
+    // Order and paginate — this is for the CURRENT PAGE data only
     query = query
       .order('data_encerramento', { ascending: false })
       .range(offset, offset + pageSize - 1)
 
     const { data, count, error } = await query
+
+    // If stats cache is empty, fetch ALL records (up to 500) for global statistics
+    // This ensures stats are consistent across pages
+    let allRecordsForStats: typeof data = null
+    if (!cachedStats) {
+      let statsQuery = supabase
+        .from('tenders')
+        .select(
+          'id, objeto, valor_estimado, valor_homologado, uf, municipio, modalidade_nome, orgao_nome, data_publicacao, data_encerramento, competitors!inner(cnpj, nome, valor_proposta, situacao, porte, uf_fornecedor)',
+        )
+        .textSearch('objeto', q, { type: 'websearch', config: 'portuguese' })
+        .not('valor_homologado', 'is', null)
+        .order('data_encerramento', { ascending: false })
+        .limit(500) // Up to 500 tenders for stats calculation
+
+      if (uf) statsQuery = statsQuery.eq('uf', uf)
+      if (modalidade) statsQuery = statsQuery.eq('modalidade_nome', modalidade)
+      if (dateFrom) statsQuery = statsQuery.gte('data_encerramento', dateFrom)
+      if (dateTo) statsQuery = statsQuery.lte('data_encerramento', dateTo)
+      if (winOnly) statsQuery = statsQuery.in('competitors.situacao', ['Informado', 'Homologado'])
+
+      const { data: statsData } = await statsQuery
+      allRecordsForStats = statsData
+    }
 
     if (error) {
       console.error('Price history search error:', error)
@@ -283,38 +307,138 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Also fetch cross-reference prices from price_references (multi-source)
+    try {
+      const { data: refData } = await supabase
+        .from('price_references')
+        .select('*')
+        .textSearch('descricao', q, { type: 'websearch', config: 'portuguese' })
+        .order('data_referencia', { ascending: false })
+        .limit(50)
+
+      if (refData && refData.length > 0) {
+        for (const ref of refData) {
+          if (!ref.valor_unitario || ref.valor_unitario <= 0) continue
+
+          records.push({
+            id: `ref-${ref.id}`,
+            licitacao_id: ref.fonte_id || ref.id,
+            licitacao_numero: ref.fonte_id || ref.id,
+            licitacao_modalidade: ref.modalidade || 'N/I',
+            orgao_nome: ref.orgao_nome || 'Fonte externa',
+            orgao_uf: ref.orgao_uf || '',
+            orgao_municipio: '',
+            fonte: ref.fonte as PriceRecord['fonte'],
+            item_description: ref.descricao,
+            item_unit: ref.unidade_medida || 'UN',
+            item_quantity: ref.quantidade || 1,
+            unit_price: ref.valor_unitario,
+            total_price: ref.valor_total || ref.valor_unitario,
+            supplier_name: ref.nome_fornecedor || 'N/I',
+            supplier_cnpj: ref.cnpj_fornecedor || '',
+            supplier_uf: '',
+            supplier_porte: ref.porte_fornecedor || 'N/A',
+            date_homologation: new Date(ref.data_referencia),
+            date_opening: new Date(ref.data_referencia),
+            is_valid: true,
+            confidence_score: ref.confiabilidade || 0.8,
+          })
+        }
+      }
+    } catch {
+      // price_references table may not exist yet — ignore
+    }
+
     // 1. Deduplicate identical records (same org + value + date)
     const dedupedRecords = deduplicateRecords(records)
 
     // 2. Filter outliers (marks is_valid=false, does NOT remove)
     const processedRecords = filterOutliers(dedupedRecords)
 
-    // 3. Compute statistics only on VALID records (outliers excluded from stats)
+    // 3. Compute statistics on GLOBAL dataset (not just current page)
+    // This fixes the bug where each page showed different percentiles
+    let globalRecords: PriceRecord[] = []
+    if (allRecordsForStats && allRecordsForStats.length > 0) {
+      // Transform ALL tenders (not just current page) for stats
+      for (const tender of allRecordsForStats) {
+        const comps = ((tender as Record<string, unknown>).competitors || []) as Array<{
+          valor_proposta: number | null; situacao: string | null
+        }>
+        const validComps = comps.filter(c => c.valor_proposta && c.valor_proposta > 0 && c.valor_proposta < 1e10)
+
+        if (validComps.length > 0) {
+          for (const c of validComps) {
+            globalRecords.push({
+              id: '', licitacao_id: '', licitacao_numero: '', licitacao_modalidade: '',
+              orgao_nome: '', orgao_uf: '', orgao_municipio: '', fonte: 'pncp',
+              item_description: '', item_unit: '', item_quantity: 1,
+              unit_price: c.valor_proposta!,
+              total_price: c.valor_proposta!,
+              supplier_name: '', supplier_cnpj: '', supplier_uf: '', supplier_porte: '',
+              date_homologation: new Date(), date_opening: new Date(),
+              is_valid: true, confidence_score: 1,
+            })
+          }
+        } else if ((tender as Record<string, unknown>).valor_homologado) {
+          const vh = (tender as Record<string, unknown>).valor_homologado as number
+          if (vh > 0 && vh < 1e10) {
+            globalRecords.push({
+              id: '', licitacao_id: '', licitacao_numero: '', licitacao_modalidade: '',
+              orgao_nome: '', orgao_uf: '', orgao_municipio: '', fonte: 'pncp',
+              item_description: '', item_unit: '', item_quantity: 1,
+              unit_price: vh, total_price: vh,
+              supplier_name: '', supplier_cnpj: '', supplier_uf: '', supplier_porte: '',
+              date_homologation: new Date(), date_opening: new Date(),
+              is_valid: true, confidence_score: 0.5,
+            })
+          }
+        }
+      }
+      // Filter outliers on global set
+      globalRecords = filterOutliers(globalRecords).filter(r => r.is_valid)
+    }
+
+    // Use global records for stats if available, otherwise fall back to page records
     const validRecords = processedRecords.filter((r) => r.is_valid)
-    const statistics = computeStatistics(validRecords)
-    const trend = analyzeTrend(validRecords)
+    const statsSource = globalRecords.length > 0 ? globalRecords : validRecords
+    const statistics = computeStatistics(statsSource)
+    const trend = analyzeTrend(validRecords) // Trend uses page records (has dates)
     const totalCount = count || 0
 
     // 4. Count excluded for metadata
     const excludedCount = processedRecords.filter((r) => !r.is_valid).length
 
-    // 5. Compute data quality metadata
+    // 5. Compute data quality metadata (multi-source awareness)
+    const fonteSet = new Set(validRecords.map(r => r.fonte))
     const proposalRecords = validRecords.filter(r => r.confidence_score >= 0.9)
     const homologadoRecords = validRecords.filter(r => r.confidence_score < 0.9)
+    const externalRecords = validRecords.filter(r => !['pncp', 'pncp_item'].includes(r.fonte))
     const avgConfidence = validRecords.length > 0
       ? validRecords.reduce((sum, r) => sum + r.confidence_score, 0) / validRecords.length
       : 0
 
+    // Selo "Referência Validada": when 3+ independent sources converge
+    const isValidated = fonteSet.size >= 3 && validRecords.length >= 10
+    const isPartiallyValidated = fonteSet.size >= 2 && validRecords.length >= 5
+
     const dataQuality = {
       total_records: validRecords.length,
-      proposal_records: proposalRecords.length,      // registros de propostas individuais (alta confiança)
-      homologado_records: homologadoRecords.length,   // registros de valor homologado apenas (baixa confiança)
+      proposal_records: proposalRecords.length,
+      homologado_records: homologadoRecords.length,
+      external_records: externalRecords.length,
       excluded_outliers: excludedCount,
       avg_confidence: Math.round(avgConfidence * 100) / 100,
       confidence_level: avgConfidence >= 0.85 && validRecords.length >= 10 ? 'alta'
         : avgConfidence >= 0.7 && validRecords.length >= 5 ? 'media'
         : 'baixa',
-      sources: ['pncp'] as string[],
+      sources: Array.from(fonteSet),
+      source_count: fonteSet.size,
+      // Selo de referência validada
+      validated: isValidated,
+      partially_validated: isPartiallyValidated,
+      validation_label: isValidated ? 'Referência Validada (3+ fontes)'
+        : isPartiallyValidated ? 'Referência Parcial (2 fontes)'
+        : 'Fonte Única',
     }
 
     // Cache stats (2h) and data (1h) in background
