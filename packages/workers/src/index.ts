@@ -18,7 +18,7 @@ import type { Worker } from 'bullmq'
 const queuesArg = process.argv.find(a => a.startsWith('--queues='))?.split('=')[1]
   || (process.argv.indexOf('--queues') >= 0 ? process.argv[process.argv.indexOf('--queues') + 1] : null)
 
-const ALL_GROUPS = ['scraping', 'extraction', 'matching', 'alerts', 'telegram', 'whatsapp', 'email', 'enrichment', 'notification', 'analysis', 'certidoes', 'pregao-chat']
+const ALL_GROUPS = ['scraping', 'extraction', 'matching', 'alerts', 'telegram', 'whatsapp', 'email', 'enrichment', 'notification', 'analysis', 'certidoes', 'pregao-chat', 'bot']
 const selectedGroups = queuesArg ? queuesArg.split(',').map(g => g.trim()) : ALL_GROUPS
 const isFullMode = !queuesArg
 
@@ -115,6 +115,19 @@ async function loadWorkers(): Promise<Worker[]> {
     const { pregaoChatClassifyWorker } = await import('./pregao-chat-monitor/processors/pregao-chat-classify.processor')
     const { pregaoPortalTestWorker } = await import('./pregao-chat-monitor/processors/pregao-portal-test.processor')
     workers.push(pregaoChatPollWorker, pregaoChatClassifyWorker, pregaoPortalTestWorker)
+  }
+
+  // Licitagram Supreme Bot: Phase 0 = watchdog only. Phase 1 adds the
+  // session executor queue + worker.
+  if (isFullMode || selectedGroups.includes('bot')) {
+    const { botWatchdogWorker } = await import('./bot/processors/bot-watchdog.processor')
+    const { ensureBotWatchdogScheduled } = await import('./bot/queues/bot-watchdog.queue')
+    workers.push(botWatchdogWorker)
+    // Register the repeatable sweep at boot. Idempotent — BullMQ dedupes
+    // by jobId so re-registering is a no-op.
+    await ensureBotWatchdogScheduled().catch((err) => {
+      logger.error({ err: err instanceof Error ? err.message : err }, 'Failed to schedule bot watchdog')
+    })
   }
 
   if (isFullMode || selectedGroups.includes('analysis')) {

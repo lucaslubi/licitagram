@@ -1,6 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getUserWithPlan, hasActiveSubscription } from '@/lib/auth-helpers'
+import { encryptSecret, hasCredentialMasterKey } from '@/lib/credential-crypto'
+
+/**
+ * Masking placeholder returned in GET responses. Fixed-width so the real
+ * cipher value cannot be inferred from the string length.
+ */
+const PASSWORD_MASK = '••••••••'
+
+/**
+ * Strip every secret-bearing field from a bot_configs row before echoing it
+ * back to the browser. Replaces password with a mask if one is set.
+ */
+function stripSecrets(row: Record<string, unknown>): Record<string, unknown> {
+  const {
+    password_hash,
+    password_cipher,
+    password_nonce,
+    cookies,
+    cookies_cipher,
+    cookies_nonce,
+    ...rest
+  } = row
+  const hasPassword = !!(password_cipher || password_hash)
+  const hasCookies = !!(cookies_cipher || cookies)
+  return {
+    ...rest,
+    password: hasPassword ? PASSWORD_MASK : '',
+    has_cookies: hasCookies,
+  }
+}
 
 /**
  * GET /api/bot/config
@@ -40,11 +70,28 @@ export async function GET() {
       return NextResponse.json({ error: 'Erro ao listar configuracoes' }, { status: 500 })
     }
 
-    // Map password_hash -> masked password for frontend compatibility (NEVER send real password)
-    const mapped = (configs ?? []).map(({ password_hash, ...rest }: Record<string, unknown>) => ({
-      ...rest,
-      password: password_hash ? '••••••••' : '',
-    }))
+    // Never return plaintext or ciphertext. Always send a fixed mask when a
+    // credential is present, so the caller only learns "is set / is not set".
+    // Strips password_hash, password_cipher, password_nonce, cookies_cipher,
+    // cookies_nonce — nothing server-secret should reach the browser.
+    const mapped = (configs ?? []).map((cfg: Record<string, unknown>) => {
+      const {
+        password_hash,
+        password_cipher,
+        password_nonce,
+        cookies,
+        cookies_cipher,
+        cookies_nonce,
+        ...rest
+      } = cfg
+      const hasPassword = !!(password_cipher || password_hash)
+      const hasCookies = !!(cookies_cipher || cookies)
+      return {
+        ...rest,
+        password: hasPassword ? PASSWORD_MASK : '',
+        has_cookies: hasCookies,
+      }
+    })
 
     return NextResponse.json({ configs: mapped })
   } catch (err) {
@@ -94,22 +141,52 @@ export async function POST(req: NextRequest) {
       enabled,
     } = body
 
-    if (!portal || !username || !password || !strategy) {
+    // Callers that are only updating non-secret fields (strategy, enabled, etc.)
+    // may send the mask placeholder. Distinguish a real password update from a
+    // round-trip of the mask.
+    const isMaskedPassword = typeof password === 'string' && password === PASSWORD_MASK
+    const hasNewPassword = typeof password === 'string' && password.length > 0 && !isMaskedPassword
+
+    if (!portal || !username || !strategy) {
       return NextResponse.json(
-        { error: 'Campos obrigatorios: portal, username, password, strategy' },
+        { error: 'Campos obrigatorios: portal, username, strategy' },
         { status: 400 },
       )
     }
 
-    const record = {
+    // On create, a real password is required. On update, it's optional.
+    if (!id && !hasNewPassword) {
+      return NextResponse.json(
+        { error: 'Senha obrigatoria ao criar uma nova configuracao' },
+        { status: 400 },
+      )
+    }
+
+    if (hasNewPassword && !hasCredentialMasterKey()) {
+      return NextResponse.json(
+        { error: 'Servidor nao configurado para criptografar credenciais (master key ausente)' },
+        { status: 500 },
+      )
+    }
+
+    // Build the record. If the caller supplied a new password, encrypt it and
+    // ALSO null out the legacy plaintext column so we never leave stale
+    // plaintext around after an update.
+    const record: Record<string, unknown> = {
       company_id: profile.company_id,
       portal,
       username,
-      password_hash: password,
       strategy,
       min_decrease_value: min_decrease_value ?? 0.01,
       min_decrease_percent: min_decrease_percent ?? 0.1,
       is_active: enabled !== false,
+    }
+
+    if (hasNewPassword) {
+      const { cipher, nonce } = encryptSecret(password)
+      record.password_cipher = cipher
+      record.password_nonce = nonce
+      record.password_hash = null // always clear legacy plaintext on write
     }
 
     if (id) {
@@ -137,8 +214,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Erro ao atualizar configuracao' }, { status: 500 })
       }
 
-      const { password_hash: _pw, ...rest } = updated as Record<string, unknown>
-      return NextResponse.json({ config: { ...rest, password: _pw ? '••••••••' : '' } })
+      return NextResponse.json({ config: stripSecrets(updated as Record<string, unknown>) })
     } else {
       // Create new — use upsert to handle existing configs for same portal
       const { data: created, error } = await supabase
@@ -158,8 +234,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: msg }, { status: 500 })
       }
 
-      const { password_hash: _pw, ...rest } = created as Record<string, unknown>
-      return NextResponse.json({ config: { ...rest, password: _pw ? '••••••••' : '' } }, { status: 201 })
+      return NextResponse.json({ config: stripSecrets(created as Record<string, unknown>) }, { status: 201 })
     }
   } catch (err) {
     console.error('[API bot/config] POST error:', err)

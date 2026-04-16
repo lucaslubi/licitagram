@@ -71,17 +71,26 @@ export async function GET(req: NextRequest) {
 
 /**
  * POST /api/bot/actions
- * Create a new bot action (e.g. manual bid).
+ * Create a new bot action (e.g. manual bid recorded from the war-room UI).
  *
- * Body: { session_id, action_type, details }
+ * Body: { session_id, action_type, details?, idempotency_key? }
+ *
+ * Auth: same gate as GET — authenticated user + active subscription.
+ * The earlier inconsistency (GET checked plan, POST did not) was a security
+ * bug: a user with no active plan could still write audit-trail rows.
  */
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
+    const planUser = await getUserWithPlan()
+    if (!planUser) {
       return NextResponse.json({ error: 'Nao autenticado' }, { status: 401 })
     }
+    if (!hasActiveSubscription(planUser)) {
+      return NextResponse.json({ error: 'Subscription required' }, { status: 403 })
+    }
+
+    const supabase = await createClient()
+    const user = { id: planUser.userId }
 
     const { data: profile } = await supabase
       .from('users')
@@ -94,7 +103,12 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { session_id, action_type, details } = body
+    const { session_id, action_type, details, idempotency_key } = body as {
+      session_id?: string
+      action_type?: string
+      details?: Record<string, unknown>
+      idempotency_key?: string
+    }
 
     if (!session_id || !action_type) {
       return NextResponse.json(
@@ -115,23 +129,50 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Sessao nao encontrada' }, { status: 404 })
     }
 
+    // Idempotency: if the same (session_id, idempotency_key) was already
+    // inserted, return it instead of creating a duplicate. Backs up the
+    // partial unique index added in migration 20260416200000.
+    if (idempotency_key) {
+      const { data: existingAction } = await supabase
+        .from('bot_actions')
+        .select('*')
+        .eq('session_id', session_id)
+        .eq('idempotency_key', idempotency_key)
+        .maybeSingle()
+      if (existingAction) {
+        return NextResponse.json({ action: existingAction, deduped: true }, { status: 200 })
+      }
+    }
+
     const { data: action, error } = await supabase
       .from('bot_actions')
       .insert({
         session_id,
         action_type,
         details: details || {},
+        idempotency_key: idempotency_key || null,
       })
       .select()
       .single()
 
     if (error) {
+      if (error.code === '23505' && idempotency_key) {
+        const { data: raced } = await supabase
+          .from('bot_actions')
+          .select('*')
+          .eq('session_id', session_id)
+          .eq('idempotency_key', idempotency_key)
+          .single()
+        if (raced) {
+          return NextResponse.json({ action: raced, deduped: true }, { status: 200 })
+        }
+      }
       console.error('[API bot/actions] POST error:', error)
       return NextResponse.json({ error: 'Erro ao criar acao' }, { status: 500 })
     }
 
     // If it's a bid, update session progress
-    if (action_type === 'bid') {
+    if (action_type === 'bid' || action_type === 'bid_submitted' || action_type === 'bid_acknowledged') {
       try {
         await supabase
           .from('bot_sessions')

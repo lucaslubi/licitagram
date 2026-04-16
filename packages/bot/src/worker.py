@@ -1,7 +1,23 @@
 """
-LICITAGRAM BOT — Worker
+LICITAGRAM BOT — Worker (⚠ DEPRECATED — scheduled for removal in Phase 1)
+
 Polls bot_sessions table for active sessions and executes automated bidding.
-Runs as a PM2 process on the VPS.
+
+THIS FILE IS DEPRECATED. Do not add new features. The TypeScript runner at
+`packages/workers/src/bot/bot-session-runner.ts` is the replacement and will
+take over session execution in Phase 1 of the Supreme Bot rollout. This
+Python worker targets the old comprasnet.gov.br/seguro/loginPortal.asp
+flow which no longer exists (gov.br SSO moved to the comprasnet-web SPA),
+so any real-portal bidding it attempts will fail.
+
+IT IS STILL RUNNING ON THE VPS via PM2 (ecosystem.config.js) as a transitional
+safety net — turn off the PM2 process only AFTER the Phase 1 TS executor is
+verified against a real pregão. Until then it performs heartbeat-compatible
+no-ops: it tries to process sessions, fails, and they get reaped by the
+TypeScript watchdog in packages/workers/src/bot/processors/bot-watchdog.
+
+The sibling file `login_server.py` is NOT deprecated — it is the guided
+login proxy still used by /api/bot/connect. Keep it.
 """
 import os
 import sys

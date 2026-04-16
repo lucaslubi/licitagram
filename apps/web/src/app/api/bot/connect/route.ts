@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getUserWithPlan, hasActiveSubscription } from '@/lib/auth-helpers'
+import { encryptSecret, hasCredentialMasterKey } from '@/lib/credential-crypto'
 
 export const maxDuration = 120
 
@@ -115,13 +116,41 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: message }, { status: 500 })
     }
 
-    // If cookies action and logged_in, save cookies to bot_configs
+    // If cookies action and logged_in, save the session storage state to
+    // bot_configs — ENCRYPTED. These cookies are portal bearer tokens and
+    // must never land in the DB as plaintext.
     if (action === 'cookies' && vpsData?.logged_in && params.config_id) {
-      await supabase
+      const cookiesJson = JSON.stringify(vpsData.cookies)
+
+      if (!hasCredentialMasterKey()) {
+        // Fail loud — we don't want to silently fall back to plaintext.
+        console.error('[API bot/connect] PREGAO_CREDENTIALS_MASTER_KEY missing — refusing to persist cookies')
+        return NextResponse.json({
+          ...vpsData,
+          warning: 'Cookies nao persistidos: servidor sem chave de criptografia configurada',
+        })
+      }
+
+      const { cipher, nonce } = encryptSecret(cookiesJson)
+
+      const { error: updateError } = await supabase
         .from('bot_configs')
-        .update({ cookies: JSON.stringify(vpsData.cookies) })
+        .update({
+          cookies_cipher: cipher,
+          cookies_nonce: nonce,
+          cookies: null, // always clear legacy plaintext column on write
+        })
         .eq('id', params.config_id)
         .eq('company_id', profile.company_id)
+
+      if (updateError) {
+        console.error('[API bot/connect] failed to persist encrypted cookies:', updateError)
+        // Don't leak the cookies back to the client on DB failure either.
+        return NextResponse.json({
+          ...vpsData,
+          warning: 'Login capturado, mas falhou ao persistir a sessao. Tente novamente.',
+        })
+      }
     }
 
     return NextResponse.json(vpsData)
