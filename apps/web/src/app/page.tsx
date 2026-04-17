@@ -372,7 +372,7 @@ export default async function LandingPage() {
               </ScrollReveal>
               <ScrollReveal delay={100}>
                 <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight text-balance">
-                  9 módulos que não existem{' '}
+                  14 módulos que não existem{' '}
                   <span className="text-[#8B8B8B]">em nenhum outro lugar.</span>
                 </h2>
               </ScrollReveal>
@@ -424,6 +424,31 @@ export default async function LandingPage() {
                   num: '09',
                   title: 'Compliance Checker',
                   desc: 'A IA cruza as exigências do edital com os documentos da sua empresa e diz exatamente o que está faltando — antes de você investir tempo na proposta.',
+                },
+                {
+                  num: '10',
+                  title: 'Monitor de Pregão ao Vivo',
+                  desc: 'Cada mensagem do pregoeiro chega no seu WhatsApp em segundos. IA classifica urgência, detecta convocações com prazo e alerta em convocações críticas. Nenhuma diligência perdida.',
+                },
+                {
+                  num: '11',
+                  title: 'Forensic Replay do Pregão',
+                  desc: 'Perdeu um pregão? Rebobine lance por lance. Timeline completo com latência, lances rivais e mudanças de fase. Entenda em qual milissegundo o concorrente bateu seu floor.',
+                },
+                {
+                  num: '12',
+                  title: 'Floor Optimizer com IA',
+                  desc: 'Baseado em histórico de UASG, concorrentes e preço de mercado real, a IA calcula o valor final mínimo ótimo para seu robô. Ninguém mais escolhe floor no olho.',
+                },
+                {
+                  num: '13',
+                  title: 'API Pública + Webhooks',
+                  desc: 'Integre Licitagram ao seu ERP/SAP/Protheus. Bearer tokens, webhooks HMAC-signed ao estilo Stripe, documentação pública. Sua automação interna ganha superpoderes.',
+                },
+                {
+                  num: '14',
+                  title: 'SLO Público e Status Transparente',
+                  desc: 'Publicamos p99 de latência de submissão de lance em tempo real. 30 dias de uptime visível em /status. Nenhuma outra plataforma de licitação mostra seu próprio desempenho.',
                 },
               ].map((item, i) => (
                 <ScrollReveal key={item.num} delay={i * 80}>
