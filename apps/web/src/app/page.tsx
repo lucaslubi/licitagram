@@ -115,9 +115,6 @@ export default async function LandingPage() {
             <Image src="/logo.png" alt="Licitagram" width={232} height={52} className="h-10 sm:h-[3.27rem] w-auto" />
           </div>
           <nav className="hidden md:flex items-center gap-6">
-            <Link href="/precos" className="text-sm text-[#4A4A45] hover:text-[#1A1C1F] transition-colors duration-200">
-              Preços de Mercado
-            </Link>
             <Link href="/blog" className="text-sm text-[#4A4A45] hover:text-[#1A1C1F] transition-colors duration-200">
               Blog
             </Link>
@@ -1338,7 +1335,6 @@ export default async function LandingPage() {
               <h4 className="font-mono text-[10px] uppercase text-[#555] mb-4 tracking-[0.15em]">Recursos</h4>
               <ul className="space-y-3 text-sm">
                 <li><Link href="/blog" className="text-[#8B8B8B] hover:text-white transition-colors duration-200">Blog</Link></li>
-                <li><Link href="/precos" className="text-[#8B8B8B] hover:text-white transition-colors duration-200">Preços de Mercado</Link></li>
                 <li><Link href="/cases" className="text-[#8B8B8B] hover:text-white transition-colors duration-200">Cases</Link></li>
                 <li><Link href="/status" className="text-[#8B8B8B] hover:text-white transition-colors duration-200">Status do Sistema</Link></li>
               </ul>

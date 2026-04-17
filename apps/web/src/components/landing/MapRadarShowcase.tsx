@@ -113,19 +113,8 @@ export function MapRadarShowcase() {
 
         {/* Map video with premium chrome */}
         <div ref={ref} className="relative max-w-5xl mx-auto">
-          {/* Animated gradient border — sits behind, offset */}
-          <div
-            className="absolute -inset-[1px] rounded-2xl opacity-70 blur-[2px]"
-            style={{
-              background:
-                'conic-gradient(from 0deg at 50% 50%, #F43E01 0%, transparent 25%, #34D399 50%, transparent 75%, #F43E01 100%)',
-              animation: 'radar-spin 8s linear infinite',
-            }}
-            aria-hidden
-          />
-
           {/* Browser chrome */}
-          <div className="relative rounded-2xl overflow-hidden bg-[#0F0F14] border border-white/[0.08] shadow-[0_30px_100px_-20px_rgba(244,62,1,0.35),0_0_0_1px_rgba(255,255,255,0.04)_inset]">
+          <div className="relative rounded-2xl overflow-hidden bg-[#0F0F14] border border-white/[0.08] shadow-[0_40px_80px_-24px_rgba(0,0,0,0.6),0_0_0_1px_rgba(255,255,255,0.04)_inset]">
             {/* macOS-style title bar */}
             <div className="flex items-center gap-2.5 px-4 py-3 border-b border-white/[0.06] bg-[#0A0A0F]">
               <div className="flex gap-1.5">
@@ -286,12 +275,6 @@ export function MapRadarShowcase() {
         </div>
       </div>
 
-      {/* Keyframes */}
-      <style jsx>{`
-        @keyframes radar-spin {
-          to { transform: rotate(1turn); }
-        }
-      `}</style>
     </section>
   )
 }
