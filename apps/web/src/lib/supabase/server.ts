@@ -26,3 +26,41 @@ export async function createClient() {
     },
   )
 }
+
+/**
+ * Same as createClient but with a longer Postgres statement timeout — for
+ * expensive endpoints that legitimately need more than the role default
+ * (Preços de Mercado search, reports, analytics). Uses PostgREST's
+ * `Prefer: timeout=<seconds>` header.
+ *
+ * Don't use this as a blanket default — long timeouts hide perf regressions.
+ */
+export async function createClientWithTimeout(timeoutSeconds: number) {
+  const cookieStore = await cookies()
+
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+        setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options),
+            )
+          } catch {
+            // Ignored: setAll from a Server Component.
+          }
+        },
+      },
+      global: {
+        headers: {
+          Prefer: `timeout=${timeoutSeconds}`,
+        },
+      },
+    },
+  )
+}

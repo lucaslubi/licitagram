@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createClientWithTimeout } from '@/lib/supabase/server'
+
+// Price search runs a full-text query + stats aggregation over millions of
+// tender rows. Vercel serverless default is 10 s — bump to 60 s for this
+// endpoint. Postgres statement timeout also bumped via Prefer header below.
+export const maxDuration = 60
 import {
   computeStatistics,
   analyzeTrend,
@@ -21,9 +26,14 @@ const UF_LIST = [
 export async function GET(req: NextRequest) {
   const startTime = Date.now()
 
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  // Auth check on standard client (cheap)
+  const authClient = await createClient()
+  const { data: { user } } = await authClient.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // Heavy queries go through a 45-second Postgres statement timeout client.
+  // PostgREST's Prefer: timeout=45 overrides the authenticated role default.
+  const supabase = await createClientWithTimeout(45)
 
   // Rate limiting: 30 req/min per user
   const rateLimit = await checkRedisRateLimit(`search:${user.id}`, 30, 60)
