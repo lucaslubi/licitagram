@@ -139,7 +139,7 @@ export function MapRadarShowcase() {
               <div className="min-w-0">
                 <h3 className="text-sm font-semibold text-[#1A1C1F] mb-1">Score IA em cada pin</h3>
                 <p className="text-xs text-[#69695D] leading-relaxed">
-                  Matching semântico pgvector: cada pregão traz seu score de compatibilidade calculado.
+                  Matching semântico: cada pregão traz seu score de compatibilidade calculado pela IA.
                 </p>
               </div>
             </div>
