@@ -1,0 +1,152 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '9.12.2'
+
+jobs:
+  # Detect which areas of the monorepo changed. Drives the
+  # protect-licitagram-web gate.
+  changes:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    outputs:
+      web: ${{ steps.filter.outputs.web }}
+      gov: ${{ steps.filter.outputs.gov }}
+      shared: ${{ steps.filter.outputs.shared }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            web:
+              - 'apps/web/**'
+              - 'packages/workers/**'
+              - 'packages/shared/**'
+              - 'packages/price-history/**'
+              - 'packages/proposal-engine/**'
+              - 'packages/supabase/migrations/20260311*'
+              - 'packages/supabase/migrations/20260313*'
+              - 'packages/supabase/migrations/20260314*'
+              - 'packages/supabase/migrations/20260327*'
+            gov:
+              - 'apps/gov/**'
+              - 'packages/gov-core/**'
+              - 'packages/gov-workers/**'
+              - 'packages/supabase/migrations/20260418*'
+            shared:
+              - 'packages/shared/**'
+              - 'tsconfig.base.json'
+              - 'pnpm-workspace.yaml'
+              - 'pnpm-lock.yaml'
+
+  # Always-on: lint + type-check across the whole workspace.
+  quality:
+    name: Lint & type-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @licitagram/shared build
+      - run: pnpm --filter '@licitagram/gov-core' type-check
+      - run: pnpm --filter '@licitagram/gov-workers' type-check
+      - run: pnpm --filter '@licitagram/gov' type-check
+
+  # Tests for the gov packages. Fast — must pass on every PR.
+  test-gov:
+    name: Test gov-*
+    needs: [changes]
+    if: needs.changes.outputs.gov == 'true' || needs.changes.outputs.shared == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @licitagram/shared build
+      - run: pnpm --filter '@licitagram/gov-core' test
+      - run: pnpm --filter '@licitagram/gov-workers' test
+
+  # Build gov app. Runs on any gov- or shared-touching PR.
+  build-gov:
+    name: Build @licitagram/gov
+    needs: [changes]
+    if: needs.changes.outputs.gov == 'true' || needs.changes.outputs.shared == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @licitagram/shared build
+      - run: pnpm --filter '@licitagram/gov-core' build
+      - run: pnpm --filter '@licitagram/gov' build
+
+  # RI-8 GATE: if the PR touches anything that can affect apps/web
+  # (apps/web itself, packages/workers, packages/shared), the
+  # legacy Licitagram build MUST pass. Fase 0 should NOT trigger
+  # this job because it only touches gov-* and docs.
+  protect-licitagram-web:
+    name: Protect Licitagram (RI-8)
+    needs: [changes]
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @licitagram/shared build
+      - run: pnpm --filter web build
+
+  # RI-6 check: all gov-workers queues use the licitagov: prefix.
+  # Fast grep-based sanity; fails CI if raw `new Queue(` shows up
+  # without the prefix in gov-workers.
+  ri6-queue-prefix:
+    name: RI-6 queue prefix
+    needs: [changes]
+    if: needs.changes.outputs.gov == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fail on Queue without licitagov prefix
+        run: |
+          if grep -RnE "new (Queue|Worker)\(" packages/gov-workers/src \
+            | grep -vE "(createGovQueue|createGovWorker|queues\\.test\\.ts)"; then
+            echo "Found raw BullMQ Queue/Worker in gov-workers. Use createGovQueue/createGovWorker to enforce licitagov: prefix (RI-6)."
+            exit 1
+          fi
+          echo "All gov-workers queues go through createGovQueue/createGovWorker."

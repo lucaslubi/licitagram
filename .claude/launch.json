@@ -14,6 +14,13 @@
       "runtimeArgs": ["--filter", "@licitagram/workers", "dev"],
       "port": 3001,
       "autoPort": true
+    },
+    {
+      "name": "gov",
+      "runtimeExecutable": "/bin/sh",
+      "runtimeArgs": ["-c", "export PATH=/Users/lucasdelima/Desktop/licitagram/node_modules/.bin:/Users/lucasdelima/Desktop/licitagram/apps/gov/node_modules/.bin:/Users/lucasdelima/.nvm/versions/node/v20.19.6/bin:/opt/homebrew/bin:$PATH && cd /Users/lucasdelima/Desktop/licitagram && pnpm --filter @licitagram/gov dev"],
+      "port": 3001,
+      "autoPort": true
     }
   ]
 }
