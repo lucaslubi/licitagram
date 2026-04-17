@@ -1,5 +1,9 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
+  "buildCommand": "cd ../.. && pnpm --filter @licitagram/shared build && pnpm --filter @licitagram/gov-core build && pnpm --filter @licitagram/gov build",
+  "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
+  "outputDirectory": ".next",
   "functions": {
     "app/api/**/route.ts": {
       "maxDuration": 60
