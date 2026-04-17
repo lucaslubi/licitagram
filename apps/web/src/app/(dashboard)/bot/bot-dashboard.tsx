@@ -3,9 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-// GuidedLogin intentionally not imported — the default flow uses stored
-// credentials. GuidedLogin can be re-enabled for portals that require
-// interactive MFA, once those adapters land.
+import { GuidedLogin } from './guided-login'
 
 /* ── Types ──────────────────────────────────────────────────────────────────── */
 
@@ -19,6 +17,7 @@ interface BotConfig {
   min_decrease_value: number | null
   min_decrease_percent: number | null
   is_active: boolean
+  has_cookies?: boolean
   created_at: string
 }
 
@@ -107,7 +106,10 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
   const [showConfigDialog, setShowConfigDialog] = useState(false)
   const [showSessionDialog, setShowSessionDialog] = useState(false)
   const [editingConfig, setEditingConfig] = useState<BotConfig | null>(null)
-  // guidedLoginPortal / connectedPortals — retired with the old flow
+  // guidedLoginPortal = which config we're logging in interactively.
+  // Users must do this ONCE per config (to capture SSO cookies) before
+  // the bot can run sessions on that portal.
+  const [guidedLoginPortal, setGuidedLoginPortal] = useState<{ portal: string; configId: string } | null>(null)
 
   // Form state — config
   const [configForm, setConfigForm] = useState({
@@ -303,17 +305,37 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
         body: JSON.stringify(payload),
       })
 
-      const data = await res.json()
+      // Read as text first — server can return HTML on platform timeouts,
+      // middleware redirects or 502s. Doing .json() blindly used to surface
+      // 'Erro de conexao' even when the server sent a clear message.
+      const raw = await res.text()
+      let data: { error?: string; session?: BotSession; warning?: string } = {}
+      try { data = JSON.parse(raw) } catch { /* non-JSON error body */ }
+
       if (!res.ok) {
-        setError(data.error || 'Erro ao criar sessao')
+        let msg = data.error
+        if (!msg) {
+          if (res.status === 401) msg = 'Sessão expirada. Recarregue a página e faça login.'
+          else if (res.status === 403) msg = 'Sua assinatura não autoriza o Agente de Lances. Verifique seu plano.'
+          else if (res.status === 404) msg = 'Configuração não encontrada. Recarregue a página.'
+          else if (res.status >= 500) msg = `Erro ${res.status} no servidor. Tente novamente em instantes.`
+          else msg = `Falha ao criar sessão (HTTP ${res.status}).`
+        }
+        setError(msg)
+        return
+      }
+
+      if (!data.session) {
+        setError('Resposta inválida do servidor. Tente novamente.')
         return
       }
 
       setShowSessionDialog(false)
       router.refresh()
-      setSessions(prev => [data.session, ...prev])
-    } catch {
-      setError('Erro de conexao')
+      setSessions(prev => [data.session as BotSession, ...prev])
+      if (data.warning) setError(`⚠ ${data.warning}`)
+    } catch (err) {
+      setError(err instanceof Error ? `Erro: ${err.message}` : 'Erro de conexão com o servidor')
     } finally {
       setSaving(false)
     }
@@ -422,11 +444,15 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                       <p className="text-sm text-gray-400 mt-0.5 font-mono">{maskCpf(config.username)}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                        config.is_active ? 'bg-emerald-900/20 text-emerald-400 border border-emerald-900/30' : 'bg-white/[0.04] text-gray-400'
-                      }`}>
-                        {config.is_active ? 'Pronto' : 'Inativo'}
-                      </span>
+                      {config.has_cookies ? (
+                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-emerald-900/20 text-emerald-400 border border-emerald-900/30">
+                          ✓ Conectado
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-amber-900/20 text-amber-400 border border-amber-900/30">
+                          ⚠ Login pendente
+                        </span>
+                      )}
                       <button
                         onClick={() => openEditConfig(config)}
                         className="text-gray-400 hover:text-white transition-colors"
@@ -448,26 +474,42 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                     )}
                   </div>
                   <div className="mt-4 pt-4 border-t border-white/[0.06] flex items-center justify-between gap-3">
-                    <p className="text-xs text-gray-400">
-                      Credenciais armazenadas. Clique ao lado para iniciar uma sessão no pregão.
-                    </p>
-                    <button
-                      onClick={() => {
-                        setSessionForm({
-                          config_id: config.id,
-                          pregao_id: '',
-                          min_price: '',
-                          max_bids: '',
-                          strategy: '',
-                          mode: 'supervisor',
-                        })
-                        setError(null)
-                        setShowSessionDialog(true)
-                      }}
-                      className="bg-brand text-white rounded-lg px-4 py-2 text-sm font-semibold hover:bg-brand-dark transition-colors whitespace-nowrap"
-                    >
-                      Iniciar sessão →
-                    </button>
+                    {config.has_cookies ? (
+                      <>
+                        <p className="text-xs text-gray-400">
+                          ✓ Sessão ativa no portal. Pronto para lançar.
+                        </p>
+                        <button
+                          onClick={() => {
+                            setSessionForm({
+                              config_id: config.id,
+                              pregao_id: '',
+                              min_price: '',
+                              max_bids: '',
+                              strategy: '',
+                              mode: 'supervisor',
+                            })
+                            setError(null)
+                            setShowSessionDialog(true)
+                          }}
+                          className="bg-brand text-white rounded-lg px-4 py-2 text-sm font-semibold hover:bg-brand-dark transition-colors whitespace-nowrap"
+                        >
+                          Iniciar sessão →
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-xs text-amber-400">
+                          ⚠ Faça login no portal uma vez para capturar a sessão. Sem isso o bot não consegue abrir o pregão.
+                        </p>
+                        <button
+                          onClick={() => setGuidedLoginPortal({ portal: config.portal, configId: config.id })}
+                          className="bg-amber-500 text-black rounded-lg px-4 py-2 text-sm font-semibold hover:bg-amber-400 transition-colors whitespace-nowrap"
+                        >
+                          Fazer login agora →
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}
@@ -787,9 +829,21 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
         </div>
       )}
 
-      {/* Guided Login modal retired — credentials stored on config are used
-          directly by the worker. If login fails, the session card surfaces
-          the exact error with the real reason. */}
+      {/* Interactive login — required ONCE per config to capture SSO cookies.
+          After success the card shows '✓ Conectado' and 'Iniciar sessão'
+          becomes available. */}
+      {guidedLoginPortal && (
+        <GuidedLogin
+          portal={guidedLoginPortal.portal}
+          configId={guidedLoginPortal.configId}
+          onSuccess={() => {
+            setGuidedLoginPortal(null)
+            // Refresh configs so has_cookies flips to true in UI
+            router.refresh()
+          }}
+          onClose={() => setGuidedLoginPortal(null)}
+        />
+      )}
 
       {/* ═══ New Session Dialog ═══ */}
       {showSessionDialog && (
