@@ -147,12 +147,13 @@ export async function GET(req: NextRequest) {
       .order('data_encerramento', { ascending: false })
       .range(offset, offset + pageSize - 1)
 
-    const { data, error } = await query
+    // ─── Build sibling queries, fire all in parallel ──────────────────────
+    // Sequential awaits here used to cost 15-30 s because each DB round-trip
+    // is additive. We now run the paginated page + count + (optional) stats
+    // query in parallel and await once. This brings the common case to well
+    // under 10 s on warm DB cache.
 
-    // Separate count query — counts DISTINCT tenders that match, without
-    // the `competitors!inner` join which otherwise inflates/deflates the
-    // count depending on PostgREST version. head:true returns just the
-    // HEAD count without rows — very cheap.
+    // Count query (head:true, no inner join — accurate distinct-tender count)
     let countQuery = supabase
       .from('tenders')
       .select('id', { count: 'exact', head: true })
@@ -164,31 +165,74 @@ export async function GET(req: NextRequest) {
     if (dateFrom) countQuery = countQuery.gte('data_encerramento', dateFrom)
     if (dateTo) countQuery = countQuery.lte('data_encerramento', dateTo)
 
-    const { count } = await countQuery
+    // Stats query (only when cache is cold). Reduced 1000 → 300 for speed;
+    // 300 tenders × avg 5 competitors = ~1500 data points — more than enough
+    // for stable percentiles on real-world pregão pricing.
+    const statsQueryPromise: PromiseLike<{ data: unknown[] | null }> = cachedStats
+      ? Promise.resolve({ data: null })
+      : (() => {
+          let q2 = supabase
+            .from('tenders')
+            .select(
+              'id, objeto, valor_estimado, valor_homologado, uf, municipio, modalidade_nome, orgao_nome, data_publicacao, data_encerramento, competitors!inner(cnpj, nome, valor_proposta, situacao, porte, uf_fornecedor)',
+            )
+            .textSearch('objeto', q, { type: 'websearch', config: 'portuguese' })
+            .order('data_encerramento', { ascending: false })
+            .limit(300)
+          if (homologatedOnly) q2 = q2.not('valor_homologado', 'is', null)
+          if (uf) q2 = q2.eq('uf', uf)
+          if (modalidade) q2 = q2.eq('modalidade_nome', modalidade)
+          if (dateFrom) q2 = q2.gte('data_encerramento', dateFrom)
+          if (dateTo) q2 = q2.lte('data_encerramento', dateTo)
+          if (winOnly) q2 = q2.in('competitors.situacao', ['Informado', 'Homologado'])
+          return q2.then((r) => ({ data: r.data }))
+        })()
 
-    // If stats cache is empty, fetch ALL records (up to 500) for global statistics
-    // This ensures stats are consistent across pages
-    let allRecordsForStats: typeof data = null
-    if (!cachedStats) {
-      let statsQuery = supabase
-        .from('tenders')
-        .select(
-          'id, objeto, valor_estimado, valor_homologado, uf, municipio, modalidade_nome, orgao_nome, data_publicacao, data_encerramento, competitors!inner(cnpj, nome, valor_proposta, situacao, porte, uf_fornecedor)',
-        )
-        .textSearch('objeto', q, { type: 'websearch', config: 'portuguese' })
-        .order('data_encerramento', { ascending: false })
-        .limit(1000) // Increased from 500 to 1000 tenders for richer stats
+    // Fire two more independent queries in the same parallel batch:
+    //  - tender_items textSearch (item-level prices, page 1 only to save time)
+    //  - price_references textSearch (multi-source reference prices)
+    // These don't depend on the main paginated result.
+    const itemSearchPromise = page === 1
+      ? supabase
+          .from('tender_items')
+          .select('id, tender_id, numero_item, descricao, quantidade, unidade_medida, valor_unitario_estimado, valor_total_estimado')
+          .textSearch('descricao', q, { type: 'websearch', config: 'portuguese' })
+          .gt('valor_unitario_estimado', 0)
+          .order('valor_unitario_estimado', { ascending: false })
+          .limit(200)
+      : Promise.resolve({ data: null })
 
-      if (homologatedOnly) statsQuery = statsQuery.not('valor_homologado', 'is', null)
-      if (uf) statsQuery = statsQuery.eq('uf', uf)
-      if (modalidade) statsQuery = statsQuery.eq('modalidade_nome', modalidade)
-      if (dateFrom) statsQuery = statsQuery.gte('data_encerramento', dateFrom)
-      if (dateTo) statsQuery = statsQuery.lte('data_encerramento', dateTo)
-      if (winOnly) statsQuery = statsQuery.in('competitors.situacao', ['Informado', 'Homologado'])
+    const refsSearchPromise = page === 1
+      ? supabase
+          .from('price_references')
+          .select('*')
+          .textSearch('descricao', q, { type: 'websearch', config: 'portuguese' })
+          .order('data_referencia', { ascending: false })
+          .limit(50)
+      : Promise.resolve({ data: null })
 
-      const { data: statsData } = await statsQuery
-      allRecordsForStats = statsData
-    }
+    const [pageResult, countResult, statsResult, itemSearchResult, refsResult] = await Promise.all([
+      query,
+      countQuery,
+      statsQueryPromise,
+      itemSearchPromise,
+      refsSearchPromise,
+    ])
+
+    const { data, error } = pageResult
+    const { count } = countResult
+    const allRecordsForStats = statsResult.data
+    const itemSearch = itemSearchResult.data as Array<{
+      id: string
+      tender_id: string
+      numero_item: number | null
+      descricao: string | null
+      quantidade: number | null
+      unidade_medida: string | null
+      valor_unitario_estimado: number | null
+      valor_total_estimado: number | null
+    }> | null
+    const refData = refsResult.data
 
     if (error) {
       console.error('Price history search error:', error)
@@ -283,18 +327,9 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // DIRECT ITEM SEARCH: query tender_items by description — finds items across
-    // ALL tenders in the database (not just the ones in current page)
-    // This dramatically increases available data for price analysis
+    // DIRECT ITEM SEARCH: use the tender_items pre-fetched in the parallel
+    // batch above. Only fetch the tender context here (depends on item IDs).
     try {
-      const { data: itemSearch } = await supabase
-        .from('tender_items')
-        .select('id, tender_id, numero_item, descricao, quantidade, unidade_medida, valor_unitario_estimado, valor_total_estimado')
-        .textSearch('descricao', q, { type: 'websearch', config: 'portuguese' })
-        .gt('valor_unitario_estimado', 0)
-        .order('valor_unitario_estimado', { ascending: false })
-        .limit(200)
-
       if (itemSearch && itemSearch.length > 0) {
         // Fetch tender context for these items
         const itemTenderIds = [...new Set(itemSearch.map(i => i.tender_id))]
@@ -344,19 +379,23 @@ export async function GET(req: NextRequest) {
     if (records.length > 0) {
       const tenderIds = [...new Set(records.map(r => r.licitacao_id))]
 
-      // Fetch tender_items for these tenders
-      const { data: itemData } = await supabase
-        .from('tender_items')
-        .select('tender_id, numero_item, descricao, quantidade, unidade_medida, valor_unitario_estimado, valor_total_estimado')
-        .in('tender_id', tenderIds.slice(0, 100)) // Limit to avoid query explosion
-        .gt('valor_unitario_estimado', 0)
-
-      // Fetch price_history (winning prices per item)
-      const { data: priceData } = await supabase
-        .from('price_history')
-        .select('tender_id, tender_item_number, cnpj_vencedor, nome_vencedor, valor_unitario_vencido, valor_total_vencido, data_homologacao, marca')
-        .in('tender_id', tenderIds.slice(0, 100))
-        .gt('valor_unitario_vencido', 0)
+      // Fetch tender_items + price_history in parallel (both filtered by
+      // the same set of tender IDs, but independent queries).
+      const slicedIds = tenderIds.slice(0, 100)
+      const [itemByIdsResult, priceResult] = await Promise.all([
+        supabase
+          .from('tender_items')
+          .select('tender_id, numero_item, descricao, quantidade, unidade_medida, valor_unitario_estimado, valor_total_estimado')
+          .in('tender_id', slicedIds)
+          .gt('valor_unitario_estimado', 0),
+        supabase
+          .from('price_history')
+          .select('tender_id, tender_item_number, cnpj_vencedor, nome_vencedor, valor_unitario_vencido, valor_total_vencido, data_homologacao, marca')
+          .in('tender_id', slicedIds)
+          .gt('valor_unitario_vencido', 0),
+      ])
+      const itemData = itemByIdsResult.data
+      const priceData = priceResult.data
 
       // Add item-level records with higher confidence
       if (priceData && priceData.length > 0) {
@@ -397,15 +436,9 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Also fetch cross-reference prices from price_references (multi-source)
+    // Also fetch cross-reference prices from price_references (multi-source).
+    // Pre-fetched in the parallel batch above.
     try {
-      const { data: refData } = await supabase
-        .from('price_references')
-        .select('*')
-        .textSearch('descricao', q, { type: 'websearch', config: 'portuguese' })
-        .order('data_referencia', { ascending: false })
-        .limit(50)
-
       if (refData && refData.length > 0) {
         for (const ref of refData) {
           if (!ref.valor_unitario || ref.valor_unitario <= 0) continue
