@@ -88,6 +88,13 @@ export function MapRadarShowcase() {
                 <source src="/videos/demo-mapa.mp4" type="video/mp4" />
                 <source src="/videos/demo-mapa.webm" type="video/webm" />
               </video>
+              {/* Bottom-left mask — hides the logged-in username shown in the
+                  recording. Width/height are in % so it scales with the video. */}
+              <div
+                className="absolute bottom-0 left-0 bg-black pointer-events-none"
+                style={{ width: '18%', height: '7%' }}
+                aria-hidden
+              />
             </div>
           </div>
         </div>
