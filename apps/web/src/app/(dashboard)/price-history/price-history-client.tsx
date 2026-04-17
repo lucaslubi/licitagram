@@ -158,6 +158,11 @@ export function PriceHistoryClient() {
       setSelectedBandLabel(null)
     }
 
+    // Client-side timeout: Vercel maxDuration is 60s; abort at 55s so we can
+    // show a friendly message instead of letting the platform kill the request.
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 55_000)
+
     try {
       const params = new URLSearchParams({ q, page: String(page), page_size: '20' })
       if (uf) params.set('uf', uf)
@@ -166,19 +171,47 @@ export function PriceHistoryClient() {
       if (dateTo) params.set('date_to', dateTo)
       if (winOnly) params.set('win_only', 'true')
 
-      const res = await fetch(`/api/price-history/search?${params.toString()}`)
+      const res = await fetch(`/api/price-history/search?${params.toString()}`, {
+        signal: controller.signal,
+      })
+
+      // Read body as text first — the server may return HTML (timeouts,
+      // platform errors, middleware redirects) and .json() would throw with
+      // a cryptic "Unexpected token 'A'..." message.
+      const raw = await res.text()
+
       if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error || 'Erro na busca')
+        let msg = `Erro ${res.status} na busca.`
+        try {
+          const parsed = JSON.parse(raw) as { error?: string }
+          if (parsed.error) msg = parsed.error
+        } catch {
+          if (res.status === 504 || raw.includes('timeout')) {
+            msg = 'A busca demorou demais. Tente um termo mais específico ou use filtros (UF, data).'
+          } else if (res.status >= 500) {
+            msg = 'O servidor está indisponível no momento. Tente novamente em alguns instantes.'
+          }
+        }
+        throw new Error(msg)
       }
 
-      const data: PriceSearchResult = await res.json()
+      let data: PriceSearchResult
+      try {
+        data = JSON.parse(raw) as PriceSearchResult
+      } catch {
+        throw new Error('Resposta inválida do servidor. Tente novamente.')
+      }
       setResult(data)
       setCurrentPage(page)
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Erro desconhecido')
+      if (e instanceof Error && e.name === 'AbortError') {
+        setError('A busca demorou mais de 55 segundos. Tente um termo mais específico ou aplique filtros (UF, modalidade, data).')
+      } else {
+        setError(e instanceof Error ? e.message : 'Erro desconhecido')
+      }
       setResult(null)
     } finally {
+      clearTimeout(timeoutId)
       setLoading(false)
     }
   }, [query, uf, modalidade, dateFrom, dateTo, winOnly])
