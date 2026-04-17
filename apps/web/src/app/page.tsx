@@ -9,6 +9,7 @@ import {
   StickyHeader,
 } from '@/components/landing/ScrollEffects'
 import { MapRadarShowcase } from '@/components/landing/MapRadarShowcase'
+import { PrecosMercadoShowcase } from '@/components/landing/PrecosMercadoShowcase'
 import { createClient } from '@supabase/supabase-js'
 import { PricingCards } from '@/components/pricing/PricingCards'
 
@@ -496,6 +497,9 @@ export default async function LandingPage() {
           </div>
         </section>
       </ClipRevealSection>
+
+      {/* ── MÓDULO ESPECIAL: Preços de Mercado (logo abaixo dos 14 cards) ── */}
+      <PrecosMercadoShowcase />
 
       {/* ── 04 — Sala de Operações ── */}
       <ClipRevealSection className="bg-[#F5F5F0]">
