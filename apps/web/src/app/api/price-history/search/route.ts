@@ -118,7 +118,6 @@ export async function GET(req: NextRequest) {
       .from('tenders')
       .select(
         'id, objeto, valor_estimado, valor_homologado, uf, municipio, modalidade_nome, orgao_nome, data_publicacao, data_encerramento, competitors!inner(cnpj, nome, valor_proposta, situacao, porte, uf_fornecedor)',
-        { count: 'exact' },
       )
       .textSearch('objeto', q, { type: 'websearch', config: 'portuguese' })
 
@@ -148,7 +147,24 @@ export async function GET(req: NextRequest) {
       .order('data_encerramento', { ascending: false })
       .range(offset, offset + pageSize - 1)
 
-    const { data, count, error } = await query
+    const { data, error } = await query
+
+    // Separate count query — counts DISTINCT tenders that match, without
+    // the `competitors!inner` join which otherwise inflates/deflates the
+    // count depending on PostgREST version. head:true returns just the
+    // HEAD count without rows — very cheap.
+    let countQuery = supabase
+      .from('tenders')
+      .select('id', { count: 'exact', head: true })
+      .textSearch('objeto', q, { type: 'websearch', config: 'portuguese' })
+
+    if (homologatedOnly) countQuery = countQuery.not('valor_homologado', 'is', null)
+    if (uf) countQuery = countQuery.eq('uf', uf)
+    if (modalidade) countQuery = countQuery.eq('modalidade_nome', modalidade)
+    if (dateFrom) countQuery = countQuery.gte('data_encerramento', dateFrom)
+    if (dateTo) countQuery = countQuery.lte('data_encerramento', dateTo)
+
+    const { count } = await countQuery
 
     // If stats cache is empty, fetch ALL records (up to 500) for global statistics
     // This ensures stats are consistent across pages

@@ -488,9 +488,14 @@ export function PriceHistoryClient() {
                   <CardContent className="pt-6">
                     <p className="text-xs text-gray-400 uppercase tracking-wide">Registros</p>
                     <p className="text-2xl font-bold text-white mt-1">
-                      {result.total_count.toLocaleString('pt-BR')}
+                      {result.records.length.toLocaleString('pt-BR')}
                     </p>
-                    <p className="text-xs text-gray-400 mt-1">licitações encontradas</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {(() => {
+                        const uniqueTenders = new Set(result.records.map((r) => r.licitacao_id)).size
+                        return `${uniqueTenders.toLocaleString('pt-BR')} licitações · ${result.records.length.toLocaleString('pt-BR')} propostas`
+                      })()}
+                    </p>
                   </CardContent>
                 </Card>
 
