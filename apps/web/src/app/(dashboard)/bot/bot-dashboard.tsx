@@ -51,12 +51,10 @@ interface Props {
 }
 
 const PORTAL_OPTIONS = [
-  { value: 'simulator', label: 'Simulador (Teste Local)' },
-  { value: 'comprasnet', label: 'ComprasNet / ComprasGov' },
-  { value: 'pncp', label: 'PNCP (Auto-detectar)' },
-  { value: 'bec', label: 'BEC/SP' },
-  { value: 'licitacoes_e', label: 'Licitações-e (BB)' },
-  { value: 'bll', label: 'BLL Compras' },
+  { value: 'comprasnet', label: 'Compras.gov.br (federal)' },
+  { value: 'licitacoes_e', label: 'Licitações-e (BB) — em breve' },
+  { value: 'bll', label: 'BLL Compras — em breve' },
+  { value: 'pcp', label: 'Portal de Compras Públicas — em breve' },
 ]
 
 const STRATEGY_OPTIONS = [
@@ -127,6 +125,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
     min_price: '',
     max_bids: '',
     strategy: '',
+    mode: 'supervisor', // supervisor | auto_bid | shadow
   })
 
   const [saving, setSaving] = useState(false)
@@ -255,6 +254,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
       min_price: '',
       max_bids: '',
       strategy: '',
+      mode: 'supervisor',
     })
     setError(null)
     setShowSessionDialog(true)
@@ -269,10 +269,28 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
     setSaving(true)
     setError(null)
 
+    // Client-side guard: supervisor mode needs a floor, it's the whole point.
+    if (sessionForm.mode === 'supervisor' && !sessionForm.min_price) {
+      setError('Modo supervisor exige o valor final mínimo. Preencha o campo acima.')
+      setSaving(false)
+      return
+    }
+    if (!sessionForm.config_id) {
+      setError('Selecione um portal configurado.')
+      setSaving(false)
+      return
+    }
+    if (!sessionForm.pregao_id) {
+      setError('Informe a URL ou o identificador do pregão.')
+      setSaving(false)
+      return
+    }
+
     try {
       const payload: Record<string, unknown> = {
         config_id: sessionForm.config_id,
         pregao_id: sessionForm.pregao_id,
+        mode: sessionForm.mode,
       }
       if (sessionForm.min_price) payload.min_price = parseFloat(sessionForm.min_price)
       if (sessionForm.max_bids) payload.max_bids = parseInt(sessionForm.max_bids)
@@ -510,9 +528,34 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                   {session.status === 'active' && (
                     <div className="mt-3 flex items-center gap-1">
                       <Spinner className="h-3 w-3 text-blue-400" />
-                      <span className="text-sm text-blue-400 font-medium">Bot em execucao...</span>
+                      <span className="text-sm text-blue-400 font-medium">Bot em execução…</span>
                     </div>
                   )}
+
+                  {session.status === 'pending' && (
+                    <div className="mt-3 flex items-center gap-1.5">
+                      <Spinner className="h-3 w-3 text-amber-400" />
+                      <span className="text-sm text-amber-400 font-medium">Aguardando worker iniciar…</span>
+                    </div>
+                  )}
+
+                  {session.status === 'failed' && (() => {
+                    // Surface the real error from the most recent action.
+                    const lastErr = [...(session.bot_actions || [])]
+                      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                      .find((a) => a.action_type === 'session_failed' || a.action_type === 'error')
+                    const errText =
+                      (lastErr?.details as Record<string, unknown> | null)?.error as string | undefined ||
+                      (lastErr?.details as Record<string, unknown> | null)?.reason as string | undefined ||
+                      (session.result as Record<string, unknown> | null)?.error as string | undefined ||
+                      'Falha sem detalhes. Abra o Replay forense para investigar.'
+                    return (
+                      <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 p-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-red-400 mb-1">Erro</p>
+                        <p className="text-sm text-red-300 leading-relaxed break-words">{errText}</p>
+                      </div>
+                    )
+                  })()}
 
                   <div className="mt-4 flex items-center gap-2 border-t border-white/[0.06] pt-4">
                     {session.status === 'active' && (
@@ -779,29 +822,63 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                   </select>
                 </div>
 
-                {/* Pregao ID */}
+                {/* Pregão URL / ID — accepts full Compras.gov.br URL and extracts
+                    the identificador automatically, OR a raw ID */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-400 mb-1">ID do Pregao *</label>
+                  <label className="block text-sm font-semibold text-gray-400 mb-1">URL ou ID do Pregão *</label>
                   <input
                     type="text"
-                    placeholder="Ex: PE-2026/001"
+                    placeholder="Cole a URL do pregão ou digite o identificador"
                     value={sessionForm.pregao_id}
-                    onChange={e => setSessionForm(f => ({ ...f, pregao_id: e.target.value }))}
+                    onChange={e => {
+                      const raw = e.target.value
+                      // Extract `identificador=...` query param from full URL
+                      const match = raw.match(/[?&]identificador=([^&\s]+)/i)
+                      const extracted = match ? decodeURIComponent(match[1]) : raw.trim()
+                      setSessionForm(f => ({ ...f, pregao_id: extracted }))
+                    }}
                     className="w-full bg-card border border-white/[0.06] text-white placeholder:text-gray-400 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none"
                   />
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    Ex: cole a URL inteira da sala do pregão ou digite só o identificador (CNPJ+número+ano).
+                  </p>
+                </div>
+
+                {/* Mode — supervisor / auto_bid / shadow */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-400 mb-1">Modo de operação *</label>
+                  <select
+                    value={sessionForm.mode}
+                    onChange={e => setSessionForm(f => ({ ...f, mode: e.target.value }))}
+                    className="w-full bg-card border border-white/[0.06] text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none"
+                  >
+                    <option value="supervisor">Supervisor — parametriza o robô oficial (IN 67/2021)</option>
+                    <option value="auto_bid">Auto-bid — submete lances via UI (avançado)</option>
+                    <option value="shadow">Shadow — observa sem lançar (debug)</option>
+                  </select>
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    <strong className="text-gray-300">Supervisor</strong> é o modo seguro e recomendado: você define o floor, o portal executa.
+                  </p>
                 </div>
 
                 {/* Min price */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-400 mb-1">Preco minimo (R$)</label>
+                  <label className="block text-sm font-semibold text-gray-400 mb-1">
+                    Valor final mínimo (R$) {sessionForm.mode === 'supervisor' && <span className="text-brand">*</span>}
+                  </label>
                   <input
                     type="number"
                     step="0.01"
-                    placeholder="Valor minimo para lances"
+                    placeholder="Valor-floor abaixo do qual o bot não desce"
                     value={sessionForm.min_price}
                     onChange={e => setSessionForm(f => ({ ...f, min_price: e.target.value }))}
                     className="w-full bg-card border border-white/[0.06] text-white placeholder:text-gray-400 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand/30 focus:border-brand outline-none"
                   />
+                  {sessionForm.mode === 'supervisor' && (
+                    <p className="text-[11px] text-gray-400 mt-1">
+                      Obrigatório no modo supervisor — é exatamente esse valor que vai no robô oficial.
+                    </p>
+                  )}
                 </div>
 
                 {/* Max bids */}
