@@ -241,3 +241,73 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
   }
 }
+
+/**
+ * DELETE /api/bot/config?id=<config_id>
+ * Removes a bot config that didn't connect or is no longer needed.
+ * Cascades: foreign keys on bot_sessions ON DELETE RESTRICT — if there
+ * are sessions, returns 409 and asks the user to clear them first.
+ */
+export async function DELETE(req: NextRequest) {
+  try {
+    const planUser = await getUserWithPlan()
+    if (!planUser) {
+      return NextResponse.json({ error: 'Nao autenticado' }, { status: 401 })
+    }
+    if (!hasActiveSubscription(planUser)) {
+      return NextResponse.json({ error: 'Subscription required' }, { status: 403 })
+    }
+
+    const { searchParams } = new URL(req.url)
+    const id = searchParams.get('id')
+    if (!id) {
+      return NextResponse.json({ error: 'Missing id' }, { status: 400 })
+    }
+
+    const supabase = await createClient()
+    const { data: profile } = await supabase
+      .from('users')
+      .select('company_id')
+      .eq('id', planUser.userId)
+      .single()
+    if (!profile?.company_id) {
+      return NextResponse.json({ error: 'Empresa nao configurada' }, { status: 400 })
+    }
+
+    // Block delete if there are non-terminal sessions referencing this config
+    const { data: liveSessions } = await supabase
+      .from('bot_sessions')
+      .select('id, status')
+      .eq('company_id', profile.company_id)
+      .eq('config_id', id)
+      .in('status', ['pending', 'active', 'paused'])
+      .limit(1)
+
+    if (liveSessions && liveSessions.length > 0) {
+      return NextResponse.json(
+        { error: 'Há sessões ativas/pausadas usando essa configuração. Cancele-as primeiro.' },
+        { status: 409 },
+      )
+    }
+
+    const { error } = await supabase
+      .from('bot_configs')
+      .delete()
+      .eq('id', id)
+      .eq('company_id', profile.company_id)
+
+    if (error) {
+      console.error('[API bot/config] DELETE error:', error)
+      // Surface the FK message so the user understands what's blocking
+      const msg = error.code === '23503'
+        ? 'Configuração tem sessões antigas vinculadas. Limpe o histórico antes de excluir.'
+        : `Erro ao excluir: ${error.message}`
+      return NextResponse.json({ error: msg }, { status: 500 })
+    }
+
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    console.error('[API bot/config] DELETE error:', err)
+    return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
+  }
+}

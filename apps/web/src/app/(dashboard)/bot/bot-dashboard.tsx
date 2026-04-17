@@ -343,6 +343,32 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
 
   /* ── Session actions ───────────────────────────────────────────────────── */
 
+  async function handleDeleteConfig(configId: string, portalLabel: string) {
+    const ok = window.confirm(
+      `Excluir a configuração do portal "${portalLabel}"? Essa ação não pode ser desfeita. As sessões antigas (concluídas/falhadas) permanecem no histórico.`,
+    )
+    if (!ok) return
+
+    try {
+      const res = await fetch(`/api/bot/config?id=${encodeURIComponent(configId)}`, {
+        method: 'DELETE',
+      })
+      const raw = await res.text()
+      let data: { error?: string; ok?: boolean } = {}
+      try { data = JSON.parse(raw) } catch { /* non-JSON */ }
+
+      if (!res.ok) {
+        alert(data.error || `Falha ao excluir (HTTP ${res.status}).`)
+        return
+      }
+      // Remove from local state immediately
+      setConfigs(prev => prev.filter(c => c.id !== configId))
+      router.refresh()
+    } catch (err) {
+      alert(err instanceof Error ? `Erro: ${err.message}` : 'Erro de conexão')
+    }
+  }
+
   async function handleSessionAction(sessionId: string, action: 'pause' | 'resume' | 'cancel') {
     try {
       const res = await fetch('/api/bot/sessions', {
@@ -460,6 +486,15 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                       >
                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => handleDeleteConfig(config.id, config.portal)}
+                        className="text-gray-400 hover:text-red-400 transition-colors"
+                        title="Excluir esta configuração"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a2 2 0 012-2h2a2 2 0 012 2v3" />
                         </svg>
                       </button>
                     </div>

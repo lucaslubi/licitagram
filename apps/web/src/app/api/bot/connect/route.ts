@@ -5,7 +5,9 @@ import { encryptSecret, hasCredentialMasterKey } from '@/lib/credential-crypto'
 
 export const maxDuration = 120
 
-const VPS_LOGIN_URL = process.env.VPS_LOGIN_URL || 'http://85.31.60.53:3999'
+// Hard-coded default points to the production VPS that runs the latest
+// login-server (with /solve_captcha). Env var override allowed for staging.
+const VPS_LOGIN_URL = process.env.VPS_LOGIN_URL || 'http://187.77.241.93:3999'
 
 /**
  * POST /api/bot/connect
