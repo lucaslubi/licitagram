@@ -9,18 +9,14 @@ export function MapRadarShowcase() {
   return (
     <section
       id="mapa-radar"
-      className="relative overflow-hidden border-y border-white/[0.06]"
-      style={{
-        background:
-          'radial-gradient(ellipse at top, rgba(244,62,1,0.08) 0%, transparent 45%), linear-gradient(180deg, #0A0A0F 0%, #050506 100%)',
-      }}
+      className="relative overflow-hidden bg-[#F5F5F0] border-y border-[#E5E5E0]"
     >
-      {/* Subtle grid background */}
+      {/* Subtle grid background — dark lines over the light canvas */}
       <div
-        className="absolute inset-0 opacity-[0.035] pointer-events-none"
+        className="absolute inset-0 opacity-[0.04] pointer-events-none"
         style={{
           backgroundImage:
-            'linear-gradient(rgba(255,255,255,.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.6) 1px, transparent 1px)',
+            'linear-gradient(rgba(26,28,31,.6) 1px, transparent 1px), linear-gradient(90deg, rgba(26,28,31,.6) 1px, transparent 1px)',
           backgroundSize: '48px 48px',
         }}
         aria-hidden
@@ -32,12 +28,12 @@ export function MapRadarShowcase() {
           <p className="font-mono text-[10px] sm:text-xs uppercase text-[#F43E01] tracking-[0.24em] mb-4">
             Radar geográfico · exclusivo Licitagram
           </p>
-          <h2 className="text-4xl sm:text-5xl md:text-6xl font-semibold text-white tracking-tight leading-[1.05]">
+          <h2 className="text-4xl sm:text-5xl md:text-6xl font-semibold text-[#1A1C1F] tracking-tight leading-[1.05]">
             O único mapa de licitações do Brasil.
           </h2>
-          <p className="text-lg text-white/60 mt-5 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-lg text-[#69695D] mt-5 max-w-2xl mx-auto leading-relaxed">
             Cada pregão do país, em tempo real, georreferenciado. Filtros por UF, órgão,
-            valor e modalidade. <strong className="text-white">Ninguém mais fez isso.</strong>
+            valor e modalidade. <strong className="text-[#1A1C1F]">Ninguém mais fez isso.</strong>
           </p>
         </div>
 
@@ -101,7 +97,7 @@ export function MapRadarShowcase() {
 
         {/* Capability strip below video */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 max-w-5xl mx-auto mt-8">
-          <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-5 hover:border-[#F43E01]/30 transition-colors">
+          <div className="bg-white border border-[#E5E5E0] rounded-xl p-5 hover:border-[#F43E01]/40 hover:shadow-sm transition-all">
             <div className="flex items-start gap-3">
               <div className="w-8 h-8 rounded-lg bg-[#F43E01]/10 border border-[#F43E01]/30 flex items-center justify-center flex-shrink-0">
                 <svg className="w-4 h-4 text-[#F43E01]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -109,40 +105,40 @@ export function MapRadarShowcase() {
                 </svg>
               </div>
               <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-white mb-1">Heatmap de oportunidade</h3>
-                <p className="text-xs text-white/55 leading-relaxed">
+                <h3 className="text-sm font-semibold text-[#1A1C1F] mb-1">Heatmap de oportunidade</h3>
+                <p className="text-xs text-[#69695D] leading-relaxed">
                   Densidade de licitações compatíveis com sua empresa, por região. Priorize onde vale estar.
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-5 hover:border-[#F43E01]/30 transition-colors">
+          <div className="bg-white border border-[#E5E5E0] rounded-xl p-5 hover:border-[#F43E01]/40 hover:shadow-sm transition-all">
             <div className="flex items-start gap-3">
               <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center flex-shrink-0">
-                <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
               </div>
               <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-white mb-1">Drill-down por município</h3>
-                <p className="text-xs text-white/55 leading-relaxed">
+                <h3 className="text-sm font-semibold text-[#1A1C1F] mb-1">Drill-down por município</h3>
+                <p className="text-xs text-[#69695D] leading-relaxed">
                   Clique em qualquer estado e explore cidade por cidade. Órgão, valor, prazo.
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-5 hover:border-[#F43E01]/30 transition-colors">
+          <div className="bg-white border border-[#E5E5E0] rounded-xl p-5 hover:border-[#F43E01]/40 hover:shadow-sm transition-all">
             <div className="flex items-start gap-3">
               <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-center justify-center flex-shrink-0">
-                <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                 </svg>
               </div>
               <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-white mb-1">Score IA em cada pin</h3>
-                <p className="text-xs text-white/55 leading-relaxed">
+                <h3 className="text-sm font-semibold text-[#1A1C1F] mb-1">Score IA em cada pin</h3>
+                <p className="text-xs text-[#69695D] leading-relaxed">
                   Matching semântico pgvector: cada pregão traz seu score de compatibilidade calculado.
                 </p>
               </div>
