@@ -86,7 +86,6 @@ export default function CasesPage() {
           </Link>
           <nav className="flex items-center gap-5 text-xs text-muted-foreground">
             <Link href="/blog" className="hover:text-foreground transition-colors">Blog</Link>
-            <Link href="/precos" className="hover:text-foreground transition-colors">Preços de Mercado</Link>
             <Link href="/status" className="hover:text-foreground transition-colors">Status</Link>
             <Link href="/login" className="text-foreground">Entrar →</Link>
           </nav>
@@ -181,7 +180,6 @@ export default function CasesPage() {
           <p>© 2026 Licitagram</p>
           <div className="flex gap-4">
             <Link href="/blog" className="hover:text-foreground">Blog</Link>
-            <Link href="/precos" className="hover:text-foreground">Preços</Link>
             <Link href="/status" className="hover:text-foreground">Status</Link>
           </div>
         </div>

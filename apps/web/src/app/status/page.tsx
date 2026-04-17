@@ -77,7 +77,6 @@ export default async function StatusPage() {
           </Link>
           <div className="flex items-center gap-5 text-xs text-slate-600">
             <Link href="/blog" className="hover:text-slate-900 transition-colors">Blog</Link>
-            <Link href="/precos" className="hover:text-slate-900 transition-colors">Preços</Link>
             <Link href="/cases" className="hover:text-slate-900 transition-colors">Cases</Link>
             <Link href="/login" className="text-slate-900 font-medium">Entrar →</Link>
           </div>

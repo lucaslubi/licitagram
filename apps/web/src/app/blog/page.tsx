@@ -33,7 +33,6 @@ export default function BlogIndexPage() {
             Licitagram
           </Link>
           <nav className="flex items-center gap-5 text-xs text-muted-foreground">
-            <Link href="/precos" className="hover:text-foreground transition-colors">Preços de Mercado</Link>
             <Link href="/cases" className="hover:text-foreground transition-colors">Cases</Link>
             <Link href="/status" className="hover:text-foreground transition-colors">Status</Link>
             <Link href="/login" className="text-foreground">Entrar →</Link>
@@ -102,7 +101,7 @@ export default function BlogIndexPage() {
           <p>© 2026 Licitagram — Licitações com inteligência</p>
           <div className="flex gap-4">
             <Link href="/blog" className="hover:text-foreground">Blog</Link>
-            <Link href="/precos" className="hover:text-foreground">Preços</Link>
+            <Link href="/cases" className="hover:text-foreground">Cases</Link>
             <Link href="/status" className="hover:text-foreground">Status</Link>
           </div>
         </div>
