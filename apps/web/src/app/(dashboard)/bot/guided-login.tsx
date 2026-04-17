@@ -11,7 +11,7 @@ interface GuidedLoginProps {
   onClose: () => void
 }
 
-type LoginStep = 'connecting' | 'cpf' | 'password' | '2fa' | 'navigating' | 'connected' | 'error'
+type LoginStep = 'connecting' | 'cpf' | 'solving_captcha' | 'password' | '2fa' | 'navigating' | 'connected' | 'error'
 
 /* ── Helpers ────────────────────────────────────────────────────────────────── */
 
@@ -42,6 +42,7 @@ function detectStep(url: string, prevStep: LoginStep): LoginStep {
 const STEP_LABELS: Record<LoginStep, string> = {
   connecting: 'Conectando ao portal...',
   cpf: 'Digite seu CPF',
+  solving_captcha: 'Resolvendo captcha automaticamente...',
   password: 'Digite sua senha',
   '2fa': 'Digite o codigo 2FA',
   navigating: 'Navegando...',
@@ -52,6 +53,7 @@ const STEP_LABELS: Record<LoginStep, string> = {
 const STEP_PLACEHOLDERS: Record<LoginStep, string> = {
   connecting: '',
   cpf: '000.000.000-00',
+  solving_captcha: '',
   password: 'Senha do portal',
   '2fa': 'Codigo de verificacao',
   navigating: '',
@@ -214,13 +216,42 @@ export function GuidedLogin({ portal, configId, onSuccess, onClose }: GuidedLogi
       if (!mountedRef.current) return
 
       if (clickData.screenshot) setScreenshot(clickData.screenshot)
-      if (clickData.url) {
-        setCurrentUrl(clickData.url)
-        // Advance step hint — the polling detectStep will correct if wrong.
-        if (step === 'cpf') setStep('password')
-        else if (step === 'password') setStep('navigating')
-      }
+      if (clickData.url) setCurrentUrl(clickData.url)
       setInputValue('')
+
+      // 3. After CPF submit, Gov.br often triggers hCaptcha. Detect via
+      //    screenshot's has_captcha flag (returned on subsequent screenshot
+      //    call) and fire auto-solve.
+      if (step === 'cpf') {
+        setStep('solving_captcha')
+        // Small wait for the captcha to render
+        await new Promise(r => setTimeout(r, 1500))
+        const check = await callApi('screenshot')
+        if (!mountedRef.current) return
+        if (check.screenshot) setScreenshot(check.screenshot)
+        if (check.url) setCurrentUrl(check.url)
+
+        if (check.has_captcha) {
+          // Kick the solver; can take 15-60s for hCaptcha
+          const solve = await callApi('solve_captcha')
+          if (!mountedRef.current) return
+          if (solve.solved) {
+            if (solve.screenshot) setScreenshot(solve.screenshot)
+            // Try auto-clicking Continue again if there is one
+            await callApi('click', { selector: submitSelector }).catch(() => null)
+            await new Promise(r => setTimeout(r, 1500))
+            const after = await callApi('screenshot')
+            if (!mountedRef.current) return
+            if (after.screenshot) setScreenshot(after.screenshot)
+            if (after.url) setCurrentUrl(after.url)
+          } else {
+            setError(`Não conseguimos resolver o captcha automaticamente (${solve.reason || 'tente novamente'}).`)
+          }
+        }
+        setStep('password')
+      } else if (step === 'password') {
+        setStep('navigating')
+      }
     } catch {
       setError('Falha ao enviar. Tente novamente ou clique Atualizar.')
     } finally {
@@ -298,6 +329,7 @@ export function GuidedLogin({ portal, configId, onSuccess, onClose }: GuidedLogi
               <h3 className="text-lg font-semibold text-white">Login Guiado no Compras.gov.br</h3>
               <p className="text-sm text-gray-400 mt-0.5">
                 {step === 'cpf' && 'Digite seu CPF abaixo. O portal está aguardando.'}
+                {step === 'solving_captcha' && 'Resolvendo captcha automaticamente (pode levar até 60s)…'}
                 {step === 'password' && 'CPF aceito. Agora digite sua senha gov.br.'}
                 {step === '2fa' && 'Digite o código de verificação do seu app gov.br.'}
                 {step === 'connecting' && 'Conectando ao portal…'}

@@ -2,6 +2,7 @@ import * as http from 'http'
 import puppeteer from 'puppeteer-extra'
 import StealthPlugin from 'puppeteer-extra-plugin-stealth'
 import { logger } from '../lib/logger'
+import { solveHCaptcha, solveReCaptchaV2 } from '../lib/captcha-solver'
 import type { Browser, Page } from 'puppeteer-core'
 
 // @ts-ignore
@@ -84,6 +85,12 @@ export class LoginServer {
               if (!session_id) return this.sendJson(res, 400, { error: 'Missing session_id' })
 
               const result = await this.handleCheckResult(session_id)
+              return this.sendJson(res, 200, result)
+            } else if (req.url === '/solve_captcha') {
+              const { session_id } = body
+              if (!session_id) return this.sendJson(res, 400, { error: 'Missing session_id' })
+
+              const result = await this.handleSolveCaptcha(session_id)
               return this.sendJson(res, 200, result)
             } else if (req.url === '/close') {
               const { session_id } = body
@@ -325,6 +332,80 @@ export class LoginServer {
     }
 
     return { result_status, detalhes, screenshot, url: page.url(), ...(pdfUrl ? { url: pdfUrl } : {}) }
+  }
+
+  /**
+   * Detect captcha on the current page and solve it via CapSolver /
+   * Anti-Captcha / 2Captcha fallback chain. Works for hCaptcha and
+   * reCAPTCHA v2 (invisible or checkbox).
+   *
+   * Token is injected into the standard response textareas and the
+   * hCaptcha/reCAPTCHA callbacks are triggered so the site picks it up.
+   */
+  private async handleSolveCaptcha(sessionId: string) {
+    const session = activeSessions.get(sessionId)
+    if (!session) throw new Error('Session not active')
+    const { page } = session
+    const pageUrl = page.url()
+
+    const info = await page.evaluate(() => {
+      const hc = document.querySelector('[data-sitekey]') as HTMLElement | null
+      const rc = document.querySelector('.g-recaptcha') as HTMLElement | null
+      return {
+        hcSitekey: hc?.getAttribute('data-sitekey') ?? null,
+        rcSitekey: rc?.getAttribute('data-sitekey') ?? null,
+      }
+    })
+
+    if (!info.hcSitekey && !info.rcSitekey) {
+      return { solved: false, reason: 'no_captcha_detected' }
+    }
+
+    const kind = info.hcSitekey ? 'hcaptcha' : 'recaptcha'
+    const sitekey = info.hcSitekey || info.rcSitekey!
+    logger.info({ sessionId, kind, sitekey, pageUrl }, '[solve_captcha] solving')
+
+    let token: string | null
+    try {
+      if (kind === 'hcaptcha') {
+        token = await solveHCaptcha(sitekey, pageUrl)
+      } else {
+        token = await solveReCaptchaV2(sitekey, pageUrl)
+      }
+    } catch (err: any) {
+      logger.error({ sessionId, err: err.message }, '[solve_captcha] solver chain failed')
+      return { solved: false, reason: 'solver_failed', error: err.message }
+    }
+    if (!token) {
+      return { solved: false, reason: 'solver_returned_null' }
+    }
+    const validToken: string = token
+
+    // Inject token into every standard response textarea + fire callbacks.
+    await page.evaluate((t) => {
+      const setTextarea = (name: string) => {
+        document.querySelectorAll<HTMLTextAreaElement>(`textarea[name="${name}"]`).forEach((el) => {
+          el.value = t
+          el.dispatchEvent(new Event('input', { bubbles: true }))
+          el.dispatchEvent(new Event('change', { bubbles: true }))
+        })
+      }
+      setTextarea('h-captcha-response')
+      setTextarea('g-recaptcha-response')
+      // hCaptcha/reCAPTCHA client side callback hooks
+      type WithCaptchaGlobals = Window & typeof globalThis & {
+        hcaptcha?: { execute?: () => void; submit?: () => void }
+        onHCaptchaCallback?: (tok: string) => void
+        onCaptchaCallback?: (tok: string) => void
+      }
+      const w = window as WithCaptchaGlobals
+      try { w.onHCaptchaCallback?.(t) } catch { /* ignore */ }
+      try { w.onCaptchaCallback?.(t) } catch { /* ignore */ }
+    }, validToken)
+
+    await new Promise(r => setTimeout(r, 1500))
+    const screenshot = await page.screenshot({ encoding: 'base64', type: 'jpeg', quality: 60 })
+    return { solved: true, kind, screenshot, url: page.url() }
   }
 
   private async handleClose(sessionId: string) {

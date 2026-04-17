@@ -75,6 +75,12 @@ export async function POST(req: NextRequest) {
         break
       }
 
+      case 'solve_captcha': {
+        vpsEndpoint = '/solve_captcha'
+        vpsBody = { session_id: params.session_id }
+        break
+      }
+
       case 'close': {
         vpsEndpoint = '/close'
         vpsBody = { session_id: params.session_id }
