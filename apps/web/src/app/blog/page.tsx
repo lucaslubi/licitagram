@@ -89,10 +89,10 @@ export default function BlogIndexPage() {
             Estratégias que funcionam, na sua caixa de entrada
           </h3>
           <Link
-            href="/signup"
+            href="/register"
             className="inline-flex items-center gap-2 bg-brand text-white rounded-lg px-5 py-2.5 text-sm font-medium hover:bg-brand-dark transition-colors"
           >
-            Começar grátis — 14 dias →
+            Começar grátis — 7 dias →
           </Link>
         </div>
       </main>

@@ -164,11 +164,11 @@ export default function CasesPage() {
             Teste grátis. Seus números são seu próximo case.
           </h3>
           <p className="text-sm text-muted-foreground max-w-xl mx-auto mb-5">
-            14 dias com acesso completo — matching IA, monitor de chat, robô de lances,
+            7 dias com acesso completo — matching IA, monitor de chat, robô de lances,
             inteligência de preços. Sem cartão de crédito.
           </p>
           <Link
-            href="/signup"
+            href="/register"
             className="inline-flex items-center gap-2 bg-brand text-white rounded-lg px-6 py-3 text-sm font-medium hover:bg-brand-dark transition-colors"
           >
             Começar agora →

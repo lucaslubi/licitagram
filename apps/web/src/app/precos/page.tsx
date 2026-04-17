@@ -228,10 +228,10 @@ export default function PrecosLandingPage() {
           </h3>
           <p className="text-sm text-muted-foreground max-w-xl mx-auto mb-5">
             Licitagram não é só consulta. É a plataforma completa usada pelo top 5% de licitantes
-            do Brasil. 14 dias grátis.
+            do Brasil. 7 dias grátis.
           </p>
           <Link
-            href="/signup"
+            href="/register"
             className="inline-flex items-center gap-2 bg-brand text-white rounded-lg px-6 py-3 text-sm font-medium hover:bg-brand-dark transition-colors"
           >
             Começar agora →

@@ -129,10 +129,10 @@ export default async function ArticlePage({ params }: Props) {
           </h3>
           <p className="text-sm text-muted-foreground mb-4">
             Licitagram combina matching IA, monitor de chat, robô de lances e inteligência de preços
-            em uma só plataforma. 14 dias grátis.
+            em uma só plataforma. 7 dias grátis.
           </p>
           <Link
-            href="/signup"
+            href="/register"
             className="inline-flex items-center gap-2 bg-brand text-white rounded-lg px-5 py-2.5 text-sm font-medium hover:bg-brand-dark transition-colors"
           >
             Testar grátis →

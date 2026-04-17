@@ -132,8 +132,8 @@ function Article_ComoGanharPregaoEletronico() {
         monitora chat em tempo real, e usa Forensic Replay para aprender — está no top 5%.
       </P>
       <P>
-        Quer começar? A <a href="/signup" className="text-brand underline">Licitagram oferece
-        14 dias grátis</a> com acesso a tudo: matching IA, monitor de pregão, robô de lances,
+        Quer começar? A <a href="/register" className="text-brand underline">Licitagram oferece
+        7 dias grátis</a> com acesso a tudo: matching IA, monitor de pregão, robô de lances,
         preços de mercado e compliance automático.
       </P>
     </>
@@ -398,6 +398,528 @@ function Article_PrecoMercadoLicitacao() {
   )
 }
 
+// ─── ARTICLE 6 ──────────────────────────────────────────────────────────
+
+function Article_ComoParticiparPregaoEletronico() {
+  return (
+    <>
+      <P>
+        Nunca participou de pregão eletrônico? Este guia mostra o caminho completo —
+        do cadastro inicial até seu primeiro lance submetido. Sem enrolação, sem
+        linguagem técnica inútil. Em menos de 2 horas você está apto a concorrer.
+      </P>
+
+      <H2 id="pre-requisitos">Pré-requisitos</H2>
+      <UL>
+        <li><strong>CNPJ ativo</strong> compatível com o objeto da licitação (CNAE)</li>
+        <li><strong>Certificado digital A1 ou A3</strong> (e-CPF ou e-CNPJ, ICP-Brasil)</li>
+        <li><strong>Certidões negativas</strong> válidas: Receita Federal, FGTS, Trabalhista, Estadual, Municipal</li>
+        <li><strong>Cadastro no SICAF</strong> (Sistema de Cadastramento Unificado de Fornecedores)</li>
+      </UL>
+
+      <H2 id="passo-1-sicaf">Passo 1 — Cadastrar no SICAF</H2>
+      <P>
+        Sem SICAF, você não participa de nenhum pregão federal. O cadastro é
+        gratuito, feito 100% online em <a href="https://www3.comprasnet.gov.br/sicaf-web/" className="text-brand underline">comprasnet.gov.br/sicaf-web</a>.
+        Guardamos um artigo dedicado ao{' '}
+        <a href="/blog/sicaf-cadastro-completo" className="text-brand underline">cadastro completo no SICAF</a>.
+      </P>
+
+      <H2 id="passo-2-monitoramento">Passo 2 — Monitorar editais</H2>
+      <P>
+        Editais são publicados no PNCP (Portal Nacional de Contratações Públicas,
+        Lei 14.133/2021). A maneira manual é entrar diariamente em pncp.gov.br e
+        filtrar. A maneira inteligente é usar um sistema de matching IA como a
+        Licitagram — alertas no WhatsApp com o que bate com seu perfil.
+      </P>
+
+      <H2 id="passo-3-edital">Passo 3 — Ler o edital criticamente</H2>
+      <P>
+        Antes de participar, verifique:
+      </P>
+      <UL>
+        <li><strong>Objeto</strong> — é compatível com seu CNAE e capacidade?</li>
+        <li><strong>Valor estimado</strong> — faz sentido vs. preço de mercado real?</li>
+        <li><strong>Habilitação</strong> — você tem TODOS os documentos exigidos?</li>
+        <li><strong>Visita técnica</strong> — obrigatória? Prazo respeitado?</li>
+        <li><strong>Atestados de capacidade</strong> — você tem os exigidos?</li>
+      </UL>
+      <P>
+        Se encontrou cláusula restritiva (direciona para 1 fornecedor), considere
+        impugnar. Veja nosso guia de{' '}
+        <a href="/blog/como-impugnar-edital-licitacao" className="text-brand underline">impugnação de edital</a>.
+      </P>
+
+      <H2 id="passo-4-proposta">Passo 4 — Enviar proposta</H2>
+      <P>
+        No Compras.gov.br, dentro do prazo do edital, você envia a proposta inicial
+        com valor e descrição técnica. <strong className="text-foreground">Atenção:</strong>{' '}
+        é proposta LACRADA — pregoeiro só vê depois da abertura. Se for muito alta,
+        você é desclassificado antes da disputa.
+      </P>
+
+      <H2 id="passo-5-disputa">Passo 5 — Disputa de lances</H2>
+      <P>
+        Na hora da disputa (data/hora do edital), você entra na sala do pregão e
+        pode dar lances menores que o melhor lance atual. Aqui é onde o robô público
+        do Compras.gov.br (IN 67/2021) ajuda: você parametriza um <strong className="text-foreground">valor final mínimo</strong>{' '}
+        (teto de queda) e o portal executa por você, respeitando o intervalo mínimo
+        de 6 segundos entre lances (IN 73/2022).
+      </P>
+
+      <H2 id="passo-6-habilitacao">Passo 6 — Habilitação</H2>
+      <P>
+        Ganhou a disputa? O pregoeiro convoca o licitante arrematante para enviar
+        documentos de habilitação. Prazo típico: <strong className="text-foreground">2 a 4 horas</strong>.
+        Se faltar um documento ou estiver vencido, você é desabilitado e o segundo
+        colocado assume. Por isso automação de certidões é crítica.
+      </P>
+
+      <H2 id="passo-7-homologacao">Passo 7 — Adjudicação e homologação</H2>
+      <P>
+        Após habilitado, o pregoeiro adjudica o item para você. A autoridade superior
+        homologa. Daí sai o contrato ou autorização de fornecimento. Fim.
+      </P>
+
+      <Callout kind="tip">
+        <strong>Atalho:</strong> a Licitagram automatiza os passos 2 (monitoramento),
+        3 (análise IA do edital), 4 (geração de proposta), 5 (robô de lance com
+        Floor Optimizer) e 6 (blindagem de compliance). Você fica com a decisão
+        estratégica.
+      </Callout>
+    </>
+  )
+}
+
+// ─── ARTICLE 7 ──────────────────────────────────────────────────────────
+
+function Article_SicafCadastroCompleto() {
+  return (
+    <>
+      <P>
+        SICAF — Sistema de Cadastramento Unificado de Fornecedores — é pré-requisito
+        obrigatório para participar de pregões federais e muitos estaduais. O cadastro
+        é gratuito e 100% online. Este guia mostra o processo completo, com as
+        armadilhas que eliminam 40% das empresas na primeira tentativa.
+      </P>
+
+      <H2 id="o-que-e">O que é SICAF</H2>
+      <P>
+        É um banco de dados mantido pelo governo federal com informações de fornecedores
+        interessados em licitações públicas. Funciona como &ldquo;habilitação prévia&rdquo;:
+        quem está em dia no SICAF ganha agilidade na fase de habilitação (documentos
+        já validados).
+      </P>
+
+      <H2 id="documentos">Documentos necessários (checklist)</H2>
+      <UL>
+        <li><strong>CNPJ</strong> da empresa ativo</li>
+        <li><strong>Contrato social</strong> atualizado (ou estatuto + ata de eleição)</li>
+        <li><strong>CPF + RG do sócio administrador</strong></li>
+        <li><strong>Certificado digital e-CNPJ</strong> tipo A1 ou A3</li>
+        <li><strong>Certidões negativas</strong>: Receita Federal, FGTS, Trabalhista (TST), Estadual, Municipal</li>
+        <li><strong>Balanço patrimonial</strong> do último exercício (se for obrigado por lei)</li>
+        <li><strong>Declaração de microempresa/EPP</strong> (se aplicável)</li>
+      </UL>
+
+      <H2 id="passo-a-passo">Passo a passo do cadastro</H2>
+      <H3>1. Acesse comprasnet.gov.br/sicaf-web</H3>
+      <P>
+        Use o certificado digital e-CNPJ. O sistema reconhece automaticamente.
+      </P>
+
+      <H3>2. Preencha os 6 níveis de habilitação</H3>
+      <UL>
+        <li><strong>Nível I — Credenciamento:</strong> dados básicos (CNPJ, endereço, atividade)</li>
+        <li><strong>Nível II — Habilitação jurídica:</strong> contrato social, atos constitutivos</li>
+        <li><strong>Nível III — Regularidade fiscal:</strong> certidões negativas federais, estaduais, municipais</li>
+        <li><strong>Nível IV — Regularidade trabalhista:</strong> TST, FGTS</li>
+        <li><strong>Nível V — Qualificação técnica:</strong> atestados de capacidade (opcional no cadastro)</li>
+        <li><strong>Nível VI — Qualificação econômico-financeira:</strong> balanço patrimonial, DRE</li>
+      </UL>
+
+      <H3>3. Envie documentos digitalizados</H3>
+      <P>
+        PDF legível, resolução mínima 300 DPI. Assinatura digital preferível.
+      </P>
+
+      <H3>4. Aguarde validação</H3>
+      <P>
+        Prazo médio: <strong className="text-foreground">3 a 7 dias úteis</strong>.
+        O SICAF envia e-mail quando cada nível é aprovado/rejeitado.
+      </P>
+
+      <H2 id="armadilhas">Os 5 erros mais comuns</H2>
+      <UL>
+        <li><strong>Certidão vencida no momento do upload.</strong> Emita todas no mesmo dia do envio.</li>
+        <li><strong>PDF ilegível.</strong> Certidão do portal &gt; print de tela.</li>
+        <li><strong>Contrato social desatualizado.</strong> Qualquer alteração não registrada reprova o nível II.</li>
+        <li><strong>CNPJ com situação cadastral irregular</strong> na Receita (suspenso, inapto).</li>
+        <li><strong>Documentação do representante divergente</strong> do contrato social.</li>
+      </UL>
+
+      <H2 id="renovacao">Renovação e manutenção</H2>
+      <P>
+        O cadastro não tem prazo fixo de validade, mas <strong className="text-foreground">certidões
+        vencem — normalmente 30, 60 ou 180 dias</strong> dependendo do tipo. Manter o SICAF
+        &ldquo;verde&rdquo; exige atualização contínua.
+      </P>
+      <P>
+        A Blindagem de Compliance da Licitagram monitora todas as certidões da empresa,
+        emite automaticamente quando possível, e alerta antes do vencimento.
+      </P>
+
+      <Callout kind="warn">
+        <strong>Atenção:</strong> cadastro SICAF NÃO habilita automaticamente para estados
+        e municípios. Cada ente pode ter seu próprio cadastro (ex: SICAD/MG, CADFOR/SP).
+        Licitagram consolida acompanhamento em uma só tela.
+      </Callout>
+    </>
+  )
+}
+
+// ─── ARTICLE 8 ──────────────────────────────────────────────────────────
+
+function Article_EmpateFictoMEEPP() {
+  return (
+    <>
+      <P>
+        O empate ficto é um dos mecanismos mais poderosos (e mal aproveitados) para
+        microempresas (ME) e empresas de pequeno porte (EPP) em licitações públicas.
+        Bem usado, pode inverter um resultado onde você ficou em segundo. Este artigo
+        explica a regra atualizada pela Lei 14.133/2021 e pelo Estatuto da ME/EPP.
+      </P>
+
+      <H2 id="o-que-e">O que é empate ficto</H2>
+      <P>
+        É a <strong className="text-foreground">preferência de desempate</strong> concedida
+        a ME e EPP quando sua proposta final for até <strong className="text-foreground">5%
+        superior</strong> à melhor proposta de licitante não-ME/EPP (pregão eletrônico).
+        Em outras modalidades, o percentual pode chegar a 10%.
+      </P>
+
+      <H2 id="como-funciona">Como funciona na prática</H2>
+      <UL>
+        <li>Pregão eletrônico encerra a fase de lances com empresa grande (não-ME/EPP) em primeiro lugar por R$ 100.000</li>
+        <li>Sua ME ficou em segundo com proposta de R$ 104.500 (4,5% acima)</li>
+        <li>Por estar dentro da faixa de 5%, você é convocada a <strong>dar um novo lance menor que R$ 100.000</strong></li>
+        <li>Prazo para esse novo lance: 5 minutos (pregão eletrônico, IN 73/2022)</li>
+        <li>Se cobrir, você vence. Se não, a grande continua em primeiro.</li>
+      </UL>
+
+      <H2 id="requisitos">Requisitos para invocar</H2>
+      <UL>
+        <li>Estar <strong>declarada como ME ou EPP no SICAF</strong></li>
+        <li>Faturamento respeitar limites atualizados (ME até R$ 360k/ano; EPP até R$ 4,8M/ano em 2026)</li>
+        <li>Não pertencer a grupo econômico que exceda os limites</li>
+        <li>Ter apresentado declaração específica na proposta</li>
+      </UL>
+
+      <H2 id="excecoes">Quando NÃO se aplica</H2>
+      <UL>
+        <li>Quando a primeira colocada JÁ é ME/EPP — empate ficto não vale entre duas ME</li>
+        <li>Quando o valor estimado é inferior a R$ 80.000 e o edital usa outra preferência exclusiva para ME/EPP</li>
+        <li>Em contratações diretas por dispensa ou inexigibilidade</li>
+      </UL>
+
+      <H2 id="tatica">Tática vencedora para ME/EPP</H2>
+      <P>
+        Conhecendo o empate ficto, a estratégia ótima muda:
+      </P>
+      <UL>
+        <li><strong>Não precise &ldquo;queimar floor&rdquo; cedo.</strong> Pare um pouco acima do melhor lance do concorrente grande — você terá a chance de baixar no empate ficto.</li>
+        <li><strong>Prepare o floor final antes.</strong> Quando for convocada, tem só 5 minutos. Calcule o custo + margem mínima ANTES, não na hora.</li>
+        <li><strong>Use robô com detecção de empate ficto.</strong> O Licitagram Supreme Bot detecta automaticamente e te alerta com sugestão de lance ótimo.</li>
+      </UL>
+
+      <Callout kind="tip">
+        <strong>Dica jurídica:</strong> alguns pregoeiros &ldquo;esquecem&rdquo; de convocar o
+        empate ficto. Se você está em 2º dentro da faixa e a licitação foi encerrada
+        sem sua convocação, <strong>impugne imediatamente</strong>. Tem jurisprudência
+        pacífica a favor do licitante (TCU Acórdão 1.234/2018 entre outros).
+      </Callout>
+    </>
+  )
+}
+
+// ─── ARTICLE 9 ──────────────────────────────────────────────────────────
+
+function Article_ImpugnacaoEditalGuia() {
+  return (
+    <>
+      <P>
+        Encontrou cláusula restritiva em um edital que te exclui sem razão técnica
+        legítima? Você pode impugnar. A nova Lei 14.133/2021 manteve o instituto e
+        organizou os prazos. Este artigo mostra como identificar causa legítima,
+        escrever a peça, protocolar e cobrar resposta.
+      </P>
+
+      <H2 id="quando">Quando impugnar</H2>
+      <UL>
+        <li><strong>Cláusula restritiva injustificada</strong> — exige atestado para marca/modelo específico sem razão técnica</li>
+        <li><strong>Exigências desproporcionais</strong> — capital social exagerado, experiência mínima excessiva</li>
+        <li><strong>Prazo de visita técnica inadequado</strong> — menos de 3 dias úteis</li>
+        <li><strong>Objeto mal definido</strong> — descrição vaga que permite fornecer qualquer coisa</li>
+        <li><strong>Violação ao princípio da competitividade</strong> — edital desenhado para um único fornecedor</li>
+      </UL>
+
+      <H2 id="prazos">Prazos — Lei 14.133/2021</H2>
+      <UL>
+        <li><strong>Qualquer cidadão</strong> pode impugnar até <strong>3 dias úteis</strong> antes da abertura da sessão pública</li>
+        <li><strong>Órgão contratante</strong> tem <strong>3 dias úteis</strong> para decidir</li>
+        <li>Se não decidir no prazo, vale o silêncio administrativo — jurisprudência favorável ao impugnante</li>
+      </UL>
+
+      <H2 id="template">Estrutura da peça de impugnação</H2>
+      <P>
+        Uma impugnação bem feita tem 5 partes:
+      </P>
+      <UL>
+        <li><strong>Identificação</strong> — pregão, edital, órgão, impugnante (CNPJ + representante)</li>
+        <li><strong>Tempestividade</strong> — datas (publicação do edital, prazo de 3 dias úteis)</li>
+        <li><strong>Mérito</strong> — qual cláusula, por que é restritiva, qual princípio viola</li>
+        <li><strong>Jurisprudência / doutrina</strong> — acórdãos do TCU, súmulas, Lei 14.133 artigos relevantes</li>
+        <li><strong>Pedido</strong> — o que você quer (alterar cláusula X, suspender pregão, etc.)</li>
+      </UL>
+
+      <H2 id="dicas">Dicas que fazem diferença</H2>
+      <UL>
+        <li><strong>Seja técnico, não emotivo.</strong> Base cada alegação em artigo de lei.</li>
+        <li><strong>Protocole no sistema correto.</strong> Compras.gov.br, BEC, BLL — cada um tem seu canal. Não vale e-mail.</li>
+        <li><strong>Peça cópia da decisão.</strong> Pela LAI (Lei de Acesso à Informação) você tem direito à resposta formal.</li>
+        <li><strong>Se indeferida, ainda pode representar no TCU.</strong> Acumula jurisprudência para próximas impugnações.</li>
+      </UL>
+
+      <H2 id="licitagram">Como a Licitagram acelera</H2>
+      <P>
+        O <strong className="text-foreground">Gerador de Impugnação</strong> da Licitagram
+        lê o edital com IA, identifica cláusulas restritivas automaticamente, cruza com
+        jurisprudência do TCU e gera a peça pronta para assinar. O que demorava 3-5 horas
+        vira 15 minutos.
+      </P>
+
+      <Callout kind="warn">
+        <strong>Importante:</strong> impugnar NÃO te impede de participar caso ela seja
+        indeferida. Use sem medo de &ldquo;queimar filme&rdquo; — é direito seu e do
+        interesse público.
+      </Callout>
+    </>
+  )
+}
+
+// ─── ARTICLE 10 ─────────────────────────────────────────────────────────
+
+function Article_DispensaInexigibilidade() {
+  return (
+    <>
+      <P>
+        Dispensa e inexigibilidade são as formas de <strong className="text-foreground">contratação
+        direta</strong> — sem licitação. A Lei 14.133/2021 reformulou os limites, hipóteses e
+        procedimentos. Quem entende essas regras encontra oportunidades invisíveis para quem
+        só monitora pregão.
+      </P>
+
+      <H2 id="dispensa">Dispensa de licitação</H2>
+      <P>
+        Aplicável quando a licitação é <strong className="text-foreground">possível</strong> mas
+        a lei dispensa por conveniência. Principais hipóteses (art. 75, Lei 14.133):
+      </P>
+      <UL>
+        <li><strong>Valor</strong> — obras/serviços até R$ 100k (ME/EPP: R$ 165k) e bens/serviços até R$ 54.021,47 (valores atualizados 2026)</li>
+        <li><strong>Emergência ou calamidade pública</strong> — desde que caracterizada urgência real</li>
+        <li><strong>Licitação deserta</strong> — duas vezes sem interessados</li>
+        <li><strong>Bens produzidos por órgãos da administração</strong></li>
+        <li><strong>Pesquisa e desenvolvimento tecnológico</strong></li>
+      </UL>
+
+      <H2 id="inexigibilidade">Inexigibilidade de licitação</H2>
+      <P>
+        Aplicável quando a licitação é <strong className="text-foreground">inviável</strong> —
+        não há competição possível. Hipóteses (art. 74):
+      </P>
+      <UL>
+        <li><strong>Fornecedor exclusivo</strong> — único no mercado, comprovado por atestado</li>
+        <li><strong>Serviços técnicos especializados de natureza predominantemente intelectual</strong> — consultoria com profissionais de notória especialização</li>
+        <li><strong>Artistas consagrados</strong> pela crítica especializada ou pela opinião pública</li>
+        <li><strong>Credenciamento</strong> quando todos podem ser contratados (atendimento contínuo)</li>
+      </UL>
+
+      <H2 id="oportunidade">Por que é oportunidade</H2>
+      <P>
+        90% dos licitantes ignoram contratação direta porque acham que &ldquo;não sai pregão&rdquo;.
+        Errado: dispensas e inexigibilidades são publicadas no PNCP (pela 14.133) e tem
+        <strong className="text-foreground"> procedimento simplificado de cotação prévia</strong>.
+        Se você atende a hipótese — cadastrou produto no marketplace do governo, tem
+        certificação exclusiva, etc. — pode ser chamado direto.
+      </P>
+
+      <H2 id="licitagram">Monitoramento via Licitagram</H2>
+      <P>
+        O Licitagram indexa <strong className="text-foreground">dispensas e inexigibilidades</strong>
+        publicadas no PNCP junto com pregões tradicionais. Filtro:{' '}
+        &ldquo;Modalidade = Dispensa&rdquo; ou &ldquo;Inexigibilidade&rdquo;. Muitos clientes
+        descobrem nichos onde são praticamente monopolistas e pode preencher anos de
+        receita estável.
+      </P>
+
+      <Callout kind="tip">
+        <strong>Regra de ouro:</strong> dispensa por valor exige <strong>3 cotações</strong>{' '}
+        prévias para comprovar &ldquo;economicidade&rdquo;. Se você ainda não foi cotado pelo
+        órgão, entre em contato com a setoral de compras ANTES do processo — posicionamento
+        comercial precoce.
+      </Callout>
+    </>
+  )
+}
+
+// ─── ARTICLE 11 ─────────────────────────────────────────────────────────
+
+function Article_CNDCertidoesNegativas() {
+  return (
+    <>
+      <P>
+        CND — Certidão Negativa de Débitos — é o documento que comprova que sua empresa
+        está em dia com o fisco. Em licitação pública, é <strong className="text-foreground">obrigatória</strong>.
+        Se qualquer uma estiver vencida no dia do pregão, você é desabilitado —
+        independente do preço que ofereceu. Este artigo mostra quais CNDs você precisa,
+        como emitir e como automatizar.
+      </P>
+
+      <H2 id="quais">Quais CNDs você precisa</H2>
+      <UL>
+        <li><strong>CND Federal (Receita + PGFN)</strong> — débitos tributários federais + dívida ativa. Validade 180 dias. Emissão gratuita em receita.fazenda.gov.br</li>
+        <li><strong>CND Trabalhista (TST)</strong> — débitos trabalhistas. Validade 180 dias. Emissão em tst.jus.br</li>
+        <li><strong>CND FGTS (Caixa)</strong> — regularidade com FGTS. Validade 30 dias. Emissão em consulta-crf.caixa.gov.br</li>
+        <li><strong>CND Estadual</strong> — débitos ICMS e outros tributos estaduais. Validade variável (30-180 dias). Site da Secretaria da Fazenda estadual.</li>
+        <li><strong>CND Municipal</strong> — ISS e outros tributos municipais. Validade 30-180 dias. Site da prefeitura sede.</li>
+        <li><strong>Certidão de Falência e Recuperação Judicial</strong> — tribunal de justiça do estado. Validade 30-90 dias.</li>
+      </UL>
+
+      <H2 id="prazos">Prazos de validade — atenção</H2>
+      <P>
+        Cada certidão tem validade diferente. A mais curta (FGTS, 30 dias) dita seu
+        ritmo de renovação. Quem participa de 10+ pregões/mês não pode emitir
+        manualmente — vira um job full-time.
+      </P>
+
+      <H2 id="automacao">Automação de emissão</H2>
+      <P>
+        Alguns órgãos permitem emissão via API ou scraping automatizado. A Blindagem
+        de Compliance da Licitagram:
+      </P>
+      <UL>
+        <li>Monitora 8 certidões críticas em tempo real</li>
+        <li>Alerta 7 dias antes de qualquer vencimento (WhatsApp + e-mail)</li>
+        <li>Emite automaticamente as que permitem (Federal, TST, FGTS via portal público)</li>
+        <li>Abre ticket prioritário pras que exigem ação manual</li>
+        <li>Mantém repositório digitalizado e indexado, pronto para upload em pregão</li>
+      </UL>
+
+      <H2 id="problema">O problema mais caro</H2>
+      <P>
+        A causa #1 de desabilitação em pregão (segundo TCU) é{' '}
+        <strong className="text-foreground">certidão vencida na data da habilitação</strong>.
+        Quem tem 10 pregões simultâneos em 5 estados diferentes e 15 certidões cada —
+        150 documentos vivos — não consegue controlar manualmente. Automação é o que
+        separa profissional de amador.
+      </P>
+
+      <Callout kind="warn">
+        <strong>Bizarro mas verdadeiro:</strong> alguns editais aceitam certidão positiva
+        com efeito de negativa (você tem dívida parcelada em dia). Leia com atenção.
+        A Licitagram sinaliza quando o edital permite essa alternativa.
+      </Callout>
+    </>
+  )
+}
+
+// ─── ARTICLE 12 ─────────────────────────────────────────────────────────
+
+function Article_ModalidadesLei14133() {
+  return (
+    <>
+      <P>
+        A Lei 14.133/2021 reestruturou as modalidades de licitação. Algumas foram
+        extintas (convite, tomada de preços), outras nasceram (diálogo competitivo).
+        Este artigo mostra cada uma, quando se aplica e qual a estratégia vencedora.
+      </P>
+
+      <H2 id="pregao">Pregão (eletrônico ou presencial)</H2>
+      <P>
+        Modalidade mais comum. Aplicada para bens e serviços comuns — padrões objetivos,
+        disponíveis no mercado. Critério: menor preço ou maior desconto.
+      </P>
+      <P>
+        <strong className="text-foreground">Quando:</strong> 95% dos casos. Se a licitação
+        vai pra leilão de lances, é pregão.
+      </P>
+
+      <H2 id="concorrencia">Concorrência</H2>
+      <P>
+        Modalidade para obras, serviços de engenharia, alienação de bens imóveis. Também
+        aplicada quando o pregão não se aplica (natureza não-comum).
+      </P>
+      <P>
+        <strong className="text-foreground">Critérios:</strong> menor preço, melhor técnica,
+        técnica e preço, ou maior retorno econômico (dependendo do objeto).
+      </P>
+
+      <H2 id="concurso">Concurso</H2>
+      <P>
+        Escolha de trabalho técnico, científico ou artístico. Prêmio para o vencedor.
+        Raro para o licitante comum.
+      </P>
+
+      <H2 id="leilao">Leilão</H2>
+      <P>
+        Alienação de bens da administração pública. Você é COMPRADOR, não fornecedor.
+        Usado para vender equipamentos, veículos, imóveis.
+      </P>
+
+      <H2 id="dialogo">Diálogo competitivo</H2>
+      <P>
+        <strong className="text-foreground">Novidade da Lei 14.133.</strong> Aplicável a
+        contratações de inovação ou soluções complexas onde o órgão não consegue especificar
+        o objeto final. Tem fase de diálogo iterativo antes da proposta final — parecido
+        com RFP + RFQ do setor privado.
+      </P>
+      <P>
+        <strong className="text-foreground">Oportunidade:</strong> fornecedores de tecnologia
+        dominam essa modalidade. Ainda é subexplorado — em 2026 somente 2% dos processos
+        federais usam diálogo competitivo.
+      </P>
+
+      <H2 id="credenciamento">Credenciamento</H2>
+      <P>
+        Nova modalidade formal. Quando todos os interessados que atendem aos requisitos
+        podem ser contratados — demanda aberta e não-competitiva. Exemplos: telemedicina,
+        coleta de resíduos, credenciamento de prestadores de serviços médicos para SUS.
+      </P>
+
+      <H2 id="extintas">Modalidades extintas</H2>
+      <UL>
+        <li><strong>Convite</strong> — extinto. Pequenas compras caem em dispensa por valor.</li>
+        <li><strong>Tomada de Preços</strong> — extinto. Substituído por concorrência simplificada.</li>
+        <li><strong>RDC (Regime Diferenciado de Contratações)</strong> — extinto. Absorvido pela 14.133.</li>
+      </UL>
+
+      <H2 id="estrategia">Estratégia por modalidade</H2>
+      <UL>
+        <li><strong>Pregão</strong> — preço é rei. Floor Optimizer bem parametrizado ganha.</li>
+        <li><strong>Concorrência técnica/preço</strong> — investir em proposta técnica densa com atestados, certificações, equipe. Preço isolado não ganha.</li>
+        <li><strong>Diálogo competitivo</strong> — relacionamento pré-edital é tudo. Participar das audiências públicas.</li>
+        <li><strong>Credenciamento</strong> — volume. Se credencie em todos e deixe o órgão distribuir demanda.</li>
+      </UL>
+
+      <Callout kind="tip">
+        A Licitagram filtra por modalidade e aprende o seu padrão de ganho. Se você
+        converte 40% em pregões mas 2% em concorrências, o sistema prioriza os pregões
+        nos alertas. Você decide se quer mudar.
+      </Callout>
+    </>
+  )
+}
+
 // ─── Registry ────────────────────────────────────────────────────────────
 
 export const ARTICLES: Article[] = [
@@ -465,6 +987,97 @@ export const ARTICLES: Article[] = [
       category: 'mercado',
     },
     Component: Article_PrecoMercadoLicitacao,
+  },
+  {
+    meta: {
+      slug: 'como-participar-pregao-eletronico-passo-a-passo',
+      title: 'Como participar de pregão eletrônico: guia passo a passo',
+      description: 'Nunca participou de pregão? Este guia mostra do cadastro SICAF ao primeiro lance submetido. Pré-requisitos, passos e armadilhas.',
+      keywords: ['como participar pregão eletrônico', 'pregão eletrônico iniciante', 'primeira licitação', 'como fazer licitação', 'passo a passo pregão'],
+      publishedAt: '2026-04-17',
+      author: 'Equipe Licitagram',
+      readingTimeMin: 6,
+      category: 'como-fazer',
+    },
+    Component: Article_ComoParticiparPregaoEletronico,
+  },
+  {
+    meta: {
+      slug: 'sicaf-cadastro-completo',
+      title: 'SICAF: cadastro completo passo a passo (2026)',
+      description: 'Guia definitivo do cadastro SICAF — documentos, 6 níveis de habilitação, armadilhas que eliminam 40% das empresas. Atualizado 2026.',
+      keywords: ['SICAF cadastro', 'como cadastrar SICAF', 'SICAF passo a passo', 'cadastro fornecedor governo', 'habilitação SICAF'],
+      publishedAt: '2026-04-17',
+      author: 'Equipe Licitagram',
+      readingTimeMin: 7,
+      category: 'como-fazer',
+    },
+    Component: Article_SicafCadastroCompleto,
+  },
+  {
+    meta: {
+      slug: 'empate-ficto-me-epp-licitacao',
+      title: 'Empate ficto ME/EPP em licitação: a regra que inverte resultados',
+      description: 'Microempresas e EPP têm preferência de desempate em licitações até 5% de diferença. Entenda a regra, requisitos e a tática vencedora.',
+      keywords: ['empate ficto', 'ME EPP licitação', 'preferência microempresa pregão', 'desempate ME EPP', 'Lei Complementar 123'],
+      publishedAt: '2026-04-17',
+      author: 'Equipe Licitagram',
+      readingTimeMin: 5,
+      category: 'legislacao',
+    },
+    Component: Article_EmpateFictoMEEPP,
+  },
+  {
+    meta: {
+      slug: 'como-impugnar-edital-licitacao',
+      title: 'Como impugnar edital de licitação: guia com template',
+      description: 'Encontrou cláusula restritiva? Saiba quando e como impugnar edital sob a Lei 14.133/2021. Prazos, estrutura da peça e dicas práticas.',
+      keywords: ['impugnar edital', 'impugnação licitação', 'como impugnar pregão', 'cláusula restritiva edital', 'Lei 14.133 impugnação'],
+      publishedAt: '2026-04-17',
+      author: 'Equipe Licitagram',
+      readingTimeMin: 6,
+      category: 'como-fazer',
+    },
+    Component: Article_ImpugnacaoEditalGuia,
+  },
+  {
+    meta: {
+      slug: 'dispensa-inexigibilidade-licitacao-14133',
+      title: 'Dispensa e inexigibilidade: contratação direta na Lei 14.133',
+      description: 'Quando a administração pode contratar sem licitação: hipóteses de dispensa e inexigibilidade, limites atualizados 2026 e oportunidades.',
+      keywords: ['dispensa licitação', 'inexigibilidade licitação', 'contratação direta', 'Lei 14.133 dispensa', 'artigo 74 75 licitação'],
+      publishedAt: '2026-04-17',
+      author: 'Equipe Licitagram',
+      readingTimeMin: 6,
+      category: 'legislacao',
+    },
+    Component: Article_DispensaInexigibilidade,
+  },
+  {
+    meta: {
+      slug: 'cnd-certidoes-negativas-licitacao',
+      title: 'CND e certidões negativas em licitação: guia + automação',
+      description: 'Quais certidões negativas você precisa para participar de licitação pública. Prazos de validade, emissão e como automatizar.',
+      keywords: ['CND licitação', 'certidão negativa débitos', 'certidões licitação', 'CND Federal TST FGTS', 'regularidade fiscal pregão'],
+      publishedAt: '2026-04-17',
+      author: 'Equipe Licitagram',
+      readingTimeMin: 6,
+      category: 'como-fazer',
+    },
+    Component: Article_CNDCertidoesNegativas,
+  },
+  {
+    meta: {
+      slug: 'modalidades-licitacao-lei-14133',
+      title: 'Modalidades de licitação na Lei 14.133/2021: guia completo',
+      description: 'Pregão, concorrência, concurso, leilão, diálogo competitivo e credenciamento — quando usar cada modalidade e estratégia vencedora.',
+      keywords: ['modalidades licitação', 'pregão vs concorrência', 'diálogo competitivo', 'credenciamento 14133', 'licitação tipos'],
+      publishedAt: '2026-04-17',
+      author: 'Equipe Licitagram',
+      readingTimeMin: 7,
+      category: 'legislacao',
+    },
+    Component: Article_ModalidadesLei14133,
   },
 ]
 

@@ -235,10 +235,10 @@ export default async function PrecoSlugPage({ params }: Props) {
           </h3>
           <p className="text-sm text-muted-foreground mb-4">
             Com Licitagram completo você também tem: Forensic Replay, matching IA, robô de lances,
-            compliance automático e monitor de chat em tempo real. 14 dias grátis.
+            compliance automático e monitor de chat em tempo real. 7 dias grátis.
           </p>
           <Link
-            href="/signup"
+            href="/register"
             className="inline-flex items-center gap-2 bg-brand text-white rounded-lg px-5 py-2.5 text-sm font-medium hover:bg-brand-dark transition-colors"
           >
             Testar grátis →

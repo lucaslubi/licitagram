@@ -304,22 +304,22 @@ export default async function DashboardPage() {
   return (
     <div className="-m-4 p-4 md:-m-8 md:p-8 pb-8 md:pb-12">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="text-xl font-semibold text-white tracking-tight">Dashboard</h1>
-          <p className="text-xs text-gray-500 mt-0.5">Visão geral das suas oportunidades</p>
+          <h1 className="text-xl font-semibold text-foreground tracking-tight">Command Center</h1>
+          <p className="text-xs text-muted-foreground mt-1">Visão geral das suas oportunidades</p>
         </div>
         <div className="flex items-center gap-3">
           <Link
             href="/opportunities"
-            className="text-xs text-gray-400 hover:text-white transition-colors px-3 py-1.5 rounded-lg border border-white/[0.06] hover:border-white/[0.12]"
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg border border-border hover:border-muted-foreground/30"
           >
-            Ver oportunidades
+            Ver oportunidades →
           </Link>
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.03] rounded-lg border border-white/[0.06]">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-muted/50 rounded-lg border border-border">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-[10px] text-gray-500">
-              Atualizado {new Date().toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+            <span className="text-[10px] text-muted-foreground font-mono tabular-nums">
+              {new Date().toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
             </span>
           </div>
         </div>
