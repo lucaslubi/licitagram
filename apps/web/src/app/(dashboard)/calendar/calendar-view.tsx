@@ -79,17 +79,23 @@ export function CalendarView({ events }: { events: CalendarEvent[] }) {
     return map
   }, [filteredEvents])
 
-  // Group events for list view
+  // Group events for list view — buckets by how far out the event is,
+  // so a certidão vencendo daqui a 172 dias não cai no mesmo balde de
+  // um pregão encerrando daqui a 3 dias.
   const grouped = useMemo(() => {
     const today = new Date().toISOString().split('T')[0]
     const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0]
     const weekEnd = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0]
+    const monthEnd = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0]
+    const quarterEnd = new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0]
 
     const groups: { label: string; events: CalendarEvent[] }[] = [
       { label: 'Hoje', events: [] },
       { label: 'Amanhã', events: [] },
       { label: 'Esta semana', events: [] },
       { label: 'Próximas semanas', events: [] },
+      { label: 'Próximos meses', events: [] },
+      { label: 'Mais distantes (+90d)', events: [] },
       { label: 'Passado', events: [] },
     ]
 
@@ -98,8 +104,10 @@ export function CalendarView({ events }: { events: CalendarEvent[] }) {
       if (d === today) groups[0].events.push(e)
       else if (d === tomorrow) groups[1].events.push(e)
       else if (d > today && d <= weekEnd) groups[2].events.push(e)
-      else if (d > weekEnd) groups[3].events.push(e)
-      else groups[4].events.push(e)
+      else if (d > weekEnd && d <= monthEnd) groups[3].events.push(e)
+      else if (d > monthEnd && d <= quarterEnd) groups[4].events.push(e)
+      else if (d > quarterEnd) groups[5].events.push(e)
+      else groups[6].events.push(e)
     }
 
     return groups.filter(g => g.events.length > 0)
