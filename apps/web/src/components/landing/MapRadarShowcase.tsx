@@ -144,19 +144,19 @@ export function MapRadarShowcase() {
               </div>
             </div>
 
-            {/* Video */}
-            <div className="relative aspect-video bg-black">
+            {/* Video — natural aspect ratio (no cropping) */}
+            <div className="relative bg-black">
               <video
                 autoPlay
                 loop
                 muted
                 playsInline
                 preload="auto"
-                className="w-full h-full object-cover"
+                className="block w-full h-auto"
                 poster="/videos/map-poster.jpg"
               >
                 <source src="/videos/demo-mapa.mp4" type="video/mp4" />
-                <source src="/mapa-demo.webm" type="video/webm" />
+                <source src="/videos/demo-mapa.webm" type="video/webm" />
               </video>
 
               {/* Overlay badges — floating on the video corners */}
