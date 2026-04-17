@@ -113,21 +113,21 @@ export default async function LandingPage() {
           <div className="flex items-center">
             <Image src="/logo.png" alt="Licitagram" width={232} height={52} className="h-10 sm:h-[3.27rem] w-auto" />
           </div>
-          <nav className="hidden md:flex items-center gap-8">
-            <a href="#inteligencia" className="text-sm text-[#4A4A45] hover:text-[#1A1C1F] transition-colors duration-200">
-              Inteligência
-            </a>
-            <a href="#mapa" className="text-sm text-[#4A4A45] hover:text-[#1A1C1F] transition-colors duration-200">
-              Mapa
-            </a>
+          <nav className="hidden md:flex items-center gap-6">
+            <Link href="/precos" className="text-sm text-[#4A4A45] hover:text-[#1A1C1F] transition-colors duration-200">
+              Preços de Mercado
+            </Link>
+            <Link href="/blog" className="text-sm text-[#4A4A45] hover:text-[#1A1C1F] transition-colors duration-200">
+              Blog
+            </Link>
+            <Link href="/cases" className="text-sm text-[#4A4A45] hover:text-[#1A1C1F] transition-colors duration-200">
+              Cases
+            </Link>
             <a href="#pricing" className="text-sm text-[#4A4A45] hover:text-[#1A1C1F] transition-colors duration-200">
-              Preços
+              Planos
             </a>
             <a href="#plataforma" className="text-sm text-[#4A4A45] hover:text-[#1A1C1F] transition-colors duration-200">
               Plataforma
-            </a>
-            <a href="#governos" className="text-sm text-[#4A4A45] hover:text-[#1A1C1F] transition-colors duration-200">
-              Para Governos
             </a>
             <a href="#faq" className="text-sm text-[#4A4A45] hover:text-[#1A1C1F] transition-colors duration-200">
               FAQ
@@ -1358,12 +1358,20 @@ export default async function LandingPage() {
               </ul>
             </div>
             <div>
+              <h4 className="font-mono text-[10px] uppercase text-[#555] mb-4 tracking-[0.15em]">Recursos</h4>
+              <ul className="space-y-3 text-sm">
+                <li><Link href="/blog" className="text-[#8B8B8B] hover:text-white transition-colors duration-200">Blog</Link></li>
+                <li><Link href="/precos" className="text-[#8B8B8B] hover:text-white transition-colors duration-200">Preços de Mercado</Link></li>
+                <li><Link href="/cases" className="text-[#8B8B8B] hover:text-white transition-colors duration-200">Cases</Link></li>
+                <li><Link href="/status" className="text-[#8B8B8B] hover:text-white transition-colors duration-200">Status do Sistema</Link></li>
+              </ul>
+            </div>
+            <div>
               <h4 className="font-mono text-[10px] uppercase text-[#555] mb-4 tracking-[0.15em]">Plataforma</h4>
               <ul className="space-y-3 text-sm">
                 <li><a href="#governos" className="text-[#8B8B8B] hover:text-white transition-colors duration-200">Para TCEs</a></li>
                 <li><span className="text-[#8B8B8B]">Para bancos</span></li>
                 <li><span className="text-[#8B8B8B]">Para empresas</span></li>
-                <li><span className="text-[#555]">Status</span></li>
               </ul>
             </div>
             <div>

@@ -22,24 +22,8 @@ export default async function DashboardPage() {
   const minScore = Math.max(MIN_DISPLAY_SCORE, auth.minScore)
 
   if (!companyId) {
-    return (
-      <div>
-        <h1 className="text-2xl font-bold mb-4 text-white">Bem-vindo ao Licitagram!</h1>
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-gray-400 mb-4">
-              Para começar a receber oportunidades, cadastre os dados da sua empresa.
-            </p>
-            <Link
-              href="/company"
-              className="inline-flex items-center px-4 py-2 bg-brand text-white rounded-lg hover:bg-brand-dark transition-colors duration-150"
-            >
-              Cadastrar Empresa
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
-    )
+    // First-time user without a company — send through the guided wizard
+    redirect('/onboarding')
   }
 
   const now = new Date()

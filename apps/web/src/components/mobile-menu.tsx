@@ -4,11 +4,12 @@ import { useState } from 'react'
 import Link from 'next/link'
 
 const NAV_LINKS = [
-  { href: '#inteligencia', label: 'Inteligência' },
-  { href: '#mapa', label: 'Mapa' },
-  { href: '#plataforma', label: 'Plataforma' },
-  { href: '#pricing', label: 'Preços' },
-  { href: '#governos', label: 'Para Governos' },
+  { href: '/precos', label: 'Preços de Mercado', external: true },
+  { href: '/blog', label: 'Blog', external: true },
+  { href: '/cases', label: 'Cases', external: true },
+  { href: '#pricing', label: 'Planos', external: false },
+  { href: '#plataforma', label: 'Plataforma', external: false },
+  { href: '#faq', label: 'FAQ', external: false },
 ]
 
 export function MobileMenu() {
@@ -46,16 +47,27 @@ export function MobileMenu() {
           {/* Menu panel */}
           <div className="absolute top-[72px] left-0 right-0 z-50 bg-[#0A0A0F] border-t border-white/[0.08]">
             <nav className="max-w-7xl mx-auto px-6 py-6 flex flex-col gap-1">
-              {NAV_LINKS.map((link) => (
-                <a
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setOpen(false)}
-                  className="px-4 py-3 rounded-lg text-[15px] font-medium text-white/60 hover:text-white hover:bg-white/[0.04] transition-colors"
-                >
-                  {link.label}
-                </a>
-              ))}
+              {NAV_LINKS.map((link) =>
+                link.external ? (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setOpen(false)}
+                    className="px-4 py-3 rounded-lg text-[15px] font-medium text-white/60 hover:text-white hover:bg-white/[0.04] transition-colors"
+                  >
+                    {link.label}
+                  </Link>
+                ) : (
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setOpen(false)}
+                    className="px-4 py-3 rounded-lg text-[15px] font-medium text-white/60 hover:text-white hover:bg-white/[0.04] transition-colors"
+                  >
+                    {link.label}
+                  </a>
+                ),
+              )}
               <hr className="my-3 border-white/[0.08]" />
               <Link
                 href="/login"
