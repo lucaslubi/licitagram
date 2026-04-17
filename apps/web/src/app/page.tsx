@@ -8,6 +8,7 @@ import {
   ClipRevealSection,
   StickyHeader,
 } from '@/components/landing/ScrollEffects'
+import { MapRadarShowcase } from '@/components/landing/MapRadarShowcase'
 import { createClient } from '@supabase/supabase-js'
 import { PricingCards } from '@/components/pricing/PricingCards'
 
@@ -308,9 +309,12 @@ export default async function LandingPage() {
         </section>
       </ClipRevealSection>
 
+      {/* ── MAP RADAR SHOWCASE — the single feature that makes us tier-1 ── */}
+      <MapRadarShowcase />
+
       {/* ── 02 — O que é o Licitagram ── */}
       <ClipRevealSection className="bg-[#F5F5F0]">
-        <section id="mapa" className="py-20 sm:py-28">
+        <section id="mapa-intro" className="py-20 sm:py-28">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="max-w-3xl mx-auto text-center mb-16">
               <ScrollReveal>
@@ -330,33 +334,6 @@ export default async function LandingPage() {
                 </p>
               </ScrollReveal>
             </div>
-
-            {/* Mapa de Inteligência — Video Demo */}
-            <ScrollReveal delay={300}>
-              <div className="mb-16 max-w-4xl mx-auto">
-                <div className="relative rounded-2xl overflow-hidden border border-[#E5E5E0]/30 shadow-2xl">
-                  <video
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    preload="auto"
-                    className="w-full h-auto"
-                  >
-                    <source src="/mapa-demo.webm" type="video/webm" />
-                  </video>
-                  {/* Logo watermark — bottom-left */}
-                  {/* Black bar to cover username + logo on top */}
-                  <div className="absolute bottom-0 left-0 w-24 h-5 bg-black pointer-events-none" />
-                  <img
-                    src="/logo-branca.png"
-                    alt="Licitagram"
-                    className="absolute bottom-0 left-0 h-5 opacity-95 drop-shadow-lg pointer-events-none z-10"
-                  />
-                </div>
-                <p className="text-center text-sm text-[#69695D] mt-4">Mapa de Inteligência — Oportunidades geolocalizadas com score de compatibilidade em tempo real</p>
-              </div>
-            </ScrollReveal>
 
             {/* Para quem — 3 cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
@@ -1349,7 +1326,7 @@ export default async function LandingPage() {
               <h4 className="font-mono text-[10px] uppercase text-[#555] mb-4 tracking-[0.15em]">Produto</h4>
               <ul className="space-y-3 text-sm">
                 <li><a href="#inteligencia" className="text-[#8B8B8B] hover:text-white transition-colors duration-200">Inteligência</a></li>
-                <li><a href="#mapa" className="text-[#8B8B8B] hover:text-white transition-colors duration-200">Mapa</a></li>
+                <li><a href="#mapa-radar" className="text-[#8B8B8B] hover:text-white transition-colors duration-200">Mapa</a></li>
                 <li><a href="#plataforma" className="text-[#8B8B8B] hover:text-white transition-colors duration-200">Sala de Operações</a></li>
                 <li><a href="#faq" className="text-[#8B8B8B] hover:text-white transition-colors duration-200">Consultor de IA</a></li>
                 <li><span className="text-[#8B8B8B]">Drive</span></li>
