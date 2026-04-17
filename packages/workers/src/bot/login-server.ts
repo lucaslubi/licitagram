@@ -131,33 +131,21 @@ export class LoginServer {
 
     activeSessions.set(sessionId, { browser, page })
 
+    // Land DIRECTLY on a protected fornecedor URL. The portal auto-redirects
+    // to sso.acesso.gov.br/login — one less click for the user and we skip
+    // the fragile "click Entrar com gov.br" detection entirely.
     const startUrls: Record<string, string> = {
-      'comprasnet': 'https://cnetmobile.estaleiro.serpro.gov.br/comprasnet-web/public/compras',
-      'comprasgov': 'https://cnetmobile.estaleiro.serpro.gov.br/comprasnet-web/public/compras',
+      'comprasnet': 'https://cnetmobile.estaleiro.serpro.gov.br/comprasnet-web/seguro/fornecedor/area-trabalho',
+      'comprasgov': 'https://cnetmobile.estaleiro.serpro.gov.br/comprasnet-web/seguro/fornecedor/area-trabalho',
       'pncp': 'https://pncp.gov.br/app/login',
     }
 
     const startUrl = startUrls[portal] || startUrls['comprasgov']
-    
+
     await page.goto(startUrl, { waitUntil: 'networkidle2' })
-    
-    // Some portals require clicking "Entrar com gov.br"
-    await new Promise(r => setTimeout(r, 2000))
-    try {
-      // Try CSS selector first, fall back to XPath if has-text is not supported
-      let loginButton = null
-      try {
-        loginButton = await page.$('button.br-button.is-primary')
-      } catch { /* ignore selector errors */ }
-      if (!loginButton) {
-        const xpathButtons = await page.$$('xpath/.//button[contains(text(), "gov.br")] | .//a[contains(text(), "gov.br")]')
-        loginButton = xpathButtons[0] || null
-      }
-      if (loginButton) {
-        await loginButton.click()
-        await new Promise(r => setTimeout(r, 2000))
-      }
-    } catch { /* ignore — auto-click is optional, user can click manually */ }
+    // After networkidle2, the SSO redirect should already have happened.
+    // Wait a beat to make sure the CPF field is rendered in the Angular shell.
+    await new Promise(r => setTimeout(r, 1500))
 
     const screenshot = await page.screenshot({ encoding: 'base64', type: 'jpeg', quality: 60 })
     return { url: page.url(), screenshot }

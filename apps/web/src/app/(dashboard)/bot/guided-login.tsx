@@ -180,29 +180,57 @@ export function GuidedLogin({ portal, configId, onSuccess, onClose }: GuidedLogi
 
   /* ── Action handlers ─────────────────────────────────────────────────────── */
 
-  async function handleType() {
+  /**
+   * Combined action: type the value into the correct input, then click the
+   * Continue / Entrar / Submit button. This is what users actually want —
+   * a single "Enviar" click that advances to the next step.
+   */
+  async function handleSubmit() {
     if (!inputValue.trim() || loading) return
     setLoading(true)
     setError(null)
 
     try {
-      // Determine the selector based on the current step
-      let selector = 'input:visible'
-      if (step === 'cpf') selector = 'input[type="text"]:visible, input[name="accountId"]:visible, input#accountId'
-      else if (step === 'password') selector = 'input[type="password"]:visible'
-      else if (step === '2fa') selector = 'input[type="text"]:visible, input[type="number"]:visible'
+      // 1. Type value into the correct field
+      let inputSelector = 'input:visible'
+      let submitSelector = 'button[type="submit"]:visible, button.br-button.is-primary:visible'
+      if (step === 'cpf') {
+        inputSelector = 'input[name="accountId"], input#accountId, input[type="text"]'
+        submitSelector = 'button[type="submit"], button.br-button.is-primary, button:contains("Continuar"), button:contains("Próxima")'
+      } else if (step === 'password') {
+        inputSelector = 'input[type="password"], input[name="password"], input#password'
+        submitSelector = 'button[type="submit"], button.br-button.is-primary, button:contains("Entrar")'
+      } else if (step === '2fa') {
+        inputSelector = 'input[name="codigo"], input[autocomplete="one-time-code"], input[type="text"]'
+        submitSelector = 'button[type="submit"], button.br-button.is-primary'
+      }
 
-      const data = await callApi('type', { selector, value: inputValue })
+      // Sanitize CPF client-side before sending
+      const clean = step === 'cpf' ? inputValue.replace(/\D/g, '') : inputValue
+      await callApi('type', { selector: inputSelector, value: clean })
+
+      // 2. Click submit
+      const clickData = await callApi('click', { selector: submitSelector })
       if (!mountedRef.current) return
 
-      if (data.screenshot) setScreenshot(data.screenshot)
-      if (data.url) setCurrentUrl(data.url)
+      if (clickData.screenshot) setScreenshot(clickData.screenshot)
+      if (clickData.url) {
+        setCurrentUrl(clickData.url)
+        // Advance step hint — the polling detectStep will correct if wrong.
+        if (step === 'cpf') setStep('password')
+        else if (step === 'password') setStep('navigating')
+      }
       setInputValue('')
     } catch {
-      setError('Falha ao digitar')
+      setError('Falha ao enviar. Tente novamente ou clique Atualizar.')
     } finally {
       setLoading(false)
     }
+  }
+
+  // Kept for backward compat — only used internally by handleSubmit now.
+  async function handleType() {
+    return handleSubmit()
   }
 
   async function handleClick(selector?: string) {
@@ -267,20 +295,52 @@ export function GuidedLogin({ portal, configId, onSuccess, onClose }: GuidedLogi
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-lg font-semibold text-white">Login Guiado</h3>
+              <h3 className="text-lg font-semibold text-white">Login Guiado no Compras.gov.br</h3>
               <p className="text-sm text-gray-400 mt-0.5">
-                {STEP_LABELS[step]}
+                {step === 'cpf' && 'Digite seu CPF abaixo. O portal está aguardando.'}
+                {step === 'password' && 'CPF aceito. Agora digite sua senha gov.br.'}
+                {step === '2fa' && 'Digite o código de verificação do seu app gov.br.'}
+                {step === 'connecting' && 'Conectando ao portal…'}
+                {step === 'navigating' && 'Confirmando login…'}
+                {step === 'connected' && 'Logado! Salvando sessão…'}
+                {step === 'error' && 'Algo deu errado. Feche e tente novamente.'}
               </p>
             </div>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-400 transition-colors"
+              className="text-gray-400 hover:text-white transition-colors"
               title="Fechar"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
+          </div>
+
+          {/* Progress indicator */}
+          <div className="flex items-center gap-1 mb-4">
+            {(['cpf', 'password', 'connected'] as const).map((s, idx) => {
+              const isActive = step === s || (step === 'navigating' && s === 'password')
+              const isDone =
+                (s === 'cpf' && (step === 'password' || step === '2fa' || step === 'navigating' || step === 'connected')) ||
+                (s === 'password' && (step === 'navigating' || step === 'connected')) ||
+                (s === 'connected' && step === 'connected')
+              return (
+                <div key={s} className="flex items-center gap-1 flex-1">
+                  <div
+                    className={`flex-1 h-1 rounded-full transition-colors ${
+                      isDone ? 'bg-emerald-500' : isActive ? 'bg-brand' : 'bg-white/10'
+                    }`}
+                  />
+                  {idx < 2 && <span className="w-0.5" />}
+                </div>
+              )
+            })}
+          </div>
+          <div className="flex items-center justify-between text-[10px] uppercase tracking-widest text-gray-400 mb-4 font-mono">
+            <span>1. CPF</span>
+            <span>2. Senha</span>
+            <span>3. Sessão salva</span>
           </div>
 
           {/* Status indicator */}
@@ -362,25 +422,19 @@ export function GuidedLogin({ portal, configId, onSuccess, onClose }: GuidedLogi
 
               <div className="flex items-center gap-2">
                 <button
-                  onClick={handleType}
+                  onClick={handleSubmit}
                   disabled={loading || !inputValue.trim()}
-                  className="bg-brand text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-brand/90 disabled:opacity-50 transition-colors"
+                  className="bg-brand text-white rounded-lg px-5 py-2 text-sm font-semibold hover:bg-brand-dark disabled:opacity-50 transition-colors"
                 >
-                  Digitar
-                </button>
-                <button
-                  onClick={() => handleClick()}
-                  disabled={loading}
-                  className="bg-gray-800 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors"
-                >
-                  Clicar
+                  {step === 'cpf' ? 'Enviar CPF →' : step === 'password' ? 'Entrar →' : 'Verificar código →'}
                 </button>
                 <button
                   onClick={handleRefresh}
                   disabled={loading}
                   className="border border-[#2d2f33] text-gray-300 rounded-lg px-4 py-2 text-sm font-medium hover:bg-[#1a1c1f] disabled:opacity-50 transition-colors"
+                  title="Atualizar screenshot"
                 >
-                  Atualizar
+                  ↻ Atualizar
                 </button>
               </div>
 
@@ -416,9 +470,16 @@ export function GuidedLogin({ portal, configId, onSuccess, onClose }: GuidedLogi
           )}
 
           {/* Hint text */}
-          <p className="text-xs text-gray-400 mt-4">
-            O navegador esta rodando no servidor. Digite suas credenciais acima para fazer login no portal.
-          </p>
+          <div className="mt-4 space-y-1.5">
+            <p className="text-xs text-gray-400">
+              💡 <strong className="text-gray-300">Como funciona:</strong> o navegador real está rodando no servidor Licitagram.
+              Acima você vê o que ele está vendo. Quando preencher CPF e clicar Enviar,
+              digitamos no portal por você e clicamos Continuar automaticamente.
+            </p>
+            <p className="text-xs text-gray-400">
+              🔐 Suas credenciais são criptografadas com AES-256-GCM antes de sair do seu navegador.
+            </p>
+          </div>
         </div>
       </div>
     </div>

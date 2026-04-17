@@ -3,7 +3,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { GuidedLogin } from './guided-login'
+// GuidedLogin intentionally not imported — the default flow uses stored
+// credentials. GuidedLogin can be re-enabled for portals that require
+// interactive MFA, once those adapters land.
 
 /* ── Types ──────────────────────────────────────────────────────────────────── */
 
@@ -105,8 +107,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
   const [showConfigDialog, setShowConfigDialog] = useState(false)
   const [showSessionDialog, setShowSessionDialog] = useState(false)
   const [editingConfig, setEditingConfig] = useState<BotConfig | null>(null)
-  const [guidedLoginPortal, setGuidedLoginPortal] = useState<{ portal: string; configId: string } | null>(null)
-  const [connectedPortals, setConnectedPortals] = useState<Set<string>>(new Set())
+  // guidedLoginPortal / connectedPortals — retired with the old flow
 
   // Form state — config
   const [configForm, setConfigForm] = useState({
@@ -424,25 +425,12 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                       <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
                         config.is_active ? 'bg-emerald-900/20 text-emerald-400 border border-emerald-900/30' : 'bg-white/[0.04] text-gray-400'
                       }`}>
-                        {config.is_active ? 'Ativo' : 'Inativo'}
+                        {config.is_active ? 'Pronto' : 'Inativo'}
                       </span>
-                      {connectedPortals.has(config.id) ? (
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-emerald-900/20 text-emerald-400 border border-emerald-900/30">
-                          Conectado
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => setGuidedLoginPortal({ portal: config.portal, configId: config.id })}
-                          className="text-sm px-3 py-1 rounded-md bg-brand text-white hover:bg-brand-dark transition-colors font-medium"
-                          title="Login guiado no portal"
-                        >
-                          Conectar
-                        </button>
-                      )}
                       <button
                         onClick={() => openEditConfig(config)}
-                        className="text-gray-400 hover:text-gray-400 transition-colors"
-                        title="Editar"
+                        className="text-gray-400 hover:text-white transition-colors"
+                        title="Editar credenciais"
                       >
                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -451,13 +439,35 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                     </div>
                   </div>
                   <div className="mt-3 flex items-center gap-4 text-sm text-gray-400">
-                    <span>Estrategia: {STRATEGY_OPTIONS.find(s => s.value === config.strategy)?.label.split(' - ')[0] || config.strategy}</span>
+                    <span>Estratégia: {STRATEGY_OPTIONS.find(s => s.value === config.strategy)?.label.split(' - ')[0] || config.strategy}</span>
                     {config.min_decrease_value && (
-                      <span>Dec. min: R$ {config.min_decrease_value}</span>
+                      <span>Dec. mín: R$ {config.min_decrease_value}</span>
                     )}
                     {config.min_decrease_percent && (
-                      <span>Dec. min: {config.min_decrease_percent}%</span>
+                      <span>Dec. mín: {config.min_decrease_percent}%</span>
                     )}
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-white/[0.06] flex items-center justify-between gap-3">
+                    <p className="text-xs text-gray-400">
+                      Credenciais armazenadas. Clique ao lado para iniciar uma sessão no pregão.
+                    </p>
+                    <button
+                      onClick={() => {
+                        setSessionForm({
+                          config_id: config.id,
+                          pregao_id: '',
+                          min_price: '',
+                          max_bids: '',
+                          strategy: '',
+                          mode: 'supervisor',
+                        })
+                        setError(null)
+                        setShowSessionDialog(true)
+                      }}
+                      className="bg-brand text-white rounded-lg px-4 py-2 text-sm font-semibold hover:bg-brand-dark transition-colors whitespace-nowrap"
+                    >
+                      Iniciar sessão →
+                    </button>
                   </div>
                 </div>
               ))}
@@ -777,18 +787,9 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
         </div>
       )}
 
-      {/* ═══ Guided Login Dialog ═══ */}
-      {guidedLoginPortal && (
-        <GuidedLogin
-          portal={guidedLoginPortal.portal}
-          configId={guidedLoginPortal.configId}
-          onSuccess={() => {
-            setConnectedPortals(prev => new Set([...prev, guidedLoginPortal.configId]))
-            setGuidedLoginPortal(null)
-          }}
-          onClose={() => setGuidedLoginPortal(null)}
-        />
-      )}
+      {/* Guided Login modal retired — credentials stored on config are used
+          directly by the worker. If login fails, the session card surfaces
+          the exact error with the real reason. */}
 
       {/* ═══ New Session Dialog ═══ */}
       {showSessionDialog && (
