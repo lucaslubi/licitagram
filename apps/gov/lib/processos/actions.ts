@@ -55,6 +55,41 @@ export async function approveArtefatoAction(artefatoId: string, processoId: stri
   return { ok: true }
 }
 
+/**
+ * Atualiza o conteúdo de um artefato. Admin/coordenador only.
+ * Registra nova versão via upsert_artefato (lida com versionamento).
+ */
+export async function updateArtefatoAction(
+  processoId: string,
+  tipo: string,
+  markdown: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const profile = await getCurrentProfile()
+  if (!profile?.orgao) return { ok: false, error: 'Sem órgão' }
+  if (profile.papel !== 'admin' && profile.papel !== 'coordenador') {
+    return { ok: false, error: 'Apenas admin/coordenador pode editar' }
+  }
+  if (!markdown || markdown.trim().length < 10) {
+    return { ok: false, error: 'Conteúdo muito curto' }
+  }
+  const supabase = createClient()
+  const { error } = await supabase.rpc('upsert_artefato', {
+    p_processo_id: processoId,
+    p_tipo: tipo,
+    p_conteudo_markdown: markdown,
+    p_modelo_usado: 'human-edit',
+    p_tokens_input: null,
+    p_tokens_output: null,
+    p_tempo_geracao_ms: 0,
+    p_status: 'gerado',
+    p_citacoes: null,
+    p_compliance: null,
+  })
+  if (error) return { ok: false, error: error.message }
+  revalidatePath(`/processos/${processoId}`)
+  return { ok: true }
+}
+
 export async function setProcessoFaseAction(processoId: string, fase: string) {
   const supabase = createClient()
   const { error } = await supabase.rpc('set_processo_fase', {
