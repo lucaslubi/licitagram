@@ -5,6 +5,20 @@ All notable changes to this monorepo are documented here. Format loosely based o
 ## [Unreleased]
 
 ### Added
+- `[gov]` Fase 1 [1.4]: Auth flow + MFA TOTP + rate limit Upstash.
+  - `lib/auth/actions.ts`: server actions signIn/signUp/signOut/forgotPassword/resetPassword/mfaChallenge com Zod validation, rate limit por ação+IP (5 req/60s).
+  - `lib/auth/mfa.ts`: enrollment helpers (start, verify, unenroll) usando supabase.auth.mfa.
+  - `lib/validations/auth.ts`: Zod schemas (senha mínima 12 chars, código MFA 6 dígitos).
+  - `lib/rate-limit.ts`: Upstash sliding window com fallback no-op em dev (warning em prod se vars faltam).
+  - `(auth)/layout.tsx`: split layout (form esquerda, testimonial direita).
+  - `(auth)/login`, `/cadastro`, `/recuperar-senha`, `/redefinir-senha`, `/mfa`: páginas e formulários client com react-hook-form + zodResolver, toast errors, loading states.
+  - `api/auth/callback/route.ts`: PKCE exchange para email confirmation e OAuth.
+  - `(app)/configuracoes/seguranca`: enrollment MFA com QR (img data-url) + secret manual + verify.
+  - `components/ui/form.tsx` + `checkbox.tsx`: primitivos para react-hook-form.
+  - `lib/supabase/middleware.ts`: redirects anon → /login (com `?next=`), authed → /dashboard se já em /login, gate aal2 redireciona /mfa.
+  - `(app)/layout.tsx`: agora server component que pega user real via createClient e passa pro AppHeader; defense-in-depth `if (!user) redirect('/login')`.
+  - UserMenu e CommandPalette Sair: chamam signOutAction (server) ao invés de stub.
+
 - `[gov]` Fase 1 partial (1.1 + 1.2 + 1.3 + 1.5): Design System + App Shell + Command Palette.
   - `components/ui/`: 13 primitivos shadcn-like (button, input, label, card, badge, skeleton, separator, dialog, sheet, dropdown-menu, command, avatar, tooltip, popover) com tokens DS-11.
   - `components/shared/`: StatusBadge, ComplianceChip, CitationCard, EmptyState, LoadingCard, AIStreamCard — primitivos de domínio que aparecem em todo artefato gerado.

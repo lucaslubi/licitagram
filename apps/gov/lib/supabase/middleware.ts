@@ -1,10 +1,29 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-/**
- * Fase 0 stub: only refreshes the Supabase session. Auth gates, plan gates
- * and MFA checks arrive in Fase 1.
- */
+const PUBLIC_PATHS = new Set([
+  '/',
+  '/login',
+  '/cadastro',
+  '/recuperar-senha',
+  '/redefinir-senha',
+  '/mfa',
+  '/sobre',
+  '/precos',
+  '/termos',
+  '/privacidade',
+])
+
+const AUTH_PATHS = new Set(['/login', '/cadastro', '/recuperar-senha', '/redefinir-senha'])
+
+function isPublicPath(pathname: string): boolean {
+  if (PUBLIC_PATHS.has(pathname)) return true
+  if (pathname.startsWith('/api/auth/')) return true
+  if (pathname.startsWith('/_next/')) return true
+  if (pathname === '/favicon.ico') return true
+  return false
+}
+
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request: { headers: request.headers } })
 
@@ -30,6 +49,31 @@ export async function updateSession(request: NextRequest) {
     },
   })
 
-  await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  const { pathname, search } = request.nextUrl
+
+  // Authed users hitting auth pages → bounce to dashboard.
+  if (user && AUTH_PATHS.has(pathname)) {
+    return NextResponse.redirect(new URL('/dashboard', request.url))
+  }
+
+  // Anon users hitting protected pages → bounce to login with return path.
+  if (!user && !isPublicPath(pathname)) {
+    const loginUrl = new URL('/login', request.url)
+    loginUrl.searchParams.set('next', `${pathname}${search}`)
+    return NextResponse.redirect(loginUrl)
+  }
+
+  // MFA gate: if user enrolled MFA but current session is only aal1, force /mfa.
+  if (user && pathname !== '/mfa' && !isPublicPath(pathname)) {
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+    if (aal && aal.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
+      return NextResponse.redirect(new URL('/mfa', request.url))
+    }
+  }
+
   return response
 }

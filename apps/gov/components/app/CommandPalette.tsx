@@ -15,6 +15,7 @@ import {
 import { useTheme } from 'next-themes'
 import { Plus, FileText, Search, Moon, Sun, Monitor, LifeBuoy, LogOut } from 'lucide-react'
 import { PRIMARY_NAV, SECONDARY_NAV } from '@/lib/constants/navigation'
+import { signOutAction } from '@/lib/auth/actions'
 
 export function CommandPalette() {
   const [open, setOpen] = React.useState(false)
@@ -103,7 +104,7 @@ export function CommandPalette() {
             <LifeBuoy />
             Ajuda e suporte
           </CommandItem>
-          <CommandItem onSelect={() => run(() => router.push('/login'))}>
+          <CommandItem onSelect={() => run(() => signOutAction())}>
             <LogOut />
             Sair
           </CommandItem>
