@@ -60,9 +60,15 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: false },
 })
 const genai = new GoogleGenerativeAI(GEMINI_KEY)
-const EMBEDDING_MODEL = 'gemini-embedding-001'
-const EMBEDDING_DIM = 768
-const embeddingModel = genai.getGenerativeModel({ model: EMBEDDING_MODEL })
+
+// Provider de embedding: TEI self-host se EMBEDDINGS_URL setada, senão Gemini
+const TEI_URL = process.env.EMBEDDINGS_URL
+const TEI_KEY = process.env.EMBEDDINGS_API_KEY
+const USE_TEI = Boolean(TEI_URL)
+const EMBEDDING_DIM = 1024
+const EMBEDDING_MODEL = USE_TEI ? 'multilingual-e5-large (TEI)' : 'gemini-embedding-001'
+const embeddingModel = genai.getGenerativeModel({ model: 'gemini-embedding-001' })
+console.log(`→ Provider embedding: ${EMBEDDING_MODEL}`)
 
 // ─── Chunking ─────────────────────────────────────────────────────────────
 const CHUNK_SIZE = 2800 // ~700-800 tokens
@@ -156,13 +162,31 @@ interface FileStats {
   error?: string
 }
 
-// gemini-embedding-001 free tier tem cota apertada. Usa retry exponencial
-// em cima de 429 + delay base conservador (~12 RPM seguros).
-const EMBED_DELAY_MS = Number(args['embed-delay'] ?? 5500) // 5.5s = ~11 RPM
+// TEI self-host: 50ms delay (rápido, sem quota). Gemini: 5.5s + retry.
+const EMBED_DELAY_MS = Number(args['embed-delay'] ?? (USE_TEI ? 50 : 5500))
 const EMBED_MAX_RETRIES = 5
+
+async function embedOneTEI(text: string): Promise<number[]> {
+  // E5 espera prefixo "passage: " pra docs
+  const res = await fetch(`${TEI_URL}/embed`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(TEI_KEY ? { Authorization: `Bearer ${TEI_KEY}` } : {}),
+    },
+    body: JSON.stringify({ inputs: 'passage: ' + text, normalize: true }),
+  })
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(`TEI ${res.status}: ${body.slice(0, 200)}`)
+  }
+  const data = (await res.json()) as number[][]
+  return data[0]!
+}
 
 async function embedOne(text: string, title: string, attempt = 0): Promise<number[]> {
   try {
+    if (USE_TEI) return await embedOneTEI(text)
     const res = await embeddingModel.embedContent({
       content: { role: 'user', parts: [{ text }] },
       taskType: 'RETRIEVAL_DOCUMENT',
@@ -174,9 +198,10 @@ async function embedOne(text: string, title: string, attempt = 0): Promise<numbe
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     const is429 = /429|too many requests|quota/i.test(msg)
-    if (is429 && attempt < EMBED_MAX_RETRIES) {
-      const backoff = Math.min(60_000, 2 ** attempt * 5000) // 5s, 10s, 20s, 40s, 60s
-      process.stdout.write(`(429, retry em ${backoff / 1000}s) `)
+    const isTransient = /502|503|timeout|fetch failed|ECONN/i.test(msg)
+    if ((is429 || isTransient) && attempt < EMBED_MAX_RETRIES) {
+      const backoff = Math.min(60_000, 2 ** attempt * (USE_TEI ? 1000 : 5000))
+      process.stdout.write(`(${is429 ? '429' : 'transient'}, retry em ${backoff / 1000}s) `)
       await new Promise((r) => setTimeout(r, backoff))
       return embedOne(text, title, attempt + 1)
     }
