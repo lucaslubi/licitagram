@@ -4,19 +4,23 @@ import { cn } from '@/lib/utils'
 interface Props {
   className?: string
   withWordmark?: boolean
-  size?: 'sm' | 'md' | 'lg'
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl'
 }
 
 const FULL_SIZES: Record<NonNullable<Props['size']>, string> = {
-  sm: 'h-5',
-  md: 'h-7',
-  lg: 'h-10',
+  sm: 'h-7',
+  md: 'h-10',
+  lg: 'h-14',
+  xl: 'h-20',
+  '2xl': 'h-28',
 }
 
 const MARK_SIZES: Record<NonNullable<Props['size']>, string> = {
-  sm: 'h-5 w-5',
-  md: 'h-7 w-7',
-  lg: 'h-10 w-10',
+  sm: 'h-7 w-7',
+  md: 'h-10 w-10',
+  lg: 'h-14 w-14',
+  xl: 'h-20 w-20',
+  '2xl': 'h-28 w-28',
 }
 
 export function Logo({ className, withWordmark = true, size = 'md' }: Props) {
