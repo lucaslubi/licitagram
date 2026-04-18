@@ -153,7 +153,7 @@ export function RevisaoClient({ campanhaId, status, itemCount, compliance, saved
         <header className="flex items-center justify-between gap-2">
           <h2 className="flex items-center gap-2 text-base font-semibold">
             <Sparkles className="h-4 w-4 text-primary" />
-            Consolidação IA (Claude Opus 4.7)
+            Consolidação IA (Gemini 2.5 Pro)
           </h2>
           <Button onClick={runConsolidation} disabled={streaming || itemCount === 0} variant={output ? 'outline' : 'default'}>
             {streaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
@@ -162,7 +162,12 @@ export function RevisaoClient({ campanhaId, status, itemCount, compliance, saved
         </header>
 
         {output || streaming ? (
-          <AIStreamCard content={output} isStreaming={streaming} modelId="claude-opus-4-7" label={streaming ? 'Consolidando...' : 'Consolidação gerada'} />
+          <AIStreamCard
+            content={output}
+            isStreaming={streaming}
+            modelId="gemini-2.5-pro"
+            label={streaming ? 'Consolidando...' : 'Consolidação gerada'}
+          />
         ) : savedMarkdown ? null : (
           <Card>
             <CardHeader>
@@ -174,7 +179,7 @@ export function RevisaoClient({ campanhaId, status, itemCount, compliance, saved
             </CardHeader>
             <CardContent>
               <p className="text-xs text-muted-foreground">
-                Leva ~30-60s. Custo aproximado: R$ 0,40-1,20 por consolidação (Claude Opus 4.7).
+                Leva ~20-40s. Gemini 2.5 Pro via Google AI.
               </p>
             </CardContent>
           </Card>

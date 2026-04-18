@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { z } from 'zod'
-import { streamMessage, CLAUDE_MODELS } from '@licitagram/gov-core/ai'
+import { streamText, AI_MODELS } from '@licitagram/gov-core/ai'
 import { createClient } from '@/lib/supabase/server'
 import { hashToken } from '@/lib/crypto/token'
 import { logger } from '@/lib/logger'
@@ -76,24 +76,22 @@ Gere sugestões JSON para esse setor.`
 
   let output = ''
   try {
-    const stream = streamMessage({
-      model: CLAUDE_MODELS.haiku,
+    const chunks = streamText({
+      model: AI_MODELS.fast,
       system: SYSTEM,
-      messages: [{ role: 'user', content: userMsg }],
+      userMessage: userMsg,
       maxTokens: 2048,
       temperature: 0.3,
     })
-    for await (const event of stream) {
-      if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-        output += event.delta.text
-      }
+    for await (const chunk of chunks) {
+      if (chunk) output += chunk
     }
   } catch (e) {
-    logger.error({ err: e instanceof Error ? e.message : String(e) }, 'suggest-items Claude failed')
+    logger.error({ err: e instanceof Error ? e.message : String(e) }, 'suggest-items AI failed')
     return NextResponse.json({ error: 'Falha ao consultar IA' }, { status: 500 })
   }
 
-  // Parse JSON (a Haiku às vezes acompanha markdown; extrai JSON puro)
+  // Parse JSON (IA às vezes acompanha markdown; extrai bloco JSON)
   const jsonMatch = output.match(/\{[\s\S]*\}/)
   if (!jsonMatch) return NextResponse.json({ sugestoes: [] })
   try {

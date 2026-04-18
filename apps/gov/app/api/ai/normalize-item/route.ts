@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { z } from 'zod'
-import { streamMessage, CLAUDE_MODELS } from '@licitagram/gov-core/ai'
+import { streamText, AI_MODELS } from '@licitagram/gov-core/ai'
 import { logger } from '@/lib/logger'
 
 export const runtime = 'nodejs'
@@ -37,20 +37,18 @@ export async function POST(req: NextRequest) {
 
   let output = ''
   try {
-    const stream = streamMessage({
-      model: CLAUDE_MODELS.haiku,
+    const chunks = streamText({
+      model: AI_MODELS.fast,
       system: SYSTEM,
-      messages: [{ role: 'user', content: body.descricao }],
+      userMessage: body.descricao,
       maxTokens: 512,
       temperature: 0.1,
     })
-    for await (const event of stream) {
-      if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-        output += event.delta.text
-      }
+    for await (const chunk of chunks) {
+      if (chunk) output += chunk
     }
   } catch (e) {
-    logger.error({ err: e instanceof Error ? e.message : String(e) }, 'normalize-item Claude failed')
+    logger.error({ err: e instanceof Error ? e.message : String(e) }, 'normalize-item AI failed')
     return NextResponse.json({ error: 'IA indisponível' }, { status: 500 })
   }
 

@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { streamMessage, CLAUDE_MODELS } from '@licitagram/gov-core/ai'
+import { streamText, AI_MODELS } from '@licitagram/gov-core/ai'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentProfile } from '@/lib/auth/profile'
 import {
@@ -81,32 +81,30 @@ export async function POST(req: NextRequest) {
   // Marca campanha como 'consolidando'
   await supabase.rpc('set_campanha_status', { p_campanha_id: campanhaId, p_status: 'consolidando' })
 
-  // Stream Claude Opus
+  // Stream IA (provider escolhido pelo prefixo em AI_MODELS.reasoning)
   const encoder = new TextEncoder()
+  const modelId = AI_MODELS.reasoning
   const stream = new ReadableStream({
     async start(controller) {
       let fullText = ''
       try {
-        const claudeStream = streamMessage({
-          model: CLAUDE_MODELS.opus,
+        const chunks = streamText({
+          model: modelId,
           system: CONSOLIDATION_SYSTEM_PROMPT,
-          messages: [{ role: 'user', content: userMsg }],
+          userMessage: userMsg,
           maxTokens: 4096,
           temperature: 0.2,
         })
-        for await (const event of claudeStream) {
-          if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-            const text = event.delta.text
-            fullText += text
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`))
-          }
+        for await (const text of chunks) {
+          if (!text) continue
+          fullText += text
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`))
         }
-        // Persiste consolidação no DB
         await supabase.rpc('save_campanha_consolidacao', {
           p_campanha_id: campanhaId,
           p_consolidacao: {
             markdown: fullText,
-            model: CLAUDE_MODELS.opus,
+            model: modelId,
             generatedAt: new Date().toISOString(),
             itemCount: items.length,
           },
