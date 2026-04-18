@@ -105,8 +105,11 @@ export async function forgotPasswordAction(formData: FormData): Promise<ActionRe
     const supabase = createClient()
     const origin =
       headers().get('origin') ?? process.env.NEXT_PUBLIC_APP_URL ?? 'https://gov.licitagram.com'
+    // Route through /api/auth/callback so the PKCE code is exchanged for a
+    // session BEFORE landing on /redefinir-senha — otherwise updateUser()
+    // throws "Auth session missing!" since the page has no cookie.
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${origin}/redefinir-senha`,
+      redirectTo: `${origin}/api/auth/callback?next=/redefinir-senha`,
     })
     if (error) return { ok: false, error: error.message }
     return { ok: true }

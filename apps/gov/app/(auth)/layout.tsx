@@ -1,6 +1,11 @@
 import Link from 'next/link'
 import { Logo } from '@/components/app/Logo'
 
+// External marketing pages live on the Licitagram B2B site; gov subdomain
+// doesn't ship its own /precos /sobre /termos /privacidade until the
+// marketing pass. Linking to the existing site avoids 404s.
+const SITE = 'https://licitagram.com'
+
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
@@ -26,12 +31,12 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <footer className="text-sm text-muted-foreground">— Servidor piloto, governo municipal</footer>
         </blockquote>
         <div className="flex gap-6 text-sm">
-          <Link href="/precos" className="text-muted-foreground hover:text-foreground">
+          <a href={`${SITE}/pricing`} className="text-muted-foreground hover:text-foreground">
             Preços
-          </Link>
-          <Link href="/sobre" className="text-muted-foreground hover:text-foreground">
+          </a>
+          <a href={SITE} className="text-muted-foreground hover:text-foreground">
             Sobre
-          </Link>
+          </a>
           <a
             href="https://www.gov.br/compras/pt-br"
             target="_blank"
