@@ -1,23 +1,50 @@
 'use client'
 
-import { Search } from 'lucide-react'
+import { Building2, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from './ThemeToggle'
 import { UserMenu } from './UserMenu'
 import { MobileNav } from './MobileNav'
 
+interface OrgaoHeaderInfo {
+  razaoSocial: string
+  nomeFantasia: string | null
+  esfera: string
+  uf: string | null
+}
+
 export function AppHeader({
   user,
+  orgao,
 }: {
   user?: { name?: string | null; email?: string | null }
+  orgao?: OrgaoHeaderInfo | null
 }) {
   const triggerCommand = () => {
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))
   }
 
+  const orgaoLabel = orgao
+    ? (orgao.nomeFantasia || orgao.razaoSocial)
+    : null
+
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background/80 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <MobileNav />
+
+      {orgaoLabel && (
+        <div className="hidden min-w-0 items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1 sm:flex">
+          <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+          <span className="truncate text-xs font-medium" title={orgao!.razaoSocial}>
+            {orgaoLabel}
+          </span>
+          {orgao!.uf && (
+            <span className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+              · {orgao!.esfera}/{orgao!.uf}
+            </span>
+          )}
+        </div>
+      )}
 
       <Button
         variant="outline"

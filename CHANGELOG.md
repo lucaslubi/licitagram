@@ -5,6 +5,18 @@ All notable changes to this monorepo are documented here. Format loosely based o
 ## [Unreleased]
 
 ### Added
+- `[gov]` Fase 2: Onboarding wizard ponta-a-ponta.
+  - **Migration `20260418010000_gov_phase2_onboarding.sql`**: helper `licitagov.current_orgao_id()` (SECURITY DEFINER, evita recursão RLS), reescrita das policies SELECT pra usar o helper, INSERT/UPDATE policies em `usuarios` (id = auth.uid()), RPC `licitagov.bootstrap_orgao(...)` que cria órgão idempotente por CNPJ + linka usuário em transação atômica, RPC `licitagov.get_current_profile()` que retorna user+órgão em 1 query.
+  - **`lib/cnpj/lookup.ts`**: lookup BrasilAPI (sem auth, free, ~10/min/IP), validação de check-digits Modulo 11, timeout 8s, erros classificados.
+  - **`lib/utils/natureza-juridica.ts`**: tabela de Natureza Jurídica RFB → `(esfera, poder)` cobrindo executivo/legislativo/judiciário federal/estadual/municipal + autarquias/fundações/empresas estatais.
+  - **`lib/auth/profile.ts`**: `getCurrentProfile()` cached por request, `hasCompletedOnboarding()` boolean check.
+  - **`lib/onboarding/actions.ts`**: `lookupCnpjAction` + `completeOnboardingAction` (chama RPC + dispara welcome email fire-and-forget + redirect server-side).
+  - **`lib/email/welcome.ts`**: Resend, template HTML inline com CTA dinâmico baseado no objetivo escolhido. Falha-aberta se RESEND_API_KEY ausente.
+  - **`/onboarding` (route group `(onboarding)`)**: wizard de 4 passos (CNPJ → Órgão → Perfil → Objetivo) com Stepper visual, autofocus, Enter-to-continue, formatação CNPJ on-the-fly, manual override pra órgãos não reconhecidos como públicos, PostHog capture em cada passo + lookup result.
+  - **`middleware.ts`**: gate de onboarding — usuário autenticado sem `licitagov.usuarios.orgao_id` é redirecionado pra `/onboarding`. `/mfa` e `/onboarding` ficam acessíveis nesse limbo.
+  - **`(app)/layout.tsx`**: agora carrega profile real via `getCurrentProfile()` (chama RPC `get_current_profile`), passa órgão pro `AppHeader` (mostra chip com nome + esfera + UF), monta `<PostHogIdentify>` com user.id + group por orgao_id.
+  - **`components/auth/GoogleButton.tsx` + `(auth)/login` + `(auth)/cadastro`**: paridade B2B com Sign in with Google.
+
 - `[gov]` Fase 1 [1.4]: Auth flow + MFA TOTP + rate limit Upstash.
   - `lib/auth/actions.ts`: server actions signIn/signUp/signOut/forgotPassword/resetPassword/mfaChallenge com Zod validation, rate limit por ação+IP (5 req/60s).
   - `lib/auth/mfa.ts`: enrollment helpers (start, verify, unenroll) usando supabase.auth.mfa.

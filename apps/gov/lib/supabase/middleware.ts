@@ -16,6 +16,9 @@ const PUBLIC_PATHS = new Set([
 
 const AUTH_PATHS = new Set(['/login', '/cadastro', '/recuperar-senha', '/redefinir-senha'])
 
+/** Paths that authed-but-not-onboarded users can access without being bounced. */
+const ONBOARDING_PATHS = new Set(['/onboarding', '/mfa'])
+
 function isPublicPath(pathname: string): boolean {
   if (PUBLIC_PATHS.has(pathname)) return true
   if (pathname.startsWith('/api/auth/')) return true
@@ -72,6 +75,17 @@ export async function updateSession(request: NextRequest) {
     const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
     if (aal && aal.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
       return NextResponse.redirect(new URL('/mfa', request.url))
+    }
+  }
+
+  // Onboarding gate: authed user without licitagov.usuarios row → /onboarding.
+  // Skip on public paths and on the onboarding path itself (the page handles
+  // the inverse: if onboarded, redirect to /dashboard).
+  if (user && !isPublicPath(pathname) && !ONBOARDING_PATHS.has(pathname)) {
+    const { data: profile } = await supabase.rpc('get_current_profile')
+    const onboarded = Array.isArray(profile) && profile.length > 0 && profile[0]?.orgao_id != null
+    if (!onboarded) {
+      return NextResponse.redirect(new URL('/onboarding', request.url))
     }
   }
 
