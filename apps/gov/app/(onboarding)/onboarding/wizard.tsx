@@ -111,6 +111,27 @@ export function OnboardingWizard({ initialNome, email }: Props) {
     })
   }
 
+  const skipLookup = () => {
+    if (!isValidCnpj(cnpjInput)) {
+      toast.error('Informe um CNPJ válido antes de preencher manualmente.')
+      return
+    }
+    setOrgao({
+      cnpj: normalizeCnpj(cnpjInput),
+      razaoSocial: '',
+      nomeFantasia: null,
+      esfera: null,
+      poder: null,
+      uf: null,
+      municipio: null,
+      codigoIbge: null,
+      naturezaJuridica: null,
+      isPublicOrgan: false,
+    })
+    posthog.capture('onboarding_cnpj_manual_entry')
+    setStep(1)
+  }
+
   const submit = () => {
     if (!orgao || !objetivo) return
     startTransition(async () => {
@@ -177,6 +198,14 @@ export function OnboardingWizard({ initialNome, email }: Props) {
               {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               {pending ? 'Consultando Receita...' : 'Consultar CNPJ'}
             </Button>
+            <button
+              type="button"
+              onClick={skipLookup}
+              disabled={pending || !isValidCnpj(cnpjInput)}
+              className="w-full text-center text-xs text-muted-foreground underline-offset-4 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Receita indisponível? Preencher manualmente
+            </button>
           </CardContent>
         </Card>
       )}

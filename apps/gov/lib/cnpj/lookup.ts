@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 const BRASILAPI_BASE = 'https://brasilapi.com.br/api/cnpj/v1'
+const RECEITAWS_BASE = 'https://www.receitaws.com.br/v1/cnpj'
 
 const BrasilApiResponse = z.object({
   cnpj: z.string(),
@@ -19,6 +20,19 @@ const BrasilApiResponse = z.object({
   ddd_telefone_1: z.string().nullable().optional(),
 })
 
+// ReceitaWS shape: status string + flat fields, natureza_juridica encoded as
+// "<codigo> - <descricao>".
+const ReceitaWsResponse = z.object({
+  status: z.string().optional(),
+  message: z.string().optional(),
+  cnpj: z.string().optional(),
+  nome: z.string().optional(),
+  fantasia: z.string().optional(),
+  natureza_juridica: z.string().optional(),
+  uf: z.string().optional(),
+  municipio: z.string().optional(),
+})
+
 export interface CnpjLookupResult {
   cnpj: string
   razaoSocial: string
@@ -28,6 +42,7 @@ export interface CnpjLookupResult {
   uf: string | null
   municipio: string | null
   codigoIbge: string | null
+  source: 'brasilapi' | 'receitaws'
 }
 
 /** Strip non-digits from a CNPJ input. */
@@ -59,53 +74,49 @@ export class CnpjLookupError extends Error {
   }
 }
 
-/**
- * Looks up a CNPJ via BrasilAPI (proxy of the official RFB CNPJ database).
- * Free, no auth, ~10 req/min per IP. Times out after 8s.
- */
-export async function lookupCnpj(rawCnpj: string): Promise<CnpjLookupResult> {
-  const cnpj = normalizeCnpj(rawCnpj)
-  if (!isValidCnpj(cnpj)) {
-    throw new CnpjLookupError('CNPJ inválido. Verifique os dígitos.')
-  }
+interface FetchOpts {
+  url: string
+  timeoutMs?: number
+}
 
+async function fetchWithTimeout({ url, timeoutMs = 8_000 }: FetchOpts): Promise<Response> {
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 8_000)
-  let res: Response
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
-    res = await fetch(`${BRASILAPI_BASE}/${cnpj}`, {
+    return await fetch(url, {
       signal: controller.signal,
-      headers: { Accept: 'application/json' },
+      headers: { Accept: 'application/json', 'User-Agent': 'LicitaGramGov/1.0 (+https://gov.licitagram.com)' },
       cache: 'no-store',
     })
-  } catch (e) {
-    throw new CnpjLookupError(
-      e instanceof Error && e.name === 'AbortError'
-        ? 'Tempo esgotado consultando a Receita. Tente novamente.'
-        : 'Não foi possível consultar a Receita. Tente novamente.',
-    )
   } finally {
-    clearTimeout(timeout)
+    clearTimeout(timer)
   }
+}
 
+async function tryBrasilApi(cnpj: string): Promise<CnpjLookupResult | { error: string; retryable: boolean }> {
+  let res: Response
+  try {
+    res = await fetchWithTimeout({ url: `${BRASILAPI_BASE}/${cnpj}` })
+  } catch (e) {
+    const aborted = e instanceof Error && e.name === 'AbortError'
+    return { error: aborted ? 'BrasilAPI: timeout' : 'BrasilAPI: network', retryable: true }
+  }
   if (res.status === 404) {
-    throw new CnpjLookupError('CNPJ não encontrado na base da Receita.', 404)
+    return { error: 'CNPJ não encontrado na base da Receita.', retryable: false }
+  }
+  if (res.status === 403 || res.status === 429 || res.status >= 500) {
+    return { error: `BrasilAPI ${res.status}`, retryable: true }
   }
   if (!res.ok) {
-    throw new CnpjLookupError(`Receita retornou erro ${res.status}.`, res.status)
+    return { error: `BrasilAPI ${res.status}`, retryable: false }
   }
-
-  const json = await res.json()
+  const json = await res.json().catch(() => null)
   const parsed = BrasilApiResponse.safeParse(json)
-  if (!parsed.success) {
-    throw new CnpjLookupError('Resposta da Receita em formato inesperado.')
-  }
-
+  if (!parsed.success) return { error: 'BrasilAPI: payload inválido', retryable: true }
   const naturezaCodigo =
     parsed.data.codigo_natureza_juridica != null
       ? String(parsed.data.codigo_natureza_juridica).replace(/\D/g, '')
       : null
-
   return {
     cnpj,
     razaoSocial: parsed.data.razao_social ?? '',
@@ -118,5 +129,69 @@ export async function lookupCnpj(rawCnpj: string): Promise<CnpjLookupResult> {
       parsed.data.codigo_municipio_ibge != null
         ? String(parsed.data.codigo_municipio_ibge)
         : null,
+    source: 'brasilapi',
   }
+}
+
+async function tryReceitaWs(cnpj: string): Promise<CnpjLookupResult | { error: string; retryable: boolean }> {
+  let res: Response
+  try {
+    res = await fetchWithTimeout({ url: `${RECEITAWS_BASE}/${cnpj}` })
+  } catch (e) {
+    const aborted = e instanceof Error && e.name === 'AbortError'
+    return { error: aborted ? 'ReceitaWS: timeout' : 'ReceitaWS: network', retryable: true }
+  }
+  if (res.status === 429 || res.status === 403 || res.status >= 500) {
+    return { error: `ReceitaWS ${res.status}`, retryable: true }
+  }
+  if (!res.ok) return { error: `ReceitaWS ${res.status}`, retryable: false }
+  const json = await res.json().catch(() => null)
+  const parsed = ReceitaWsResponse.safeParse(json)
+  if (!parsed.success) return { error: 'ReceitaWS: payload inválido', retryable: true }
+  if (parsed.data.status && parsed.data.status.toUpperCase() !== 'OK') {
+    return { error: parsed.data.message || 'CNPJ não encontrado.', retryable: false }
+  }
+  // Extract leading numeric code from "1031 - Órgão Público..."
+  const naturezaStr = parsed.data.natureza_juridica ?? ''
+  const codeMatch = naturezaStr.match(/^(\d+)/)
+  return {
+    cnpj,
+    razaoSocial: parsed.data.nome ?? '',
+    nomeFantasia: parsed.data.fantasia || null,
+    naturezaJuridica: naturezaStr || null,
+    naturezaCodigo: codeMatch ? codeMatch[1] ?? null : null,
+    uf: parsed.data.uf || null,
+    municipio: parsed.data.municipio || null,
+    codigoIbge: null,
+    source: 'receitaws',
+  }
+}
+
+function isResult(x: unknown): x is CnpjLookupResult {
+  return typeof x === 'object' && x !== null && 'razaoSocial' in x && 'source' in x
+}
+
+/**
+ * Tries BrasilAPI first (richer payload, faster). Falls back to ReceitaWS on
+ * 403/429/5xx/timeout — useful because BrasilAPI sometimes blocks Vercel
+ * datacenter IPs. If both fail, throws CnpjLookupError so the wizard can
+ * offer manual entry.
+ */
+export async function lookupCnpj(rawCnpj: string): Promise<CnpjLookupResult> {
+  const cnpj = normalizeCnpj(rawCnpj)
+  if (!isValidCnpj(cnpj)) {
+    throw new CnpjLookupError('CNPJ inválido. Verifique os dígitos.')
+  }
+
+  const a = await tryBrasilApi(cnpj)
+  if (isResult(a)) return a
+  if (!a.retryable) throw new CnpjLookupError(a.error)
+
+  const b = await tryReceitaWs(cnpj)
+  if (isResult(b)) return b
+  if (!b.retryable) throw new CnpjLookupError(b.error)
+
+  throw new CnpjLookupError(
+    'Receita indisponível no momento. Você pode preencher os dados do órgão manualmente.',
+  )
 }
