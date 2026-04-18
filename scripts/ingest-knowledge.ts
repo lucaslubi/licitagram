@@ -156,24 +156,39 @@ interface FileStats {
   error?: string
 }
 
-// gemini-embedding-001 não suporta batch → chama embedContent em série
-// com rate limit leve (free tier: ~150 req/min).
-async function embedOne(text: string, title: string): Promise<number[]> {
-  const res = await embeddingModel.embedContent({
-    content: { role: 'user', parts: [{ text }] },
-    taskType: 'RETRIEVAL_DOCUMENT',
-    title,
-    outputDimensionality: EMBEDDING_DIM,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } as any)
-  return res.embedding.values
+// gemini-embedding-001 free tier tem cota apertada. Usa retry exponencial
+// em cima de 429 + delay base conservador (~12 RPM seguros).
+const EMBED_DELAY_MS = Number(args['embed-delay'] ?? 5500) // 5.5s = ~11 RPM
+const EMBED_MAX_RETRIES = 5
+
+async function embedOne(text: string, title: string, attempt = 0): Promise<number[]> {
+  try {
+    const res = await embeddingModel.embedContent({
+      content: { role: 'user', parts: [{ text }] },
+      taskType: 'RETRIEVAL_DOCUMENT',
+      title,
+      outputDimensionality: EMBEDDING_DIM,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
+    return res.embedding.values
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    const is429 = /429|too many requests|quota/i.test(msg)
+    if (is429 && attempt < EMBED_MAX_RETRIES) {
+      const backoff = Math.min(60_000, 2 ** attempt * 5000) // 5s, 10s, 20s, 40s, 60s
+      process.stdout.write(`(429, retry em ${backoff / 1000}s) `)
+      await new Promise((r) => setTimeout(r, backoff))
+      return embedOne(text, title, attempt + 1)
+    }
+    throw e
+  }
 }
 
 async function embedBatch(texts: string[], titles: string[]): Promise<number[][]> {
   const out: number[][] = []
   for (let i = 0; i < texts.length; i++) {
     out.push(await embedOne(texts[i]!, titles[i]!))
-    if (i < texts.length - 1) await new Promise((r) => setTimeout(r, 400))
+    if (i < texts.length - 1) await new Promise((r) => setTimeout(r, EMBED_DELAY_MS))
   }
   return out
 }
