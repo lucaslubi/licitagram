@@ -1,10 +1,10 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, Building2 } from 'lucide-react'
+import { ArrowLeft, Building2, Sparkles } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { getCampanhaDetail } from '@/lib/pca/queries'
 import { CampanhaPanel } from './panel'
@@ -61,9 +61,18 @@ export default async function CampanhaDetailPage({ params }: { params: { id: str
           <h1 className="text-3xl font-semibold tracking-tight">{detail.titulo}</h1>
           <p className="text-sm text-muted-foreground">Prazo de resposta: {prazoLabel}</p>
         </div>
-        <Badge variant="outline" className={`border-transparent ${badge.tone}`}>
-          {badge.label}
-        </Badge>
+        <div className="flex flex-col items-end gap-2">
+          <Badge variant="outline" className={`border-transparent ${badge.tone}`}>
+            {badge.label}
+          </Badge>
+          {totalItens > 0 && (
+            <Button asChild size="sm">
+              <Link href={`/pca/${detail.id}/revisao`}>
+                <Sparkles className="h-4 w-4" /> Revisar com IA
+              </Link>
+            </Button>
+          )}
+        </div>
       </header>
 
       <section className="grid gap-4 sm:grid-cols-3">

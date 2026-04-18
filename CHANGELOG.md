@@ -5,6 +5,25 @@ All notable changes to this monorepo are documented here. Format loosely based o
 ## [Unreleased]
 
 ### Added
+- `[gov]` Fase 3 Partes B + C (PCA Collector end-to-end):
+  - **Migration `20260418050000_gov_phase3_consolidation.sql`**: coluna `campanhas_pca.consolidacao JSONB`, RPCs `get_campanha_itens_consolidacao`, `set_campanha_status`, `save_campanha_consolidacao`, `get_campanha_consolidacao`, `get_orgao_historico_pncp` (acessível via token anon).
+  - **Token copy modal**: `createCampanhaAction` agora retorna `links: SetorLink[]` com URLs em claro. Wizard de criação mostra modal de sucesso com copy por setor + "copiar todos". Links aparecem **uma única vez** — o DB só guarda o hash.
+  - **Parte C — Consolidação IA**:
+    - `lib/pca/consolidation-prompt.ts`: system prompt + user template pro Claude Opus 4.7 (duplicatas, fracionamento art. 23 §1º, insights executivos)
+    - `lib/pca/compliance.ts`: regras determinísticas pré-publicação (puras, sem LLM)
+    - `app/api/ai/consolidate-pca/route.ts`: SSE streaming do Claude Opus; persiste markdown final em `campanhas_pca.consolidacao`
+    - `lib/pca/admin-actions.ts`: `approveCampanhaAction` + `publishCampanhaAction` (por ora só muda status — integração PNCP fica pra Fase 9)
+    - `/pca/[id]/revisao`: compliance checklist visual + stream IA via `AIStreamCard` + CTAs aprovar/publicar com guard de compliance
+    - `/pca/[id]`: botão "Revisar com IA" quando há itens coletados
+  - **Parte B — Form público smart**:
+    - `app/api/ai/suggest-items-from-history/route.ts`: Claude Haiku 4.5 lê histórico PNCP do órgão via `get_orgao_historico_pncp` e sugere itens
+    - `app/api/ai/normalize-item/route.ts`: Claude Haiku normaliza descrição livre → unidade + categoria
+    - `/s/[token]` virou wizard 4 steps: início → sugestões → itens → confirmar
+    - localStorage autosave com debounce 500ms, chave por token
+    - Badge "IA" quando item foi normalizado automaticamente
+  - **PWA**: `public/manifest.webmanifest` linkado do root layout (ícones 192/512 ficam pra pass de branding).
+  - 17 rotas no build, type-check limpo, RI-8 OK.
+
 - `[gov]` Fase 3 Parte A (PCA Collector — Campanha):
   - **Migration `20260418030000_gov_phase3_pca_collector.sql`**: helper `licitagov.current_user_is_admin()`, RLS policies completas em `setores/campanhas_pca/respostas_setor/itens_pca` (admin/coordenador-only writes dentro do órgão), RPCs `public.create_pca_campanha`, `public.resolve_campanha_token` (anon OK via token), `public.submit_setor_itens` (anon OK via token), `public.revoke_pca_token`, `public.list_campanhas`, `public.get_campanha_detail`.
   - **`lib/crypto/token.ts`**: `generateSecureToken()` — 32 bytes base64url, SHA-256 hash. DB guarda só o hash; o token em claro vai só no email (leak-resistant).

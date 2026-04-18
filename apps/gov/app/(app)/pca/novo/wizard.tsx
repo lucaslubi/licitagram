@@ -2,14 +2,24 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, ArrowRight, Calendar, CheckCircle2, Loader2, Users as UsersIcon } from 'lucide-react'
+import {
+  ArrowLeft,
+  ArrowRight,
+  Calendar,
+  CheckCircle2,
+  Copy,
+  Loader2,
+  Mail,
+  ShieldAlert,
+  Users as UsersIcon,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { createCampanhaAction } from '@/lib/pca/actions'
+import { createCampanhaAction, type SetorLink } from '@/lib/pca/actions'
 
 interface SetorOption {
   id: string
@@ -44,6 +54,7 @@ export function NewCampanhaWizard({ setores }: Props) {
   const [prazoStr, setPrazoStr] = useState<string>(() => formatDatetimeLocal(defaultPrazo()))
   const [selected, setSelected] = useState<Set<string>>(new Set(setores.map((s) => s.id)))
   const [pending, startTransition] = useTransition()
+  const [successLinks, setSuccessLinks] = useState<{ campanhaId: string; links: SetorLink[] } | null>(null)
   const router = useRouter()
 
   const prazoDate = useMemo(() => new Date(prazoStr), [prazoStr])
@@ -72,9 +83,22 @@ export function NewCampanhaWizard({ setores }: Props) {
         return
       }
       toast.success('Campanha criada. Convites disparados.')
-      router.push(`/pca/${res.campanhaId}`)
-      router.refresh()
+      // Não redireciona automaticamente — mostra card com links pro admin copiar.
+      setSuccessLinks({ campanhaId: res.campanhaId, links: res.links })
     })
+  }
+
+  if (successLinks) {
+    return (
+      <SuccessLinks
+        campanhaId={successLinks.campanhaId}
+        links={successLinks.links}
+        onDone={() => {
+          router.push(`/pca/${successLinks.campanhaId}`)
+          router.refresh()
+        }}
+      />
+    )
   }
 
   return (
@@ -292,5 +316,92 @@ function Footer({
         {forwardLabel}
       </Button>
     </div>
+  )
+}
+
+function SuccessLinks({
+  campanhaId: _campanhaId,
+  links,
+  onDone,
+}: {
+  campanhaId: string
+  links: SetorLink[]
+  onDone: () => void
+}) {
+  const copy = async (url: string, setorNome: string) => {
+    try {
+      await navigator.clipboard.writeText(url)
+      toast.success(`Link do setor "${setorNome}" copiado`)
+    } catch {
+      toast.error('Não foi possível copiar — selecione e copie manualmente')
+    }
+  }
+
+  const copyAll = async () => {
+    const text = links.map((l) => `${l.setorNome}: ${l.url}`).join('\n')
+    try {
+      await navigator.clipboard.writeText(text)
+      toast.success(`${links.length} links copiados`)
+    } catch {
+      toast.error('Não foi possível copiar em lote')
+    }
+  }
+
+  const emailSent = links.filter((l) => l.emailEnviado).length
+  const semResp = links.filter((l) => !l.hasResponsavel).length
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-accent">
+          <CheckCircle2 className="h-5 w-5" />
+          Campanha criada
+        </CardTitle>
+        <CardDescription>
+          {emailSent > 0
+            ? `${emailSent} de ${links.length} setores já receberam o link por email.`
+            : 'Convites foram gerados.'}
+          {semResp > 0 && ` ${semResp} setor(es) sem responsável — copie o link abaixo e envie manualmente.`}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-warning">
+          <ShieldAlert className="mr-1 inline h-3.5 w-3.5" /> Esses links aparecem <strong>uma única vez</strong>. Copie agora o que precisar.
+        </div>
+
+        <ul className="divide-y divide-border rounded-lg border border-border">
+          {links.map((l) => (
+            <li key={l.setorId} className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center">
+              <div className="min-w-0 flex-1">
+                <p className="flex items-center gap-2 text-sm font-medium">
+                  {l.setorNome}
+                  {l.setorSigla && <span className="text-xs text-muted-foreground">({l.setorSigla})</span>}
+                  {l.emailEnviado && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent">
+                      <Mail className="h-3 w-3" /> enviado
+                    </span>
+                  )}
+                </p>
+                <code className="mt-1 block truncate font-mono text-[11px] text-muted-foreground" title={l.url}>
+                  {l.url}
+                </code>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => copy(l.url, l.setorNome)}>
+                <Copy className="h-3.5 w-3.5" /> Copiar
+              </Button>
+            </li>
+          ))}
+        </ul>
+
+        <div className="flex flex-col gap-2 sm:flex-row sm:justify-between">
+          <Button variant="ghost" onClick={copyAll}>
+            <Copy className="h-4 w-4" /> Copiar todos ({links.length})
+          </Button>
+          <Button onClick={onDone}>
+            Ir pro painel da campanha <ArrowRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   )
 }

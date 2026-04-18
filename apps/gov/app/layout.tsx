@@ -24,6 +24,9 @@ export const metadata: Metadata = {
     'Automatize integralmente a fase interna das licitações (PCA, DFD, ETP, TR, Edital) sob a Lei 14.133/2021.',
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://gov.licitagram.com'),
   robots: { index: true, follow: true },
+  manifest: '/manifest.webmanifest',
+  applicationName: 'LicitaGram Gov',
+  appleWebApp: { capable: true, title: 'LicitaGov', statusBarStyle: 'black-translucent' },
 }
 
 export const viewport: Viewport = {

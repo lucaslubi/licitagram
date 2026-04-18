@@ -1,6 +1,5 @@
 'use server'
 
-import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { headers } from 'next/headers'
 import { z } from 'zod'
@@ -12,7 +11,18 @@ import { pcaCampanhaSchema, type PcaCampanhaInput } from '@/lib/validations/pca'
 import { sendCampanhaInvite } from '@/lib/email/campanha-invite'
 import { listSetoresAction } from '@/lib/setores/actions'
 
-type ActionResult = { ok: true; campanhaId: string } | { ok: false; error: string; field?: string }
+export interface SetorLink {
+  setorId: string
+  setorNome: string
+  setorSigla: string | null
+  hasResponsavel: boolean
+  emailEnviado: boolean
+  url: string
+}
+
+type ActionResult =
+  | { ok: true; campanhaId: string; links: SetorLink[] }
+  | { ok: false; error: string; field?: string }
 
 export async function createCampanhaAction(input: PcaCampanhaInput): Promise<ActionResult> {
   let parsed: PcaCampanhaInput
@@ -65,14 +75,21 @@ export async function createCampanhaAction(input: PcaCampanhaInput): Promise<Act
   }
   const campanhaId = data as string
 
-  // Dispara emails em background (fire-and-forget por setor)
+  // Dispara emails em background + monta resultado com URLs em claro pro admin
+  // poder copiar imediatamente (única vez que os tokens estão disponíveis).
   const origin = headers().get('origin') ?? process.env.NEXT_PUBLIC_APP_URL ?? 'https://gov.licitagram.com'
-  await Promise.allSettled(
+  const links: SetorLink[] = []
+
+  const emailResults = await Promise.allSettled(
     valid.map(async (setorId) => {
-      const s = setoresById.get(setorId)
+      const s = setoresById.get(setorId)!
       const tokenPair = tokensBySetor.get(setorId)!
-      if (!s?.responsavelId) return
-      // Precisamos do email do responsável
+      const url = `${origin}/s/${tokenPair.token}`
+
+      if (!s.responsavelId) {
+        return { setorId, emailEnviado: false, url }
+      }
+
       const { data: userRow } = await supabase
         .schema('licitagov')
         .from('usuarios')
@@ -80,7 +97,8 @@ export async function createCampanhaAction(input: PcaCampanhaInput): Promise<Act
         .eq('id', s.responsavelId)
         .single()
       const email = (userRow as { email?: string | null } | null)?.email
-      if (!email) return
+      if (!email) return { setorId, emailEnviado: false, url }
+
       await sendCampanhaInvite({
         to: email,
         nomeResponsavel: (userRow as { nome_completo?: string | null } | null)?.nome_completo ?? s.nome,
@@ -89,18 +107,29 @@ export async function createCampanhaAction(input: PcaCampanhaInput): Promise<Act
         tituloCampanha: parsed.titulo,
         ano: parsed.ano,
         prazo: parsed.prazoResposta,
-        publicUrl: `${origin}/s/${tokenPair.token}`,
+        publicUrl: url,
       })
+      return { setorId, emailEnviado: true, url }
     }),
   )
 
+  for (const setorId of valid) {
+    const s = setoresById.get(setorId)!
+    const result = emailResults.find(
+      (r) => r.status === 'fulfilled' && (r.value as { setorId: string }).setorId === setorId,
+    )
+    const payload = result?.status === 'fulfilled' ? result.value : null
+    links.push({
+      setorId,
+      setorNome: s.nome,
+      setorSigla: s.sigla,
+      hasResponsavel: !!s.responsavelId,
+      emailEnviado: payload?.emailEnviado ?? false,
+      url: payload?.url ?? `${origin}/s/${tokensBySetor.get(setorId)!.token}`,
+    })
+  }
+
   revalidatePath('/pca')
   revalidatePath('/dashboard')
-  return { ok: true, campanhaId }
-}
-
-export async function createCampanhaAndRedirectAction(input: PcaCampanhaInput): Promise<void | ActionResult> {
-  const res = await createCampanhaAction(input)
-  if (!res.ok) return res
-  redirect(`/pca/${res.campanhaId}`)
+  return { ok: true, campanhaId, links }
 }
