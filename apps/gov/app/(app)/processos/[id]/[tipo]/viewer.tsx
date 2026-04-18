@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { AIStreamCard } from '@/components/shared/AIStreamCard'
 import { approveArtefatoAction } from '@/lib/processos/actions'
-import type { ArtefatoTipo } from '@/lib/artefatos/prompts'
+import { stripMarkdownChrome, type ArtefatoTipo } from '@/lib/artefatos/prompts'
 
 interface Props {
   processoId: string
@@ -28,7 +28,7 @@ export function ArtefatoViewer({
   existingArtefatoId,
 }: Props) {
   const router = useRouter()
-  const [output, setOutput] = useState(existingMarkdown)
+  const [output, setOutput] = useState(tipo === 'mapa_riscos' ? existingMarkdown : stripMarkdownChrome(existingMarkdown))
   const [streaming, setStreaming] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [modelId, setModelId] = useState<string | null>(existingModelId)

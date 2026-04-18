@@ -4,7 +4,7 @@ import { streamText, AI_MODELS } from '@licitagram/gov-core/ai'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentProfile } from '@/lib/auth/profile'
 import { getProcessoDetail } from '@/lib/processos/queries'
-import { PROMPTS, type ArtefatoTipo } from '@/lib/artefatos/prompts'
+import { PROMPTS, stripMarkdownChrome, type ArtefatoTipo } from '@/lib/artefatos/prompts'
 import { logger } from '@/lib/logger'
 import { friendlyAIError } from '@/lib/ai/error-message'
 
@@ -65,13 +65,25 @@ export async function POST(req: NextRequest) {
           maxTokens: spec.maxTokens,
           temperature: spec.temperature,
         })
+        // Buffer por linha: stripMarkdownChrome é seguro quando aplicado a linhas
+        // inteiras, não a chunks parciais. Emitimos ao cliente ao fechar cada linha.
+        let lineBuffer = ''
+        const flushLine = (line: string, terminator: string) => {
+          const clean = body.tipo === 'mapa_riscos' ? line : stripMarkdownChrome(line)
+          fullText += clean + terminator
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: clean + terminator })}\n\n`))
+        }
         for await (const text of chunks) {
           if (!text) continue
-          fullText += text
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`))
+          lineBuffer += text
+          let idx
+          while ((idx = lineBuffer.indexOf('\n')) !== -1) {
+            flushLine(lineBuffer.slice(0, idx), '\n')
+            lineBuffer = lineBuffer.slice(idx + 1)
+          }
         }
+        if (lineBuffer.length > 0) flushLine(lineBuffer, '')
 
-        // Persiste artefato
         const { error: saveErr } = await supabase.rpc('upsert_artefato', {
           p_processo_id: body.processoId,
           p_tipo: body.tipo,
