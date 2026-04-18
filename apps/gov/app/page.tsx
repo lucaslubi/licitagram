@@ -10,6 +10,7 @@ import {
   Sparkles,
   TrendingUp,
 } from 'lucide-react'
+import { Logo } from '@/components/app/Logo'
 
 const FEATURES = [
   { icon: ClipboardList, label: 'PCA Collector', detail: 'Coleta demandas dos setores via link único mobile-first + consolida com IA.' },
@@ -33,18 +34,8 @@ export default function LandingPage() {
       {/* Top nav */}
       <nav className="border-b border-border">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
-          <Link href="/" className="flex items-center gap-2">
-            <span
-              aria-hidden
-              className="grid h-7 w-7 place-items-center rounded-lg bg-primary text-primary-foreground"
-            >
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M4 7h16M4 12h10M4 17h16" strokeLinecap="round" />
-              </svg>
-            </span>
-            <span className="text-sm font-semibold tracking-tight">
-              LicitaGram <span className="text-primary">Gov</span>
-            </span>
+          <Link href="/">
+            <Logo />
           </Link>
           <div className="flex items-center gap-2">
             <Link

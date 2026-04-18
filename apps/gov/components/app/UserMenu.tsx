@@ -1,7 +1,7 @@
 'use client'
 
 import { useTransition } from 'react'
-import { LogOut, Settings, ShieldCheck, User } from 'lucide-react'
+import { CreditCard, LogOut, Settings, ShieldCheck, User, Users } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import {
@@ -62,6 +62,16 @@ export function UserMenu({ name, email }: Props) {
         <DropdownMenuItem asChild>
           <a href="/configuracoes/seguranca">
             <ShieldCheck className="mr-2 h-4 w-4" /> Segurança & MFA
+          </a>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <a href="/configuracoes/equipe">
+            <Users className="mr-2 h-4 w-4" /> Equipe
+          </a>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <a href="/configuracoes/plano">
+            <CreditCard className="mr-2 h-4 w-4" /> Plano
           </a>
         </DropdownMenuItem>
         <DropdownMenuSeparator />

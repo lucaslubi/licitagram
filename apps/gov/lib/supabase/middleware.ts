@@ -27,6 +27,9 @@ function isPublicPath(pathname: string): boolean {
   // `/s/[token]` is the public campanha landing — acessível sem auth nem
   // onboarding. O token por si só já é a credencial (criptograficamente seguro).
   if (pathname.startsWith('/s/')) return true
+  // `/convite/[token]` is the team invite landing — authed users also need access
+  // without the onboarding gate kicking in (accepting the invite is what onboards them).
+  if (pathname.startsWith('/convite/')) return true
   return false
 }
 
