@@ -173,5 +173,6 @@ function nextActionHref(processoId: string, fase: string): string {
   if (fase === 'riscos') return `/processos/${processoId}/riscos`
   if (fase === 'precos') return `/processos/${processoId}/precos`
   if (fase === 'compliance') return `/processos/${processoId}/compliance`
+  if (fase === 'publicacao' || fase === 'publicado') return `/processos/${processoId}/publicar`
   return `/processos/${processoId}/${mapFaseToTipo(fase)}`
 }
