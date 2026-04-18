@@ -1,13 +1,23 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { getProcessoDetail, getArtefato } from '@/lib/processos/queries'
 import { ARTEFATO_LABEL, type ArtefatoTipo } from '@/lib/artefatos/prompts'
 import { ArtefatoViewer } from './viewer'
 
-const KNOWN_TIPOS: ArtefatoTipo[] = ['dfd', 'etp', 'mapa_riscos', 'tr', 'edital', 'parecer']
+// Viewer genérico (markdown streaming). Tipos com UI dedicada:
+//   mapa_riscos → /riscos (matriz visual)
+//   precos      → /precos (cesta TCU)
+//   compliance  → /compliance (checklist determinístico)
+const KNOWN_TIPOS: ArtefatoTipo[] = ['dfd', 'etp', 'tr', 'edital', 'parecer']
+
+const REDIRECTS: Record<string, string> = {
+  mapa_riscos: 'riscos',
+  precos: 'precos',
+  compliance: 'compliance',
+}
 
 export async function generateMetadata({
   params,
@@ -23,6 +33,8 @@ export default async function ArtefatoPage({
 }: {
   params: { id: string; tipo: string }
 }) {
+  const redir = REDIRECTS[params.tipo]
+  if (redir) redirect(`/processos/${params.id}/${redir}`)
   if (!KNOWN_TIPOS.includes(params.tipo as ArtefatoTipo)) notFound()
   const tipo = params.tipo as ArtefatoTipo
 
