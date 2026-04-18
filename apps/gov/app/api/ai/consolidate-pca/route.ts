@@ -8,6 +8,7 @@ import {
   type ConsolidationItem,
 } from '@/lib/pca/consolidation-prompt'
 import { logger } from '@/lib/logger'
+import { friendlyAIError } from '@/lib/ai/error-message'
 
 export const runtime = 'nodejs'
 export const maxDuration = 120
@@ -114,7 +115,7 @@ export async function POST(req: NextRequest) {
         logger.error({ err: err instanceof Error ? err.message : String(err) }, 'consolidation stream failed')
         controller.enqueue(
           encoder.encode(
-            `data: ${JSON.stringify({ error: err instanceof Error ? err.message : 'Falha na IA' })}\n\n`,
+            `data: ${JSON.stringify({ error: friendlyAIError(err) })}\n\n`,
           ),
         )
       } finally {

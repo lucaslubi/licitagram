@@ -10,13 +10,15 @@ export { streamGemini } from './gemini'
  * mudança de string aqui — as rotas consomem `streamText(model, ...)`
  * e o switch é feito pelo prefixo.
  *
- * Default: Gemini 2.5 Pro (reasoning) + 2.5 Flash (rápido). Claude fica
- * disponível como alternativa via CLAUDE_MODELS se precisar comparar
- * qualidade ou custo.
+ * Default: Gemini 2.5 Flash pra ambas as velocidades — mesmo modelo usado
+ * em produção no apps/web (B2B). Funciona no free tier do Google AI Studio.
+ * Quando o billing do Google Cloud for ativado, dá pra trocar `reasoning`
+ * pra `gemini-2.5-pro` sem tocar em mais lugar nenhum.
+ * Claude fica disponível via CLAUDE_MODELS pra comparar qualidade/custo.
  */
 export const AI_MODELS = {
   /** Raciocínio profundo: consolidação PCA, ETP, parecer, matriz de riscos. */
-  reasoning: 'gemini-2.5-pro',
+  reasoning: 'gemini-2.5-flash',
   /** Rápido/barato: classificação, normalização, extração, sugestões. */
   fast: 'gemini-2.5-flash',
 } as const

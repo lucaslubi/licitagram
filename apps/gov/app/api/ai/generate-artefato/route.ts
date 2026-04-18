@@ -6,6 +6,7 @@ import { getCurrentProfile } from '@/lib/auth/profile'
 import { getProcessoDetail } from '@/lib/processos/queries'
 import { PROMPTS, type ArtefatoTipo } from '@/lib/artefatos/prompts'
 import { logger } from '@/lib/logger'
+import { friendlyAIError } from '@/lib/ai/error-message'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -105,7 +106,7 @@ export async function POST(req: NextRequest) {
         )
         controller.enqueue(
           encoder.encode(
-            `data: ${JSON.stringify({ error: err instanceof Error ? err.message : 'Falha na IA' })}\n\n`,
+            `data: ${JSON.stringify({ error: friendlyAIError(err) })}\n\n`,
           ),
         )
       } finally {
