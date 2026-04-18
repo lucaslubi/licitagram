@@ -10,25 +10,25 @@
     --brand-light: 217 85% 72%;
     --brand-foreground: 0 0% 100%;
 
-    /* Backgrounds — layered depth (NOT pure black) */
-    --background: 222 32% 5%;
-    --foreground: 210 40% 96%;
-    --card: 222 30% 9%;
-    --card-foreground: 210 40% 96%;
-    --popover: 222 30% 9%;
-    --popover-foreground: 210 40% 96%;
+    /* Backgrounds — deep near-black with blue undertone (inspirado em #01060c) */
+    --background: 213 85% 3%;
+    --foreground: 0 0% 100%;
+    --card: 215 45% 7%;
+    --card-foreground: 0 0% 100%;
+    --popover: 215 45% 7%;
+    --popover-foreground: 0 0% 100%;
 
     /* Primary = Brand */
     --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
 
     /* Secondary */
-    --secondary: 220 20% 13%;
-    --secondary-foreground: 210 40% 96%;
+    --secondary: 215 25% 12%;
+    --secondary-foreground: 0 0% 100%;
 
-    /* Muted */
-    --muted: 220 20% 13%;
-    --muted-foreground: 215 16% 55%;
+    /* Muted — texto secundário azul-claro (inspirado em #c7d4f3) */
+    --muted: 215 25% 12%;
+    --muted-foreground: 222 50% 80%;
 
     /* Accent — compliance green */
     --accent: 142 71% 45%;
@@ -43,9 +43,21 @@
     --warning-foreground: 0 0% 100%;
 
     /* Borders & inputs — subtle, never harsh */
-    --border: 220 20% 16%;
-    --input: 220 20% 16%;
+    --border: 215 25% 14%;
+    --input: 215 25% 14%;
     --ring: 217 91% 60%;
+
+    /* Brand gradient (azul → verde) — CTAs e highlights premium */
+    --gradient-brand: linear-gradient(81deg, hsl(217 91% 60%) 0%, hsl(142 71% 50%) 63.57%);
+    --gradient-brand-soft: linear-gradient(81deg, hsl(217 91% 60% / 0.18) 0%, hsl(142 71% 50% / 0.14) 63.57%);
+
+    /* Glassmorphism — camadas de vidro translúcido */
+    --glass-bg: linear-gradient(91deg, rgba(255, 255, 255, 0.09) 4.57%, rgba(255, 255, 255, 0.02) 100%);
+    --glass-border: rgba(255, 255, 255, 0.08);
+
+    /* Layout — container e margens fluidas */
+    --side-margin: clamp(20px, 3.5vw, 70px);
+    --container-width: 86rem;
 
     /* Radius */
     --radius: 0.625rem;
@@ -61,10 +73,10 @@
     --shadow-xl: 0 16px 48px -8px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.03) inset;
 
     /* Surfaces */
-    --surface-dark: 222 30% 9%;
-    --surface-darker: 222 32% 5%;
-    --surface-warm: 222 30% 9%;
-    --surface-overlay: 220 20% 13%;
+    --surface-dark: 215 45% 7%;
+    --surface-darker: 213 85% 3%;
+    --surface-warm: 215 45% 7%;
+    --surface-overlay: 215 25% 12%;
   }
 }
 
@@ -327,3 +339,65 @@
 .premium-scroll::-webkit-scrollbar-track { background: transparent; }
 .premium-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.06); border-radius: 2px; }
 .premium-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.12); }
+
+/* ─── Glassmorphism (inspirado em stereograph.com) ────────────────────────── */
+.glass {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+.glass-strong {
+  background: linear-gradient(91deg, rgba(255, 255, 255, 0.12) 4.57%, rgba(255, 255, 255, 0.04) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+}
+
+/* ─── Gradient utilities ──────────────────────────────────────────────────── */
+.bg-gradient-brand { background: var(--gradient-brand); }
+.bg-gradient-brand-soft { background: var(--gradient-brand-soft); }
+.text-gradient-brand {
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+.border-gradient-brand {
+  position: relative;
+  background-clip: padding-box;
+  border: 1px solid transparent;
+}
+.border-gradient-brand::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: var(--gradient-brand);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* ─── Container fluido com side-margin ────────────────────────────────────── */
+.container-fluid {
+  width: 100%;
+  max-width: var(--container-width);
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: var(--side-margin);
+  padding-right: var(--side-margin);
+}
+
+/* ─── Typography refinements (tons Aeonik-like) ───────────────────────────── */
+.font-thin-display {
+  font-weight: 200;
+  letter-spacing: -0.03em;
+}
+.font-light-display {
+  font-weight: 300;
+  letter-spacing: -0.02em;
+}

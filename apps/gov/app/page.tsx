@@ -106,8 +106,8 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background font-sans">
       {/* Top nav */}
-      <nav className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
+      <nav className="sticky top-0 z-40 border-b border-border/60 bg-background/70 backdrop-blur-xl">
+        <div className="container-fluid flex h-16 items-center justify-between">
           <Link href="/" className="inline-flex items-center">
             <Logo size="md" />
           </Link>
@@ -126,7 +126,7 @@ export default function LandingPage() {
             </Link>
             <Link
               href="/cadastro"
-              className="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow-md transition-colors hover:bg-brand-dark"
+              className="inline-flex h-9 items-center justify-center rounded-lg bg-gradient-brand px-4 text-sm font-semibold text-white shadow-md transition-all hover:shadow-lg hover:brightness-110"
             >
               Começar grátis
             </Link>
@@ -135,34 +135,32 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero */}
-      <section className="relative overflow-hidden border-b border-border">
+      <section className="relative overflow-hidden border-b border-border/60">
         <div className="pointer-events-none absolute inset-0 z-0">
-          <div className="absolute left-1/2 top-[-20%] h-[600px] w-[900px] -translate-x-1/2 rounded-full bg-primary/10 blur-[120px]" />
+          <div className="absolute left-[15%] top-[-10%] h-[520px] w-[520px] rounded-full bg-primary/15 blur-[130px]" />
+          <div className="absolute right-[10%] top-[20%] h-[420px] w-[420px] rounded-full bg-accent/10 blur-[140px]" />
           <div
-            className="absolute inset-0 opacity-[0.4]"
+            className="absolute inset-0 opacity-[0.5]"
             style={{
               backgroundImage:
-                'linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)',
-              backgroundSize: '56px 56px',
-              maskImage: 'radial-gradient(ellipse at top, black 20%, transparent 75%)',
-              WebkitMaskImage: 'radial-gradient(ellipse at top, black 20%, transparent 75%)',
+                'linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)',
+              backgroundSize: '64px 64px',
+              maskImage: 'radial-gradient(ellipse at top, black 15%, transparent 75%)',
+              WebkitMaskImage: 'radial-gradient(ellipse at top, black 15%, transparent 75%)',
             }}
           />
         </div>
 
-        <div className="relative z-10 mx-auto max-w-6xl px-4 py-24 sm:px-6 sm:py-32">
+        <div className="container-fluid relative z-10 py-24 sm:py-32">
           <div className="mx-auto max-w-3xl text-center">
             <div className="hero-tag mx-auto">
               <span className="hero-tag-dot" />
               Lei 14.133/2021 · Compliance TCU determinístico
             </div>
 
-            <h1 className="mt-8 text-display-lg font-display text-balance text-foreground">
+            <h1 className="mt-8 text-display-lg font-light-display text-balance text-foreground">
               A fase interna da licitação,{' '}
-              <span className="bg-gradient-to-r from-brand-light via-primary to-brand-dark bg-clip-text text-transparent">
-                do DFD ao Edital
-              </span>
-              , em horas.
+              <span className="text-gradient-brand">do DFD ao Edital</span>, em horas.
             </h1>
             <p className="mt-6 text-pretty text-body-lg leading-relaxed text-muted-foreground">
               Copiloto agêntico pra órgãos públicos. Gera DFD, ETP, Mapa de Riscos, Cesta de Preços, TR, Edital e Parecer
@@ -173,13 +171,13 @@ export default function LandingPage() {
             <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
               <Link
                 href="/cadastro"
-                className="btn-shimmer relative inline-flex h-12 items-center justify-center overflow-hidden rounded-lg bg-primary px-7 text-sm font-semibold text-primary-foreground shadow-lg transition-colors hover:bg-brand-dark"
+                className="btn-shimmer relative inline-flex h-12 items-center justify-center overflow-hidden rounded-lg bg-gradient-brand px-7 text-sm font-semibold text-white shadow-lg transition-all hover:shadow-xl hover:brightness-110"
               >
                 Começar grátis <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
               <Link
                 href="/login"
-                className="inline-flex h-12 items-center justify-center rounded-lg border border-border bg-card px-7 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
+                className="glass inline-flex h-12 items-center justify-center rounded-lg px-7 text-sm font-medium text-foreground transition-all hover:bg-white/10"
               >
                 Já tenho conta
               </Link>
@@ -414,14 +412,14 @@ function StatCard({
 }) {
   return (
     <div
-      className={`rounded-large border p-5 backdrop-blur-sm ${
-        tone === 'brand' ? 'border-primary/40 bg-primary/5' : 'border-border bg-card/60'
+      className={`rounded-large p-5 ${
+        tone === 'brand' ? 'glass-strong border-primary/30' : 'glass'
       }`}
     >
       <p className="text-overline text-muted-foreground">{kicker}</p>
       <p
         className={`mt-2 font-mono text-3xl font-semibold tracking-tight tabular-nums ${
-          tone === 'brand' ? 'text-primary' : 'text-foreground'
+          tone === 'brand' ? 'text-gradient-brand' : 'text-foreground'
         }`}
       >
         {value}
