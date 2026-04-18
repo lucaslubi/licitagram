@@ -92,6 +92,11 @@ function LoginForm() {
           <Button type="submit" className="w-full h-11" disabled={loading}>
             {loading ? 'Entrando...' : 'Entrar'}
           </Button>
+          <p className="text-center text-sm">
+            <Link href="/forgot-password" className="text-muted-foreground hover:text-foreground hover:underline">
+              Esqueci minha senha
+            </Link>
+          </p>
         </form>
         <p className="mt-6 text-center text-sm text-muted-foreground">
           Ainda não tem conta?{' '}

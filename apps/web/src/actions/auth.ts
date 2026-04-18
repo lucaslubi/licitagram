@@ -118,3 +118,47 @@ export async function signOut() {
   await supabase.auth.signOut()
   redirect('/login')
 }
+
+export async function requestPasswordReset(formData: FormData) {
+  const headersList = await headers()
+  const ip = headersList.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const rl = await checkRateLimit(`auth-forgot:${ip}`, 5, 60)
+  if (!rl.allowed) {
+    return { error: 'Muitas tentativas. Tente novamente em alguns minutos.' }
+  }
+
+  const email = (formData.get('email') as string | null)?.trim().toLowerCase()
+  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    return { error: 'Informe um email válido.' }
+  }
+
+  const supabase = await createClient()
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://licitagram.com'
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${appUrl}/auth/callback?next=/reset-password`,
+  })
+  if (error) {
+    return { error: error.message }
+  }
+  return { success: 'Se houver uma conta com esse email, enviamos um link para redefinir a senha.' }
+}
+
+export async function updatePassword(formData: FormData) {
+  const password = (formData.get('password') as string | null) ?? ''
+  const confirm = (formData.get('confirm') as string | null) ?? ''
+
+  if (password.length < 8) {
+    return { error: 'A nova senha precisa ter ao menos 8 caracteres.' }
+  }
+  if (password !== confirm) {
+    return { error: 'As senhas não conferem.' }
+  }
+
+  const supabase = await createClient()
+  const { error } = await supabase.auth.updateUser({ password })
+  if (error) return { error: error.message }
+
+  revalidatePath('/', 'layout')
+  redirect('/map')
+}
