@@ -60,7 +60,9 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: false },
 })
 const genai = new GoogleGenerativeAI(GEMINI_KEY)
-const embeddingModel = genai.getGenerativeModel({ model: 'text-embedding-004' })
+const EMBEDDING_MODEL = 'gemini-embedding-001'
+const EMBEDDING_DIM = 768
+const embeddingModel = genai.getGenerativeModel({ model: EMBEDDING_MODEL })
 
 // ─── Chunking ─────────────────────────────────────────────────────────────
 const CHUNK_SIZE = 2800 // ~700-800 tokens
@@ -154,14 +156,26 @@ interface FileStats {
   error?: string
 }
 
-async function embedBatch(texts: string[], titles: string[]): Promise<number[][]> {
-  const requests = texts.map((text, i) => ({
+// gemini-embedding-001 não suporta batch → chama embedContent em série
+// com rate limit leve (free tier: ~150 req/min).
+async function embedOne(text: string, title: string): Promise<number[]> {
+  const res = await embeddingModel.embedContent({
     content: { role: 'user', parts: [{ text }] },
-    taskType: 'RETRIEVAL_DOCUMENT' as const,
-    title: titles[i],
-  }))
-  const res = await embeddingModel.batchEmbedContents({ requests } as never)
-  return res.embeddings.map((e) => e.values)
+    taskType: 'RETRIEVAL_DOCUMENT',
+    title,
+    outputDimensionality: EMBEDDING_DIM,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as any)
+  return res.embedding.values
+}
+
+async function embedBatch(texts: string[], titles: string[]): Promise<number[][]> {
+  const out: number[][] = []
+  for (let i = 0; i < texts.length; i++) {
+    out.push(await embedOne(texts[i]!, titles[i]!))
+    if (i < texts.length - 1) await new Promise((r) => setTimeout(r, 400))
+  }
+  return out
 }
 
 function slugify(s: string): string {

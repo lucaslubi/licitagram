@@ -9,8 +9,13 @@ function client(): GoogleGenerativeAI {
   return _client
 }
 
-/** Gemini text-embedding-004 = 768 dims, otimizado pra retrieval em PT-BR. */
-export const EMBEDDING_MODEL = 'text-embedding-004'
+/**
+ * Gemini embedding-001 com matryoshka truncation pra 768 dims
+ * (match com VECTOR(768) da knowledge_base). Default do modelo é 3072 dims.
+ * Nota: `batchEmbedContents` NÃO é suportado nesse modelo — usar embedContent
+ * em série com rate limit (REST do Gemini aguenta ~150 rpm no free tier).
+ */
+export const EMBEDDING_MODEL = 'gemini-embedding-001'
 export const EMBEDDING_DIM = 768
 
 /**
@@ -23,30 +28,33 @@ export async function embed(
   title?: string,
 ): Promise<number[]> {
   const model = client().getGenerativeModel({ model: EMBEDDING_MODEL })
-  const req: Parameters<typeof model.embedContent>[0] = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const req: any = {
     content: { role: 'user', parts: [{ text }] },
     taskType,
-  } as never
+    outputDimensionality: EMBEDDING_DIM,
+  }
   if (taskType === 'retrieval_document' && title) {
-    (req as { title?: string }).title = title
+    req.title = title
   }
   const res = await model.embedContent(req)
   return res.embedding.values
 }
 
-/** Batch: Gemini suporta batchEmbedContents até 100 por request. */
+/**
+ * Pseudo-batch (sequencial com rate limit) — o modelo atual não aceita
+ * batchEmbedContents. Retorna array na mesma ordem das inputs.
+ */
 export async function embedBatch(
   texts: string[],
   taskType: 'retrieval_document' | 'retrieval_query' = 'retrieval_document',
   titles?: string[],
+  delayMs = 400,
 ): Promise<number[][]> {
-  if (texts.length === 0) return []
-  const model = client().getGenerativeModel({ model: EMBEDDING_MODEL })
-  const requests = texts.map((text, i) => ({
-    content: { role: 'user', parts: [{ text }] },
-    taskType,
-    title: taskType === 'retrieval_document' && titles ? titles[i] : undefined,
-  }))
-  const res = await model.batchEmbedContents({ requests } as never)
-  return res.embeddings.map((e) => e.values)
+  const out: number[][] = []
+  for (let i = 0; i < texts.length; i++) {
+    out.push(await embed(texts[i]!, taskType, titles?.[i]))
+    if (i < texts.length - 1) await new Promise((r) => setTimeout(r, delayMs))
+  }
+  return out
 }
