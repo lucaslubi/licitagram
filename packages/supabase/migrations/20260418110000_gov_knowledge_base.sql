@@ -57,12 +57,23 @@ CREATE TABLE IF NOT EXISTS licitagov.knowledge_sources (
   url_base TEXT NOT NULL,
   refresh_interval_days INTEGER NOT NULL DEFAULT 7,
   ultimo_refresh TIMESTAMPTZ,
-  proximo_refresh TIMESTAMPTZ GENERATED ALWAYS AS
-    (ultimo_refresh + (refresh_interval_days || ' days')::interval) STORED,
+  -- proximo_refresh calculado via VIEW (generated column com cast text→interval
+  -- viola immutabilidade no Postgres).
   ativo BOOLEAN NOT NULL DEFAULT TRUE,
   notas TEXT,
   criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE OR REPLACE VIEW licitagov.v_knowledge_sources AS
+SELECT
+  s.*,
+  s.ultimo_refresh + (s.refresh_interval_days * INTERVAL '1 day') AS proximo_refresh,
+  CASE
+    WHEN s.ultimo_refresh IS NULL THEN TRUE
+    WHEN NOW() > s.ultimo_refresh + (s.refresh_interval_days * INTERVAL '1 day') THEN TRUE
+    ELSE FALSE
+  END AS refresh_devido
+FROM licitagov.knowledge_sources s;
 
 ALTER TABLE licitagov.knowledge_sources ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS p_sources_select_all ON licitagov.knowledge_sources;
