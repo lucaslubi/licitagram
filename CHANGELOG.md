@@ -5,6 +5,21 @@ All notable changes to this monorepo are documented here. Format loosely based o
 ## [Unreleased]
 
 ### Added
+- `[gov]` Fase 3 Parte A (PCA Collector — Campanha):
+  - **Migration `20260418030000_gov_phase3_pca_collector.sql`**: helper `licitagov.current_user_is_admin()`, RLS policies completas em `setores/campanhas_pca/respostas_setor/itens_pca` (admin/coordenador-only writes dentro do órgão), RPCs `public.create_pca_campanha`, `public.resolve_campanha_token` (anon OK via token), `public.submit_setor_itens` (anon OK via token), `public.revoke_pca_token`, `public.list_campanhas`, `public.get_campanha_detail`.
+  - **`lib/crypto/token.ts`**: `generateSecureToken()` — 32 bytes base64url, SHA-256 hash. DB guarda só o hash; o token em claro vai só no email (leak-resistant).
+  - **`lib/setores/`**: CRUD com soft-delete (desativa em vez de deletar pra preservar respostas_setor históricas).
+  - **`/configuracoes/setores`**: listagem + modal Dialog criar/editar.
+  - **`lib/pca/`**: `actions.ts` (createCampanha gera tokens, insere via RPC, dispara emails async via Promise.allSettled), `queries.ts`, `public-actions.ts` (resolveToken, submitSetorItens).
+  - **`lib/email/campanha-invite.ts`**: Resend template por setor com link único + fallback graceful sem API key.
+  - **`/pca`**: listagem com badges de status e progress bar.
+  - **`/pca/novo`**: wizard 3 steps (prazo/ano/título → setores → confirmar) com Stepper + warning setores sem responsável.
+  - **`/pca/[id]`**: painel com 3 KPIs + lista de setores por status, **Supabase Realtime** subscription em `licitagov.respostas_setor`.
+  - **`/s/[token]`**: landing pública (sem auth/onboarding) — form mobile-first com add/remove itens + sticky submit, re-submit substitui envio anterior.
+  - **Dashboard atualizado**: KPIs reais (campanhas ativas, setores respondendo, itens coletados) + próxima ação mostra campanhas em coleta.
+  - **Middleware**: `/s/[token]` é public path (token é credencial criptográfica).
+  - **Requisito Supabase**: adicionar `licitagov` ao campo "Exposed schemas" em Settings → API → Schema (necessário pra `.schema('licitagov').from('setores')` funcionar — RLS policies já protegem).
+
 - `[gov]` Fase 2: Onboarding wizard ponta-a-ponta.
   - **Migration `20260418010000_gov_phase2_onboarding.sql`**: helper `licitagov.current_orgao_id()` (SECURITY DEFINER, evita recursão RLS), reescrita das policies SELECT pra usar o helper, INSERT/UPDATE policies em `usuarios` (id = auth.uid()), RPC `licitagov.bootstrap_orgao(...)` que cria órgão idempotente por CNPJ + linka usuário em transação atômica, RPC `licitagov.get_current_profile()` que retorna user+órgão em 1 query.
   - **`lib/cnpj/lookup.ts`**: lookup BrasilAPI (sem auth, free, ~10/min/IP), validação de check-digits Modulo 11, timeout 8s, erros classificados.

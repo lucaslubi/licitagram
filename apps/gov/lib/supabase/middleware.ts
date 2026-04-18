@@ -24,6 +24,9 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith('/api/auth/')) return true
   if (pathname.startsWith('/_next/')) return true
   if (pathname === '/favicon.ico') return true
+  // `/s/[token]` is the public campanha landing — acessível sem auth nem
+  // onboarding. O token por si só já é a credencial (criptograficamente seguro).
+  if (pathname.startsWith('/s/')) return true
   return false
 }
 
