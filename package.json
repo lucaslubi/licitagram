@@ -9,12 +9,19 @@
     "type-check": "turbo type-check",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
     "workers:dev": "pnpm --filter @licitagram/workers dev",
-    "recover-matches": "pnpm --filter @licitagram/workers recover-matches"
+    "recover-matches": "pnpm --filter @licitagram/workers recover-matches",
+    "ingest:gov": "tsx scripts/ingest-knowledge.ts"
   },
   "devDependencies": {
+    "@supabase/supabase-js": "^2.103.0",
+    "@google/generative-ai": "^0.24.1",
     "@types/node": "^20.17.0",
+    "@types/pdf-parse": "^1.1.4",
+    "mammoth": "^1.9.0",
     "next": "^14.2.0",
+    "pdf-parse": "^1.1.1",
     "prettier": "^3.4.0",
+    "tsx": "^4.19.0",
     "turbo": "^2.3.0",
     "typescript": "^5.7.0"
   }

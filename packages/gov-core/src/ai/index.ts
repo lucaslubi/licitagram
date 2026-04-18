@@ -4,6 +4,9 @@ import { streamMessage as streamClaude, CLAUDE_MODELS } from './claude'
 export { CLAUDE_MODELS, getClaude, streamMessage } from './claude'
 export type { ClaudeModel, StreamOptions } from './claude'
 export { streamGemini } from './gemini'
+export { embed, embedBatch, EMBEDDING_MODEL, EMBEDDING_DIM } from './embeddings'
+export { retrieveContext, formatContext, knowledgeStats } from './rag'
+export type { KnowledgeChunk } from './rag'
 
 /**
  * Modelos canônicos usados pelo LicitaGram Gov. Troca de provider é uma

@@ -9,3 +9,6 @@ dist/
 .vercel
 .DS_Store
 dump.rdb
+
+# RAG corpus raw files (181MB PAM + AGU) — ingested into Supabase, not versioned
+materiais/

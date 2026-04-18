@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { z } from 'zod'
-import { streamText, AI_MODELS } from '@licitagram/gov-core/ai'
+import { streamText, AI_MODELS, retrieveContext, formatContext } from '@licitagram/gov-core/ai'
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentProfile } from '@/lib/auth/profile'
 import { getProcessoDetail } from '@/lib/processos/queries'
@@ -67,6 +67,25 @@ export async function POST(req: NextRequest) {
   const modelId = spec.provider === 'reasoning' ? AI_MODELS.reasoning : AI_MODELS.fast
   const supabase = createClient()
 
+  // RAG: busca até 8 trechos relevantes do corpus (AGU + PAM + Lei 14.133 + TCU)
+  // e injeta no system prompt pra IA citar os modelos oficiais.
+  let ragContext = ''
+  try {
+    const retrievalQuery = `${body.tipo} ${processo.objeto} ${processo.modalidade ?? ''}`.trim()
+    const chunks = await retrieveContext(supabase, retrievalQuery, {
+      artefatoTipo: body.tipo,
+      modalidade: processo.modalidade ?? undefined,
+      limit: 8,
+    })
+    ragContext = formatContext(chunks)
+    logger.info({ processoId: body.processoId, tipo: body.tipo, chunks: chunks.length }, 'RAG context retrieved')
+  } catch (e) {
+    // RAG failure é não-fatal: prossegue com prompt vanilla.
+    logger.warn({ err: e instanceof Error ? e.message : String(e) }, 'RAG retrieval failed — proceeding without context')
+  }
+
+  const systemWithContext = ragContext ? `${spec.system}\n\n${ragContext}` : spec.system
+
   const encoder = new TextEncoder()
   const startedAt = Date.now()
 
@@ -76,7 +95,7 @@ export async function POST(req: NextRequest) {
       try {
         const chunks = streamText({
           model: modelId,
-          system: spec.system,
+          system: systemWithContext,
           userMessage,
           maxTokens: spec.maxTokens,
           temperature: spec.temperature,
