@@ -1,6 +1,8 @@
 import Link from 'next/link'
+import { Suspense } from 'react'
 import type { Metadata } from 'next'
 import { LoginForm } from './login-form'
+import { AuthDivider, GoogleButton } from '@/components/auth/GoogleButton'
 
 export const metadata: Metadata = { title: 'Entrar' }
 
@@ -13,7 +15,11 @@ export default function LoginPage() {
           Use seu email institucional. MFA é exigido para coordenadores.
         </p>
       </header>
-      <LoginForm />
+      <GoogleButton />
+      <AuthDivider />
+      <Suspense fallback={null}>
+        <LoginForm />
+      </Suspense>
       <div className="space-y-2 text-center text-sm">
         <p className="text-muted-foreground">
           Ainda não tem conta?{' '}

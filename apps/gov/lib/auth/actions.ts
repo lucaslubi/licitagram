@@ -15,7 +15,10 @@ import {
 import { authRateLimit } from '@/lib/rate-limit'
 import { headers } from 'next/headers'
 
-type ActionResult = { ok: true } | { ok: false; error: string; field?: string }
+type ActionResult =
+  | { ok: true }
+  | { ok: true; alreadyRegistered: true }
+  | { ok: false; error: string; field?: string }
 
 function asResult(error: unknown): ActionResult {
   if (error instanceof z.ZodError) {
@@ -34,6 +37,28 @@ async function checkRateLimit(action: string): Promise<ActionResult | null> {
     return { ok: false, error: 'Muitas tentativas. Aguarde alguns minutos e tente novamente.' }
   }
   return null
+}
+
+export async function signInWithGoogleAction(): Promise<ActionResult> {
+  try {
+    const supabase = createClient()
+    const origin =
+      headers().get('origin') ?? process.env.NEXT_PUBLIC_APP_URL ?? 'https://gov.licitagram.com'
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${origin}/api/auth/callback?next=/dashboard`,
+        queryParams: { access_type: 'offline', prompt: 'consent' },
+      },
+    })
+    if (error) return { ok: false, error: error.message }
+    if (data.url) redirect(data.url)
+    return { ok: false, error: 'OAuth URL ausente na resposta' }
+  } catch (e) {
+    if (isRedirectError(e)) throw e
+    logger.error({ err: e instanceof Error ? e.message : String(e) }, 'signInWithGoogleAction failed')
+    return asResult(e)
+  }
 }
 
 export async function signInAction(formData: FormData): Promise<ActionResult> {
@@ -79,7 +104,7 @@ export async function signUpAction(formData: FormData): Promise<ActionResult> {
     const origin =
       headers().get('origin') ?? process.env.NEXT_PUBLIC_APP_URL ?? 'https://gov.licitagram.com'
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email: parsed.email,
       password: parsed.password,
       options: {
@@ -87,8 +112,21 @@ export async function signUpAction(formData: FormData): Promise<ActionResult> {
         data: { nome_completo: parsed.nomeCompleto },
       },
     })
-    if (error) return { ok: false, error: error.message }
-
+    if (error) {
+      // Supabase returns "User already registered" when the email exists.
+      // Detect and redirect caller to the login form instead of showing
+      // a scary error — the user may already use the B2B product.
+      if (/already registered|already exists/i.test(error.message)) {
+        return { ok: true, alreadyRegistered: true }
+      }
+      return { ok: false, error: error.message }
+    }
+    // Supabase signUp also succeeds silently when the user exists but is
+    // unconfirmed — in that case data.user is set but data.user.identities
+    // is empty. Treat as already-registered too.
+    if (data.user && data.user.identities && data.user.identities.length === 0) {
+      return { ok: true, alreadyRegistered: true }
+    }
     return { ok: true }
   } catch (e) {
     logger.error({ err: e instanceof Error ? e.message : String(e), stack: e instanceof Error ? e.stack : undefined }, 'signUpAction failed')

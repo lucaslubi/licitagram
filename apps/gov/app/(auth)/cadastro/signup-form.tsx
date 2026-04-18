@@ -3,7 +3,8 @@
 import { useState, useTransition } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { CheckCircle2, Loader2 } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react'
+import Link from 'next/link'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -20,9 +21,12 @@ import {
 import { signUpAction } from '@/lib/auth/actions'
 import { signupSchema, type SignupInput } from '@/lib/validations/auth'
 
+type Status = 'idle' | 'done' | 'already_registered'
+
 export function SignupForm() {
   const [pending, startTransition] = useTransition()
-  const [done, setDone] = useState(false)
+  const [status, setStatus] = useState<Status>('idle')
+  const [tryiedEmail, setTriedEmail] = useState('')
 
   const form = useForm<SignupInput>({
     resolver: zodResolver(signupSchema),
@@ -37,12 +41,17 @@ export function SignupForm() {
 
   const onSubmit = (data: SignupInput) => {
     startTransition(async () => {
+      setTriedEmail(data.email)
       const fd = new FormData()
       Object.entries(data).forEach(([k, v]) => fd.set(k, String(v)))
       const res = await signUpAction(fd)
       if (res.ok) {
-        setDone(true)
-        toast.success('Cadastro recebido! Verifique seu email para confirmar.')
+        if ('alreadyRegistered' in res && res.alreadyRegistered) {
+          setStatus('already_registered')
+        } else {
+          setStatus('done')
+          toast.success('Cadastro recebido! Verifique seu email para confirmar.')
+        }
       } else {
         toast.error(res.error)
         if (res.field) form.setError(res.field as keyof SignupInput, { message: res.error })
@@ -50,7 +59,7 @@ export function SignupForm() {
     })
   }
 
-  if (done) {
+  if (status === 'done') {
     return (
       <div className="rounded-2xl border border-accent/30 bg-accent/5 p-6 text-center">
         <CheckCircle2 className="mx-auto h-10 w-10 text-accent" aria-hidden />
@@ -58,6 +67,27 @@ export function SignupForm() {
         <p className="mt-1 text-sm text-muted-foreground">
           Enviamos um link de confirmação para seu email. Clique no link para ativar sua conta.
         </p>
+      </div>
+    )
+  }
+
+  if (status === 'already_registered') {
+    return (
+      <div className="rounded-2xl border border-warning/30 bg-warning/5 p-6">
+        <AlertTriangle className="mb-3 h-8 w-8 text-warning" aria-hidden />
+        <h2 className="text-lg font-semibold">Esse email já tem conta</h2>
+        <p className="mt-1.5 text-sm text-muted-foreground">
+          Encontramos uma conta existente para <span className="font-medium text-foreground">{tryiedEmail}</span>.
+          Isso pode ser do Licitagram (B2B) — o login é unificado entre os produtos.
+        </p>
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+          <Button asChild className="flex-1">
+            <Link href={`/login?email=${encodeURIComponent(tryiedEmail)}`}>Entrar com essa conta</Link>
+          </Button>
+          <Button asChild variant="outline" className="flex-1">
+            <Link href="/recuperar-senha">Esqueci minha senha</Link>
+          </Button>
+        </div>
       </div>
     )
   }

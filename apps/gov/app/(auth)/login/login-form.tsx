@@ -1,6 +1,7 @@
 'use client'
 
 import { useTransition } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2 } from 'lucide-react'
@@ -20,9 +21,10 @@ import { loginSchema, type LoginInput } from '@/lib/validations/auth'
 
 export function LoginForm() {
   const [pending, startTransition] = useTransition()
+  const params = useSearchParams()
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: '', password: '' },
+    defaultValues: { email: params.get('email') ?? '', password: '' },
   })
 
   const onSubmit = (data: LoginInput) => {
