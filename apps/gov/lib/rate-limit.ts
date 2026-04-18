@@ -26,19 +26,27 @@ function getLimiter(): Ratelimit | null {
 
 /**
  * 5 requests per 60s per identifier (typically `${action}:${ip}`).
- * Falls back to "always allow" when Upstash env vars are missing — useful in
- * local dev where you don't want to set up Redis just to log in. Production
- * MUST have UPSTASH_REDIS_REST_URL/TOKEN configured.
+ *
+ * Fails OPEN on any error (missing env, network blip, bad credentials, etc.)
+ * Rationale: a misconfigured rate limit should not brick login/signup — that
+ * would be a much worse outcome than a brief window without rate limiting.
+ * Failures are logged so they surface in Vercel/Sentry for follow-up.
  */
 export async function authRateLimit(identifier: string): Promise<LimitResult> {
-  const l = getLimiter()
-  if (!l) {
-    if (process.env.NODE_ENV === 'production') {
-      // eslint-disable-next-line no-console
-      console.warn('[rate-limit] Upstash env vars missing in production — auth endpoints unprotected!')
+  try {
+    const l = getLimiter()
+    if (!l) {
+      if (process.env.NODE_ENV === 'production') {
+        // eslint-disable-next-line no-console
+        console.warn('[rate-limit] Upstash env vars missing in production — auth endpoints unprotected!')
+      }
+      return { success: true, remaining: 999, reset: Date.now() + 60_000 }
     }
+    const { success, remaining, reset } = await l.limit(identifier)
+    return { success, remaining, reset }
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[rate-limit] Upstash error — failing open:', err)
     return { success: true, remaining: 999, reset: Date.now() + 60_000 }
   }
-  const { success, remaining, reset } = await l.limit(identifier)
-  return { success, remaining, reset }
 }

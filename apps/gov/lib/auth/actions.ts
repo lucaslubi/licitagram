@@ -37,16 +37,16 @@ async function checkRateLimit(action: string): Promise<ActionResult | null> {
 }
 
 export async function signInAction(formData: FormData): Promise<ActionResult> {
-  const limited = await checkRateLimit('signin')
-  if (limited) return limited
-
   try {
+    const limited = await checkRateLimit('signin')
+    if (limited) return limited
+
     const parsed = loginSchema.parse({
       email: formData.get('email'),
       password: formData.get('password'),
     })
     const supabase = createClient()
-    const { data, error } = await supabase.auth.signInWithPassword(parsed)
+    const { error } = await supabase.auth.signInWithPassword(parsed)
     if (error) return { ok: false, error: error.message }
 
     // If user has MFA enrolled, redirect to challenge.
@@ -58,15 +58,16 @@ export async function signInAction(formData: FormData): Promise<ActionResult> {
     redirect('/dashboard')
   } catch (e) {
     if (isRedirectError(e)) throw e
+    logger.error({ err: e instanceof Error ? e.message : String(e), stack: e instanceof Error ? e.stack : undefined }, 'signInAction failed')
     return asResult(e)
   }
 }
 
 export async function signUpAction(formData: FormData): Promise<ActionResult> {
-  const limited = await checkRateLimit('signup')
-  if (limited) return limited
-
   try {
+    const limited = await checkRateLimit('signup')
+    if (limited) return limited
+
     const parsed = signupSchema.parse({
       nomeCompleto: formData.get('nomeCompleto'),
       email: formData.get('email'),
@@ -90,15 +91,16 @@ export async function signUpAction(formData: FormData): Promise<ActionResult> {
 
     return { ok: true }
   } catch (e) {
+    logger.error({ err: e instanceof Error ? e.message : String(e), stack: e instanceof Error ? e.stack : undefined }, 'signUpAction failed')
     return asResult(e)
   }
 }
 
 export async function forgotPasswordAction(formData: FormData): Promise<ActionResult> {
-  const limited = await checkRateLimit('forgot')
-  if (limited) return limited
-
   try {
+    const limited = await checkRateLimit('forgot')
+    if (limited) return limited
+
     const { email } = forgotPasswordSchema.parse({ email: formData.get('email') })
     const supabase = createClient()
     const origin =
@@ -109,6 +111,7 @@ export async function forgotPasswordAction(formData: FormData): Promise<ActionRe
     if (error) return { ok: false, error: error.message }
     return { ok: true }
   } catch (e) {
+    logger.error({ err: e instanceof Error ? e.message : String(e) }, 'forgotPasswordAction failed')
     return asResult(e)
   }
 }
@@ -126,15 +129,16 @@ export async function resetPasswordAction(formData: FormData): Promise<ActionRes
     redirect('/dashboard')
   } catch (e) {
     if (isRedirectError(e)) throw e
+    logger.error({ err: e instanceof Error ? e.message : String(e) }, 'resetPasswordAction failed')
     return asResult(e)
   }
 }
 
 export async function mfaChallengeAction(formData: FormData): Promise<ActionResult> {
-  const limited = await checkRateLimit('mfa')
-  if (limited) return limited
-
   try {
+    const limited = await checkRateLimit('mfa')
+    if (limited) return limited
+
     const { code } = mfaChallengeSchema.parse({ code: formData.get('code') })
     const supabase = createClient()
     const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors()
@@ -153,6 +157,7 @@ export async function mfaChallengeAction(formData: FormData): Promise<ActionResu
     redirect('/dashboard')
   } catch (e) {
     if (isRedirectError(e)) throw e
+    logger.error({ err: e instanceof Error ? e.message : String(e) }, 'mfaChallengeAction failed')
     return asResult(e)
   }
 }
