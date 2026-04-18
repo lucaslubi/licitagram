@@ -17,6 +17,16 @@ All notable changes to this monorepo are documented here. Format loosely based o
   - **`(app)/layout.tsx`**: agora carrega profile real via `getCurrentProfile()` (chama RPC `get_current_profile`), passa órgão pro `AppHeader` (mostra chip com nome + esfera + UF), monta `<PostHogIdentify>` com user.id + group por orgao_id.
   - **`components/auth/GoogleButton.tsx` + `(auth)/login` + `(auth)/cadastro`**: paridade B2B com Sign in with Google.
 
+### Fixed
+- `[gov]` Phase 2: CNPJ lookup tinha um único provider (BrasilAPI). Vercel datacenter IPs sofrem 403 frequentes. **Adicionado fallback ReceitaWS** + escape "preencher manualmente" no step 1 do wizard pra desbloquear quando ambos providers falham.
+- `[gov]` Phase 2: RPCs `bootstrap_orgao` e `get_current_profile` foram criadas em `licitagov` schema, mas `supabase.rpc()` resolve via `public` por default. **Migration `20260418020000_gov_phase2_rpc_to_public.sql`** move as funções pra `public` (mantém SECURITY DEFINER acessando `licitagov.*` internamente). Helper `licitagov.current_orgao_id()` fica em `licitagov` por ser usado só pelas RLS policies.
+
+### Deferred (escopo Phase 2 que mora em outras fases)
+- Stripe trial 30d sem cartão — depende de Stripe Products configurados; entra junto com billing real (Phase 4 ou dedicada).
+- Sugestão de setores baseada em histórico PNCP — depende de UI de setores (`/configuracoes/setores`) que vem com PCA Collector (Phase 3).
+- Convite de equipe via email — vem com `/configuracoes/equipe` (Phase 3 ou dedicada).
+- Playwright E2E — entra com pass de testes consolidado depois de Phase 3.
+
 - `[gov]` Fase 1 [1.4]: Auth flow + MFA TOTP + rate limit Upstash.
   - `lib/auth/actions.ts`: server actions signIn/signUp/signOut/forgotPassword/resetPassword/mfaChallenge com Zod validation, rate limit por ação+IP (5 req/60s).
   - `lib/auth/mfa.ts`: enrollment helpers (start, verify, unenroll) usando supabase.auth.mfa.
