@@ -41,7 +41,22 @@ export async function POST(req: NextRequest) {
   if (!processo) return NextResponse.json({ error: 'Processo não encontrado' }, { status: 404 })
 
   const spec = PROMPTS.mapa_riscos
-  const userMessage = spec.renderUser(processo)
+  const now = new Date()
+  const ctx = {
+    orgaoRazaoSocial: profile.orgao?.razaoSocial ?? 'Órgão',
+    orgaoNomeFantasia: profile.orgao?.nomeFantasia ?? null,
+    orgaoCnpj: profile.orgao?.cnpj ?? '',
+    orgaoEsfera: profile.orgao?.esfera ?? 'municipal',
+    orgaoUf: profile.orgao?.uf ?? null,
+    orgaoMunicipio: profile.orgao?.municipio ?? null,
+    unidadeNome: processo.setorNome,
+    responsavelNome: profile.nomeCompleto,
+    responsavelCargo: profile.cargo,
+    responsavelPapel: profile.papel,
+    dataEmissao: now.toLocaleDateString('pt-BR'),
+    anoExercicio: now.getFullYear(),
+  }
+  const userMessage = spec.renderUser(processo, ctx)
 
   let output = ''
   try {

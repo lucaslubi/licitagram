@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
   if (profile.papel !== 'admin' && profile.papel !== 'coordenador') {
     return NextResponse.json({ error: 'Apenas admin/coordenador' }, { status: 403 })
   }
+  if (!profile.orgao) return NextResponse.json({ error: 'Órgão não configurado' }, { status: 400 })
 
   const processo = await getProcessoDetail(body.processoId)
   if (!processo) return NextResponse.json({ error: 'Processo não encontrado' }, { status: 404 })
@@ -47,7 +48,22 @@ export async function POST(req: NextRequest) {
   const spec = PROMPTS[body.tipo as ArtefatoTipo]
   if (!spec) return NextResponse.json({ error: 'tipo desconhecido' }, { status: 400 })
 
-  const userMessage = spec.renderUser(processo)
+  const now = new Date()
+  const ctx = {
+    orgaoRazaoSocial: profile.orgao.razaoSocial,
+    orgaoNomeFantasia: profile.orgao.nomeFantasia,
+    orgaoCnpj: profile.orgao.cnpj,
+    orgaoEsfera: profile.orgao.esfera,
+    orgaoUf: profile.orgao.uf,
+    orgaoMunicipio: profile.orgao.municipio,
+    unidadeNome: processo.setorNome,
+    responsavelNome: profile.nomeCompleto,
+    responsavelCargo: profile.cargo,
+    responsavelPapel: profile.papel,
+    dataEmissao: now.toLocaleDateString('pt-BR'),
+    anoExercicio: now.getFullYear(),
+  }
+  const userMessage = spec.renderUser(processo, ctx)
   const modelId = spec.provider === 'reasoning' ? AI_MODELS.reasoning : AI_MODELS.fast
   const supabase = createClient()
 

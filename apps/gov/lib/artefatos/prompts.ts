@@ -2,13 +2,55 @@ import type { ProcessoDetail } from '@/lib/processos/queries'
 
 export type ArtefatoTipo = 'dfd' | 'etp' | 'mapa_riscos' | 'tr' | 'edital' | 'parecer'
 
+/**
+ * Contexto institucional injetado em TODOS os artefatos para que a IA
+ * preencha cabeçalhos (órgão, unidade, data, responsável) sem
+ * placeholders [INSERIR X].
+ */
+export interface ArtefatoContext {
+  orgaoRazaoSocial: string
+  orgaoNomeFantasia: string | null
+  orgaoCnpj: string
+  orgaoEsfera: string // 'federal' | 'estadual' | 'municipal' | 'distrital'
+  orgaoUf: string | null
+  orgaoMunicipio: string | null
+  unidadeNome: string | null // setor_nome já vem do processo; fallback pro órgão
+  responsavelNome: string | null
+  responsavelCargo: string | null
+  responsavelPapel: string | null
+  dataEmissao: string // DD/MM/AAAA já formatado
+  anoExercicio: number
+}
+
 export interface PromptSpec {
   tipo: ArtefatoTipo
   provider: 'fast' | 'reasoning' // mapeia pra AI_MODELS.fast ou .reasoning
   system: string
-  renderUser(processo: ProcessoDetail, context?: Record<string, unknown>): string
+  renderUser(processo: ProcessoDetail, context: ArtefatoContext): string
   maxTokens: number
   temperature: number
+}
+
+function renderInstitutionalHeader(p: ProcessoDetail, ctx: ArtefatoContext): string {
+  const orgaoLabel = ctx.orgaoNomeFantasia
+    ? `${ctx.orgaoNomeFantasia} (${ctx.orgaoRazaoSocial})`
+    : ctx.orgaoRazaoSocial
+  const localidade = [ctx.orgaoMunicipio, ctx.orgaoUf].filter(Boolean).join('/')
+  return `DADOS INSTITUCIONAIS (use estes dados literalmente no cabeçalho — NÃO substitua por placeholders):
+- Órgão: ${orgaoLabel}
+- CNPJ do órgão: ${ctx.orgaoCnpj}
+- Esfera: ${ctx.orgaoEsfera}${localidade ? ` — ${localidade}` : ''}
+- Unidade demandante: ${p.setorNome ?? ctx.unidadeNome ?? 'A ser informada pela área requisitante'}
+- Responsável pela demanda: ${ctx.responsavelNome ?? 'A ser designado por ato formal'}${ctx.responsavelCargo ? ` — ${ctx.responsavelCargo}` : ''}${ctx.responsavelPapel ? ` (${ctx.responsavelPapel})` : ''}
+- Número do processo administrativo: ${p.numeroInterno ?? 'A ser atribuído'}
+- Data de emissão: ${ctx.dataEmissao}
+- Exercício: ${ctx.anoExercicio}
+
+DADOS DO OBJETO:
+- Objeto: ${p.objeto}
+- Natureza/tipo: ${p.tipo}
+- Modalidade prevista: ${p.modalidade ?? 'a definir após ETP'}
+- Valor estimado preliminar: ${p.valorEstimado != null ? `R$ ${p.valorEstimado.toLocaleString('pt-BR')}` : 'a definir após pesquisa de preços'}`
 }
 
 const FORMAT_RULES = `REGRAS DE FORMATAÇÃO (obrigatórias — não desvie):
@@ -18,7 +60,20 @@ const FORMAT_RULES = `REGRAS DE FORMATAÇÃO (obrigatórias — não desvie):
 - Listas: use "- item" ou "a) item".
 - Ênfase: evite ** e __. Use aspas ou uppercase moderado.
 - Entre seções, deixe uma linha em branco.
-- Linguagem: técnica-administrativa formal. Não coloquial. Não marketing.`
+- Linguagem: técnica-administrativa formal. Não coloquial. Não marketing.
+
+REGRAS DE PREENCHIMENTO DO CABEÇALHO (obrigatórias):
+- SEMPRE incluir no topo do documento: nome do órgão, CNPJ, localidade,
+  unidade demandante, número do processo administrativo e data de emissão,
+  todos vindos dos "DADOS INSTITUCIONAIS" que o usuário fornece.
+- PROIBIDO usar colchetes como [INSERIR X], [DEFINIR], [A PREENCHER].
+  Se o dado NÃO veio nos DADOS INSTITUCIONAIS, escreva "a ser informado
+  pela área requisitante" ou "a ser designado por ato formal" — frases
+  completas, sem colchetes.
+- PROIBIDO usar "[CÓDIGO PCA, SE EXISTIR]" ou congêneres. Se não foi
+  informado, escreva "código do PCA a ser verificado pela unidade
+  responsável no sistema PGC".
+- PROIBIDO inventar valores, quantitativos, datas, nomes de fornecedores.`
 
 // ────────────────────────────────────────────────────────────────────────
 // DFD — Documento de Formalização da Demanda (art. 12 VII, Lei 14.133)
@@ -96,17 +151,9 @@ REGRAS DE CONTEÚDO:
 - Se o dado não foi informado, NÃO fabrique números. Use diretrizes de preenchimento (ex.: "A ser informado pelo requisitante no momento da abertura" ou "Conforme pesquisa de preços da fase de ETP").
 - Mantenha entre 500 e 900 palavras.
 - NUNCA inclua emojis, imagens ou tabelas ASCII.`,
-  renderUser: (p) => `Dados disponíveis do processo:
+  renderUser: (p, ctx) => `${renderInstitutionalHeader(p, ctx)}
 
-- Objeto: ${p.objeto}
-- Tipo/natureza: ${p.tipo}
-- Modalidade prevista: ${p.modalidade ?? 'a definir após ETP'}
-- Valor estimado preliminar: ${p.valorEstimado != null ? `R$ ${p.valorEstimado.toLocaleString('pt-BR')}` : 'a definir após pesquisa de preços'}
-- Setor requisitante: ${p.setorNome ?? 'a ser informado'}
-- Número interno: ${p.numeroInterno ?? 'a ser atribuído'}
-- Data: ${new Date().toLocaleDateString('pt-BR')}
-
-Gere o DFD completo e substantivo conforme o modelo. Preencha o que for inferível do objeto; sinalize o que depende de informação adicional do órgão.`,
+Gere o DFD completo e substantivo conforme o modelo. Use os DADOS INSTITUCIONAIS LITERALMENTE no cabeçalho — sem colchetes, sem placeholders. Preencha o que for inferível do objeto; para o que depende de informação adicional, use frases como "a ser informado pela área requisitante", nunca "[INSERIR X]".`,
   maxTokens: 3072,
   temperature: 0.2,
 }
@@ -184,17 +231,9 @@ CONTEÚDO:
 - Nunca invente quantidades ou valores — use "a confirmar via pesquisa de preços" ou faixa razoável.
 - 800 a 1800 palavras.
 - Cite a base legal dentro de cada inciso quando pertinente.`,
-  renderUser: (p) => `Processo a analisar:
+  renderUser: (p, ctx) => `${renderInstitutionalHeader(p, ctx)}
 
-- Objeto: ${p.objeto}
-- Tipo: ${p.tipo}
-- Modalidade: ${p.modalidade ?? 'a definir'}
-- Valor estimado preliminar: ${p.valorEstimado != null ? `R$ ${p.valorEstimado.toLocaleString('pt-BR')}` : 'a confirmar via pesquisa de preços'}
-- Setor requisitante: ${p.setorNome ?? 'a definir'}
-- Número interno: ${p.numeroInterno ?? ''}
-- Data: ${new Date().toLocaleDateString('pt-BR')}
-
-Gere o ETP completo cobrindo os 13 incisos. Garanta presença explícita dos 5 indispensáveis (I, IV, VI, VIII, XIII).`,
+Gere o ETP completo cobrindo os 13 incisos, usando os DADOS INSTITUCIONAIS literalmente no cabeçalho. Garanta presença explícita dos 5 incisos indispensáveis (I, IV, VI, VIII, XIII). Sem placeholders entre colchetes.`,
   maxTokens: 8192,
   temperature: 0.2,
 }
@@ -239,7 +278,7 @@ Campos:
 - tratamento e mitigacao: frases objetivas, acionáveis
 
 Entregue entre 6 e 12 riscos reais, pertinentes ao objeto. Evite genérico. Não encapsule em markdown nem comente — apenas o JSON.`,
-  renderUser: (p) => `Processo:
+  renderUser: (p, _ctx) => `Processo:
 - Objeto: ${p.objeto}
 - Tipo: ${p.tipo}
 - Modalidade: ${p.modalidade ?? 'a definir'}
@@ -309,16 +348,9 @@ CONTEÚDO:
 - Alínea B referencia o ETP; Alínea I referencia a pesquisa de preços.
 - Inclua requisitos de sustentabilidade e LGPD quando aplicáveis.
 - 1200 a 2400 palavras.`,
-  renderUser: (p) => `Processo:
-- Objeto: ${p.objeto}
-- Tipo: ${p.tipo}
-- Modalidade: ${p.modalidade ?? 'pregão eletrônico (recomendado)'}
-- Valor estimado: ${p.valorEstimado != null ? `R$ ${p.valorEstimado.toLocaleString('pt-BR')}` : 'conforme pesquisa de preços'}
-- Setor requisitante: ${p.setorNome ?? 'a definir'}
-- Número interno: ${p.numeroInterno ?? ''}
-- Data: ${new Date().toLocaleDateString('pt-BR')}
+  renderUser: (p, ctx) => `${renderInstitutionalHeader(p, ctx)}
 
-Gere o TR completo cobrindo as 10 alíneas (a–j).`,
+Gere o TR completo cobrindo as 10 alíneas (a–j), usando os DADOS INSTITUCIONAIS literalmente. Sem placeholders entre colchetes.`,
   maxTokens: 8192,
   temperature: 0.2,
 }
@@ -391,14 +423,9 @@ CONTEÚDO:
 - Use {{placeholder}} para campos que a coordenação preencherá (datas, horário).
 - Cite prazos legais do art. 55 (publicidade) sem inventar.
 - 1500 a 3000 palavras.`,
-  renderUser: (p) => `Processo:
-- Número interno: ${p.numeroInterno ?? 'a atribuir'}
-- Objeto: ${p.objeto}
-- Tipo: ${p.tipo}
-- Modalidade: ${p.modalidade ?? 'pregão eletrônico'}
-- Valor estimado: ${p.valorEstimado != null ? `R$ ${p.valorEstimado.toLocaleString('pt-BR')}` : 'conforme Anexo I (TR)'}
+  renderUser: (p, ctx) => `${renderInstitutionalHeader(p, ctx)}
 
-Gere a minuta completa do edital, referenciando o TR como Anexo I.`,
+Gere a minuta completa do edital, referenciando o TR como Anexo I. Use os DADOS INSTITUCIONAIS literalmente no cabeçalho. Sem placeholders entre colchetes.`,
   maxTokens: 8192,
   temperature: 0.2,
 }
@@ -457,16 +484,13 @@ CONTEÚDO:
 - Linguagem jurídica formal.
 - NUNCA afirmar conformidade sem análise pontual das peças.
 - 1200 a 2200 palavras.`,
-  renderUser: (p) => `Processo sob análise:
-- Número: ${p.numeroInterno ?? 'a atribuir'}
-- Objeto: ${p.objeto}
-- Tipo: ${p.tipo}
-- Modalidade: ${p.modalidade ?? 'a definir'}
+  renderUser: (p, ctx) => `${renderInstitutionalHeader(p, ctx)}
+
+DADOS ADICIONAIS DO PROCESSO:
 - Fase atual: ${p.faseAtual}
-- Valor estimado: ${p.valorEstimado != null ? `R$ ${p.valorEstimado.toLocaleString('pt-BR')}` : 'a definir'}
 - Artefatos existentes: ${p.artefatos.map((a) => a.tipo).join(', ') || 'nenhum'}
 
-Gere o parecer referencial completo.`,
+Gere o parecer referencial completo, usando os DADOS INSTITUCIONAIS literalmente no cabeçalho. Sem placeholders entre colchetes.`,
   maxTokens: 8192,
   temperature: 0.2,
 }
