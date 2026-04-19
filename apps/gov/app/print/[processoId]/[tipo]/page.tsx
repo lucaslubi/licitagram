@@ -36,6 +36,7 @@ export default async function PrintArtefatoPage({
         orgaoRazaoSocial: profile.orgao.razaoSocial,
         orgaoNomeFantasia: profile.orgao.nomeFantasia,
         orgaoCnpj: profile.orgao.cnpj,
+        orgaoLogoUrl: profile.orgao.logoUrl,
         localidade: localidade || null,
         numeroProcesso: processo.numeroInterno ?? 'a atribuir',
         objeto: processo.objeto,

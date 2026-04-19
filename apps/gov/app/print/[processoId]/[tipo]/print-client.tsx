@@ -3,12 +3,12 @@
 import { useEffect } from 'react'
 import { Printer } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Logo } from '@/components/app/Logo'
 
 interface Meta {
   orgaoRazaoSocial: string
   orgaoNomeFantasia: string | null
   orgaoCnpj: string
+  orgaoLogoUrl: string | null
   localidade: string | null
   numeroProcesso: string
   objeto: string
@@ -98,6 +98,12 @@ export function PrintClient({ title, content, status, meta }: Props) {
           color: #475569;
           margin-top: 3px;
         }
+        .print-orgao-logo {
+          max-height: 56px;
+          max-width: 120px;
+          object-fit: contain;
+          margin-left: 16px;
+        }
         .print-title {
           font-size: 16pt;
           font-weight: 700;
@@ -182,7 +188,14 @@ export function PrintClient({ title, content, status, meta }: Props) {
                 {meta.localidade ? ` · ${meta.localidade}` : ''}
               </p>
             </div>
-            <Logo size="md" withWordmark={false} className="no-print" />
+            {meta.orgaoLogoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={meta.orgaoLogoUrl}
+                alt={meta.orgaoNomeFantasia ?? meta.orgaoRazaoSocial}
+                className="print-orgao-logo"
+              />
+            ) : null}
           </div>
           <h1 className="print-title">{title}</h1>
           <p className="print-subtitle">Processo administrativo nº {meta.numeroProcesso}</p>
@@ -219,11 +232,12 @@ export function PrintClient({ title, content, status, meta }: Props) {
 
         <footer className="print-footer">
           <div className="print-footer-left">
-            Documento gerado pelo LicitaGram Gov em {meta.dataEmissao}
-            {meta.modeloUsado ? ` · modelo: ${meta.modeloUsado}` : ''}.
-            Fundamentado na Lei 14.133/2021 e jurisprudência TCU correlata.
+            Documento emitido em {meta.dataEmissao}. Fundamentado na Lei 14.133/2021 e
+            jurisprudência do TCU correlata.
           </div>
-          <div>gov.licitagram.com</div>
+          <div>
+            Processo nº {meta.numeroProcesso}
+          </div>
         </footer>
       </article>
     </div>

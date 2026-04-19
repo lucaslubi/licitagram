@@ -16,6 +16,7 @@ export interface UserProfile {
     esfera: string
     uf: string | null
     municipio: string | null
+    logoUrl: string | null
   } | null
   onboardedAt: string | null
 }
@@ -56,6 +57,7 @@ export const getCurrentProfile = cache(async (): Promise<UserProfile | null> => 
           esfera: row.orgao_esfera,
           uf: row.orgao_uf,
           municipio: row.orgao_municipio,
+          logoUrl: (row as { orgao_logo_url?: string | null }).orgao_logo_url ?? null,
         }
       : null,
     onboardedAt: row.onboarded_at,
