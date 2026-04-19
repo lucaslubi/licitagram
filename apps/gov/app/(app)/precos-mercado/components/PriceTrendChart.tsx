@@ -18,6 +18,33 @@ interface Props {
   medianGlobal?: number
 }
 
+/**
+ * Pontos com n=0 (gaps preenchidos) — converte valores em null pro
+ * Recharts pular no desenho da linha/area em vez de colapsar pra 0.
+ */
+function sanitizePoints(points: PrecoTrendPoint[]) {
+  return points.map((p) => {
+    if (p.n === 0) {
+      return {
+        mes: p.mes,
+        n: 0,
+        media: null as number | null,
+        mediana: null as number | null,
+        minimo: null as number | null,
+        maximo: null as number | null,
+      }
+    }
+    return p as unknown as {
+      mes: string
+      n: number
+      media: number | null
+      mediana: number | null
+      minimo: number | null
+      maximo: number | null
+    }
+  })
+}
+
 function formatBRL(value: unknown): string {
   const n = Number(value ?? 0)
   if (n >= 1000) return `R$ ${(n / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}k`
@@ -33,7 +60,9 @@ function formatMonthLabel(mes: unknown): string {
 }
 
 export function PriceTrendChart({ points, medianGlobal }: Props) {
-  if (points.length < 2) {
+  const sanitized = sanitizePoints(points)
+  const realCount = sanitized.filter((p) => p.n > 0).length
+  if (sanitized.length < 2) {
     return (
       <div className="flex h-64 items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">
         Dados insuficientes para tendência (mín. 2 meses)
@@ -44,7 +73,7 @@ export function PriceTrendChart({ points, medianGlobal }: Props) {
   return (
     <div className="h-72 w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={points} margin={{ top: 12, right: 12, bottom: 12, left: 0 }}>
+        <ComposedChart data={sanitized} margin={{ top: 12, right: 12, bottom: 12, left: 0 }}>
           <defs>
             <linearGradient id="rangeGradient" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="hsl(217 91% 60%)" stopOpacity={0.35} />
@@ -96,6 +125,7 @@ export function PriceTrendChart({ points, medianGlobal }: Props) {
             fill="url(#rangeGradient)"
             name="maximo"
             stackId="range"
+            connectNulls={false}
           />
           <Line
             type="monotone"
@@ -105,6 +135,7 @@ export function PriceTrendChart({ points, medianGlobal }: Props) {
             dot={{ r: 3, fill: 'hsl(217 91% 60%)' }}
             activeDot={{ r: 5 }}
             name="mediana"
+            connectNulls={false}
           />
           <Line
             type="monotone"
@@ -114,6 +145,7 @@ export function PriceTrendChart({ points, medianGlobal }: Props) {
             strokeDasharray="4 4"
             dot={false}
             name="media"
+            connectNulls={false}
           />
           {medianGlobal && medianGlobal > 0 && (
             <ReferenceLine
@@ -130,7 +162,7 @@ export function PriceTrendChart({ points, medianGlobal }: Props) {
           )}
         </ComposedChart>
       </ResponsiveContainer>
-      <div className="mt-2 flex items-center justify-center gap-6 text-[11px] text-muted-foreground">
+      <div className="mt-2 flex flex-wrap items-center justify-center gap-x-6 gap-y-1 text-[11px] text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-0.5 w-5 bg-primary" />
           Mediana mensal
@@ -143,6 +175,11 @@ export function PriceTrendChart({ points, medianGlobal }: Props) {
           <span className="inline-block h-2 w-5 rounded-sm bg-primary/30" />
           Intervalo (min–max)
         </span>
+        {realCount < sanitized.length && (
+          <span className="italic">
+            {realCount}/{sanitized.length} meses com dados — gaps aparecem vazios
+          </span>
+        )}
       </div>
     </div>
   )
