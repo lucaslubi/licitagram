@@ -144,7 +144,7 @@ export async function getPrecoTrend(filters: PrecoSearchFilters & { meses?: numb
     p_modalidade: filters.modalidade ?? null,
     p_date_from: filters.dateFrom ?? null,
     p_date_to: filters.dateTo ?? null,
-    p_meses: filters.meses ?? 12,
+    p_meses: filters.meses ?? 24,
   })
   if (error) return []
   return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
@@ -155,6 +155,40 @@ export async function getPrecoTrend(filters: PrecoSearchFilters & { meses?: numb
     minimo: Number(r.minimo ?? 0),
     maximo: Number(r.maximo ?? 0),
   }))
+}
+
+/**
+ * Preenche gaps: se faltam meses no meio do intervalo, insere pontos
+ * com n=0 pra que o gráfico mostre barras contínuas em vez de linha
+ * quebrada. Inclui os últimos N meses do calendário ainda que não tenham
+ * dados, pra o gráfico começar a encher à medida que mais dados entram.
+ */
+export function fillTrendGaps(points: PrecoTrendPoint[], minMonths = 6): PrecoTrendPoint[] {
+  const now = new Date()
+  const map = new Map(points.map((p) => [p.mes, p]))
+  const start = points.length
+    ? points[0]!.mes
+    : `${now.getFullYear() - (minMonths >= 12 ? 1 : 0)}-${String(Math.max(1, now.getMonth() + 1 - minMonths + 1)).padStart(2, '0')}`
+  const [sy, sm] = start.split('-').map(Number)
+  const out: PrecoTrendPoint[] = []
+  let cur = new Date(sy!, sm! - 1, 1)
+  const end = new Date(now.getFullYear(), now.getMonth(), 1)
+  while (cur <= end) {
+    const key = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}`
+    out.push(map.get(key) ?? { mes: key, n: 0, media: 0, mediana: 0, minimo: 0, maximo: 0 })
+    cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1)
+  }
+  // Garante pelo menos `minMonths` de janela mostrada
+  while (out.length < minMonths) {
+    const first = out[0]!.mes
+    const [fy, fm] = first.split('-').map(Number)
+    const prev = new Date(fy!, fm! - 2, 1)
+    out.unshift({
+      mes: `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}`,
+      n: 0, media: 0, mediana: 0, minimo: 0, maximo: 0,
+    })
+  }
+  return out
 }
 
 export interface CatalogoPncpRow {

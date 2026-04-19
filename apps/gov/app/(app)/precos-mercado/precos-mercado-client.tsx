@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
+  fillTrendGaps,
   getPrecoStats,
   getPrecoTrend,
   searchPrecosPncp,
@@ -111,14 +112,15 @@ export function PrecosMercadoClient({
       return
     }
     startLoad(async () => {
-      const [rows, aggregated, t] = await Promise.all([
+      const [rows, aggregated, tRaw] = await Promise.all([
         searchPrecosPncp(filters),
         getPrecoStats(filters),
-        getPrecoTrend({ ...filters, meses: 12 }),
+        getPrecoTrend({ ...filters, meses: 24 }),
       ])
       setResults(rows)
       setStats(aggregated)
-      setTrend(t)
+      // Preenche gaps pros últimos 6 meses terem sempre barras (n=0 onde falta).
+      setTrend(fillTrendGaps(tRaw, 6))
       if (rows.length === 0) toast.info('Nenhum resultado encontrado')
       else toast.success(`${rows.length} resultado(s) encontrado(s)`)
     })
@@ -256,8 +258,9 @@ export function PrecosMercadoClient({
       {/* Gráfico de tendência */}
       {trend.length > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Tendência de preço (12 meses)</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-base">Tendência de preço</CardTitle>
+            <TrendCoverageBadge points={trend} />
           </CardHeader>
           <CardContent>
             <PriceTrendChart points={trend} medianGlobal={stats?.mediana} />
@@ -433,6 +436,22 @@ function MiniStat({ label, value, accent }: { label: string; value: string; acce
         {value}
       </p>
     </div>
+  )
+}
+
+function TrendCoverageBadge({ points }: { points: PrecoTrendPoint[] }) {
+  const withData = points.filter((p) => p.n > 0)
+  if (withData.length === 0) return null
+  const first = withData[0]!.mes
+  const last = withData[withData.length - 1]!.mes
+  const labelRange = first === last
+    ? `apenas ${first}`
+    : `${first} a ${last}`
+  const tone = withData.length >= 6 ? 'default' : withData.length >= 3 ? 'secondary' : 'destructive'
+  return (
+    <Badge variant={tone as 'default' | 'secondary' | 'destructive'} className="font-normal">
+      Cobertura: {withData.length} mês{withData.length > 1 ? 'es' : ''} ({labelRange})
+    </Badge>
   )
 }
 
