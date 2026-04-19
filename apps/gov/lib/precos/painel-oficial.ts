@@ -154,6 +154,36 @@ export async function recomendarFornecedores(params: {
   }))
 }
 
+export async function addPainelToCesta(
+  processoId: string,
+  itemDescricao: string,
+  painelId: string,
+): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  const supabase = createClient()
+  const { data, error } = await supabase.rpc('add_preco_pesquisa_from_painel', {
+    p_processo_id: processoId,
+    p_item_descricao: itemDescricao,
+    p_painel_id: painelId,
+  })
+  if (error) return { ok: false, error: error.message }
+  return { ok: true, id: data as string }
+}
+
+export async function addMultiplePainelToCesta(
+  processoId: string,
+  itemDescricao: string,
+  painelIds: string[],
+): Promise<{ added: number; errors: string[] }> {
+  const errors: string[] = []
+  let added = 0
+  for (const id of painelIds) {
+    const res = await addPainelToCesta(processoId, itemDescricao, id)
+    if (res.ok) added++
+    else errors.push(res.error)
+  }
+  return { added, errors }
+}
+
 export async function verificarSancao(cnpj: string): Promise<{
   temSancaoVigente: boolean
   total: number

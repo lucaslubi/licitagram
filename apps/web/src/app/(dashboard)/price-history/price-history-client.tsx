@@ -24,6 +24,7 @@ import { BenchmarkGauge } from './components/BenchmarkGauge'
 import { SmartPricingV2 } from './components/SmartPricingV2'
 import { PriceBandSelector } from './components/PriceBandSelector'
 import { PriceWatch } from './components/PriceWatch'
+import { PainelOficialWidget } from './components/PainelOficialWidget'
 
 const UF_OPTIONS = [
   '','AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS','MT',
@@ -269,6 +270,9 @@ export function PriceHistoryClient() {
           </p>
         )}
       </div>
+
+      {/* Painel Oficial (Compras.gov.br) — base autoritativa */}
+      <PainelOficialWidget initialQuery={query} />
 
       {/* Trending chips */}
       {trending.length > 0 && !result && (

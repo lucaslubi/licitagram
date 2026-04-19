@@ -1,13 +1,14 @@
 import type { Metadata } from 'next'
-import { Globe, Package, TrendingUp } from 'lucide-react'
+import { BadgeCheck, Globe, Package, TrendingUp } from 'lucide-react'
 import { getCurrentProfile } from '@/lib/auth/profile'
 import { listCatalogo } from '@/lib/catalogo/actions'
 import { searchCatalogoPncp } from '@/lib/precos/pncp-engine'
+import { searchCatmatCatser } from '@/lib/precos/painel-oficial'
 import { CatalogoClient } from './catalogo-client'
 
 export const metadata: Metadata = { title: 'Catálogo' }
 
-type Source = 'orgao' | 'pncp'
+type Source = 'orgao' | 'pncp' | 'catmat'
 
 export default async function CatalogoPage({
   searchParams,
@@ -17,15 +18,16 @@ export default async function CatalogoPage({
   const profile = await getCurrentProfile()
   const canEdit = profile?.papel === 'admin' || profile?.papel === 'coordenador'
   const query = searchParams.q?.trim() || null
-  const source: Source = searchParams.source === 'pncp' ? 'pncp' : 'orgao'
+  const source: Source =
+    searchParams.source === 'pncp' ? 'pncp' : searchParams.source === 'catmat' ? 'catmat' : 'orgao'
 
   // Sempre busca os do órgão (pra mostrar contadores no header).
   const itemsOrgao = await listCatalogo(query, 200)
   const orgaoCount = itemsOrgao.filter((i) => i.scope === 'orgao').length
   const globalCount = itemsOrgao.length - orgaoCount
 
-  // Se aba PNCP, carrega dados agregados do B2B (254k tenders → 124k items únicos).
   const itemsPncp = source === 'pncp' ? await searchCatalogoPncp(query, 200) : []
+  const itemsCatmat = source === 'catmat' && query ? await searchCatmatCatser(query, undefined, 100) : []
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
@@ -58,12 +60,19 @@ export default async function CatalogoPage({
             </dt>
             <dd className="mt-1 font-mono text-xl font-semibold text-primary">124k+</dd>
           </div>
+          <div className="rounded-lg border border-accent/30 bg-accent/5 px-3 py-2 text-center">
+            <dt className="flex items-center justify-center gap-1 text-xs text-accent">
+              <BadgeCheck className="h-3 w-3" /> CATMAT Oficial
+            </dt>
+            <dd className="mt-1 font-mono text-xl font-semibold text-accent">344k</dd>
+          </div>
         </dl>
       </header>
 
       <CatalogoClient
         items={itemsOrgao}
         itemsPncp={itemsPncp}
+        itemsCatmat={itemsCatmat}
         canEdit={canEdit}
         initialQuery={query ?? ''}
         source={source}

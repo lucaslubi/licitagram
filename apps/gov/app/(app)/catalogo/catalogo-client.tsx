@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
+  BadgeCheck,
   Calendar,
   Copy,
   Globe,
@@ -28,13 +29,15 @@ import {
   upsertCatalogoItemAction,
 } from '@/lib/catalogo/actions'
 import { type CatalogoPncpRow } from '@/lib/precos/pncp-engine'
+import { type CatalogoOficialRow } from '@/lib/precos/painel-oficial'
 
 interface Props {
   items: CatalogoItem[]
   itemsPncp?: CatalogoPncpRow[]
+  itemsCatmat?: CatalogoOficialRow[]
   canEdit: boolean
   initialQuery: string
-  source?: 'orgao' | 'pncp'
+  source?: 'orgao' | 'pncp' | 'catmat'
 }
 
 const EMPTY: CatalogoItemInput = {
@@ -65,6 +68,7 @@ function formatDate(iso: string | null): string {
 export function CatalogoClient({
   items,
   itemsPncp = [],
+  itemsCatmat = [],
   canEdit,
   initialQuery,
   source = 'orgao',
@@ -77,10 +81,10 @@ export function CatalogoClient({
   const [deleting, startDelete] = useTransition()
   const [copying, startCopy] = useTransition()
 
-  const setSource = (s: 'orgao' | 'pncp') => {
+  const setSource = (s: 'orgao' | 'pncp' | 'catmat') => {
     const params = new URLSearchParams()
     if (query) params.set('q', query)
-    if (s === 'pncp') params.set('source', 'pncp')
+    if (s !== 'orgao') params.set('source', s)
     router.push(`/catalogo${params.size ? '?' + params.toString() : ''}`)
   }
 
@@ -97,6 +101,21 @@ export function CatalogoClient({
     })
     setSource('orgao')
     toast.info('Revise e salve o item copiado do PNCP')
+  }
+
+  const copyFromCatmat = (row: CatalogoOficialRow) => {
+    setForm({
+      id: null,
+      codigoCatmat: row.tipo === 'M' ? row.codigo : null,
+      codigoCatser: row.tipo === 'S' ? row.codigo : null,
+      descricaoOficial: row.descricao.slice(0, 500),
+      descricaoNormalizada: row.descricao.toLowerCase().slice(0, 500),
+      unidadeMedida: row.unidadeMedida,
+      categoria: row.categoria,
+      aliases: [],
+    })
+    setSource('orgao')
+    toast.success(`Item oficial ${row.codigo} copiado — revise e salve`)
   }
 
   const runSearch = (q: string) => {
@@ -163,7 +182,7 @@ export function CatalogoClient({
 
   return (
     <div className="space-y-5">
-      {/* Abas: Do órgão | PNCP */}
+      {/* Abas: Do órgão | PNCP | CATMAT Oficial */}
       <div className="flex gap-1 rounded-lg border border-border bg-card p-1">
         <button
           onClick={() => setSource('orgao')}
@@ -179,8 +198,17 @@ export function CatalogoClient({
             source === 'pncp' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'
           }`}
         >
-          <TrendingUp className="h-4 w-4" /> PNCP — público
+          <TrendingUp className="h-4 w-4" /> PNCP
           <Badge variant="secondary" className="ml-1">124k+</Badge>
+        </button>
+        <button
+          onClick={() => setSource('catmat')}
+          className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+            source === 'catmat' ? 'bg-accent/10 text-accent' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <BadgeCheck className="h-4 w-4" /> CATMAT Oficial
+          <Badge variant="secondary" className="ml-1">344k</Badge>
         </button>
       </div>
 
@@ -370,6 +398,73 @@ export function CatalogoClient({
           <h2 className="mt-3 text-base font-semibold">Sem resultados</h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
             Tente outra palavra-chave. A base PNCP tem 124k+ itens agregados por descrição.
+          </p>
+        </div>
+      )}
+
+      {source === 'catmat' && itemsCatmat.length > 0 && (
+        <div className="overflow-hidden rounded-xl border border-accent/30">
+          <div className="flex items-center justify-between bg-accent/5 px-4 py-2 text-xs">
+            <span className="flex items-center gap-2 font-medium text-accent">
+              <BadgeCheck className="h-3.5 w-3.5" />
+              Catálogo oficial do governo federal — CATMAT/CATSER
+            </span>
+            <span className="text-muted-foreground">
+              Fonte: <code className="font-mono">dadosabertos.compras.gov.br</code>
+            </span>
+          </div>
+          <table className="w-full text-sm">
+            <thead className="bg-card">
+              <tr className="border-b border-border">
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Código</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Tipo</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Descrição</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Unidade</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Categoria</th>
+                <th className="px-4 py-3" />
+              </tr>
+            </thead>
+            <tbody>
+              {itemsCatmat.map((row) => (
+                <tr key={`${row.tipo}-${row.codigo}`} className="border-b border-border last:border-0 hover:bg-card/40">
+                  <td className="px-4 py-3 font-mono text-xs">{row.codigo}</td>
+                  <td className="px-4 py-3">
+                    <Badge variant={row.tipo === 'M' ? 'default' : 'secondary'} className="text-[10px]">
+                      {row.tipo === 'M' ? 'Material' : 'Serviço'}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    <p className="line-clamp-2 text-xs" title={row.descricao}>{row.descricao}</p>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-muted-foreground">{row.unidadeMedida ?? '—'}</td>
+                  <td className="px-4 py-3 text-xs text-muted-foreground">{row.categoria ?? '—'}</td>
+                  <td className="px-4 py-3 text-right">
+                    {canEdit && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => copyFromCatmat(row)}
+                        aria-label="Copiar pro meu órgão"
+                        title="Copiar pro catálogo do meu órgão com o código oficial"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {source === 'catmat' && itemsCatmat.length === 0 && (
+        <div className="rounded-lg border border-dashed border-border bg-card/40 p-8 text-center">
+          <BadgeCheck className="mx-auto h-8 w-8 text-muted-foreground" />
+          <h2 className="mt-3 text-base font-semibold">Busque nos 344k itens oficiais</h2>
+          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+            Digite uma palavra-chave (ex: "papel A4", "cadeira", "software") pra buscar no catálogo
+            CATMAT (341k materiais) + CATSER (3k serviços) publicados pelo governo federal.
           </p>
         </div>
       )}

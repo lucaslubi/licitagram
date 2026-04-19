@@ -7,6 +7,7 @@ import { getProcessoDetail } from '@/lib/processos/queries'
 import { listEstimativas } from '@/lib/precos/actions'
 import { PrecosClient } from './precos-client'
 import { PncpPrecosSection } from './pncp-section'
+import { PainelOficialSection } from './painel-oficial-section'
 
 export const metadata: Metadata = { title: 'Pesquisa de Preços' }
 
@@ -35,6 +36,8 @@ export default async function PrecosPage({ params }: { params: { id: string } })
           Base legal: Lei 14.133/2021 art. 23 · IN 65/2021 · Acórdão 1.875/2021-TCU (cesta de preços).
         </p>
       </header>
+
+      <PainelOficialSection processoId={params.id} objeto={processo.objeto} />
 
       <PncpPrecosSection processoId={params.id} objeto={processo.objeto} />
 
