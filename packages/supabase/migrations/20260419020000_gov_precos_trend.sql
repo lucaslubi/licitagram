@@ -21,7 +21,7 @@ RETURNS TABLE (
 )
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = licitagov, public, pg_temp
-AS $$
+AS $function$
   WITH amostra AS (
     SELECT
       to_char(v.data_publicacao, 'YYYY-MM') AS mes,
@@ -45,5 +45,5 @@ AS $$
   FROM amostra
   GROUP BY mes
   ORDER BY mes
-$$;
+$function$;
 GRANT EXECUTE ON FUNCTION public.precos_pncp_trend(TEXT, TEXT, TEXT, DATE, DATE, INTEGER) TO authenticated;
