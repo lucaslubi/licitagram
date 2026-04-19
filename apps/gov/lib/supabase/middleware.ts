@@ -12,6 +12,10 @@ const PUBLIC_PATHS = new Set([
   '/precos',
   '/termos',
   '/privacidade',
+  '/ajuda',
+  '/robots.txt',
+  '/sitemap.xml',
+  '/manifest.webmanifest',
 ])
 
 const AUTH_PATHS = new Set(['/login', '/cadastro', '/recuperar-senha', '/redefinir-senha'])
