@@ -225,12 +225,116 @@ async function syncUasg(): Promise<number> {
   return 0
 }
 
+// ─── Painel de Preços (pesquisa-preco) ───────────────────────────────────
+// Só retorna resultado quando filtra por codigoItemCatalogo específico.
+// Estratégia: iterar pelos códigos mais usados em catalogo_normalizado
+// (top N), + todos os códigos já registrados em processos do gov.
+interface RawPainelRow {
+  idCompra?: string
+  idItemCompra?: number
+  forma?: string
+  modalidade?: number
+  criterioJulgamento?: string
+  numeroItemCompra?: number
+  descricaoItem?: string
+  codigoItemCatalogo?: number
+  siglaUnidadeMedida?: string
+  siglaUnidadeFornecimento?: string
+  quantidade?: number
+  precoUnitario?: number
+  niFornecedor?: string
+  nomeFornecedor?: string
+  codigoUasg?: string
+  nomeUasg?: string
+  municipio?: string
+  estado?: string
+  codigoOrgao?: number
+  dataResultadoCompra?: string
+  anoCompra?: number
+}
+
+async function fetchPainelForCode(tipo: 'M' | 'S', codigo: string): Promise<RawPainelRow[]> {
+  const url = tipo === 'M'
+    ? `${API_BASE}/modulo-pesquisa-preco/1_consultarMaterial?pagina=1&tamanhoPagina=${PAGE_SIZE}&codigoItemCatalogo=${codigo}`
+    : `${API_BASE}/modulo-pesquisa-preco/3_consultarServico?pagina=1&tamanhoPagina=${PAGE_SIZE}&codigoItemCatalogo=${codigo}`
+  const data = await fetchJson<ApiPage<RawPainelRow>>(url)
+  return data?.resultado ?? []
+}
+
+/**
+ * Sync do Painel de Preços: itera sobre os códigos CATMAT/CATSER mais
+ * usados em processos do gov + os códigos em catalogo_normalizado.
+ */
+async function syncPainelPrecos(): Promise<number> {
+  console.log('→ Painel de Preços (warmup dos códigos em uso)')
+  // Coleta códigos únicos dos dois tipos
+  const codigos: Array<{ tipo: 'M' | 'S'; codigo: string; descricao: string }> = []
+
+  // Top N do catalogo_normalizado
+  const { data: cat } = await supabase
+    .schema('licitagov' as never)
+    .from('catalogo_normalizado')
+    .select('codigo_catmat, codigo_catser, descricao_oficial')
+    .order('uso_count', { ascending: false })
+    .limit(LIMIT ?? 200)
+  for (const c of (cat ?? []) as Array<{ codigo_catmat: string | null; codigo_catser: string | null; descricao_oficial: string }>) {
+    if (c.codigo_catmat) codigos.push({ tipo: 'M', codigo: c.codigo_catmat, descricao: c.descricao_oficial })
+    else if (c.codigo_catser) codigos.push({ tipo: 'S', codigo: c.codigo_catser, descricao: c.descricao_oficial })
+  }
+
+  if (codigos.length === 0) {
+    console.log('  nenhum código no catalogo_normalizado. Use `--only=painel` depois do 1º uso.')
+    return 0
+  }
+
+  let total = 0
+  for (const { tipo, codigo, descricao } of codigos) {
+    const rows = await fetchPainelForCode(tipo, codigo)
+    if (rows.length === 0) continue
+    const batch = rows
+      .filter((r) => r.precoUnitario && r.precoUnitario > 0)
+      .map((r) => ({
+        p_data: {
+          tipo_item: tipo,
+          codigo_item: codigo,
+          descricao: r.descricaoItem ?? descricao,
+          unidade_medida: r.siglaUnidadeMedida ?? r.siglaUnidadeFornecimento ?? null,
+          orgao_cnpj: null,
+          orgao_nome: r.nomeUasg ?? null,
+          uasg_codigo: r.codigoUasg ?? null,
+          uasg_nome: r.nomeUasg ?? null,
+          modalidade: r.modalidade != null ? String(r.modalidade) : null,
+          numero_compra: r.idCompra ?? null,
+          ano_compra: r.anoCompra ?? null,
+          data_homologacao: r.dataResultadoCompra ?? null,
+          quantidade: r.quantidade ?? null,
+          valor_unitario: r.precoUnitario,
+          valor_total: (r.quantidade ?? 0) * (r.precoUnitario ?? 0),
+          fornecedor_cnpj: r.niFornecedor ?? null,
+          fornecedor_nome: r.nomeFornecedor ?? null,
+          fonte_url: `https://dadosabertos.compras.gov.br/modulo-pesquisa-preco/${tipo === 'M' ? '1_consultarMaterial' : '3_consultarServico'}?codigoItemCatalogo=${codigo}`,
+          metadados: { municipio: r.municipio, estado: r.estado, forma: r.forma, criterio: r.criterioJulgamento },
+        },
+      }))
+    if (DRY_RUN) { total += batch.length; continue }
+    for (const item of batch) {
+      try {
+        await supabase.rpc('ingest_painel_preco', item as never)
+        total++
+      } catch { /* dedup via hash — ok */ }
+    }
+    process.stdout.write(`  painel codigo=${codigo} +${batch.length} total=${total}\n`)
+  }
+  return total
+}
+
 // ─── Main ────────────────────────────────────────────────────────────────
 async function main() {
   const jobs: Array<[string, () => Promise<number>]> = [
     ['catmat', syncCatmat],
     ['catser', syncCatser],
     ['uasg', syncUasg],
+    ['painel', syncPainelPrecos],
   ]
   const run = ONLY && ONLY !== 'all' ? jobs.filter(([n]) => n === ONLY) : jobs
   if (run.length === 0) {
