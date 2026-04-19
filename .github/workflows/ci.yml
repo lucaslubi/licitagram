@@ -67,8 +67,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @licitagram/shared build
       - run: pnpm --filter '@licitagram/gov-core' type-check
+      - run: pnpm --filter '@licitagram/gov-core' build # gera dist/*.d.ts consumidos por apps/gov
       - run: pnpm --filter '@licitagram/gov-workers' type-check
       - run: pnpm --filter '@licitagram/gov' type-check
+      - run: pnpm --filter '@licitagram/gov' lint
 
   # Tests for the gov packages. Fast — must pass on every PR.
   test-gov:
@@ -87,6 +89,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @licitagram/shared build
+      - run: pnpm --filter '@licitagram/gov-core' build
       - run: pnpm --filter '@licitagram/gov-core' test
       - run: pnpm --filter '@licitagram/gov-workers' test
 
