@@ -71,8 +71,9 @@ const embeddingModel = genai.getGenerativeModel({ model: 'gemini-embedding-001' 
 console.log(`→ Provider embedding: ${EMBEDDING_MODEL}`)
 
 // ─── Chunking ─────────────────────────────────────────────────────────────
-const CHUNK_SIZE = 2800 // ~700-800 tokens
-const CHUNK_OVERLAP = 350 // ~100 tokens
+// multilingual-e5-large aceita até 512 tokens; alvo ~400 tokens = ~1600 chars PT.
+const CHUNK_SIZE = 1600
+const CHUNK_OVERLAP = 200
 
 function chunkText(text: string): string[] {
   const normalized = text
@@ -167,14 +168,15 @@ const EMBED_DELAY_MS = Number(args['embed-delay'] ?? (USE_TEI ? 50 : 5500))
 const EMBED_MAX_RETRIES = 5
 
 async function embedOneTEI(text: string): Promise<number[]> {
-  // E5 espera prefixo "passage: " pra docs
+  // E5 espera prefixo "passage: " pra docs; truncate=true pro caso raro
+  // de chunk > 512 tokens (~2000 chars PT) passar
   const res = await fetch(`${TEI_URL}/embed`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       ...(TEI_KEY ? { Authorization: `Bearer ${TEI_KEY}` } : {}),
     },
-    body: JSON.stringify({ inputs: 'passage: ' + text, normalize: true }),
+    body: JSON.stringify({ inputs: 'passage: ' + text, normalize: true, truncate: true }),
   })
   if (!res.ok) {
     const body = await res.text().catch(() => '')

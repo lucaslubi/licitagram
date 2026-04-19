@@ -27,7 +27,7 @@ async function embedTEI(text: string, taskType: TaskType): Promise<number[]> {
       'Content-Type': 'application/json',
       ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
     },
-    body: JSON.stringify({ inputs: prefix + text, normalize: true }),
+    body: JSON.stringify({ inputs: prefix + text, normalize: true, truncate: true }),
   })
   if (!res.ok) {
     const body = await res.text().catch(() => '')
