@@ -84,9 +84,10 @@ interface ApiPage<T> {
   paginasRestantes?: number
 }
 
-async function paginate<T>(
+async function paginateBatch<T, R>(
   urlFactory: (page: number) => string,
-  handler: (row: T) => Promise<void>,
+  transform: (row: T) => R | null,
+  batchInsert: (batch: R[]) => Promise<void>,
   label: string,
 ): Promise<number> {
   let page = 1
@@ -94,16 +95,24 @@ async function paginate<T>(
   while (true) {
     const data = await fetchJson<ApiPage<T>>(urlFactory(page))
     if (!data || !data.resultado?.length) break
+    const batch: R[] = []
     for (const row of data.resultado) {
-      await handler(row)
-      total++
-      if (LIMIT && total >= LIMIT) return total
+      const r = transform(row)
+      if (r) batch.push(r)
     }
+    if (batch.length > 0 && !DRY_RUN) {
+      try {
+        await batchInsert(batch)
+      } catch (e) {
+        console.warn(`\n  batch insert falhou: ${e instanceof Error ? e.message : String(e)}`)
+      }
+    }
+    total += batch.length
     process.stdout.write(`  ${label} pag=${page} total=${total}/${data.totalRegistros ?? '?'}\r`)
+    if (LIMIT && total >= LIMIT) break
     const remaining = data.paginasRestantes ?? Math.max(0, (data.totalPaginas ?? 1) - page)
     if (remaining <= 0) break
     page++
-    await new Promise((r) => setTimeout(r, 100))
   }
   process.stdout.write('\n')
   return total
@@ -126,32 +135,31 @@ interface RawCatmatItem {
 
 async function syncCatmat(): Promise<number> {
   console.log('→ CATMAT (Material)')
-  return paginate<RawCatmatItem>(
+  const now = new Date().toISOString()
+  return paginateBatch<RawCatmatItem, Record<string, unknown>>(
     (p) => `${API_BASE}/modulo-material/4_consultarItemMaterial?pagina=${p}&tamanhoPagina=${PAGE_SIZE}`,
-    async (m) => {
+    (m) => {
       const codigo = m.codigoItem ? String(m.codigoItem) : null
-      if (!codigo) return
+      if (!codigo) return null
       const descricao = m.descricaoItem?.trim() ?? ''
-      const hash = sha256({ codigo, descricao })
-      if (DRY_RUN) return
-      await supabase.schema('licitagov' as never).from('cat_catmat').upsert(
-        {
-          codigo,
-          descricao,
-          nome: m.nomePdm ?? null,
-          sustentavel: Boolean(m.itemSustenta),
-          unidade_medida: m.unidadeMedidaItem ?? null,
-          pdm_codigo: m.codigoPdm ? String(m.codigoPdm) : null,
-          pdm_nome: m.nomePdm ?? null,
-          classe_codigo: m.codigoClasse ? String(m.codigoClasse) : null,
-          classe_nome: m.nomeClasse ?? null,
-          grupo_codigo: m.codigoGrupo ? String(m.codigoGrupo) : null,
-          grupo_nome: m.nomeGrupo ?? null,
-          hash_conteudo: hash,
-          data_verificacao: new Date().toISOString(),
-        } as never,
-        { onConflict: 'codigo' },
-      )
+      return {
+        codigo,
+        descricao,
+        nome: m.nomePdm ?? null,
+        sustentavel: Boolean(m.itemSustenta),
+        unidade_medida: m.unidadeMedidaItem ?? null,
+        pdm_codigo: m.codigoPdm ? String(m.codigoPdm) : null,
+        pdm_nome: m.nomePdm ?? null,
+        classe_codigo: m.codigoClasse ? String(m.codigoClasse) : null,
+        classe_nome: m.nomeClasse ?? null,
+        grupo_codigo: m.codigoGrupo ? String(m.codigoGrupo) : null,
+        grupo_nome: m.nomeGrupo ?? null,
+        hash_conteudo: sha256({ codigo, descricao }),
+        data_verificacao: now,
+      }
+    },
+    async (batch) => {
+      await supabase.schema('licitagov' as never).from('cat_catmat').upsert(batch as never, { onConflict: 'codigo' })
     },
     'catmat',
   )
@@ -173,28 +181,27 @@ interface RawCatserItem {
 
 async function syncCatser(): Promise<number> {
   console.log('→ CATSER (Serviço)')
-  return paginate<RawCatserItem>(
+  const now = new Date().toISOString()
+  return paginateBatch<RawCatserItem, Record<string, unknown>>(
     (p) => `${API_BASE}/modulo-servico/6_consultarItemServico?pagina=${p}&tamanhoPagina=${PAGE_SIZE}`,
-    async (s) => {
+    (s) => {
       const codigo = s.codigoServico ? String(s.codigoServico) : null
-      if (!codigo) return
+      if (!codigo) return null
       const descricao = s.descricaoServico?.trim() ?? s.nomeServico?.trim() ?? ''
-      const hash = sha256({ codigo, descricao })
-      if (DRY_RUN) return
-      await supabase.schema('licitagov' as never).from('cat_catser').upsert(
-        {
-          codigo,
-          descricao,
-          nome: s.nomeServico ?? null,
-          classe_codigo: s.codigoClasse ? String(s.codigoClasse) : null,
-          classe_nome: s.nomeClasse ?? null,
-          grupo_codigo: s.codigoGrupo ? String(s.codigoGrupo) : null,
-          grupo_nome: s.nomeGrupo ?? null,
-          hash_conteudo: hash,
-          data_verificacao: new Date().toISOString(),
-        } as never,
-        { onConflict: 'codigo' },
-      )
+      return {
+        codigo,
+        descricao,
+        nome: s.nomeServico ?? null,
+        classe_codigo: s.codigoClasse ? String(s.codigoClasse) : null,
+        classe_nome: s.nomeClasse ?? null,
+        grupo_codigo: s.codigoGrupo ? String(s.codigoGrupo) : null,
+        grupo_nome: s.nomeGrupo ?? null,
+        hash_conteudo: sha256({ codigo, descricao }),
+        data_verificacao: now,
+      }
+    },
+    async (batch) => {
+      await supabase.schema('licitagov' as never).from('cat_catser').upsert(batch as never, { onConflict: 'codigo' })
     },
     'catser',
   )
@@ -214,31 +221,8 @@ interface RawUasg {
 }
 
 async function syncUasg(): Promise<number> {
-  console.log('→ UASG')
-  // Tabela simples; reutiliza estrutura geral via INSERT com ON CONFLICT ignorado
-  return paginate<RawUasg>(
-    (p) => `${API_BASE}/modulo-uasg/1_consultarUasg?pagina=${p}&tamanhoPagina=${PAGE_SIZE}`,
-    async (u) => {
-      if (!u.codigoUasg) return
-      const payload = {
-        codigo_uasg: String(u.codigoUasg),
-        nome: u.nomeUasg ?? null,
-        uf: u.siglaUf ?? null,
-        municipio_ibge: u.municipioIbge ?? null,
-        cnpj: u.cnpj ?? null,
-        orgao_superior_cnpj: u.orgaoSuperiorCnpj ?? null,
-        orgao_vinculado_cnpj: u.orgaoVinculadoCnpj ?? null,
-        sisg: Boolean(u.usoSisg),
-        status: Boolean(u.statusUasg),
-        metadados: u as unknown as Record<string, unknown>,
-        data_verificacao: new Date().toISOString(),
-      }
-      if (DRY_RUN) return
-      // Tabela opcional — usa SQL direto via RPC futura, por ora log
-      if (LIMIT && LIMIT < 20) console.log(payload)
-    },
-    'uasg',
-  )
+  console.log('→ UASG (tabela licitagov.uasg_oficial ainda não existe — skip)')
+  return 0
 }
 
 // ─── Main ────────────────────────────────────────────────────────────────
