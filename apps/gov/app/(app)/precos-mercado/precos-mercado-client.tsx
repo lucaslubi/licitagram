@@ -19,7 +19,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
-  fillTrendGaps,
   getPrecoStats,
   getPrecoTrend,
   searchPrecosPncp,
@@ -27,6 +26,7 @@ import {
   type PrecoStats,
   type PrecoTrendPoint,
 } from '@/lib/precos/pncp-engine'
+import { fillTrendGaps } from '@/lib/precos/pncp-utils'
 import { PriceTrendChart } from './components/PriceTrendChart'
 
 const MODALIDADES = [
@@ -52,6 +52,34 @@ function formatDate(iso: string | null): string {
   } catch {
     return '—'
   }
+}
+
+function formatCnpj(raw: string | null): string {
+  if (!raw) return ''
+  const digits = raw.replace(/\D/g, '').padStart(14, '0').slice(-14)
+  return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12, 14)}`
+}
+
+function esferaLabel(e: string | null): string {
+  if (!e) return ''
+  const map: Record<string, string> = {
+    federal: 'Federal',
+    estadual: 'Estadual',
+    municipal: 'Municipal',
+    distrital: 'Distrital',
+    F: 'Federal',
+    E: 'Estadual',
+    M: 'Municipal',
+    D: 'Distrital',
+  }
+  return map[e] ?? map[e.toLowerCase()] ?? e
+}
+
+function pncpPublicUrl(row: { linkPncp: string | null; pncpId: string | null }): string | null {
+  if (row.linkPncp) return row.linkPncp
+  if (!row.pncpId) return null
+  // Formato PNCP: CNPJ-1-NUMERO/ANO — monta URL do portal
+  return `https://pncp.gov.br/app/editais/${row.pncpId}`
 }
 
 function computeVariation(trend: PrecoTrendPoint[]): { pct: number; direction: 'up' | 'down' | 'flat' } {
@@ -311,32 +339,49 @@ export function PrecosMercadoClient({
                     const diff = stats?.mediana
                       ? ((r.valorUnitario - stats.mediana) / stats.mediana) * 100
                       : 0
+                    const url = pncpPublicUrl(r)
                     return (
-                      <tr key={r.itemId} className="border-b border-border/60 hover:bg-card/40">
-                        <td className="whitespace-nowrap px-3 py-2 text-xs">
+                      <tr key={r.itemId} className="border-b border-border/60 hover:bg-card/40 align-top">
+                        <td className="whitespace-nowrap px-3 py-3 text-xs">
                           <span className="flex items-center gap-1 text-muted-foreground">
                             <Calendar className="h-3 w-3" />
                             {formatDate(r.dataPublicacao)}
                           </span>
                         </td>
-                        <td className="px-3 py-2">
-                          <span className="flex items-start gap-1">
-                            <Building2 className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" />
-                            <span className="line-clamp-2 text-xs">{r.orgaoNome}</span>
-                          </span>
+                        <td className="min-w-[240px] px-3 py-3">
+                          <div className="flex items-start gap-1.5">
+                            <Building2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                            <div className="min-w-0 space-y-0.5">
+                              <p className="text-xs font-medium leading-snug" title={r.orgaoNome}>
+                                {r.orgaoNome}
+                              </p>
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
+                                {r.orgaoCnpj && (
+                                  <span className="font-mono">CNPJ {formatCnpj(r.orgaoCnpj)}</span>
+                                )}
+                                {r.orgaoEsfera && (
+                                  <Badge variant="outline" className="h-4 px-1 text-[9px] font-normal">
+                                    {esferaLabel(r.orgaoEsfera)}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </div>
                         </td>
-                        <td className="px-3 py-2 text-xs text-muted-foreground">{r.modalidadeNome ?? '—'}</td>
-                        <td className="px-3 py-2">
-                          <p className="line-clamp-2 text-xs">{r.descricao}</p>
+                        <td className="px-3 py-3 text-xs text-muted-foreground">{r.modalidadeNome ?? '—'}</td>
+                        <td className="min-w-[280px] px-3 py-3">
+                          <p className="text-xs leading-snug" title={r.descricao}>
+                            {r.descricao}
+                          </p>
                         </td>
-                        <td className="px-3 py-2 text-right font-mono text-xs tabular-nums text-muted-foreground">
+                        <td className="whitespace-nowrap px-3 py-3 text-right font-mono text-xs tabular-nums text-muted-foreground">
                           {r.quantidade != null ? Number(r.quantidade).toLocaleString('pt-BR') : '—'}
                           {r.unidadeMedida ? ` ${r.unidadeMedida}` : ''}
                         </td>
-                        <td className="px-3 py-2 text-right font-mono font-semibold tabular-nums">
+                        <td className="whitespace-nowrap px-3 py-3 text-right font-mono font-semibold tabular-nums">
                           {formatBRL(r.valorUnitario)}
                         </td>
-                        <td className="px-3 py-2 text-right font-mono text-xs tabular-nums">
+                        <td className="whitespace-nowrap px-3 py-3 text-right font-mono text-xs tabular-nums">
                           <span
                             className={
                               Math.abs(diff) < 5
@@ -350,17 +395,20 @@ export function PrecosMercadoClient({
                             {diff.toFixed(1)}%
                           </span>
                         </td>
-                        <td className="px-3 py-2">
-                          {r.linkPncp && (
+                        <td className="whitespace-nowrap px-3 py-3 text-right">
+                          {url ? (
                             <a
-                              href={r.linkPncp}
+                              href={url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-muted-foreground hover:text-foreground"
-                              aria-label="Abrir no PNCP"
+                              className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-[11px] font-medium text-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-primary"
+                              title={`Abrir ${r.pncpId ?? 'edital'} no PNCP`}
                             >
-                              <ExternalLink className="h-3.5 w-3.5" />
+                              Ver edital
+                              <ExternalLink className="h-3 w-3" />
                             </a>
+                          ) : (
+                            <span className="text-[11px] text-muted-foreground">—</span>
                           )}
                         </td>
                       </tr>

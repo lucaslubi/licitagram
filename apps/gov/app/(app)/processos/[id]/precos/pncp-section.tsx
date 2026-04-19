@@ -61,6 +61,27 @@ function formatDate(iso: string | null): string {
   }
 }
 
+function formatCnpj(raw: string | null): string {
+  if (!raw) return ''
+  const digits = raw.replace(/\D/g, '').padStart(14, '0').slice(-14)
+  return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12, 14)}`
+}
+
+function esferaLabel(e: string | null): string {
+  if (!e) return ''
+  const map: Record<string, string> = {
+    federal: 'Federal', estadual: 'Estadual', municipal: 'Municipal', distrital: 'Distrital',
+    F: 'Federal', E: 'Estadual', M: 'Municipal', D: 'Distrital',
+  }
+  return map[e] ?? map[e.toLowerCase()] ?? e
+}
+
+function pncpPublicUrl(row: { linkPncp: string | null; pncpId: string | null }): string | null {
+  if (row.linkPncp) return row.linkPncp
+  if (!row.pncpId) return null
+  return `https://pncp.gov.br/app/editais/${row.pncpId}`
+}
+
 export function PncpPrecosSection({ processoId, objeto }: Props) {
   const router = useRouter()
   const [query, setQuery] = useState(() => objeto.slice(0, 80))
@@ -383,66 +404,83 @@ export function PncpPrecosSection({ processoId, objeto }: Props) {
                   </tr>
                 </thead>
                 <tbody>
-                  {results.map((r) => (
-                    <tr
-                      key={r.itemId}
-                      className={`cursor-pointer border-t border-border/60 hover:bg-card/50 ${
-                        selected.has(r.itemId) ? 'bg-primary/5' : ''
-                      }`}
-                      onClick={() => toggle(r.itemId)}
-                    >
-                      <td className="px-3 py-2">
-                        <input
-                          type="checkbox"
-                          checked={selected.has(r.itemId)}
-                          onChange={() => toggle(r.itemId)}
-                          onClick={(e) => e.stopPropagation()}
-                          className="h-4 w-4 accent-primary"
-                          aria-label="Selecionar item"
-                        />
-                      </td>
-                      <td className="px-3 py-2">
-                        <p className="line-clamp-2">{r.descricao}</p>
-                        {r.unidadeMedida && (
-                          <p className="mt-0.5 text-xs text-muted-foreground">
-                            {r.quantidade != null ? `${Number(r.quantidade).toLocaleString('pt-BR')} ` : ''}
-                            {r.unidadeMedida}
-                          </p>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono tabular-nums">
-                        {formatBRL(r.valorUnitario)}
-                      </td>
-                      <td className="px-3 py-2">
-                        <p className="flex items-center gap-1 text-xs">
-                          <Building2 className="h-3 w-3 text-muted-foreground" />
-                          {r.orgaoNome.slice(0, 40)}
-                          {r.orgaoNome.length > 40 ? '…' : ''}
-                        </p>
-                      </td>
-                      <td className="px-3 py-2 text-xs">{r.modalidadeNome ?? '—'}</td>
-                      <td className="px-3 py-2">
-                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Calendar className="h-3 w-3" />
-                          {formatDate(r.dataPublicacao)}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2">
-                        {r.linkPncp && (
-                          <a
-                            href={r.linkPncp}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                  {results.map((r) => {
+                    const url = pncpPublicUrl(r)
+                    return (
+                      <tr
+                        key={r.itemId}
+                        className={`cursor-pointer border-t border-border/60 align-top hover:bg-card/50 ${
+                          selected.has(r.itemId) ? 'bg-primary/5' : ''
+                        }`}
+                        onClick={() => toggle(r.itemId)}
+                      >
+                        <td className="px-3 py-3">
+                          <input
+                            type="checkbox"
+                            checked={selected.has(r.itemId)}
+                            onChange={() => toggle(r.itemId)}
                             onClick={(e) => e.stopPropagation()}
-                            className="text-muted-foreground hover:text-foreground"
-                            aria-label="Abrir no PNCP"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                          </a>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                            className="h-4 w-4 accent-primary"
+                            aria-label="Selecionar item"
+                          />
+                        </td>
+                        <td className="min-w-[260px] px-3 py-3">
+                          <p className="text-sm leading-snug" title={r.descricao}>{r.descricao}</p>
+                          {(r.quantidade != null || r.unidadeMedida) && (
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              {r.quantidade != null ? `${Number(r.quantidade).toLocaleString('pt-BR')} ` : ''}
+                              {r.unidadeMedida ?? ''}
+                            </p>
+                          )}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-3 text-right font-mono font-semibold tabular-nums">
+                          {formatBRL(r.valorUnitario)}
+                        </td>
+                        <td className="min-w-[240px] px-3 py-3">
+                          <div className="flex items-start gap-1.5">
+                            <Building2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                            <div className="min-w-0 space-y-0.5">
+                              <p className="text-xs font-medium leading-snug" title={r.orgaoNome}>
+                                {r.orgaoNome}
+                              </p>
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
+                                {r.orgaoCnpj && <span className="font-mono">CNPJ {formatCnpj(r.orgaoCnpj)}</span>}
+                                {r.orgaoEsfera && (
+                                  <Badge variant="outline" className="h-4 px-1 text-[9px] font-normal">
+                                    {esferaLabel(r.orgaoEsfera)}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-3 text-xs text-muted-foreground">{r.modalidadeNome ?? '—'}</td>
+                        <td className="whitespace-nowrap px-3 py-3">
+                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Calendar className="h-3 w-3" />
+                            {formatDate(r.dataPublicacao)}
+                          </span>
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-3 text-right">
+                          {url ? (
+                            <a
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-[11px] font-medium text-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-primary"
+                              title={`Abrir ${r.pncpId ?? 'edital'} no PNCP`}
+                            >
+                              Ver edital
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          ) : (
+                            <span className="text-[11px] text-muted-foreground">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

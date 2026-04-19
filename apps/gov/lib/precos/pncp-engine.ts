@@ -10,6 +10,7 @@ export interface PrecoPncpRow {
   valorUnitario: number
   valorTotal: number | null
   categoria: string | null
+  orgaoCnpj: string | null
   orgaoNome: string
   orgaoEsfera: string | null
   modalidadeNome: string | null
@@ -60,6 +61,7 @@ export async function searchPrecosPncp(filters: PrecoSearchFilters): Promise<Pre
     valorUnitario: Number(r.valor_unitario_estimado),
     valorTotal: (r.valor_total_estimado as number | null) ?? null,
     categoria: (r.categoria as string | null) ?? null,
+    orgaoCnpj: (r.orgao_cnpj as string | null) ?? null,
     orgaoNome: r.orgao_nome as string,
     orgaoEsfera: (r.orgao_esfera as string | null) ?? null,
     modalidadeNome: (r.modalidade_nome as string | null) ?? null,
@@ -157,39 +159,6 @@ export async function getPrecoTrend(filters: PrecoSearchFilters & { meses?: numb
   }))
 }
 
-/**
- * Preenche gaps: se faltam meses no meio do intervalo, insere pontos
- * com n=0 pra que o gráfico mostre barras contínuas em vez de linha
- * quebrada. Inclui os últimos N meses do calendário ainda que não tenham
- * dados, pra o gráfico começar a encher à medida que mais dados entram.
- */
-export function fillTrendGaps(points: PrecoTrendPoint[], minMonths = 6): PrecoTrendPoint[] {
-  const now = new Date()
-  const map = new Map(points.map((p) => [p.mes, p]))
-  const start = points.length
-    ? points[0]!.mes
-    : `${now.getFullYear() - (minMonths >= 12 ? 1 : 0)}-${String(Math.max(1, now.getMonth() + 1 - minMonths + 1)).padStart(2, '0')}`
-  const [sy, sm] = start.split('-').map(Number)
-  const out: PrecoTrendPoint[] = []
-  let cur = new Date(sy!, sm! - 1, 1)
-  const end = new Date(now.getFullYear(), now.getMonth(), 1)
-  while (cur <= end) {
-    const key = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}`
-    out.push(map.get(key) ?? { mes: key, n: 0, media: 0, mediana: 0, minimo: 0, maximo: 0 })
-    cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1)
-  }
-  // Garante pelo menos `minMonths` de janela mostrada
-  while (out.length < minMonths) {
-    const first = out[0]!.mes
-    const [fy, fm] = first.split('-').map(Number)
-    const prev = new Date(fy!, fm! - 2, 1)
-    out.unshift({
-      mes: `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}`,
-      n: 0, media: 0, mediana: 0, minimo: 0, maximo: 0,
-    })
-  }
-  return out
-}
 
 export interface CatalogoPncpRow {
   descricao: string
