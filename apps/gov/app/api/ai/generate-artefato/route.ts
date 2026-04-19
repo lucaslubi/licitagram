@@ -7,6 +7,7 @@ import { getProcessoDetail } from '@/lib/processos/queries'
 import { PROMPTS, stripMarkdownChrome, type ArtefatoTipo } from '@/lib/artefatos/prompts'
 import { logger } from '@/lib/logger'
 import { friendlyAIError } from '@/lib/ai/error-message'
+import { searchPrecosPncp, getPrecoStats } from '@/lib/precos/pncp-engine'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -84,7 +85,48 @@ export async function POST(req: NextRequest) {
     logger.warn({ err: e instanceof Error ? e.message : String(e) }, 'RAG retrieval failed — proceeding without context')
   }
 
-  const systemWithContext = ragContext ? `${spec.system}\n\n${ragContext}` : spec.system
+  // Fase 2C: enriquece prompt com contratações análogas do PNCP (B2B price
+  // intelligence). Aplica só em artefatos onde preço é materialmente relevante:
+  // ETP (inciso VI), TR (alínea i), parecer (auditoria cesta). Outros tipos
+  // não recebem — evita poluir o prompt do DFD/edital com preços.
+  const TIPOS_COM_PRECO: ArtefatoTipo[] = ['etp', 'tr', 'parecer']
+  let precosContext = ''
+  if (TIPOS_COM_PRECO.includes(body.tipo)) {
+    try {
+      const [rows, stats] = await Promise.all([
+        searchPrecosPncp({ query: processo.objeto.slice(0, 100), limit: 5 }),
+        getPrecoStats({ query: processo.objeto.slice(0, 100) }),
+      ])
+      if (rows.length > 0 && stats && stats.n >= 3) {
+        const lines = rows.slice(0, 5).map((r, i) => {
+          const data = r.dataPublicacao ? new Date(r.dataPublicacao).toLocaleDateString('pt-BR') : '—'
+          return `[${i + 1}] ${r.orgaoNome.slice(0, 50)} — ${r.modalidadeNome ?? 'modalidade n/i'} — R$ ${r.valorUnitario.toFixed(2)} — ${data}`
+        })
+        precosContext = `
+CONTRATAÇÕES ANÁLOGAS NO PNCP (amostra real de ${stats.n} contratações)
+
+Estatísticas agregadas:
+- Mediana: R$ ${stats.mediana.toFixed(2)}
+- Média: R$ ${stats.media.toFixed(2)}
+- Intervalo: R$ ${stats.minimo.toFixed(2)} a R$ ${stats.maximo.toFixed(2)}
+- CV: ${stats.cv.toFixed(1)}%${stats.complianceTcu1875 ? ' (Acórdão TCU 1.875/2021 atendido)' : ''}
+
+Fontes analisadas (top 5 mais recentes):
+${lines.join('\n')}
+
+Use estes dados quando mencionar valor estimado/preços no artefato. Cite
+"contratações análogas no PNCP" (sem expor dados de terceiros além do órgão).
+Jamais invente valores — se a amostra for insuficiente, escreva "a confirmar
+via pesquisa de preços detalhada".`
+      }
+    } catch (e) {
+      logger.warn({ err: e instanceof Error ? e.message : String(e) }, 'PNCP price enrichment failed')
+    }
+  }
+
+  const systemWithContext = [spec.system, ragContext, precosContext]
+    .filter(Boolean)
+    .join('\n\n')
 
   const encoder = new TextEncoder()
   const startedAt = Date.now()

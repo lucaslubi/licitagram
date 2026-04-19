@@ -2,7 +2,19 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Globe, Loader2, Package, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
+import {
+  Calendar,
+  Copy,
+  Globe,
+  Loader2,
+  Package,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  TrendingUp,
+  X,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -15,11 +27,14 @@ import {
   deleteCatalogoItemAction,
   upsertCatalogoItemAction,
 } from '@/lib/catalogo/actions'
+import { type CatalogoPncpRow } from '@/lib/precos/pncp-engine'
 
 interface Props {
   items: CatalogoItem[]
+  itemsPncp?: CatalogoPncpRow[]
   canEdit: boolean
   initialQuery: string
+  source?: 'orgao' | 'pncp'
 }
 
 const EMPTY: CatalogoItemInput = {
@@ -33,16 +48,62 @@ const EMPTY: CatalogoItemInput = {
   aliases: [],
 }
 
-export function CatalogoClient({ items, canEdit, initialQuery }: Props) {
+function formatBRL(n: number | null | undefined): string {
+  if (n == null || isNaN(Number(n))) return '—'
+  return Number(n).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+function formatDate(iso: string | null): string {
+  if (!iso) return '—'
+  try {
+    return new Date(iso).toLocaleDateString('pt-BR')
+  } catch {
+    return '—'
+  }
+}
+
+export function CatalogoClient({
+  items,
+  itemsPncp = [],
+  canEdit,
+  initialQuery,
+  source = 'orgao',
+}: Props) {
   const router = useRouter()
   const [query, setQuery] = useState(initialQuery)
   const [form, setForm] = useState<CatalogoItemInput | null>(null)
   const [aliasInput, setAliasInput] = useState('')
   const [saving, startSave] = useTransition()
   const [deleting, startDelete] = useTransition()
+  const [copying, startCopy] = useTransition()
+
+  const setSource = (s: 'orgao' | 'pncp') => {
+    const params = new URLSearchParams()
+    if (query) params.set('q', query)
+    if (s === 'pncp') params.set('source', 'pncp')
+    router.push(`/catalogo${params.size ? '?' + params.toString() : ''}`)
+  }
+
+  const copyFromPncp = (row: CatalogoPncpRow) => {
+    setForm({
+      id: null,
+      codigoCatmat: null,
+      codigoCatser: null,
+      descricaoOficial: row.descricao.slice(0, 500),
+      descricaoNormalizada: row.descricao.toLowerCase().slice(0, 500),
+      unidadeMedida: row.unidadeMedida,
+      categoria: row.categoria,
+      aliases: [],
+    })
+    setSource('orgao')
+    toast.info('Revise e salve o item copiado do PNCP')
+  }
 
   const runSearch = (q: string) => {
-    const url = q ? `/catalogo?q=${encodeURIComponent(q)}` : '/catalogo'
+    const params = new URLSearchParams()
+    if (q) params.set('q', q)
+    if (source === 'pncp') params.set('source', 'pncp')
+    const url = params.size ? `/catalogo?${params.toString()}` : '/catalogo'
     router.push(url)
   }
 
@@ -102,6 +163,27 @@ export function CatalogoClient({ items, canEdit, initialQuery }: Props) {
 
   return (
     <div className="space-y-5">
+      {/* Abas: Do órgão | PNCP */}
+      <div className="flex gap-1 rounded-lg border border-border bg-card p-1">
+        <button
+          onClick={() => setSource('orgao')}
+          className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+            source === 'orgao' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <Package className="h-4 w-4" /> Do órgão
+        </button>
+        <button
+          onClick={() => setSource('pncp')}
+          className={`flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+            source === 'pncp' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <TrendingUp className="h-4 w-4" /> PNCP — público
+          <Badge variant="secondary" className="ml-1">124k+</Badge>
+        </button>
+      </div>
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -109,14 +191,16 @@ export function CatalogoClient({ items, canEdit, initialQuery }: Props) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && runSearch(query)}
-            placeholder="Busca por descrição, CATMAT, CATSER ou apelido…"
+            placeholder={source === 'pncp'
+              ? 'Ex.: papel A4, cadeira, servidor Dell…'
+              : 'Busca por descrição, CATMAT, CATSER ou apelido…'}
             className="pl-9"
           />
         </div>
         <Button variant="outline" onClick={() => runSearch(query)}>
           Buscar
         </Button>
-        {canEdit && (
+        {canEdit && source === 'orgao' && (
           <Button variant="gradient" onClick={() => setForm({ ...EMPTY })}>
             <Plus className="h-4 w-4" />
             Novo item
@@ -219,7 +303,90 @@ export function CatalogoClient({ items, canEdit, initialQuery }: Props) {
         </Card>
       )}
 
-      {items.length > 0 && (
+      {source === 'pncp' && itemsPncp.length > 0 && (
+        <div className="overflow-hidden rounded-xl border border-border">
+          <table className="w-full text-sm">
+            <thead className="bg-card">
+              <tr className="border-b border-border">
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Descrição (PNCP)</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Categoria</th>
+                <th className="px-4 py-3 text-right font-medium text-muted-foreground">Mediana</th>
+                <th className="px-4 py-3 text-right font-medium text-muted-foreground">Média</th>
+                <th className="px-4 py-3 text-right font-medium text-muted-foreground">Contratações</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Última</th>
+                <th className="px-4 py-3" />
+              </tr>
+            </thead>
+            <tbody>
+              {itemsPncp.map((row, idx) => (
+                <tr key={`${row.descricao}-${idx}`} className="border-b border-border last:border-0 hover:bg-card/40">
+                  <td className="px-4 py-3">
+                    <div className="flex items-start gap-2">
+                      <TrendingUp className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                      <div>
+                        <p className="line-clamp-2 font-medium">{row.descricao}</p>
+                        {row.unidadeMedida && (
+                          <p className="text-xs text-muted-foreground">Unid.: {row.unidadeMedida}</p>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">{row.categoria ?? '—'}</td>
+                  <td className="px-4 py-3 text-right font-mono tabular-nums">{formatBRL(row.medianaUnitaria)}</td>
+                  <td className="px-4 py-3 text-right font-mono tabular-nums text-muted-foreground">
+                    {formatBRL(row.mediaUnitaria)}
+                  </td>
+                  <td className="px-4 py-3 text-right font-mono tabular-nums">{row.nContratacoes.toLocaleString('pt-BR')}</td>
+                  <td className="px-4 py-3 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      {formatDate(row.ultimaContratacao)}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {canEdit && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => copyFromPncp(row)}
+                        disabled={copying}
+                        aria-label="Copiar pro meu órgão"
+                        title="Copiar pro meu órgão"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {source === 'pncp' && itemsPncp.length === 0 && (
+        <div className="rounded-lg border border-dashed border-border bg-card/40 p-8 text-center">
+          <TrendingUp className="mx-auto h-8 w-8 text-muted-foreground" />
+          <h2 className="mt-3 text-base font-semibold">Sem resultados</h2>
+          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+            Tente outra palavra-chave. A base PNCP tem 124k+ itens agregados por descrição.
+          </p>
+        </div>
+      )}
+
+      {source === 'orgao' && items.length === 0 && (
+        <div className="rounded-lg border border-dashed border-border bg-card/40 p-8 text-center">
+          <Package className="mx-auto h-8 w-8 text-muted-foreground" />
+          <h2 className="mt-3 text-base font-semibold">Catálogo do órgão vazio</h2>
+          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+            {canEdit
+              ? 'Adicione itens manualmente ou clique na aba PNCP e copie itens públicos recorrentes.'
+              : 'Peça para um admin/coordenador cadastrar itens ou copiar da base PNCP.'}
+          </p>
+        </div>
+      )}
+
+      {source === 'orgao' && items.length > 0 && (
         <div className="overflow-hidden rounded-xl border border-border">
           <table className="w-full text-sm">
             <thead className="bg-card">

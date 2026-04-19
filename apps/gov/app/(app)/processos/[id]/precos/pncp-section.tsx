@@ -13,6 +13,7 @@ import {
   Search,
   Sparkles,
   TrendingUp,
+  Wand2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -161,6 +162,71 @@ export function PncpPrecosSection({ processoId, objeto }: Props) {
     })
   }
 
+  /**
+   * Cesta automática: busca até 200 resultados, remove outliers por desvio
+   * absoluto mediano (MAD), escolhe até 5 fontes próximas da mediana,
+   * valida CV < 25% e adiciona. Em 1 clique satisfaz Acórdão TCU 1.875/2021.
+   */
+  const gerarCestaAutomatica = () => {
+    if (filters.query.length < 3) {
+      toast.error('Digite ao menos 3 caracteres')
+      return
+    }
+    startAdd(async () => {
+      const rows = await searchPrecosPncp({ ...filters, limit: 200 })
+      if (rows.length < 3) {
+        toast.error(`Apenas ${rows.length} resultado(s) — mín 3 para cesta válida. Amplie a busca.`)
+        setResults(rows)
+        setStats(null)
+        return
+      }
+      const values = rows.map((r) => r.valorUnitario).sort((a, b) => a - b)
+      const mediana = values[Math.floor(values.length / 2)]!
+      const absDeviations = values.map((v) => Math.abs(v - mediana)).sort((a, b) => a - b)
+      const mad = absDeviations[Math.floor(absDeviations.length / 2)]!
+      const threshold = Math.max(mad * 3, mediana * 0.35)
+
+      const inliers = rows
+        .filter((r) => Math.abs(r.valorUnitario - mediana) <= threshold)
+        .sort((a, b) => Math.abs(a.valorUnitario - mediana) - Math.abs(b.valorUnitario - mediana))
+        .slice(0, 5)
+
+      if (inliers.length < 3) {
+        toast.error('Amostra muito dispersa — refine a busca (modalidade, período)')
+        setResults(rows)
+        return
+      }
+
+      const media = inliers.reduce((a, b) => a + b.valorUnitario, 0) / inliers.length
+      const desvio = Math.sqrt(
+        inliers.reduce((s, r) => s + (r.valorUnitario - media) ** 2, 0) / (inliers.length - 1),
+      )
+      const cv = media > 0 ? (desvio / media) * 100 : 0
+
+      if (cv >= 25) {
+        toast.warning(
+          `Cesta auto achou ${inliers.length} fontes mas CV=${cv.toFixed(1)}% ≥ 25%. Adicionando mesmo assim — revise e considere refinar.`,
+        )
+      }
+
+      const res = await addMultiplePrecosToCesta(
+        processoId,
+        filters.query,
+        inliers.map((i) => i.itemId),
+      )
+      if (res.added === 0) {
+        toast.error(`Falha ao salvar: ${res.errors[0] ?? 'erro'}`)
+        return
+      }
+      toast.success(
+        `Cesta automática: ${res.added} fontes · mediana ${formatBRL(mediana)} · CV ${cv.toFixed(1)}%`,
+      )
+      setResults(rows)
+      setSelected(new Set(inliers.map((i) => i.itemId)))
+      router.refresh()
+    })
+  }
+
   return (
     <Card className="border-primary/20">
       <CardHeader>
@@ -179,6 +245,15 @@ export function PncpPrecosSection({ processoId, objeto }: Props) {
               quando você seleciona ≥ 3 fontes com CV &lt; 25%.
             </CardDescription>
           </div>
+          <Button
+            onClick={gerarCestaAutomatica}
+            disabled={adding || searching}
+            variant="gradient"
+            title="Busca + filtra outliers + adiciona 3-5 fontes com CV<25%"
+          >
+            {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+            Cesta automática
+          </Button>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
