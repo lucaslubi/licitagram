@@ -104,11 +104,19 @@ function chunkText(text: string): string[] {
 }
 
 // ─── Extração de texto ────────────────────────────────────────────────────
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`timeout ${label} após ${ms / 1000}s`)), ms)),
+  ])
+}
+
 async function extractText(filePath: string): Promise<string> {
   const ext = path.extname(filePath).toLowerCase()
   const buf = await fs.readFile(filePath)
   if (ext === '.pdf') {
-    const result = await pdf(buf)
+    // Alguns PDFs travam pdf-parse; 90s de timeout pula e continua.
+    const result = await withTimeout(pdf(buf), 90_000, 'pdf-parse')
     return result.text
   }
   if (ext === '.docx') {
