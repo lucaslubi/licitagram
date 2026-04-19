@@ -121,8 +121,9 @@ CREATE TABLE IF NOT EXISTS licitagov.sancoes_fornecedor (
   criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_sancao_cnpj ON licitagov.sancoes_fornecedor(cnpj);
-CREATE INDEX IF NOT EXISTS idx_sancao_vigente ON licitagov.sancoes_fornecedor(cnpj)
-  WHERE data_fim IS NULL OR data_fim >= CURRENT_DATE;
+-- Nota: o filtro "sanção vigente" é aplicado nas queries (data_fim IS NULL OR data_fim >= CURRENT_DATE).
+-- Não pode virar index predicate pq CURRENT_DATE não é IMMUTABLE no Postgres.
+CREATE INDEX IF NOT EXISTS idx_sancao_data_fim ON licitagov.sancoes_fornecedor(data_fim NULLS FIRST);
 
 -- ─── RLS: corpus de referência é público pros autenticados ───────────────
 ALTER TABLE licitagov.cat_catmat ENABLE ROW LEVEL SECURITY;
