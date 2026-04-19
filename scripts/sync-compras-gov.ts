@@ -225,6 +225,86 @@ async function syncUasg(): Promise<number> {
   return 0
 }
 
+// ─── Fornecedores (por CNAE) ─────────────────────────────────────────────
+// O endpoint modulo-fornecedor/1 exige ≥ 1 filtro (cnpj ou codigoCnae).
+// Estratégia: iterar sobre os CNAEs mais comuns em licitações públicas
+// (lista fixa). Full coverage exigiria iterar sobre todos CNAEs (~1300).
+const CNAES_CORE = [
+  '4120400', // Construção de edifícios
+  '4211101', // Construção rodovias
+  '4321500', // Instalações elétricas
+  '6203100', // Desenvolvimento software
+  '6209100', // Suporte técnico TI
+  '4644301', // Comércio medicamentos
+  '4649408', // Mobiliário e utensílios
+  '4647802', // Artigos de escritório
+  '7319002', // Promoção de vendas
+  '8299707', // Serviço de apoio administrativo
+  '8030100', // Vigilância e segurança
+  '8121400', // Limpeza em prédios
+  '4930202', // Transporte rodoviário de carga
+  '4942800', // Serviços de mudanças
+  '8511200', // Educação infantil/ensino básico
+  '8610101', // Atividades hospitalares
+]
+
+interface RawFornecedor {
+  ativo?: boolean
+  cnpj?: string
+  codigoCnae?: number
+  nomeCnae?: string
+  nomeMunicipio?: string
+  nomeRazaoSocialFornecedor?: string
+  ufSigla?: string
+  porteEmpresaNome?: string
+  naturezaJuridicaNome?: string
+  habilitadoLicitar?: boolean
+}
+
+async function syncFornecedores(): Promise<number> {
+  console.log('→ Fornecedores (por CNAE core)')
+  const now = new Date().toISOString()
+  let total = 0
+  const cnaes = LIMIT ? CNAES_CORE.slice(0, Math.ceil(LIMIT / 100)) : CNAES_CORE
+  for (const cnae of cnaes) {
+    let page = 1
+    while (true) {
+      const url = `${API_BASE}/modulo-fornecedor/1_consultarFornecedor?codigoCnae=${cnae}&tamanhoPagina=${PAGE_SIZE}&pagina=${page}`
+      const data = await fetchJson<ApiPage<RawFornecedor>>(url)
+      if (!data?.resultado?.length) break
+      const batch = data.resultado
+        .filter((f) => f.cnpj && f.ativo !== false)
+        .map((f) => ({
+          cnpj: String(f.cnpj!).padStart(14, '0').slice(-14),
+          razao_social: f.nomeRazaoSocialFornecedor ?? '',
+          uf: f.ufSigla ?? null,
+          municipio: f.nomeMunicipio ?? null,
+          cnae_primario: f.codigoCnae ? String(f.codigoCnae) : null,
+          porte: f.porteEmpresaNome ?? null,
+          situacao_cadastral: f.habilitadoLicitar ? 'Ativo' : 'Inativo',
+          metadados: f as unknown as Record<string, unknown>,
+          hash_conteudo: sha256({ cnpj: f.cnpj, cnae: f.codigoCnae }),
+          data_verificacao: now,
+        }))
+      if (batch.length > 0 && !DRY_RUN) {
+        try {
+          await supabase.schema('licitagov' as never).from('fornecedores_gov').upsert(batch as never, { onConflict: 'cnpj' })
+        } catch (e) {
+          console.warn(`  batch fornecedores falhou: ${e instanceof Error ? e.message : String(e)}`)
+        }
+      }
+      total += batch.length
+      process.stdout.write(`  fornecedores cnae=${cnae} pag=${page} +${batch.length} total=${total}\r`)
+      if (LIMIT && total >= LIMIT) return total
+      const rest = data.paginasRestantes ?? 0
+      if (rest <= 0) break
+      page++
+    }
+    process.stdout.write('\n')
+  }
+  return total
+}
+
 // ─── Painel de Preços (pesquisa-preco) ───────────────────────────────────
 // Só retorna resultado quando filtra por codigoItemCatalogo específico.
 // Estratégia: iterar pelos códigos mais usados em catalogo_normalizado
@@ -335,6 +415,7 @@ async function main() {
     ['catser', syncCatser],
     ['uasg', syncUasg],
     ['painel', syncPainelPrecos],
+    ['fornecedores', syncFornecedores],
   ]
   const run = ONLY && ONLY !== 'all' ? jobs.filter(([n]) => n === ONLY) : jobs
   if (run.length === 0) {
