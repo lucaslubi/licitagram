@@ -5,6 +5,7 @@ import {
   BookOpen,
   History,
   Settings,
+  TrendingUp,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -23,6 +24,7 @@ export const PRIMARY_NAV: NavItem[] = [
   { label: 'PCA', href: '/pca', icon: ClipboardList, shortcut: 'G P' },
   { label: 'Processos', href: '/processos', icon: GanttChartSquare, shortcut: 'G X' },
   { label: 'Catálogo', href: '/catalogo', icon: BookOpen, shortcut: 'G C' },
+  { label: 'Preços de Mercado', href: '/precos-mercado', icon: TrendingUp, shortcut: 'G M' },
   { label: 'Histórico', href: '/historico', icon: History, shortcut: 'G H' },
 ]
 

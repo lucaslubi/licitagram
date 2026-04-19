@@ -126,6 +126,37 @@ export async function addMultiplePrecosToCesta(
   return { added, errors }
 }
 
+export interface PrecoTrendPoint {
+  mes: string
+  n: number
+  media: number
+  mediana: number
+  minimo: number
+  maximo: number
+}
+
+export async function getPrecoTrend(filters: PrecoSearchFilters & { meses?: number }): Promise<PrecoTrendPoint[]> {
+  if (!filters.query || filters.query.trim().length < 3) return []
+  const supabase = createClient()
+  const { data, error } = await supabase.rpc('precos_pncp_trend', {
+    p_query: filters.query.trim(),
+    p_uf: filters.uf ?? null,
+    p_modalidade: filters.modalidade ?? null,
+    p_date_from: filters.dateFrom ?? null,
+    p_date_to: filters.dateTo ?? null,
+    p_meses: filters.meses ?? 12,
+  })
+  if (error) return []
+  return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+    mes: r.mes as string,
+    n: Number(r.n ?? 0),
+    media: Number(r.media ?? 0),
+    mediana: Number(r.mediana ?? 0),
+    minimo: Number(r.minimo ?? 0),
+    maximo: Number(r.maximo ?? 0),
+  }))
+}
+
 export interface CatalogoPncpRow {
   descricao: string
   unidadeMedida: string | null

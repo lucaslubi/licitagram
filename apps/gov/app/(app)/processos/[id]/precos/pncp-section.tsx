@@ -2,8 +2,10 @@
 
 import { useCallback, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import {
   AlertTriangle,
+  ArrowUpRight,
   Building2,
   Calendar,
   CheckCircle2,
@@ -245,15 +247,23 @@ export function PncpPrecosSection({ processoId, objeto }: Props) {
               quando você seleciona ≥ 3 fontes com CV &lt; 25%.
             </CardDescription>
           </div>
-          <Button
-            onClick={gerarCestaAutomatica}
-            disabled={adding || searching}
-            variant="gradient"
-            title="Busca + filtra outliers + adiciona 3-5 fontes com CV<25%"
-          >
-            {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-            Cesta automática
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline" size="sm" title="Abrir análise completa em nova aba">
+              <Link href={`/precos-mercado?q=${encodeURIComponent(query.trim() || objeto.slice(0, 80))}`} target="_blank">
+                <ArrowUpRight className="h-4 w-4" />
+                Análise completa
+              </Link>
+            </Button>
+            <Button
+              onClick={gerarCestaAutomatica}
+              disabled={adding || searching}
+              variant="gradient"
+              title="Busca + filtra outliers + adiciona 3-5 fontes com CV<25%"
+            >
+              {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+              Cesta automática
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
