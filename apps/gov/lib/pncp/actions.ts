@@ -61,6 +61,20 @@ export async function publishProcessoAction(processoId: string): Promise<Result>
     return { ok: false, error: error.message }
   }
 
+  // Gap fechado 2026-04-20: quando publicação vai com sucesso, avança a
+  // fase pra 'publicado' (estado terminal). Antes disto, o processo ficava
+  // eternamente em 'publicacao' mesmo tendo sido efetivamente publicado.
+  if (result.status === 'publicado') {
+    const { error: faseErr } = await supabase.rpc('set_processo_fase', {
+      p_processo_id: processoId,
+      p_fase: 'publicado',
+    })
+    if (faseErr) {
+      // Não é fatal — log e segue. A publicação foi registrada no PNCP.
+      logger.warn({ err: faseErr.message, processoId }, 'set_processo_fase → publicado falhou pós-publish')
+    }
+  }
+
   revalidatePath(`/processos/${processoId}`)
   revalidatePath('/processos')
   revalidatePath('/dashboard')

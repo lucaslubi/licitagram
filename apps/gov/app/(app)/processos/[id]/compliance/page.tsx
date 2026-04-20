@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { getProcessoDetail, listRiscos } from '@/lib/processos/queries'
 import { listEstimativas } from '@/lib/precos/actions'
 import { summarizeCompliance, type ComplianceCheck } from '@/lib/compliance/engine'
+import { AvancarComplianceButton } from './avancar-button'
 
 export const metadata: Metadata = { title: 'Compliance' }
 
@@ -54,7 +55,7 @@ export default async function CompliancePage({ params }: { params: { id: string 
             {summary.canPublish ? (
               <>
                 <CheckCircle2 className="h-5 w-5 text-accent" />
-                Pronto para publicação
+                Pronto para elaboração do Edital
               </>
             ) : (
               <>
@@ -66,9 +67,14 @@ export default async function CompliancePage({ params }: { params: { id: string 
           <CardDescription>
             {summary.canPublish
               ? 'Sem pendências críticas. Recomendação: resolver alertas de severidade alta antes da publicação.'
-              : `${summary.criticas} pendência(s) crítica(s) precisam ser resolvidas antes da publicação.`}
+              : `${summary.criticas} pendência(s) crítica(s) precisam ser resolvidas antes de avançar.`}
           </CardDescription>
         </CardHeader>
+        {summary.canPublish && processo.faseAtual === 'compliance' && (
+          <CardContent>
+            <AvancarComplianceButton processoId={params.id} />
+          </CardContent>
+        )}
       </Card>
 
       <section className="space-y-3">
