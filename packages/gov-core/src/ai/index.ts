@@ -100,11 +100,17 @@ function resolveProviders(model: string, requestedMaxTokens?: number): ProviderA
       attempts.push({ name: 'openrouter', model: OPENROUTER.models.reasoningFreeGemma, outputCap: 32768 })
     }
 
-    // Camada 3: diretos free tier (8K out)
-    if (process.env.CEREBRAS_API_KEY) {
+    // Camada 3: diretos free tier 8K — só ativados se opt-in explícito.
+    //
+    // Groq/Cerebras rodam Llama 3.3-70B que ALUCINA em PT jurídico
+    // (observado em teste: inventou "DFD = Declaração de Destinação
+    // de Fatura"). Gemini e Mistral têm base jurídica PT sólida; estes
+    // aqui só devem ser usados quando setado FALLBACK_LLAMA=true pra
+    // tasks onde precisão jurídica não é crítica (ex: mapa de riscos JSON).
+    if (process.env.CEREBRAS_API_KEY && process.env.FALLBACK_LLAMA === 'true') {
       attempts.push({ name: 'cerebras', model: CEREBRAS.models.reasoning, outputCap: 8192 })
     }
-    if (process.env.GROQ_API_KEY) {
+    if (process.env.GROQ_API_KEY && process.env.FALLBACK_LLAMA === 'true') {
       attempts.push({ name: 'groq', model: GROQ.models.reasoning, outputCap: 8192 })
     }
 
