@@ -16,6 +16,7 @@ import { listEstimativas } from '@/lib/precos/actions'
 import { summarizeCompliance, type ComplianceCheck } from '@/lib/compliance/engine'
 import { AvancarComplianceButton } from './avancar-button'
 import { PlanoAcaoIA } from './plano-acao-ia'
+import { ArrowRight, FileText, Send } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Compliance' }
 
@@ -113,6 +114,41 @@ export default async function CompliancePage({ params }: { params: { id: string 
         <PlanoAcaoIA processoId={params.id} pendentesCount={pendentesSeveras.length} />
       )}
 
+      {/* O que vem depois — sempre visível pra user entender o fluxo */}
+      <Card>
+        <CardHeader className="border-b border-border">
+          <p className="label-institutional">Próximas etapas</p>
+          <CardTitle className="font-display text-lg tracking-tight">Depois do Compliance</CardTitle>
+          <CardDescription>Fluxo remanescente até a publicação no PNCP.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-0 sm:grid-cols-3 p-0">
+          <NextStep
+            n="7"
+            label="Edital"
+            desc="Minuta completa art. 25"
+            icon={FileText}
+            href={`/processos/${params.id}/edital`}
+          />
+          <NextStep
+            n="8"
+            label="Parecer Jurídico"
+            desc="Análise AGU art. 53 §5º"
+            icon={FileText}
+            href={`/processos/${params.id}/parecer`}
+            borderLeft
+          />
+          <NextStep
+            n="9"
+            label="Publicar PNCP"
+            desc="Submissão final art. 54"
+            icon={Send}
+            href={`/processos/${params.id}/publicar`}
+            borderLeft
+            accent
+          />
+        </CardContent>
+      </Card>
+
       {/* Checklist */}
       <section className="space-y-4">
         <div className="flex items-center justify-between">
@@ -178,6 +214,45 @@ function KpiTile({
         {value}
       </p>
     </div>
+  )
+}
+
+function NextStep({
+  n,
+  label,
+  desc,
+  icon: Icon,
+  href,
+  borderLeft,
+  accent,
+}: {
+  n: string
+  label: string
+  desc: string
+  icon: typeof FileText
+  href: string
+  borderLeft?: boolean
+  accent?: boolean
+}) {
+  return (
+    <Link
+      href={href}
+      className={`group flex items-center gap-3 px-5 py-4 transition-colors hover:bg-muted/40 ${
+        borderLeft ? 'sm:border-l sm:border-border' : ''
+      } ${accent ? 'bg-accent/[0.03]' : ''}`}
+    >
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-background">
+        <span className="font-mono text-xs font-semibold text-muted-foreground">{n}</span>
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="flex items-center gap-1.5 text-sm font-medium">
+          <Icon className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+          {label}
+        </p>
+        <p className="text-[11px] text-muted-foreground">{desc}</p>
+      </div>
+      <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" aria-hidden />
+    </Link>
   )
 }
 
