@@ -46,35 +46,37 @@ export async function GET(_req: NextRequest) {
     })
   }
   if (process.env.OPENROUTER_API_KEY) {
+    const orHeaders = {
+      'HTTP-Referer': 'https://gov.licitagram.com',
+      'X-Title': 'LicitaGram Gov',
+    }
     probes.push({
-      name: 'openrouter-gemini-pro-exp',
+      name: 'openrouter-gpt-oss-120b',
       baseUrl: 'https://openrouter.ai/api/v1',
       key: process.env.OPENROUTER_API_KEY,
-      model: 'google/gemini-2.5-pro-exp-03-25:free',
-      extraHeaders: {
-        'HTTP-Referer': 'https://gov.licitagram.com',
-        'X-Title': 'LicitaGram Gov',
-      },
+      model: 'openai/gpt-oss-120b:free',
+      extraHeaders: orHeaders,
     })
     probes.push({
-      name: 'openrouter-glm-4.6',
+      name: 'openrouter-nemotron-super',
       baseUrl: 'https://openrouter.ai/api/v1',
       key: process.env.OPENROUTER_API_KEY,
-      model: 'z-ai/glm-4.6:free',
-      extraHeaders: {
-        'HTTP-Referer': 'https://gov.licitagram.com',
-        'X-Title': 'LicitaGram Gov',
-      },
+      model: 'nvidia/nemotron-3-super-120b-a12b:free',
+      extraHeaders: orHeaders,
+    })
+    probes.push({
+      name: 'openrouter-glm-air',
+      baseUrl: 'https://openrouter.ai/api/v1',
+      key: process.env.OPENROUTER_API_KEY,
+      model: 'z-ai/glm-4.5-air:free',
+      extraHeaders: orHeaders,
     })
     probes.push({
       name: 'openrouter-llama-free',
       baseUrl: 'https://openrouter.ai/api/v1',
       key: process.env.OPENROUTER_API_KEY,
       model: 'meta-llama/llama-3.3-70b-instruct:free',
-      extraHeaders: {
-        'HTTP-Referer': 'https://gov.licitagram.com',
-        'X-Title': 'LicitaGram Gov',
-      },
+      extraHeaders: orHeaders,
     })
   }
   if (process.env.CEREBRAS_API_KEY) {

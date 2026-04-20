@@ -89,16 +89,18 @@ function resolveProviders(model: string, requestedMaxTokens?: number): ProviderA
       attempts.push({ name: 'mistral', model: MISTRAL.models.reasoning, outputCap: 32768 })
     }
 
-    // Camada 3: OpenRouter :free modernos (cada um com rate limit próprio)
+    // Camada 3: OpenRouter :free (rate limits independentes por upstream)
     if (process.env.OPENROUTER_API_KEY) {
-      // Gemini 2.5 Pro Exp :free — 65K out
-      attempts.push({ name: 'openrouter', model: OPENROUTER.models.reasoningFreeHuge, outputCap: 65536 })
-      // GLM 4.6 :free — 200K ctx, raciocínio SOTA, Z.AI
-      attempts.push({ name: 'openrouter', model: OPENROUTER.models.reasoningFreeGLM, outputCap: 32768 })
-      // NVIDIA Nemotron Super 49B :free — 32K out
-      attempts.push({ name: 'openrouter', model: OPENROUTER.models.reasoningFreeLong, outputCap: 32768 })
-      // Gemma 3 27B IT :free — Google, 128K ctx, 8K out
-      attempts.push({ name: 'openrouter', model: OPENROUTER.models.reasoningFreeGemma, outputCap: 8192 })
+      // GPT OSS 120B :free — OpenAI open-source, 131K out
+      attempts.push({ name: 'openrouter', model: OPENROUTER.models.reasoning, outputCap: 131072 })
+      // NVIDIA Nemotron 3 Super 120B :free — 262K out, MoE
+      attempts.push({ name: 'openrouter', model: OPENROUTER.models.reasoningFreeHuge, outputCap: 262144 })
+      // GLM 4.5 Air :free — 96K out, Z.AI
+      attempts.push({ name: 'openrouter', model: OPENROUTER.models.reasoningFreeGLM, outputCap: 96000 })
+      // Qwen3 Coder :free — 262K out, Alibaba
+      attempts.push({ name: 'openrouter', model: OPENROUTER.models.reasoningFreeLong, outputCap: 262000 })
+      // Gemma 4 31B :free — Google, 32K out
+      attempts.push({ name: 'openrouter', model: OPENROUTER.models.reasoningFreeGemma, outputCap: 32768 })
     }
 
     // Camada 3: diretos free tier (8K out)

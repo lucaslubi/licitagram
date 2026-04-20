@@ -166,26 +166,24 @@ export const OPENROUTER = {
   baseUrl: 'https://openrouter.ai/api/v1',
   envKey: 'OPENROUTER_API_KEY',
   /**
-   * Cascade de modelos :free modernos, priorizados por qualidade e
-   * capacidade de saída pra docs longos (ETP, TR, Edital, Parecer):
+   * Cascade de modelos :free atuais do OpenRouter (verificado 2026-04-20
+   * via GET /api/v1/models). Todos com rate limit independente por
+   * provedor upstream — diversificação máxima pra resiliência.
    *
-   *   reasoning             — Gemini 2.5 Flash Preview (paga, 65K out)
-   *   reasoningFreeHuge     — Gemini 2.5 Pro Exp :free (GRÁTIS 65K out, 1M ctx)
-   *   reasoningFreeGLM      — GLM 4.6 :free (GRÁTIS, 200K ctx, raciocínio top tier)
-   *   reasoningFreeGemma    — Gemma 3 27B IT :free (GRÁTIS, 128K ctx, Google)
-   *   reasoningFreeLong     — NVIDIA Nemotron Super 49B :free (GRÁTIS 32K out)
-   *   reasoningFallback     — Llama 3.3 70B :free (GRÁTIS, 8K out) — último recurso
+   *   reasoning             — gpt-oss-120b :free (GRÁTIS, 131K out, OpenAI open)
+   *   reasoningFreeHuge     — nemotron-3-super-120b :free (GRÁTIS, 262K out)
+   *   reasoningFreeGLM      — glm-4.5-air :free (GRÁTIS, 96K out, Z.AI)
+   *   reasoningFreeGemma    — gemma-4-31b :free (GRÁTIS, 32K out, Google)
+   *   reasoningFreeLong     — qwen3-coder :free (GRÁTIS, 262K out, raciocínio PT)
+   *   reasoningFallback     — llama-3.3-70b :free (último recurso)
    *   fast                  — idem reasoningFallback
-   *
-   * Diversificação proposital: cada :free tem rate limit próprio, então
-   * se um estoura, o próximo pega. Impossível ficar sem fallback.
    */
   models: {
-    reasoning: 'google/gemini-2.5-flash-preview-05-20',
-    reasoningFreeHuge: 'google/gemini-2.5-pro-exp-03-25:free',
-    reasoningFreeGLM: 'z-ai/glm-4.6:free',
-    reasoningFreeGemma: 'google/gemma-3-27b-it:free',
-    reasoningFreeLong: 'nvidia/llama-3.3-nemotron-super-49b-v1:free',
+    reasoning: 'openai/gpt-oss-120b:free',
+    reasoningFreeHuge: 'nvidia/nemotron-3-super-120b-a12b:free',
+    reasoningFreeGLM: 'z-ai/glm-4.5-air:free',
+    reasoningFreeGemma: 'google/gemma-4-31b-it:free',
+    reasoningFreeLong: 'qwen/qwen3-coder:free',
     reasoningFallback: 'meta-llama/llama-3.3-70b-instruct:free',
     fast: 'meta-llama/llama-3.3-70b-instruct:free',
   },
