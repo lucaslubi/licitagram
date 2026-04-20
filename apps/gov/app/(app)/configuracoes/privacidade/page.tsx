@@ -73,8 +73,8 @@ export default function PrivacidadePage() {
           </p>
           <p>
             <strong className="text-foreground">Compartilhamento:</strong> nenhum com terceiros fora dos sistemas
-            oficiais (PNCP, Compras.gov.br, Supabase como processador). Provedores de IA (Google Gemini) recebem
-            conteúdo dos artefatos em geração — não dados pessoais dos usuários.
+            oficiais (PNCP, Compras.gov.br, Supabase como processador). A LicitaGram AI processa conteúdo dos
+            artefatos em geração — sem armazenamento de dados pessoais dos usuários em provedores externos.
           </p>
         </CardContent>
       </Card>

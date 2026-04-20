@@ -153,7 +153,7 @@ export function RevisaoClient({ campanhaId, status, itemCount, compliance, saved
         <header className="flex items-center justify-between gap-2">
           <h2 className="flex items-center gap-2 text-base font-semibold">
             <Sparkles className="h-4 w-4 text-primary" />
-            Consolidação IA (Gemini 2.5 Pro)
+            Consolidação com LicitaGram AI
           </h2>
           <Button onClick={runConsolidation} disabled={streaming || itemCount === 0} variant={output ? 'outline' : 'default'}>
             {streaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
@@ -165,7 +165,7 @@ export function RevisaoClient({ campanhaId, status, itemCount, compliance, saved
           <AIStreamCard
             content={output}
             isStreaming={streaming}
-            modelId="gemini-2.5-pro"
+            modelId={undefined}
             label={streaming ? 'Consolidando...' : 'Consolidação gerada'}
           />
         ) : savedMarkdown ? null : (
@@ -179,7 +179,7 @@ export function RevisaoClient({ campanhaId, status, itemCount, compliance, saved
             </CardHeader>
             <CardContent>
               <p className="text-xs text-muted-foreground">
-                Leva ~20-40s. Gemini 2.5 Pro via Google AI.
+                Leva ~20-40s. Processado pela LicitaGram AI.
               </p>
             </CardContent>
           </Card>

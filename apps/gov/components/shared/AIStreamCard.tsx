@@ -9,6 +9,8 @@ interface Props {
   content: string
   isStreaming?: boolean
   label?: string
+  /** Model ID interno pra auditoria server-side — NÃO exibido no UI.
+   *  UI sempre mostra "LICITAGRAM AI" (branding institucional). */
   modelId?: string
   className?: string
 }
@@ -29,7 +31,7 @@ export function AIStreamCard({
   content,
   isStreaming = false,
   label = 'Gerando…',
-  modelId,
+  modelId: _modelId,
   className,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null)
@@ -59,11 +61,9 @@ export function AIStreamCard({
             {isStreaming ? label : 'Documento'}
           </span>
         </div>
-        {modelId && (
-          <span className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
-            {modelId}
-          </span>
-        )}
+        <span className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
+          LICITAGRAM AI
+        </span>
       </header>
       <div
         ref={ref}

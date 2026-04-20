@@ -179,7 +179,7 @@ export function ArtefatoViewer({
     <div className="space-y-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          {modelId && <span className="font-mono">{modelId}</span>}
+          <span className="font-mono uppercase tracking-wide">LICITAGRAM AI</span>
           {existingStatus !== 'pendente' && (
             <>
               <span>·</span>
@@ -261,7 +261,7 @@ export function ArtefatoViewer({
         <AIStreamCard
           content={output}
           isStreaming={streaming}
-          modelId={modelId ?? 'gemini-2.5'}
+          modelId={modelId ?? undefined}
           label={streaming ? 'Gerando…' : 'Artefato'}
         />
       ) : (

@@ -72,10 +72,10 @@ export function RiscosClient({ processoId, initialRiscos, artefatoStatus, modelI
     <div className="space-y-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          {modelId && <span className="font-mono">{modelId}</span>}
+          <span className="font-mono uppercase tracking-wide">LICITAGRAM AI</span>
           {artefatoStatus !== 'pendente' && (
             <>
-              {modelId && <span>·</span>}
+              <span>·</span>
               <span>
                 {artefatoStatus === 'aprovado' ? 'Aprovado' : 'Gerado — revisar'}
               </span>
@@ -98,7 +98,7 @@ export function RiscosClient({ processoId, initialRiscos, artefatoStatus, modelI
           </CardHeader>
           <CardContent>
             <p className="text-xs text-muted-foreground">
-              Típico: 6-12 riscos acionáveis. Gemini 2.5 Pro estrutura por fase com tratamento e mitigação sugeridos.
+              Típico: 6-12 riscos acionáveis. A LicitaGram AI estrutura por fase com tratamento e mitigação sugeridos.
             </p>
           </CardContent>
         </Card>

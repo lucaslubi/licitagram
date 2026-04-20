@@ -318,7 +318,7 @@ export default function LandingPage() {
                   {[
                     'Processos ilimitados durante o beta',
                     'Usuários ilimitados por órgão',
-                    'IA Gemini 2.5 Pro (Google) incluída',
+                    'LicitaGram AI proprietária incluída',
                     'Compliance Engine + audit log completo',
                     'Publicação PNCP via API oficial',
                   ].map((f) => (
