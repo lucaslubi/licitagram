@@ -92,8 +92,8 @@ AS $$
     SELECT
       c.*,
       c.sim_desc AS s_sim,
-      GREATEST(0, LEAST(1,
-        1 - GREATEST(0, EXTRACT(EPOCH FROM (CURRENT_DATE - c.data_referencia)) / 86400 - 180) / 900.0
+      GREATEST(0::NUMERIC, LEAST(1::NUMERIC,
+        1.0 - GREATEST(0, (CURRENT_DATE - c.data_referencia) - 180)::NUMERIC / 900.0
       )) AS s_temporal,
       CASE
         WHEN p_modalidade_preferida IS NULL THEN 0.5
