@@ -5,9 +5,8 @@ import { ArrowLeft, TrendingUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { getProcessoDetail } from '@/lib/processos/queries'
 import { listEstimativas } from '@/lib/precos/actions'
-import { PrecosClient } from './precos-client'
-import { PncpPrecosSection } from './pncp-section'
-import { PainelOficialSection } from './painel-oficial-section'
+import { CestaInteligenteSection } from './cesta-inteligente-section'
+import { EstimativasSalvasSection } from './estimativas-salvas-section'
 
 export const metadata: Metadata = { title: 'Pesquisa de Preços' }
 
@@ -26,26 +25,27 @@ export default async function PrecosPage({ params }: { params: { id: string } })
         </Button>
       </div>
       <header className="space-y-1.5">
-        <p className="font-mono text-xs uppercase tracking-wide text-primary">
+        <p className="font-mono text-xs uppercase tracking-wide text-accent">
           {processo.numeroInterno ?? '—'} · {processo.objeto.slice(0, 80)}{processo.objeto.length > 80 ? '…' : ''}
         </p>
         <h1 className="flex items-center gap-2 text-3xl font-semibold tracking-tight">
-          <TrendingUp className="h-7 w-7 text-primary" /> Pesquisa de Preços
+          <TrendingUp className="h-7 w-7 text-accent" /> Pesquisa de Preços
         </h1>
         <p className="text-sm text-muted-foreground">
-          Base legal: Lei 14.133/2021 art. 23 · IN 65/2021 · Acórdão 1.875/2021-TCU (cesta de preços).
+          Base legal: Lei 14.133/2021 art. 23 · IN SEGES 65/2021 · Acórdão TCU 1.875/2021 (cesta de preços).
         </p>
       </header>
 
-      <PainelOficialSection processoId={params.id} objeto={processo.objeto} />
-
-      <PncpPrecosSection processoId={params.id} objeto={processo.objeto} />
-
-      <PrecosClient
+      {/* Fluxo único: IA busca, ranqueia, gera narrativa e avança pro TR. */}
+      <CestaInteligenteSection
         processoId={params.id}
         objeto={processo.objeto}
-        estimativas={estimativas}
+        modalidadePreferida={processo.modalidade}
       />
+
+      {estimativas.length > 0 && (
+        <EstimativasSalvasSection processoId={params.id} estimativas={estimativas} />
+      )}
     </div>
   )
 }

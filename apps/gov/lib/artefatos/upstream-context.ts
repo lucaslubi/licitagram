@@ -14,20 +14,26 @@
 import { getArtefato } from '@/lib/processos/queries'
 import { listEstimativas, type EstimativaRow } from '@/lib/precos/actions'
 import { listRiscos, type Risco } from '@/lib/processos/queries'
+import { createClient } from '@/lib/supabase/server'
 import { logger } from '@/lib/logger'
 import type { ArtefatoTipo } from './prompts'
 
 /**
  * Ordem canônica de dependências. Cada artefato herda contexto dos
  * anteriores. Preços e Riscos não são markdown mas dados estruturados.
+ *
+ * cesta_narrativa: texto técnico-jurídico produzido na tela de preços
+ * (Fase 1 refactor 2026-04-20). Injetado em ETP, TR e Parecer pra que
+ * as alíneas VI (ETP) e I (TR) referenciem corretamente a metodologia
+ * sem a IA reinventar nada.
  */
-const UPSTREAM_DEPS: Record<ArtefatoTipo, Array<ArtefatoTipo | 'riscos_json' | 'precos_tabela'>> = {
+const UPSTREAM_DEPS: Record<ArtefatoTipo, Array<ArtefatoTipo | 'riscos_json' | 'precos_tabela' | 'cesta_narrativa'>> = {
   dfd: [],
   etp: ['dfd'],
   mapa_riscos: ['dfd', 'etp'],
-  tr: ['dfd', 'etp', 'riscos_json', 'precos_tabela'],
+  tr: ['dfd', 'etp', 'riscos_json', 'precos_tabela', 'cesta_narrativa'],
   edital: ['dfd', 'etp', 'tr'],
-  parecer: ['dfd', 'etp', 'riscos_json', 'tr', 'edital'],
+  parecer: ['dfd', 'etp', 'riscos_json', 'tr', 'edital', 'cesta_narrativa'],
 }
 
 const TIPO_LABEL: Record<string, string> = {
@@ -38,6 +44,7 @@ const TIPO_LABEL: Record<string, string> = {
   edital: 'Edital',
   parecer: 'Parecer Jurídico Referencial',
   riscos_json: 'Mapa de Riscos (dados estruturados)',
+  cesta_narrativa: 'Narrativa da Cesta de Preços (metodologia TCU 1.875)',
   precos_tabela: 'Pesquisa de Preços (cesta TCU)',
 }
 
@@ -126,7 +133,18 @@ export async function buildUpstreamContext(
   const blocks: string[] = []
   for (const dep of deps) {
     try {
-      if (dep === 'riscos_json') {
+      if (dep === 'cesta_narrativa') {
+        const supabase = createClient()
+        const { data, error } = await supabase.rpc('get_cestas_narrativas', { p_processo_id: processoId })
+        if (error) throw error
+        const narrativas = ((data ?? []) as Array<{ item_descricao: string; narrativa: string }>)
+          .filter((n) => n.narrativa && n.narrativa.trim().length > 20)
+          .map((n, i) => `### Item ${i + 1}: ${n.item_descricao}\n\n${n.narrativa}`)
+          .join('\n\n---\n\n')
+        if (narrativas) {
+          blocks.push(`## ${TIPO_LABEL[dep]}\n${narrativas}`)
+        }
+      } else if (dep === 'riscos_json') {
         const riscos = await listRiscos(processoId)
         const formatted = formatRiscosJson(riscos)
         if (formatted) {
