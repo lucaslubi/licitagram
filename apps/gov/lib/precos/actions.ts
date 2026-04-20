@@ -113,6 +113,44 @@ export interface EstimativaRow {
   calculadoEm: string
 }
 
+/**
+ * Finaliza a fase de pesquisa de preços e avança o processo pra "tr".
+ *
+ * Gap fechado 2026-04-20: antes disto, a cesta era salva mas a fase
+ * `precos` ficava travada — nenhum endpoint movia pra `tr` automaticamente.
+ * Quem chama: botão "Finalizar pesquisa → elaborar TR" no precos-client.
+ */
+export async function finalizarPesquisaPrecosAction(
+  processoId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const supabase = createClient()
+  // Validação: precisa ter ao menos 1 estimativa finalizada pra avançar.
+  const { data: estimativas, error: estErr } = await supabase.rpc('get_precos_estimativa', {
+    p_processo_id: processoId,
+  })
+  if (estErr) {
+    logger.error({ err: estErr.message }, 'get_precos_estimativa failed on finalizar')
+    return { ok: false, error: estErr.message }
+  }
+  if (!estimativas || (estimativas as unknown[]).length === 0) {
+    return {
+      ok: false,
+      error: 'Adicione ao menos um item com cesta de preços (≥3 fontes) antes de avançar pra elaboração do TR.',
+    }
+  }
+  const { error } = await supabase.rpc('set_processo_fase', {
+    p_processo_id: processoId,
+    p_fase: 'tr',
+  })
+  if (error) {
+    logger.error({ err: error.message }, 'set_processo_fase → tr failed')
+    return { ok: false, error: error.message }
+  }
+  revalidatePath(`/processos/${processoId}`)
+  revalidatePath(`/processos/${processoId}/precos`)
+  return { ok: true }
+}
+
 export async function listEstimativas(processoId: string): Promise<EstimativaRow[]> {
   const supabase = createClient()
   const { data, error } = await supabase.rpc('get_precos_estimativa', { p_processo_id: processoId })

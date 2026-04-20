@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getCurrentProfile } from '@/lib/auth/profile'
 import { getProcessoDetail } from '@/lib/processos/queries'
 import { PROMPTS, stripMarkdownChrome, type ArtefatoTipo } from '@/lib/artefatos/prompts'
+import { buildUpstreamContext } from '@/lib/artefatos/upstream-context'
 import { logger } from '@/lib/logger'
 import { friendlyAIError } from '@/lib/ai/error-message'
 import { searchPrecosPncp, getPrecoStats } from '@/lib/precos/pncp-engine'
@@ -124,7 +125,26 @@ via pesquisa de preços detalhada".`
     }
   }
 
-  const systemWithContext = [spec.system, ragContext, precosContext]
+  // Upstream artefatos: DFD→ETP, DFD+ETP→Riscos, tudo→TR etc. Sem isto,
+  // cada artefato gera em vácuo e contradiz os anteriores. Falha é
+  // não-fatal — prossegue sem contexto se buscar deu ruim.
+  let upstreamContext = ''
+  try {
+    upstreamContext = await buildUpstreamContext(body.processoId, body.tipo as ArtefatoTipo)
+    if (upstreamContext) {
+      logger.info(
+        { processoId: body.processoId, tipo: body.tipo, upstreamChars: upstreamContext.length },
+        'upstream artefato context attached',
+      )
+    }
+  } catch (e) {
+    logger.warn(
+      { err: e instanceof Error ? e.message : String(e) },
+      'upstream context build failed — proceeding vanilla',
+    )
+  }
+
+  const systemWithContext = [spec.system, upstreamContext, ragContext, precosContext]
     .filter(Boolean)
     .join('\n\n')
 

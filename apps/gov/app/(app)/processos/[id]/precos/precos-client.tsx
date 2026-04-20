@@ -12,9 +12,11 @@ import { Label } from '@/components/ui/label'
 import {
   searchHistoricoPrecos,
   saveCestaAction,
+  finalizarPesquisaPrecosAction,
   type HistoricoMatch,
   type EstimativaRow,
 } from '@/lib/precos/actions'
+import { ArrowRight } from 'lucide-react'
 
 interface Props {
   processoId: string
@@ -45,9 +47,22 @@ export function PrecosClient({ processoId, objeto, estimativas }: Props) {
   const [results, setResults] = useState<HistoricoMatch[] | null>(null)
   const [searching, startSearch] = useTransition()
   const [saving, startSave] = useTransition()
+  const [advancing, startAdvance] = useTransition()
   const [sources, setSources] = useState<SelectedSource[]>([])
   const [metodo, setMetodo] = useState<'media' | 'mediana' | 'menor'>('mediana')
   const [itemLabel, setItemLabel] = useState(objeto.slice(0, 200))
+
+  const advanceToTr = () => {
+    startAdvance(async () => {
+      const res = await finalizarPesquisaPrecosAction(processoId)
+      if (!res.ok) {
+        toast.error(res.error)
+        return
+      }
+      toast.success('Pesquisa de preços finalizada. Avançando para elaboração do TR.')
+      router.push(`/processos/${processoId}/tr`)
+    })
+  }
 
   const runSearch = () => {
     startSearch(async () => {
@@ -157,6 +172,18 @@ export function PrecosClient({ processoId, objeto, estimativas }: Props) {
                 </div>
               </div>
             ))}
+            <div className="mt-2 flex items-center justify-between rounded-lg border border-accent/30 bg-accent/5 p-4">
+              <div>
+                <p className="text-sm font-medium">Pesquisa de preços concluída?</p>
+                <p className="text-xs text-muted-foreground">
+                  Avance para elaboração do Termo de Referência — o TR herdará estas estimativas na alínea I.
+                </p>
+              </div>
+              <Button onClick={advanceToTr} disabled={advancing} variant="gradient">
+                {advancing ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                Elaborar TR
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
