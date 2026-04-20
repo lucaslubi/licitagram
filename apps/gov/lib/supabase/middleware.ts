@@ -26,6 +26,9 @@ const ONBOARDING_PATHS = new Set(['/onboarding', '/mfa'])
 function isPublicPath(pathname: string): boolean {
   if (PUBLIC_PATHS.has(pathname)) return true
   if (pathname.startsWith('/api/auth/')) return true
+  // /api/ai/health é público: retorna status dos providers (ok/rate_limit/
+  // unauthorized/error) sem expor valores de chave. Útil pra diagnóstico.
+  if (pathname === '/api/ai/health') return true
   if (pathname.startsWith('/_next/')) return true
   if (pathname === '/favicon.ico') return true
   // `/s/[token]` is the public campanha landing — acessível sem auth nem
