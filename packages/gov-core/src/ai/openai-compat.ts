@@ -197,14 +197,29 @@ export const OPENROUTER = {
 
 /**
  * DeepSeek — modelo open-source top com context 64K e output 8K estável.
- * Mais parrudo que llama-3.3-70b em raciocínio jurídico. Baratíssimo
- * (pago mas $0.14/MTok input, $0.28/MTok output).
+ * Pago ($0.14/$0.28 MTok). Opt-in via DEEPSEEK_ENABLED=true.
  */
 export const DEEPSEEK = {
   baseUrl: 'https://api.deepseek.com/v1',
   envKey: 'DEEPSEEK_API_KEY',
   models: {
-    reasoning: 'deepseek-chat', // V3 general
+    reasoning: 'deepseek-chat',
     fast: 'deepseek-chat',
+  },
+} as const
+
+/**
+ * Mistral AI La Plateforme — free tier generoso (1B tokens/mês).
+ * Mistral Small 3.1 (24B) open-weights, 128K ctx, excelente PT.
+ * Endpoint OpenAI-compat em api.mistral.ai/v1.
+ *
+ * Obter chave: https://console.mistral.ai/api-keys
+ */
+export const MISTRAL = {
+  baseUrl: 'https://api.mistral.ai/v1',
+  envKey: 'MISTRAL_API_KEY',
+  models: {
+    reasoning: 'mistral-small-latest', // 24B, 128K ctx, free tier
+    fast: 'mistral-small-latest',
   },
 } as const

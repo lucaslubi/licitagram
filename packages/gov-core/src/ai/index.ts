@@ -8,6 +8,7 @@ import {
   OPENROUTER,
   DEEPSEEK,
   GEMINI_COMPAT,
+  MISTRAL,
 } from './openai-compat'
 
 export { CLAUDE_MODELS, getClaude, streamMessage } from './claude'
@@ -44,7 +45,7 @@ export interface StreamTextOptions {
  * identificador de cada provider. Retorna lista em ordem de prioridade.
  */
 interface ProviderAttempt {
-  name: 'groq' | 'cerebras' | 'openrouter' | 'gemini' | 'gemini_compat' | 'claude' | 'deepseek'
+  name: 'groq' | 'cerebras' | 'openrouter' | 'gemini' | 'gemini_compat' | 'claude' | 'deepseek' | 'mistral'
   model: string
   /** Max de output tokens que o provider suporta — usado pra clamp no tryProvider. */
   outputCap: number
@@ -82,7 +83,13 @@ function resolveProviders(model: string, requestedMaxTokens?: number): ProviderA
       attempts.push({ name: 'gemini_compat', model: GEMINI_COMPAT.models.reasoning, outputCap: 65536 })
     }
 
-    // Camada 2: OpenRouter :free modernos (cada um com rate limit próprio)
+    // Camada 2: Mistral La Plateforme — free tier 1B tokens/mês (gigante).
+    // Mistral Small 3.1 open-weights, 128K ctx. Excelente em PT-BR.
+    if (process.env.MISTRAL_API_KEY) {
+      attempts.push({ name: 'mistral', model: MISTRAL.models.reasoning, outputCap: 32768 })
+    }
+
+    // Camada 3: OpenRouter :free modernos (cada um com rate limit próprio)
     if (process.env.OPENROUTER_API_KEY) {
       // Gemini 2.5 Pro Exp :free — 65K out
       attempts.push({ name: 'openrouter', model: OPENROUTER.models.reasoningFreeHuge, outputCap: 65536 })
@@ -185,6 +192,18 @@ async function* tryProvider(
     yield* streamOpenAICompat({
       baseUrl: DEEPSEEK.baseUrl,
       apiKey: process.env.DEEPSEEK_API_KEY!,
+      model: p.model,
+      system: opts.system,
+      userMessage: opts.userMessage,
+      maxTokens: Math.min(opts.maxTokens ?? p.outputCap, p.outputCap),
+      temperature: opts.temperature,
+    })
+    return
+  }
+  if (p.name === 'mistral') {
+    yield* streamOpenAICompat({
+      baseUrl: MISTRAL.baseUrl,
+      apiKey: process.env.MISTRAL_API_KEY!,
       model: p.model,
       system: opts.system,
       userMessage: opts.userMessage,
@@ -337,6 +356,7 @@ export async function* streamText(opts: StreamTextOptions): AsyncGenerator<strin
 export function activeProviders(): string[] {
   const out: string[] = []
   if (process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY) out.push('gemini')
+  if (process.env.MISTRAL_API_KEY) out.push('mistral')
   if (process.env.OPENROUTER_API_KEY) out.push('openrouter')
   if (process.env.DEEPSEEK_API_KEY) out.push('deepseek')
   if (process.env.CEREBRAS_API_KEY) out.push('cerebras')

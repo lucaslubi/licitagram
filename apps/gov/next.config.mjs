@@ -33,6 +33,7 @@ const nextConfig = {
         'https://api.deepseek.com',
         'https://api.cerebras.ai',
         'https://api.groq.com',
+        'https://api.mistral.ai',
         'https://api.anthropic.com',
         'https://brasilapi.com.br',
         'https://receitaws.com.br',
