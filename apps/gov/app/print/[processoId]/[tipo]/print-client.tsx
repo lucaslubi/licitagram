@@ -21,17 +21,34 @@ interface Meta {
 
 interface Props {
   title: string
+  /**
+   * Nome descritivo usado pelo browser como filename default do PDF
+   * ("Save as PDF"). Override document.title → override filename sugerido.
+   * Formato: "ETP - Objeto truncado - Proc 2026-001".
+   */
+  filenameTitle: string
   content: string
   status: string
   meta: Meta
 }
 
-export function PrintClient({ title, content, status, meta }: Props) {
+export function PrintClient({ title, filenameTitle, content, status, meta }: Props) {
   useEffect(() => {
+    // Override document.title DINAMICAMENTE antes de chamar print — é o
+    // que o Chrome/Safari/Firefox usam como sugestão de filename no
+    // diálogo "Save as PDF". A metadata do Next seta o title mas o
+    // template "%s · LicitaGram Gov" do root layout poluiria o PDF.
+    // Aqui pegamos controle direto e limpamos o sufixo institucional.
+    const prevTitle = document.title
+    document.title = filenameTitle
+
     // Auto-dispara print dialog após render completo
     const t = setTimeout(() => window.print(), 400)
-    return () => clearTimeout(t)
-  }, [])
+    return () => {
+      clearTimeout(t)
+      document.title = prevTitle
+    }
+  }, [filenameTitle])
 
   return (
     <div className="print-root">
