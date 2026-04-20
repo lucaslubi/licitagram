@@ -10,9 +10,9 @@
  * officers who sign under Lei 14.133. Gravitas, not flair.
  *
  * Rules:
- *   - No gradient CTAs. Solid colors with crisp borders.
+ *   - No gradient CTAs. Solid accent azure with crisp borders.
  *   - No shimmer, no glow, no glassmorphism. Editorial restraint.
- *   - Warm neutrals, not cold blue. Amber accent for critical actions.
+ *   - Warm near-black background, refined azure accent (NOT Tailwind blue).
  *   - Serif display for institutional headings. Plex Sans for body.
  *   - Tabular nums on every R$ or code.
  *   - Hairlines (0.5px effective) as editorial dividers.
@@ -50,10 +50,12 @@
     --secondary: 222 10% 12%;
     --secondary-foreground: 40 12% 93%;
 
-    /* ─── Accent — institutional amber (AGU seal) ────────────────────────── */
-    /* Only for CTAs, highlights, TCU compliance emblems. Never decorative. */
-    --accent: 38 55% 59%;
-    --accent-foreground: 220 20% 6%;
+    /* ─── Accent — institutional azure (refined Prussian) ────────────────── */
+    /* Deep azure com brilho controlado — distinto do azul 217 clichê do
+     * Tailwind, harmonia com o background warm 220 e foreground ivory.
+     * Só pra CTAs, links, live indicators, ring de foco. Nunca decorativo. */
+    --accent: 209 76% 58%;
+    --accent-foreground: 40 12% 97%;
 
     /* ─── Semantic — WSJ editorial palette ───────────────────────────────── */
     /* Compliance OK: deep emerald (not bright green) */
@@ -75,7 +77,7 @@
     /* ─── Borders — hairline editorial ───────────────────────────────────── */
     --border: 222 12% 14%;
     --input: 222 14% 14%;
-    --ring: 38 55% 59%;                /* amber ring on focus — confident */
+    --ring: 209 76% 58%;                /* azure ring on focus — confident */
 
     /* ─── Surfaces (derived) ─────────────────────────────────────────────── */
     --surface-dark: 222 12% 7%;
@@ -153,13 +155,13 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* Selection — amber institutional */
+  /* Selection — institutional azure */
   ::selection {
-    background-color: hsl(38 55% 59% / 0.3);
+    background-color: hsl(209 76% 58% / 0.3);
     color: hsl(40 12% 97%);
   }
 
-  /* Focus ring — crisp amber, not faded blue */
+  /* Focus ring — crisp azure, refined */
   :focus-visible {
     outline: 2px solid hsl(var(--ring));
     outline-offset: 2px;

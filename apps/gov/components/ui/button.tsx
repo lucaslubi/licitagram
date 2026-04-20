@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
  * Button — institutional editorial
  *
  * Changes vs. earlier version:
- *   - `gradient` variant renamed semantically: now a solid amber CTA (accent),
+ *   - `gradient` variant renamed semantically: now a solid azure CTA (accent),
  *     the institutional action color. Kept className so callers don't break.
  *   - Outline variant: hairline border + card bg, not glass.
  *   - Default: tighter radius (sm), smaller height (h-9), tracked typography.
@@ -28,7 +28,7 @@ const buttonVariants = cva(
         default:
           'bg-primary text-primary-foreground border border-primary/40 hover:bg-primary/90',
         /**
-         * Institutional amber CTA — the "approve", "generate AI", "publish"
+         * Institutional azure CTA — the "approve", "generate AI", "publish"
          * button. Solid color. No gradient. Clear ring on focus.
          */
         gradient:
