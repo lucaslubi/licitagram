@@ -184,6 +184,92 @@ export async function addMultiplePainelToCesta(
   return { added, errors }
 }
 
+// ─── UASG + Órgãos Oficiais (SIASG/SIORG) ─────────────────────────────────
+
+export interface UasgRow {
+  codigo: string
+  nome: string
+  cnpj: string | null
+  orgaoCnpj: string | null
+  orgaoNome: string | null
+  orgaoSuperiorNome: string | null
+  uf: string | null
+  municipio: string | null
+  usoSisg: boolean
+  similaridade: number
+}
+
+export async function buscarUasg(params: {
+  query?: string | null
+  codigo?: string | null
+  orgaoCnpj?: string | null
+  uf?: string | null
+  limit?: number
+}): Promise<UasgRow[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase.rpc('buscar_uasg', {
+    p_query: params.query ?? null,
+    p_codigo: params.codigo ?? null,
+    p_orgao_cnpj: params.orgaoCnpj ?? null,
+    p_uf: params.uf ?? null,
+    p_limit: params.limit ?? 30,
+  })
+  if (error) return []
+  return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+    codigo: r.codigo as string,
+    nome: r.nome as string,
+    cnpj: (r.cnpj as string | null) ?? null,
+    orgaoCnpj: (r.orgao_cnpj as string | null) ?? null,
+    orgaoNome: (r.orgao_nome as string | null) ?? null,
+    orgaoSuperiorNome: (r.orgao_superior_nome as string | null) ?? null,
+    uf: (r.uf as string | null) ?? null,
+    municipio: (r.municipio as string | null) ?? null,
+    usoSisg: Boolean(r.uso_sisg),
+    similaridade: Number(r.similaridade ?? 0),
+  }))
+}
+
+export interface OrgaoOficialRow {
+  cnpj: string
+  razaoSocial: string
+  sigla: string | null
+  esfera: string | null
+  poder: string | null
+  orgaoSuperiorNome: string | null
+  uf: string | null
+  municipio: string | null
+  similaridade: number
+}
+
+export async function buscarOrgaoOficial(params: {
+  query?: string | null
+  cnpj?: string | null
+  esfera?: string | null
+  uf?: string | null
+  limit?: number
+}): Promise<OrgaoOficialRow[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase.rpc('buscar_orgao_oficial', {
+    p_query: params.query ?? null,
+    p_cnpj: params.cnpj ?? null,
+    p_esfera: params.esfera ?? null,
+    p_uf: params.uf ?? null,
+    p_limit: params.limit ?? 30,
+  })
+  if (error) return []
+  return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+    cnpj: r.cnpj as string,
+    razaoSocial: r.razao_social as string,
+    sigla: (r.sigla as string | null) ?? null,
+    esfera: (r.esfera as string | null) ?? null,
+    poder: (r.poder as string | null) ?? null,
+    orgaoSuperiorNome: (r.orgao_superior_nome as string | null) ?? null,
+    uf: (r.uf as string | null) ?? null,
+    municipio: (r.municipio as string | null) ?? null,
+    similaridade: Number(r.similaridade ?? 0),
+  }))
+}
+
 export async function verificarSancao(cnpj: string): Promise<{
   temSancaoVigente: boolean
   total: number

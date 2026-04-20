@@ -208,21 +208,131 @@ async function syncCatser(): Promise<number> {
 }
 
 // ─── UASG + Órgão ────────────────────────────────────────────────────────
+// Endpoint oficial: /modulo-uasg/1_consultarUasg (exige ?statusUasg=true).
+// Órgão não tem endpoint próprio — derivamos agrupando UASGs pelo cnpjCpfOrgao.
 interface RawUasg {
-  codigoUasg?: number
+  codigoUasg?: string
   nomeUasg?: string
   siglaUf?: string
-  municipioIbge?: number
-  cnpj?: string
-  orgaoSuperiorCnpj?: string
-  orgaoVinculadoCnpj?: string
+  codigoMunicipioIbge?: number
+  nomeMunicipioIbge?: string
+  cnpjCpfUasg?: string
+  codigoOrgao?: number
+  cnpjCpfOrgao?: string
+  cnpjCpfOrgaoVinculado?: string
+  cnpjCpfOrgaoSuperior?: string
+  nomeUnidadePolo?: string
+  codigoSiorg?: string
   usoSisg?: boolean
   statusUasg?: boolean
 }
 
+function normalizeCnpj(raw: string | null | undefined): string | null {
+  if (!raw) return null
+  const digits = raw.replace(/\D/g, '')
+  if (digits.length < 8 || digits === '0') return null
+  return digits.padStart(14, '0').slice(-14)
+}
+
 async function syncUasg(): Promise<number> {
-  console.log('→ UASG (tabela licitagov.uasg_oficial ainda não existe — skip)')
-  return 0
+  console.log('→ UASG + Órgãos (derivados)')
+  const now = new Date().toISOString()
+  const orgaosMap = new Map<string, Record<string, unknown>>() // cnpj → row
+
+  const total = await paginateBatch<RawUasg, Record<string, unknown>>(
+    (p) =>
+      `${API_BASE}/modulo-uasg/1_consultarUasg?statusUasg=true&pagina=${p}&tamanhoPagina=${PAGE_SIZE}`,
+    (u) => {
+      const codigo = u.codigoUasg ? String(u.codigoUasg).trim() : null
+      if (!codigo) return null
+      const nome = u.nomeUasg?.trim() ?? ''
+      const orgaoCnpj = normalizeCnpj(u.cnpjCpfOrgao)
+      const orgaoSuperiorCnpj = normalizeCnpj(u.cnpjCpfOrgaoSuperior)
+      const orgaoNome = u.nomeUnidadePolo?.trim() ?? null
+
+      // deriva cadastro de órgão único (dedup por cnpj)
+      if (orgaoCnpj && !orgaosMap.has(orgaoCnpj)) {
+        orgaosMap.set(orgaoCnpj, {
+          cnpj: orgaoCnpj,
+          razao_social: orgaoNome ?? nome,
+          nome_resumido: orgaoNome,
+          sigla: null,
+          esfera: null,
+          poder: null,
+          orgao_superior_cnpj: orgaoSuperiorCnpj,
+          orgao_superior_nome: null,
+          uf: u.siglaUf ?? null,
+          municipio: u.nomeMunicipioIbge ?? null,
+          municipio_ibge: u.codigoMunicipioIbge ? String(u.codigoMunicipioIbge) : null,
+          codigo_siorg: u.codigoSiorg || null,
+          ativo: true,
+          metadados: { codigo_orgao: u.codigoOrgao },
+          hash_conteudo: sha256({ cnpj: orgaoCnpj, orgaoNome }),
+          data_verificacao: now,
+        })
+      }
+
+      return {
+        codigo,
+        nome,
+        nome_resumido: nome,
+        cnpj: normalizeCnpj(u.cnpjCpfUasg),
+        orgao_cnpj: orgaoCnpj,
+        orgao_nome: orgaoNome,
+        orgao_superior_cnpj: orgaoSuperiorCnpj,
+        orgao_superior_nome: null,
+        uf: u.siglaUf ?? null,
+        municipio: u.nomeMunicipioIbge ?? null,
+        municipio_ibge: u.codigoMunicipioIbge ? String(u.codigoMunicipioIbge) : null,
+        uso_sisg: Boolean(u.usoSisg),
+        ativo: u.statusUasg !== false,
+        metadados: { codigo_orgao: u.codigoOrgao, codigo_siorg: u.codigoSiorg },
+        hash_conteudo: sha256({ codigo, nome, orgaoCnpj }),
+        data_verificacao: now,
+      }
+    },
+    async (batch) => {
+      await supabase
+        .schema('licitagov' as never)
+        .from('uasg_oficial')
+        .upsert(batch as never, { onConflict: 'codigo' })
+    },
+    'uasg',
+  )
+
+  // Persiste órgãos únicos derivados
+  if (orgaosMap.size > 0 && !DRY_RUN) {
+    const orgaos = Array.from(orgaosMap.values())
+    const chunks: Array<Record<string, unknown>[]> = []
+    const CHUNK = 500
+    for (let i = 0; i < orgaos.length; i += CHUNK) chunks.push(orgaos.slice(i, i + CHUNK))
+    let oTotal = 0
+    for (const chunk of chunks) {
+      try {
+        await supabase
+          .schema('licitagov' as never)
+          .from('orgaos_oficiais')
+          .upsert(chunk as never, { onConflict: 'cnpj' })
+        oTotal += chunk.length
+        process.stdout.write(`  orgaos derivados +${chunk.length} total=${oTotal}/${orgaos.length}\r`)
+      } catch (e) {
+        console.warn(`  batch orgaos falhou: ${e instanceof Error ? e.message : String(e)}`)
+      }
+    }
+    process.stdout.write('\n')
+  }
+
+  // Enrichment opcional: propaga uasg_nome + orgao_nome no painel já ingerido
+  if (!DRY_RUN) {
+    try {
+      const { data: enriched } = await supabase.rpc('enrich_painel_with_uasg' as never)
+      if (enriched != null) console.log(`  ✓ painel enriquecido: ${enriched} rows`)
+    } catch {
+      /* função em schema licitagov, talvez não exposta — ignora */
+    }
+  }
+
+  return total
 }
 
 // ─── Fornecedores (por CNAE) ─────────────────────────────────────────────
