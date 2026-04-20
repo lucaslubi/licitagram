@@ -96,7 +96,9 @@ function resolveProviders(model: string, requestedMaxTokens?: number): ProviderA
     }
 
     // ─── Camada 4: provedores diretos 8K (truncam mas rápidos) ────────
-    if (process.env.DEEPSEEK_API_KEY) {
+    // DeepSeek é PAGO — só habilita se explicitamente flagged em DEEPSEEK_ENABLED.
+    // Conta zerada retornaria 402 Insufficient Balance em toda request.
+    if (process.env.DEEPSEEK_API_KEY && process.env.DEEPSEEK_ENABLED === 'true') {
       attempts.push({ name: 'deepseek', model: DEEPSEEK.models.reasoning, outputCap: 8192 })
     }
     if (process.env.CEREBRAS_API_KEY) {
@@ -232,10 +234,16 @@ async function* tryProvider(
  * o erro final de "Todos providers falharam" dá contexto completo.
  */
 function isTransientError(msg: string): boolean {
-  // HTTP codes no prefix (openai-compat joga "HTTP 429..." / "HTTP 503...")
-  if (/HTTP (401|403|408|409|425|429|5\d\d)\b/.test(msg)) return true
-  // Keywords de SDK Gemini/Claude + auth-related
-  return /timeout|deadline|quota|resource[_ ]?exhausted|rate[_ ]?limit|overloaded|fetch failed|ECONN|network|unavailable|api[_ ]?key|unauthorized|forbidden|authentication|permission[_ ]?denied/i.test(
+  // HTTP codes retryable:
+  //   401/403 — auth, pula provider
+  //   402     — payment required (DeepSeek/OpenRouter sem saldo)
+  //   408     — request timeout
+  //   409/425 — conflict/too-early
+  //   429     — rate limit
+  //   5xx     — server errors
+  if (/HTTP (401|402|403|408|409|425|429|5\d\d)\b/.test(msg)) return true
+  // Keywords (SDK-level, sem HTTP prefix)
+  return /timeout|deadline|quota|resource[_ ]?exhausted|rate[_ ]?limit|overloaded|fetch failed|ECONN|network|unavailable|api[_ ]?key|unauthorized|forbidden|authentication|permission[_ ]?denied|insufficient[_ ]?balance|payment[_ ]?required|billing|credits?\s*exhausted/i.test(
     msg,
   )
 }
