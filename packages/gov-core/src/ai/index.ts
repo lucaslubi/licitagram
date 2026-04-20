@@ -65,9 +65,11 @@ function resolveProviders(model: string, requestedMaxTokens?: number): ProviderA
   //   5. Groq llama-3.3-70b                   — 8K output, free 30rpm
   //   6. OpenRouter llama-3.3 free            — 8K output, rede lenta
   //
-  // Se `requestedMaxTokens` > 8192, filtramos providers de cap baixo pra
-  // não gerar truncation garantida.
-  const needsLongOutput = (requestedMaxTokens ?? 0) > 8192
+  // Obs: o parâmetro requestedMaxTokens ficou reservado pra uso futuro
+  // (ex.: priorizar só providers 65K quando user pedir explicitamente).
+  // Hoje não filtramos — preferimos ter fallback completo pra resiliência
+  // em rate-limit.
+  void requestedMaxTokens
 
   if (m.startsWith('llama') || m.startsWith('qwen') || m.startsWith('deepseek') || m.startsWith('mixtral')) {
     // Gemini via endpoint OpenAI-compat (mesma auth do B2B — resolve 401
@@ -78,16 +80,19 @@ function resolveProviders(model: string, requestedMaxTokens?: number): ProviderA
     if (process.env.OPENROUTER_API_KEY) {
       attempts.push({ name: 'openrouter', model: OPENROUTER.models.reasoning, outputCap: 65536 })
     }
-    if (!needsLongOutput && process.env.DEEPSEEK_API_KEY) {
+    // Providers 8K como fallback SEMPRE — em caso de rate limit dos
+    // primários (Gemini/OpenRouter), um doc truncado de 8K é muito melhor
+    // que falha total. Smart retry em streamText decide se mantém.
+    if (process.env.DEEPSEEK_API_KEY) {
       attempts.push({ name: 'deepseek', model: DEEPSEEK.models.reasoning, outputCap: 8192 })
     }
-    if (!needsLongOutput && process.env.CEREBRAS_API_KEY) {
+    if (process.env.CEREBRAS_API_KEY) {
       attempts.push({ name: 'cerebras', model: CEREBRAS.models.reasoning, outputCap: 8192 })
     }
-    if (!needsLongOutput && process.env.GROQ_API_KEY) {
+    if (process.env.GROQ_API_KEY) {
       attempts.push({ name: 'groq', model: GROQ.models.reasoning, outputCap: 8192 })
     }
-    if (!needsLongOutput && process.env.OPENROUTER_API_KEY) {
+    if (process.env.OPENROUTER_API_KEY) {
       attempts.push({ name: 'openrouter', model: OPENROUTER.models.reasoningFallback, outputCap: 8192 })
     }
     return attempts

@@ -44,8 +44,14 @@ export async function* streamOpenAICompat(opts: OpenAICompatOptions): AsyncGener
 
   if (!res.ok) {
     const body = await res.text().catch(() => '')
-    // Anexa status HTTP na mensagem pra o fallback detectar transient errors
-    // sem depender de substring fragile no corpo.
+    // 429: respeita Retry-After. Anexa ao erro pra UI mostrar wait real.
+    if (res.status === 429) {
+      const retryAfter = res.headers.get('retry-after') ?? res.headers.get('x-ratelimit-reset-requests')
+      const waitSec = retryAfter && /^\d+$/.test(retryAfter) ? Number(retryAfter) : null
+      throw new Error(
+        `HTTP 429 ${opts.baseUrl}: rate limit${waitSec ? ` (retry em ${waitSec}s)` : ''}. ${body.slice(0, 200)}`,
+      )
+    }
     throw new Error(`HTTP ${res.status} ${opts.baseUrl}: ${body.slice(0, 300)}`)
   }
   if (!res.body) throw new Error('Sem stream')
