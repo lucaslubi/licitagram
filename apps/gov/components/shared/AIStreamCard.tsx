@@ -5,57 +5,85 @@ import { Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface Props {
-  /** Markdown text being streamed in. Re-renders progressively as it grows. */
+  /** Markdown/text being streamed. Re-renders progressively as it grows. */
   content: string
-  /** When true, shows the pulsing cursor at the end. */
   isStreaming?: boolean
-  /** Header label shown above the stream. */
   label?: string
-  /** Optional model id for transparency (Opus 4.7 / Haiku 4.5). */
   modelId?: string
   className?: string
 }
 
 /**
- * Displays an LLM completion as it streams in. Auto-scrolls to bottom while
- * streaming. Markdown rendering can be added once we wire react-markdown — for
- * Phase 1 we just render text content with whitespace preserved (sufficient
- * for ETP/TR drafts which are markdown to begin with).
+ * AIStreamCard — institutional editorial.
+ *
+ * Doc gerado pela IA é apresentado com linguagem visual de memorando
+ * oficial:
+ *   - Double-rule top (.document-surface) como letterhead da AGU/CJU
+ *   - Serifa Newsreader no corpo (.prose-document)
+ *   - Bandeira discreta no topo com model ID + live indicator
+ *   - Cursor pulse discreto (não flashy)
+ *   - Sem bordas chamativas, sem scroll interno pequeno — o doc é lido
+ *     de ponta a ponta como um artefato real
  */
-export function AIStreamCard({ content, isStreaming = false, label = 'IA gerando…', modelId, className }: Props) {
-  const ref = useRef<HTMLPreElement>(null)
+export function AIStreamCard({
+  content,
+  isStreaming = false,
+  label = 'Gerando…',
+  modelId,
+  className,
+}: Props) {
+  const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    // Auto-scroll sutil pro fim conforme stream chega, só se estiver streaming
     if (isStreaming && ref.current) {
-      ref.current.scrollTop = ref.current.scrollHeight
+      const el = ref.current
+      const nearBottom =
+        el.scrollTop + el.clientHeight >= el.scrollHeight - 120
+      if (nearBottom) el.scrollTop = el.scrollHeight
     }
   }, [content, isStreaming])
 
   return (
-    <div className={cn('rounded-2xl border border-border bg-card', className)}>
-      <header className="flex items-center justify-between border-b border-border px-4 py-3">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <Sparkles className={cn('h-4 w-4 text-primary', isStreaming && 'animate-pulse')} aria-hidden />
-          <span>{label}</span>
+    <div className={cn('document-surface bg-card', className)}>
+      <header className="flex items-center justify-between border-b border-border px-6 pb-3 pt-5">
+        <div className="flex items-center gap-2">
+          <span
+            className={cn(
+              'inline-block h-1.5 w-1.5 rounded-full bg-accent',
+              isStreaming && 'animate-dot-pulse',
+            )}
+            aria-hidden
+          />
+          <span className="label-institutional">
+            {isStreaming ? label : 'Documento'}
+          </span>
         </div>
         {modelId && (
-          <code className="font-mono text-[11px] uppercase tracking-wide text-muted-foreground">{modelId}</code>
+          <span className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
+            {modelId}
+          </span>
         )}
       </header>
-      <pre
+      <div
         ref={ref}
-        className="max-h-[60vh] overflow-y-auto whitespace-pre-wrap break-words p-4 font-sans text-sm leading-relaxed text-foreground"
+        className="prose-document mx-auto max-h-[70vh] w-full max-w-[72ch] overflow-y-auto whitespace-pre-wrap break-words px-6 py-6"
         aria-live="polite"
         aria-busy={isStreaming}
       >
-        {content}
+        {content || (
+          <p className="italic text-muted-foreground">
+            <Sparkles className="mr-1.5 inline-block h-3.5 w-3.5 text-accent" aria-hidden />
+            Aguardando geração…
+          </p>
+        )}
         {isStreaming && (
           <span
-            className="ml-0.5 inline-block h-4 w-1.5 translate-y-0.5 animate-pulse bg-primary align-middle"
+            className="ml-0.5 inline-block h-4 w-[3px] translate-y-0.5 animate-dot-pulse bg-accent align-middle"
             aria-hidden
           />
         )}
-      </pre>
+      </div>
     </div>
   )
 }

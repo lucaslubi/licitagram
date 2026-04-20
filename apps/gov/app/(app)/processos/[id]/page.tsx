@@ -43,7 +43,7 @@ export default async function ProcessoDetailPage({ params }: { params: { id: str
   const precosCount = estimativas.length
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8">
+    <div className="mx-auto max-w-5xl space-y-10 animate-ink-in">
       <div>
         <Button asChild variant="ghost" size="sm">
           <Link href="/processos">
@@ -52,34 +52,54 @@ export default async function ProcessoDetailPage({ params }: { params: { id: str
         </Button>
       </div>
 
-      <header className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="font-mono text-xs uppercase tracking-wide text-primary">
-            {p.numeroInterno ?? '—'} · {TIPO_LABEL[p.tipo as keyof typeof TIPO_LABEL] ?? p.tipo}
-          </p>
+      {/* Header estilo memorando oficial */}
+      <header className="rule-top space-y-4 pt-6">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="label-institutional font-mono">
+            {p.numeroInterno ?? 'a atribuir'}
+          </span>
+          <span className="text-muted-foreground">·</span>
+          <span className="label-institutional">
+            {TIPO_LABEL[p.tipo as keyof typeof TIPO_LABEL] ?? p.tipo}
+          </span>
           {p.modalidade && (
-            <Badge variant="outline">
+            <Badge variant="outline" className="ml-1">
               {MODALIDADE_LABEL[p.modalidade as keyof typeof MODALIDADE_LABEL] ?? p.modalidade}
             </Badge>
           )}
-          <Badge variant="outline" className="border-primary/30 bg-primary/5 text-primary">
-            Fase: {FASE_LABEL[p.faseAtual] ?? p.faseAtual}
+          <Badge variant="outline" className="ml-auto border-accent/30 bg-accent/5 text-accent">
+            {FASE_LABEL[p.faseAtual] ?? p.faseAtual}
           </Badge>
         </div>
-        <h1 className="text-3xl font-semibold tracking-tight">{p.objeto}</h1>
-        <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-          {p.setorNome && <span>{p.setorNome}</span>}
+        <h1 className="font-display text-[2rem] leading-[1.12] tracking-tight text-balance">
+          {p.objeto}
+        </h1>
+        <div className="flex flex-wrap gap-4 border-t border-border pt-3 text-xs text-muted-foreground">
+          {p.setorNome && (
+            <span className="flex items-center gap-1.5">
+              <span className="label-institutional">Unidade</span>
+              <span className="text-foreground">{p.setorNome}</span>
+            </span>
+          )}
           {p.valorEstimado != null && (
-            <span className="font-mono">R$ {p.valorEstimado.toLocaleString('pt-BR')}</span>
+            <span className="flex items-center gap-1.5">
+              <span className="label-institutional">Valor est.</span>
+              <span className="font-mono tabular-nums text-foreground">
+                R$ {p.valorEstimado.toLocaleString('pt-BR')}
+              </span>
+            </span>
           )}
         </div>
       </header>
 
-      <section className="space-y-3">
-        <h2 className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-          <Sparkles className="h-4 w-4 text-primary" />
-          Timeline de artefatos — IA com citações jurídicas
-        </h2>
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="label-institutional">Fluxo da Fase Interna</p>
+            <h2 className="font-display text-xl tracking-tight">Artefatos e etapas</h2>
+          </div>
+          <Sparkles className="h-4 w-4 text-accent" aria-hidden />
+        </div>
         <ul className="space-y-2">
           {TIMELINE.map((step, idx) => {
             const isCurrentFase = p.faseAtual === step.fase

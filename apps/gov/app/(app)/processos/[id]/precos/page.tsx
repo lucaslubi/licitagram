@@ -24,15 +24,17 @@ export default async function PrecosPage({ params }: { params: { id: string } })
           </Link>
         </Button>
       </div>
-      <header className="space-y-1.5">
-        <p className="font-mono text-xs uppercase tracking-wide text-accent">
-          {processo.numeroInterno ?? '—'} · {processo.objeto.slice(0, 80)}{processo.objeto.length > 80 ? '…' : ''}
+      <header className="rule-top space-y-2 pt-6">
+        <p className="label-institutional font-mono">
+          {processo.numeroInterno ?? 'a atribuir'} · {processo.objeto.slice(0, 70)}
+          {processo.objeto.length > 70 ? '…' : ''}
         </p>
-        <h1 className="flex items-center gap-2 text-3xl font-semibold tracking-tight">
-          <TrendingUp className="h-7 w-7 text-accent" /> Pesquisa de Preços
+        <h1 className="flex items-center gap-3 font-display text-[2rem] leading-[1.12] tracking-tight">
+          <TrendingUp className="h-7 w-7 text-accent" />
+          Pesquisa de Preços
         </h1>
         <p className="text-sm text-muted-foreground">
-          Base legal: Lei 14.133/2021 art. 23 · IN SEGES 65/2021 · Acórdão TCU 1.875/2021 (cesta de preços).
+          Lei 14.133/2021 art. 23 · IN SEGES 65/2021 · Acórdão TCU 1.875/2021.
         </p>
       </header>
 

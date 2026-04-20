@@ -52,11 +52,14 @@ export default async function ArtefatoPage({
           </Link>
         </Button>
       </div>
-      <header className="space-y-1.5">
-        <p className="font-mono text-xs uppercase tracking-wide text-primary">
-          {processo.numeroInterno ?? '—'} · {processo.objeto.slice(0, 80)}{processo.objeto.length > 80 ? '…' : ''}
+      <header className="rule-top space-y-2 pt-6">
+        <p className="label-institutional font-mono">
+          {processo.numeroInterno ?? 'a atribuir'} · {processo.objeto.slice(0, 70)}
+          {processo.objeto.length > 70 ? '…' : ''}
         </p>
-        <h1 className="text-3xl font-semibold tracking-tight">{ARTEFATO_LABEL[tipo]}</h1>
+        <h1 className="font-display text-[2rem] leading-[1.12] tracking-tight">
+          {ARTEFATO_LABEL[tipo]}
+        </h1>
       </header>
       <ArtefatoViewer
         processoId={params.id}
