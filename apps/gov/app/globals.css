@@ -2,81 +2,115 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * LicitaGram Gov — Institutional Editorial Design System
+ *
+ * Aesthetic: Bloomberg terminal + WSJ editorial + Stripe Dashboard + AGU memo.
+ * NOT a "SaaS AI startup" — this is enterprise for federal/state procurement
+ * officers who sign under Lei 14.133. Gravitas, not flair.
+ *
+ * Rules:
+ *   - No gradient CTAs. Solid colors with crisp borders.
+ *   - No shimmer, no glow, no glassmorphism. Editorial restraint.
+ *   - Warm neutrals, not cold blue. Amber accent for critical actions.
+ *   - Serif display for institutional headings. Plex Sans for body.
+ *   - Tabular nums on every R$ or code.
+ *   - Hairlines (0.5px effective) as editorial dividers.
+ */
+
 @layer base {
   :root {
-    /* Brand Blue — institutional, trust-building, matches logo gradient */
-    --brand: 217 91% 60%;
-    --brand-dark: 217 85% 42%;
-    --brand-light: 217 85% 72%;
-    --brand-foreground: 0 0% 100%;
+    /* ─── Neutrals — warm ink system ─────────────────────────────────────── */
+    /* Background: warm near-black (#0B0C0F-ish), not navy */
+    --background: 220 18% 4%;
+    --foreground: 40 12% 93%;         /* ivory, not white */
 
-    /* Backgrounds — deep near-black with blue undertone (inspirado em #01060c) */
-    --background: 213 85% 3%;
-    --foreground: 0 0% 100%;
-    --card: 215 45% 7%;
-    --card-foreground: 0 0% 100%;
-    --popover: 215 45% 7%;
-    --popover-foreground: 0 0% 100%;
+    /* Cards: one step lighter than bg */
+    --card: 222 12% 7%;
+    --card-foreground: 40 12% 93%;
+    --popover: 222 14% 8%;
+    --popover-foreground: 40 12% 93%;
 
-    /* Primary = Brand */
-    --primary: 217 91% 60%;
-    --primary-foreground: 0 0% 100%;
+    /* Muted: warm gray text */
+    --muted: 222 10% 11%;
+    --muted-foreground: 36 8% 62%;
 
-    /* Secondary */
-    --secondary: 215 25% 12%;
-    --secondary-foreground: 0 0% 100%;
+    /* ─── Primary — deep navy institutional ──────────────────────────────── */
+    /* This is NOT the Tailwind blue. Closer to Stripe/Bloomberg navy. */
+    --primary: 214 35% 28%;
+    --primary-foreground: 40 12% 95%;
 
-    /* Muted — texto secundário azul-claro (inspirado em #c7d4f3) */
-    --muted: 215 25% 12%;
-    --muted-foreground: 222 50% 80%;
+    /* Brand legacy tokens (for components still referencing --brand-*) */
+    --brand: 214 35% 32%;
+    --brand-dark: 214 35% 22%;
+    --brand-light: 214 25% 55%;
+    --brand-foreground: 40 12% 95%;
 
-    /* Accent — compliance green */
-    --accent: 142 71% 45%;
-    --accent-foreground: 0 0% 100%;
+    /* Secondary: subtle card-on-card */
+    --secondary: 222 10% 12%;
+    --secondary-foreground: 40 12% 93%;
 
-    /* Destructive */
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
+    /* ─── Accent — institutional amber (AGU seal) ────────────────────────── */
+    /* Only for CTAs, highlights, TCU compliance emblems. Never decorative. */
+    --accent: 38 55% 59%;
+    --accent-foreground: 220 20% 6%;
 
-    /* Warning — TCU alerts */
-    --warning: 38 92% 55%;
-    --warning-foreground: 0 0% 100%;
+    /* ─── Semantic — WSJ editorial palette ───────────────────────────────── */
+    /* Compliance OK: deep emerald (not bright green) */
+    --success: 160 45% 42%;
+    --success-foreground: 40 12% 95%;
 
-    /* Borders & inputs — subtle, never harsh */
-    --border: 215 25% 14%;
-    --input: 215 25% 14%;
-    --ring: 217 91% 60%;
+    /* Alert: burnt orange (TCU warnings) */
+    --warning: 28 72% 55%;
+    --warning-foreground: 220 20% 6%;
 
-    /* Brand gradient (azul → verde) — CTAs e highlights premium */
-    --gradient-brand: linear-gradient(81deg, hsl(217 91% 60%) 0%, hsl(142 71% 50%) 63.57%);
-    --gradient-brand-soft: linear-gradient(81deg, hsl(217 91% 60% / 0.18) 0%, hsl(142 71% 50% / 0.14) 63.57%);
+    /* Destructive: ruby, not fire engine red */
+    --destructive: 358 55% 52%;
+    --destructive-foreground: 40 12% 95%;
 
-    /* Glassmorphism — camadas de vidro translúcido */
-    --glass-bg: linear-gradient(91deg, rgba(255, 255, 255, 0.09) 4.57%, rgba(255, 255, 255, 0.02) 100%);
-    --glass-border: rgba(255, 255, 255, 0.08);
+    /* Info: slate (quiet, for tips) */
+    --info: 215 20% 52%;
+    --info-foreground: 40 12% 95%;
 
-    /* Layout — container e margens fluidas */
-    --side-margin: clamp(20px, 3.5vw, 70px);
+    /* ─── Borders — hairline editorial ───────────────────────────────────── */
+    --border: 222 12% 14%;
+    --input: 222 14% 14%;
+    --ring: 38 55% 59%;                /* amber ring on focus — confident */
+
+    /* ─── Surfaces (derived) ─────────────────────────────────────────────── */
+    --surface-dark: 222 12% 7%;
+    --surface-darker: 220 18% 4%;
+    --surface-warm: 222 12% 7%;
+    --surface-overlay: 222 10% 11%;
+
+    /* ─── Typography ─────────────────────────────────────────────────────── */
+    --font-display: 'Newsreader', ui-serif, Georgia, serif;
+    --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+    /* ─── Layout ─────────────────────────────────────────────────────────── */
+    --side-margin: clamp(20px, 3.5vw, 64px);
     --container-width: 86rem;
 
-    /* Radius */
-    --radius: 0.625rem;
-    --radius-inner: 0.3125rem;
-    --radius-outer: 0.625rem;
-    --radius-large: 0.875rem;
+    /* ─── Radius — tighter, institutional ────────────────────────────────── */
+    --radius: 0.375rem;
+    --radius-inner: 0.25rem;
+    --radius-outer: 0.5rem;
+    --radius-large: 0.625rem;
     --radius-pill: 62.5rem;
 
-    /* Elevation — premium double shadows */
-    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.02) inset;
-    --shadow-md: 0 2px 8px -2px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.02) inset;
-    --shadow-lg: 0 8px 24px -4px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.03) inset;
-    --shadow-xl: 0 16px 48px -8px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+    /* ─── Elevation — single-shadow restraint ────────────────────────────── */
+    /* Enterprise apps do NOT stack heroic shadows. One crisp shadow max. */
+    --shadow-sm: 0 1px 0 0 hsl(220 18% 2% / 0.6), 0 0 0 1px hsl(0 0% 100% / 0.02) inset;
+    --shadow-md: 0 1px 2px 0 hsl(220 18% 2% / 0.6), 0 0 0 1px hsl(0 0% 100% / 0.02) inset;
+    --shadow-lg: 0 2px 6px -1px hsl(220 18% 2% / 0.7), 0 0 0 1px hsl(0 0% 100% / 0.03) inset;
+    --shadow-xl: 0 4px 16px -4px hsl(220 18% 2% / 0.75), 0 0 0 1px hsl(0 0% 100% / 0.03) inset;
 
-    /* Surfaces */
-    --surface-dark: 215 45% 7%;
-    --surface-darker: 213 85% 3%;
-    --surface-warm: 215 45% 7%;
-    --surface-overlay: 215 25% 12%;
+    /* Legacy tokens — keep compatibility with components still using them */
+    --gradient-brand: hsl(214 35% 28%);          /* solid, not gradient */
+    --gradient-brand-soft: hsl(214 35% 28% / 0.14);
+    --glass-bg: hsl(222 12% 8% / 0.92);
+    --glass-border: hsl(222 12% 18% / 0.6);
   }
 }
 
@@ -86,303 +120,390 @@
   }
   html {
     color-scheme: dark;
+    /* Firmer letter-spacing globally — ajusta tipografia de tela */
+    font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1, 'ss01' 1;
   }
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: 'rlig' 1, 'calt' 1, 'cv11', 'ss01';
+    font-family: var(--font-sans);
+    font-variant-numeric: oldstyle-nums;
+    /* Subtle paper grain — adds institutional texture. Zero cost. */
+    background-image:
+      radial-gradient(hsl(40 12% 93% / 0.008) 1px, transparent 1px),
+      radial-gradient(hsl(40 12% 93% / 0.004) 1px, transparent 1px);
+    background-size: 4px 4px, 9px 9px;
+    background-position: 0 0, 2px 2px;
   }
+
+  /* ─── Heading hierarchy ───────────────────────────────────────────────── */
   h1, h2, h3, h4, h5, h6 {
-    @apply tracking-tight;
+    font-family: var(--font-display);
+    letter-spacing: -0.022em;
+    font-feature-settings: 'kern' 1, 'liga' 1;
+    /* Newsreader looks best at weight 500-600 for display */
   }
+  h1 { font-weight: 500; letter-spacing: -0.028em; }
+  h2 { font-weight: 500; letter-spacing: -0.024em; }
+  h3 { font-weight: 500; }
+
+  /* Numbers: ALWAYS tabular. Non-negotiable for gov finance context. */
+  table, code, pre, .tabular,
+  [class*="mono"], [class*="font-mono"],
+  [data-tabular] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Selection — amber institutional */
+  ::selection {
+    background-color: hsl(38 55% 59% / 0.3);
+    color: hsl(40 12% 97%);
+  }
+
+  /* Focus ring — crisp amber, not faded blue */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  /* Remove focus on mouse-click elements */
+  :focus:not(:focus-visible) { outline: none; }
 }
 
 @layer utilities {
+  /* ─── Text utilities ─────────────────────────────────────────────────── */
   .text-balance { text-wrap: balance; }
+  .text-pretty { text-wrap: pretty; }
   .tabular-nums { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1; }
+
+  .font-display { font-family: var(--font-display); }
+  .font-sans { font-family: var(--font-sans); }
+  .font-mono { font-family: var(--font-mono); }
+
+  /* ─── Editorial label (uppercase, tracked, small) ─────────────────────── */
+  /* "1.1 UNIDADE DEMANDANTE" — the voice of official documents */
+  .label-institutional {
+    font-family: var(--font-sans);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+  }
+
+  /* Section numbering — editorial display */
+  .leading-numeral {
+    font-family: var(--font-display);
+    font-variant-numeric: lining-nums tabular-nums;
+    font-weight: 500;
+    color: hsl(var(--accent));
+    margin-right: 0.5em;
+  }
+
+  /* ─── Editorial divider (hairline) ────────────────────────────────────── */
+  .divider-editorial {
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsl(var(--border)) 15%,
+      hsl(var(--border)) 85%,
+      transparent
+    );
+  }
+
+  /* ─── Rule (thicker, for top of document sections) ────────────────────── */
+  .rule-top {
+    border-top: 1px solid hsl(var(--border));
+  }
+  .rule-double {
+    border-top: 3px double hsl(var(--border));
+  }
+
+  /* ─── Document chrome — prose for AI-generated artefatos ──────────────── */
+  /* Gives ETP/TR output the feel of a real memorandum */
+  .prose-document {
+    font-family: var(--font-sans);
+    color: hsl(var(--foreground));
+    font-size: 14.5px;
+    line-height: 1.72;
+    max-width: 72ch;
+  }
+  .prose-document p { margin: 0 0 1em; }
+  .prose-document strong { font-weight: 600; color: hsl(40 12% 96%); }
+  .prose-document em { font-style: italic; }
 }
 
-/* Animations */
-@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
-@keyframes count-up { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes glow-pulse { 0%, 100% { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); } 50% { box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.25); } }
-@keyframes dot-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+@layer utilities {
+  /* ─── Load reveal (replaces shimmer/bounce/glow) ──────────────────────── */
+  @keyframes ink-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .animate-ink-in    { animation: ink-in 340ms cubic-bezier(0.2, 0.6, 0.2, 1) both; }
+  .animate-ink-in-1  { animation: ink-in 340ms cubic-bezier(0.2, 0.6, 0.2, 1) both; animation-delay: 60ms; }
+  .animate-ink-in-2  { animation: ink-in 340ms cubic-bezier(0.2, 0.6, 0.2, 1) both; animation-delay: 120ms; }
+  .animate-ink-in-3  { animation: ink-in 340ms cubic-bezier(0.2, 0.6, 0.2, 1) both; animation-delay: 180ms; }
+  .animate-ink-in-4  { animation: ink-in 340ms cubic-bezier(0.2, 0.6, 0.2, 1) both; animation-delay: 240ms; }
 
-/* ─── Sidebar — Design System ─────────────────────────────────────────────── */
+  /* Dot pulse for "live" indicators — slower, dignified */
+  @keyframes dot-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+  .animate-dot-pulse { animation: dot-pulse 2.4s ease-in-out infinite; }
+
+  /* Legacy animations kept for backward compat (no-op effects mostly) */
+  @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+  @keyframes count-up { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes glow-pulse { 0%, 100% { box-shadow: 0 0 0 2px hsl(var(--accent) / 0.15); } 50% { box-shadow: 0 0 0 3px hsl(var(--accent) / 0.25); } }
+}
+
+/* ─── Sidebar — refined institutional ─────────────────────────────────── */
 .sidebar-scrollbar::-webkit-scrollbar { width: 4px; }
 .sidebar-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.sidebar-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.08); border-radius: 2px; }
-.sidebar-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.15); }
+.sidebar-scrollbar::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 2px; }
+.sidebar-scrollbar::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.3); }
 
 .sidebar-nav-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 8px;
-  border-radius: 6px;
+  padding: 7px 10px;
+  border-radius: 4px;
+  font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 450;
-  color: hsl(215 16% 55%);
+  color: hsl(var(--muted-foreground));
   text-decoration: none;
-  transition: all 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: color 120ms ease, background-color 120ms ease;
   cursor: pointer;
   position: relative;
 }
-.sidebar-nav-item:hover { background: rgba(255, 255, 255, 0.04); color: hsl(210 40% 96%); }
-.sidebar-nav-icon { flex-shrink: 0; color: hsl(220 10% 40%); transition: color 150ms cubic-bezier(0.16, 1, 0.3, 1); }
-.sidebar-nav-item:hover .sidebar-nav-icon { color: hsl(215 16% 55%); }
+.sidebar-nav-item:hover { background: hsl(var(--muted) / 0.6); color: hsl(var(--foreground)); }
+.sidebar-nav-icon { flex-shrink: 0; color: hsl(var(--muted-foreground) / 0.7); transition: color 120ms ease; }
+.sidebar-nav-item:hover .sidebar-nav-icon { color: hsl(var(--foreground)); }
 .sidebar-nav-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .sidebar-nav-item-active {
-  background: rgba(59, 130, 246, 0.08);
-  color: hsl(210 40% 96%);
+  background: hsl(var(--accent) / 0.08);
+  color: hsl(var(--foreground));
   font-weight: 500;
 }
 .sidebar-nav-item-active::before {
   content: '';
   position: absolute;
-  left: 0;
-  top: 6px;
-  bottom: 6px;
+  left: -4px;
+  top: 7px;
+  bottom: 7px;
   width: 2px;
   border-radius: 1px;
-  background: hsl(217 91% 60%);
+  background: hsl(var(--accent));
 }
-.sidebar-nav-item-active .sidebar-nav-icon { color: hsl(217 91% 60%); }
+.sidebar-nav-item-active .sidebar-nav-icon { color: hsl(var(--accent)); }
 
-/* ─── Refined Cards ───────────────────────────────────────────────────────── */
+/* ─── Cards — editorial restraint ─────────────────────────────────────── */
+/* Single hairline border. No ::before gradient fluff. */
 .card-refined {
-  background: hsl(222 30% 9%);
-  border: 1px solid hsl(220 20% 16%);
-  border-radius: 14px;
-  padding: 24px;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  padding: 22px 24px;
   position: relative;
 }
-.card-refined::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 1px;
-  right: 1px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05) 50%, transparent);
-  border-radius: 14px 14px 0 0;
+.card-refined-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid hsl(var(--border));
 }
-.card-refined-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
 .card-refined-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: hsl(220 20% 13%);
-  border: 1px solid hsl(220 20% 16%);
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  background: hsl(var(--muted));
   display: flex;
   align-items: center;
   justify-content: center;
-  color: hsl(215 16% 55%);
+  color: hsl(var(--muted-foreground));
 }
-.card-refined-title { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; color: hsl(210 40% 96%); }
+.card-refined-title {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  color: hsl(var(--foreground));
+}
 
-/* ─── Hero — Premium AI showcase ──────────────────────────────────────────── */
+/* ─── Document / AI output section (ETP, TR) ──────────────────────────── */
+/* When the IA emits a memorandum, it MUST look like a memorandum. */
+.document-surface {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  position: relative;
+}
+.document-surface::before {
+  /* Double rule on top, evoking official letterhead */
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+  background: repeating-linear-gradient(
+    to bottom,
+    hsl(var(--accent)) 0 1px,
+    transparent 1px 3px,
+    hsl(var(--accent)) 3px 4px
+  );
+}
+
+/* ─── Hero — replaces the AI-grid-and-glow cliché ─────────────────────── */
 .hero-ai {
   position: relative;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.02) 0%, transparent 100%);
-  border: 1px solid hsl(220 20% 18%);
-  border-radius: 20px;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-large);
   overflow: hidden;
   isolation: isolate;
 }
-.hero-ai::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 10%;
-  right: 10%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08) 50%, transparent);
-}
-.hero-ai-glow {
-  position: absolute;
-  top: -50%;
-  right: -20%;
-  width: 80%;
-  height: 200%;
-  background: radial-gradient(ellipse at center, rgba(59, 130, 246, 0.08) 0%, transparent 50%);
-  pointer-events: none;
-  z-index: -1;
-}
-.hero-ai-grid {
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-  background-size: 32px 32px;
-  mask-image: radial-gradient(ellipse at center, black 30%, transparent 70%);
-  -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 70%);
-  pointer-events: none;
-  z-index: -1;
-}
+.hero-ai-glow { display: none; }   /* retired */
+.hero-ai-grid { display: none; }   /* retired */
+
 .hero-tag {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 10px;
-  background: rgba(59, 130, 246, 0.08);
-  border: 1px solid rgba(59, 130, 246, 0.2);
-  border-radius: 5px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  padding: 4px 10px;
+  background: hsl(var(--accent) / 0.08);
+  border: 1px solid hsl(var(--accent) / 0.25);
+  border-radius: var(--radius-inner);
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: hsl(217 85% 72%);
+  color: hsl(var(--accent));
 }
 .hero-tag-dot {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: hsl(217 91% 60%);
-  animation: dot-pulse 2s ease-in-out infinite;
+  background: hsl(var(--accent));
+  animation: dot-pulse 2.4s ease-in-out infinite;
 }
 
 .feature-pill {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   padding: 4px 10px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 5px;
-  font-size: 11px;
-  color: hsl(215 16% 55%);
+  background: hsl(var(--muted) / 0.6);
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-inner);
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  color: hsl(var(--muted-foreground));
   font-weight: 500;
 }
 
-/* ─── Intel Insight Cards (compliance, alerts) ────────────────────────────── */
+/* ─── Insight cards — still used, now restrained ──────────────────────── */
 .intel-insight-card {
   position: relative;
-  background: hsl(222 30% 9%);
-  border: 1px solid hsl(220 20% 16%);
-  border-radius: 14px;
-  padding: 20px;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  padding: 18px 20px;
   overflow: hidden;
-  transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: border-color 180ms ease, transform 180ms ease;
 }
-.intel-insight-card:hover { border-color: hsl(220 20% 22%); transform: translateY(-1px); }
+.intel-insight-card:hover {
+  border-color: hsl(var(--border) / 1.6);
+  transform: translateY(-1px);
+}
 .intel-insight-card::before {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  opacity: 0.5;
+  top: 0; left: 0; bottom: 0;
+  width: 2px;
 }
-.intel-insight-ok::before { background: linear-gradient(90deg, transparent, #10B981 50%, transparent); }
-.intel-insight-warn::before { background: linear-gradient(90deg, transparent, #F59E0B 50%, transparent); }
-.intel-insight-critical::before { background: linear-gradient(90deg, transparent, #EF4444 50%, transparent); }
-.intel-insight-info::before { background: linear-gradient(90deg, transparent, #3B82F6 50%, transparent); }
+.intel-insight-ok::before       { background: hsl(var(--success)); }
+.intel-insight-warn::before     { background: hsl(var(--warning)); }
+.intel-insight-critical::before { background: hsl(var(--destructive)); }
+.intel-insight-info::before     { background: hsl(var(--info)); }
 
 .intel-insight-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-inner);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
-.intel-insight-icon-ok { background: rgba(16, 185, 129, 0.1); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.2); }
-.intel-insight-icon-warn { background: rgba(245, 158, 11, 0.1); color: #F59E0B; border: 1px solid rgba(245, 158, 11, 0.2); }
-.intel-insight-icon-critical { background: rgba(239, 68, 68, 0.1); color: #EF4444; border: 1px solid rgba(239, 68, 68, 0.2); }
-.intel-insight-icon-info { background: rgba(59, 130, 246, 0.1); color: #3B82F6; border: 1px solid rgba(59, 130, 246, 0.2); }
+.intel-insight-icon-ok       { background: hsl(var(--success) / 0.1);     color: hsl(var(--success));     border: 1px solid hsl(var(--success) / 0.25); }
+.intel-insight-icon-warn     { background: hsl(var(--warning) / 0.1);     color: hsl(var(--warning));     border: 1px solid hsl(var(--warning) / 0.25); }
+.intel-insight-icon-critical { background: hsl(var(--destructive) / 0.1); color: hsl(var(--destructive)); border: 1px solid hsl(var(--destructive) / 0.25); }
+.intel-insight-icon-info     { background: hsl(var(--info) / 0.1);        color: hsl(var(--info));        border: 1px solid hsl(var(--info) / 0.25); }
 
 .intel-insight-label {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: hsl(220 10% 40%);
+  color: hsl(var(--muted-foreground));
   margin-bottom: 8px;
 }
 .intel-insight-headline {
-  font-size: 16px;
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 500;
   letter-spacing: -0.02em;
-  color: hsl(210 40% 96%);
-  line-height: 1.3;
+  color: hsl(var(--foreground));
+  line-height: 1.32;
   margin-bottom: 8px;
 }
 .intel-insight-detail {
-  font-size: 13px;
-  color: hsl(215 16% 55%);
-  line-height: 1.55;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  color: hsl(var(--muted-foreground));
+  line-height: 1.6;
 }
 
-/* ─── Gradient primary button shimmer ─────────────────────────────────────── */
-.btn-shimmer::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.12) 50%, transparent 60%);
-  transform: translateX(-120%);
-  animation: btn-gleam 6s ease-in-out infinite;
-  pointer-events: none;
-  border-radius: inherit;
-}
-@keyframes btn-gleam {
-  0%, 88% { transform: translateX(-120%); }
-  96% { transform: translateX(120%); }
-  100% { transform: translateX(120%); }
-}
+/* ─── Retired — no more shimmer on buttons ────────────────────────────── */
+.btn-shimmer::after { display: none; }
 
-/* ─── Pipeline scroll ─────────────────────────────────────────────────────── */
+/* ─── Scroll — consistent with sidebar ────────────────────────────────── */
 .premium-scroll::-webkit-scrollbar { width: 4px; }
 .premium-scroll::-webkit-scrollbar-track { background: transparent; }
-.premium-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.06); border-radius: 2px; }
-.premium-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.12); }
+.premium-scroll::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 2px; }
+.premium-scroll::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.3); }
 
-/* ─── Glassmorphism (inspirado em stereograph.com) ────────────────────────── */
+/* ─── Glass (retired but kept as fallback) ────────────────────────────── */
 .glass {
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
 }
 .glass-strong {
-  background: linear-gradient(91deg, rgba(255, 255, 255, 0.12) 4.57%, rgba(255, 255, 255, 0.04) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
 }
 
-/* ─── Gradient utilities ──────────────────────────────────────────────────── */
-.bg-gradient-brand { background: var(--gradient-brand); }
-.bg-gradient-brand-soft { background: var(--gradient-brand-soft); }
+/* ─── Gradient utilities — repurposed as SOLID accent fills ───────────── */
+/* Legacy class names preserved so we don't break components. But they now
+ * render as solid institutional navy, not a candy gradient. */
+.bg-gradient-brand      { background: hsl(var(--primary)); }
+.bg-gradient-brand-soft { background: hsl(var(--primary) / 0.14); }
 .text-gradient-brand {
-  background: var(--gradient-brand);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
+  background: none;
+  -webkit-text-fill-color: initial;
+  color: hsl(var(--accent));
 }
 .border-gradient-brand {
   position: relative;
-  background-clip: padding-box;
-  border: 1px solid transparent;
+  border: 1px solid hsl(var(--accent) / 0.4);
 }
-.border-gradient-brand::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: var(--gradient-brand);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-}
+.border-gradient-brand::before { display: none; }
 
-/* ─── Container fluido com side-margin ────────────────────────────────────── */
+/* ─── Container ───────────────────────────────────────────────────────── */
 .container-fluid {
   width: 100%;
   max-width: var(--container-width);
@@ -392,12 +513,37 @@
   padding-right: var(--side-margin);
 }
 
-/* ─── Typography refinements (tons Aeonik-like) ───────────────────────────── */
-.font-thin-display {
-  font-weight: 200;
-  letter-spacing: -0.03em;
+/* ─── Typography presets for editorial headings ───────────────────────── */
+.font-thin-display  { font-family: var(--font-display); font-weight: 300; letter-spacing: -0.028em; }
+.font-light-display { font-family: var(--font-display); font-weight: 400; letter-spacing: -0.024em; }
+
+/* ─── Data tables — institutional density ─────────────────────────────── */
+.table-institutional {
+  width: 100%;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  border-collapse: collapse;
 }
-.font-light-display {
-  font-weight: 300;
-  letter-spacing: -0.02em;
+.table-institutional thead th {
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+  text-align: left;
+  padding: 10px 14px;
+  border-bottom: 1px solid hsl(var(--border));
+}
+.table-institutional tbody td {
+  padding: 12px 14px;
+  border-bottom: 1px solid hsl(var(--border) / 0.5);
+  vertical-align: top;
+}
+.table-institutional tbody tr:hover td {
+  background: hsl(var(--muted) / 0.35);
+}
+.table-institutional .col-numeric {
+  font-variant-numeric: tabular-nums lining-nums;
+  text-align: right;
 }

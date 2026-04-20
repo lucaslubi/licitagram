@@ -1,25 +1,38 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter, JetBrains_Mono, Roboto } from 'next/font/google'
+import { IBM_Plex_Sans, IBM_Plex_Mono, Newsreader } from 'next/font/google'
 import { Providers } from '@/components/providers'
 import './globals.css'
 
-const inter = Inter({
+/**
+ * Typography system — Institutional Editorial
+ *
+ * Newsreader (display):   serif contemporânea, peso institucional para
+ *                         cabeçalhos de artefatos e títulos de seção.
+ *                         Alternativa distinta às serifas clichê.
+ * IBM Plex Sans (body):   neutral enterprise-grade. Mesma família usada
+ *                         em Carta, Airbnb. Zero "SaaS AI" vibe.
+ * IBM Plex Mono (dados):  tabular nums perfeitos para R$ e códigos
+ *                         CATMAT/CATSER em tabelas densas.
+ */
+const plexSans = IBM_Plex_Sans({
   subsets: ['latin', 'latin-ext'],
-  variable: '--font-inter',
+  weight: ['300', '400', '500', '600', '700'],
+  variable: '--font-plex-sans',
   display: 'swap',
 })
 
-const jetbrainsMono = JetBrains_Mono({
+const plexMono = IBM_Plex_Mono({
   subsets: ['latin', 'latin-ext'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-jetbrains-mono',
+  weight: ['400', '500', '600'],
+  variable: '--font-plex-mono',
   display: 'swap',
 })
 
-const roboto = Roboto({
+const newsreader = Newsreader({
   subsets: ['latin', 'latin-ext'],
-  weight: ['300', '400', '500', '700'],
-  variable: '--font-roboto',
+  weight: ['300', '400', '500', '600'],
+  style: ['normal', 'italic'],
+  variable: '--font-newsreader',
   display: 'swap',
 })
 
@@ -38,17 +51,29 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#0a1220',
+  themeColor: '#0B0C0F',
   width: 'device-width',
   initialScale: 1,
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // Font variables legadas (--font-inter, --font-jetbrains-mono, --font-roboto)
+  // são remapeadas pras novas famílias. Nenhum componente quebra porque os
+  // @font-face do tailwind vêm do globals.css (var(--font-sans)).
   return (
     <html
       lang="pt-BR"
       suppressHydrationWarning
-      className={`dark ${inter.variable} ${jetbrainsMono.variable} ${roboto.variable}`}
+      className={`dark ${plexSans.variable} ${plexMono.variable} ${newsreader.variable}`}
+      style={{
+        // Remap legacy font variables so old components (if any) keep working
+        '--font-inter': 'var(--font-plex-sans)',
+        '--font-jetbrains-mono': 'var(--font-plex-mono)',
+        '--font-roboto': 'var(--font-plex-sans)',
+        '--font-sans': 'var(--font-plex-sans)',
+        '--font-mono': 'var(--font-plex-mono)',
+        '--font-display': 'var(--font-newsreader)',
+      } as React.CSSProperties}
     >
       <body className="min-h-screen bg-background font-sans text-foreground antialiased">
         <Providers>{children}</Providers>
