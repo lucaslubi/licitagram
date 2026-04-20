@@ -234,7 +234,7 @@ CONTEÚDO:
   renderUser: (p, ctx) => `${renderInstitutionalHeader(p, ctx)}
 
 Gere o ETP completo cobrindo os 13 incisos, usando os DADOS INSTITUCIONAIS literalmente no cabeçalho. Garanta presença explícita dos 5 incisos indispensáveis (I, IV, VI, VIII, XIII). Sem placeholders entre colchetes.`,
-  maxTokens: 8192,
+  maxTokens: 32768,
   temperature: 0.2,
 }
 
@@ -351,7 +351,7 @@ CONTEÚDO:
   renderUser: (p, ctx) => `${renderInstitutionalHeader(p, ctx)}
 
 Gere o TR completo cobrindo as 10 alíneas (a–j), usando os DADOS INSTITUCIONAIS literalmente. Sem placeholders entre colchetes.`,
-  maxTokens: 8192,
+  maxTokens: 32768,
   temperature: 0.2,
 }
 
@@ -426,7 +426,7 @@ CONTEÚDO:
   renderUser: (p, ctx) => `${renderInstitutionalHeader(p, ctx)}
 
 Gere a minuta completa do edital, referenciando o TR como Anexo I. Use os DADOS INSTITUCIONAIS literalmente no cabeçalho. Sem placeholders entre colchetes.`,
-  maxTokens: 8192,
+  maxTokens: 32768,
   temperature: 0.2,
 }
 
@@ -491,7 +491,7 @@ DADOS ADICIONAIS DO PROCESSO:
 - Artefatos existentes: ${p.artefatos.map((a) => a.tipo).join(', ') || 'nenhum'}
 
 Gere o parecer referencial completo, usando os DADOS INSTITUCIONAIS literalmente no cabeçalho. Sem placeholders entre colchetes.`,
-  maxTokens: 8192,
+  maxTokens: 32768,
   temperature: 0.2,
 }
 

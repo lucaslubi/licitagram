@@ -110,13 +110,33 @@ export const CEREBRAS = {
 export const OPENROUTER = {
   baseUrl: 'https://openrouter.ai/api/v1',
   envKey: 'OPENROUTER_API_KEY',
-  /** Versões :free do OpenRouter — sem custo de tokens, context 128k. */
+  /**
+   * Reasoning: Gemini 2.5 Flash via OpenRouter (65K output, 1M context).
+   * É o modelo ideal pra artefatos longos (ETP, TR, Edital, Parecer).
+   * Free tier mas limit alto via OpenRouter credits.
+   * Fallback pro llama :free se o gemini falhar por rate.
+   */
   models: {
-    reasoning: 'meta-llama/llama-3.3-70b-instruct:free',
+    reasoning: 'google/gemini-2.5-flash-preview-05-20',
+    reasoningFallback: 'meta-llama/llama-3.3-70b-instruct:free',
     fast: 'meta-llama/llama-3.3-70b-instruct:free',
   },
   extraHeaders: {
     'HTTP-Referer': 'https://gov.licitagram.com',
     'X-Title': 'LicitaGram Gov',
+  },
+} as const
+
+/**
+ * DeepSeek — modelo open-source top com context 64K e output 8K estável.
+ * Mais parrudo que llama-3.3-70b em raciocínio jurídico. Baratíssimo
+ * (pago mas $0.14/MTok input, $0.28/MTok output).
+ */
+export const DEEPSEEK = {
+  baseUrl: 'https://api.deepseek.com/v1',
+  envKey: 'DEEPSEEK_API_KEY',
+  models: {
+    reasoning: 'deepseek-chat', // V3 general
+    fast: 'deepseek-chat',
   },
 } as const
