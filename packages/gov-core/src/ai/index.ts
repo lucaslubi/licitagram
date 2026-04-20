@@ -320,7 +320,15 @@ export async function* streamText(opts: StreamTextOptions): AsyncGenerator<strin
       // erro de prompt/conteúdo (400 bad request, safety block) sobe direto.
       const canRetry = isTransientError(msg) || truncated
       if (!canRetry) throw e
-      // Senão, continua pro próximo provider
+
+      // Backoff antes de pular pro próximo provider. Rate limits de
+      // janela curta (burst) se resolvem em 1-2s. Evita cascata imediata
+      // de 429s quando todos os providers foram chamados em sequência.
+      const isRateLimit = /HTTP 429|rate[_ ]?limit|quota|exhausted/i.test(msg)
+      if (isRateLimit) {
+        const delayMs = 1500 + Math.floor(Math.random() * 1000) // 1.5-2.5s jitter
+        await new Promise((r) => setTimeout(r, delayMs))
+      }
     }
   }
 }

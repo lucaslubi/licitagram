@@ -44,10 +44,35 @@ export async function* streamOpenAICompat(opts: OpenAICompatOptions): AsyncGener
 
   if (!res.ok) {
     const body = await res.text().catch(() => '')
-    // 429: respeita Retry-After. Anexa ao erro pra UI mostrar wait real.
+    // 429: respeita Retry-After. Se < 15s, aguarda no próprio provider em
+    // vez de pular pro próximo (rate limits curtos se resolvem sozinhos).
     if (res.status === 429) {
       const retryAfter = res.headers.get('retry-after') ?? res.headers.get('x-ratelimit-reset-requests')
       const waitSec = retryAfter && /^\d+$/.test(retryAfter) ? Number(retryAfter) : null
+      if (waitSec !== null && waitSec > 0 && waitSec <= 15) {
+        await new Promise((r) => setTimeout(r, waitSec * 1000 + 500))
+        // Retry uma vez após o wait
+        const retry = await fetch(`${opts.baseUrl}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${opts.apiKey}`,
+            ...(opts.extraHeaders ?? {}),
+          },
+          body: JSON.stringify({
+            model: opts.model,
+            messages,
+            max_tokens: opts.maxTokens,
+            temperature: opts.temperature ?? 0.2,
+            stream: true,
+          }),
+        })
+        if (retry.ok && retry.body) {
+          // Continua com o stream retry em vez do falhado
+          yield* streamFromResponse(retry)
+          return
+        }
+      }
       throw new Error(
         `HTTP 429 ${opts.baseUrl}: rate limit${waitSec ? ` (retry em ${waitSec}s)` : ''}. ${body.slice(0, 200)}`,
       )
@@ -55,7 +80,12 @@ export async function* streamOpenAICompat(opts: OpenAICompatOptions): AsyncGener
     throw new Error(`HTTP ${res.status} ${opts.baseUrl}: ${body.slice(0, 300)}`)
   }
   if (!res.body) throw new Error('Sem stream')
+  yield* streamFromResponse(res)
+}
 
+/** Parseia SSE e emite text chunks + TRUNCATION_MARKER no fim se aplicável. */
+async function* streamFromResponse(res: Response): AsyncGenerator<string> {
+  if (!res.body) throw new Error('Sem stream')
   const reader = res.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
