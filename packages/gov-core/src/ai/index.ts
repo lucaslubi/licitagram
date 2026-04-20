@@ -89,17 +89,14 @@ function resolveProviders(model: string, requestedMaxTokens?: number): ProviderA
       attempts.push({ name: 'mistral', model: MISTRAL.models.reasoning, outputCap: 32768 })
     }
 
-    // Camada 3: OpenRouter :free (rate limits independentes por upstream)
-    if (process.env.OPENROUTER_API_KEY) {
-      // GPT OSS 120B :free — OpenAI open-source, 131K out
+    // Camada 3: OpenRouter :free (só ativa se OPENROUTER_ENABLED=true)
+    // Desativado por default enquanto a conta está com "User not found"
+    // persistente. Gemini+Mistral+Groq já cobrem todos os casos.
+    if (process.env.OPENROUTER_API_KEY && process.env.OPENROUTER_ENABLED === 'true') {
       attempts.push({ name: 'openrouter', model: OPENROUTER.models.reasoning, outputCap: 131072 })
-      // NVIDIA Nemotron 3 Super 120B :free — 262K out, MoE
       attempts.push({ name: 'openrouter', model: OPENROUTER.models.reasoningFreeHuge, outputCap: 262144 })
-      // GLM 4.5 Air :free — 96K out, Z.AI
       attempts.push({ name: 'openrouter', model: OPENROUTER.models.reasoningFreeGLM, outputCap: 96000 })
-      // Qwen3 Coder :free — 262K out, Alibaba
       attempts.push({ name: 'openrouter', model: OPENROUTER.models.reasoningFreeLong, outputCap: 262000 })
-      // Gemma 4 31B :free — Google, 32K out
       attempts.push({ name: 'openrouter', model: OPENROUTER.models.reasoningFreeGemma, outputCap: 32768 })
     }
 
@@ -111,8 +108,8 @@ function resolveProviders(model: string, requestedMaxTokens?: number): ProviderA
       attempts.push({ name: 'groq', model: GROQ.models.reasoning, outputCap: 8192 })
     }
 
-    // Camada 4: último recurso (llama :free via OpenRouter)
-    if (process.env.OPENROUTER_API_KEY) {
+    // Camada 4: último recurso (llama :free via OpenRouter) — opt-in
+    if (process.env.OPENROUTER_API_KEY && process.env.OPENROUTER_ENABLED === 'true') {
       attempts.push({ name: 'openrouter', model: OPENROUTER.models.reasoningFallback, outputCap: 8192 })
     }
 
