@@ -1,6 +1,14 @@
 import { streamGemini } from './gemini'
 import { streamMessage as streamClaude, CLAUDE_MODELS } from './claude'
-import { streamOpenAICompat, TRUNCATION_MARKER, GROQ, CEREBRAS, OPENROUTER, DEEPSEEK } from './openai-compat'
+import {
+  streamOpenAICompat,
+  TRUNCATION_MARKER,
+  GROQ,
+  CEREBRAS,
+  OPENROUTER,
+  DEEPSEEK,
+  GEMINI_COMPAT,
+} from './openai-compat'
 
 export { CLAUDE_MODELS, getClaude, streamMessage } from './claude'
 export type { ClaudeModel, StreamOptions } from './claude'
@@ -36,7 +44,7 @@ export interface StreamTextOptions {
  * identificador de cada provider. Retorna lista em ordem de prioridade.
  */
 interface ProviderAttempt {
-  name: 'groq' | 'cerebras' | 'openrouter' | 'gemini' | 'claude' | 'deepseek'
+  name: 'groq' | 'cerebras' | 'openrouter' | 'gemini' | 'gemini_compat' | 'claude' | 'deepseek'
   model: string
   /** Max de output tokens que o provider suporta — usado pra clamp no tryProvider. */
   outputCap: number
@@ -62,8 +70,10 @@ function resolveProviders(model: string, requestedMaxTokens?: number): ProviderA
   const needsLongOutput = (requestedMaxTokens ?? 0) > 8192
 
   if (m.startsWith('llama') || m.startsWith('qwen') || m.startsWith('deepseek') || m.startsWith('mixtral')) {
+    // Gemini via endpoint OpenAI-compat (mesma auth do B2B — resolve 401
+    // que rolava com o SDK oficial @google/generative-ai)
     if (process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY) {
-      attempts.push({ name: 'gemini', model: 'gemini-2.5-flash', outputCap: 65536 })
+      attempts.push({ name: 'gemini_compat', model: GEMINI_COMPAT.models.reasoning, outputCap: 65536 })
     }
     if (process.env.OPENROUTER_API_KEY) {
       attempts.push({ name: 'openrouter', model: OPENROUTER.models.reasoning, outputCap: 65536 })
@@ -83,9 +93,14 @@ function resolveProviders(model: string, requestedMaxTokens?: number): ProviderA
     return attempts
   }
 
-  // Gemini direto
+  // Gemini direto (mantém gemini_compat como default; SDK oficial só se
+  // explicitamente solicitado com 'gemini-sdk:' prefix)
   if (m.startsWith('gemini')) {
-    attempts.push({ name: 'gemini', model, outputCap: 65536 })
+    if (m.startsWith('gemini-sdk:')) {
+      attempts.push({ name: 'gemini', model: model.replace(/^gemini-sdk:/, ''), outputCap: 65536 })
+    } else {
+      attempts.push({ name: 'gemini_compat', model, outputCap: 65536 })
+    }
     return attempts
   }
 
@@ -156,6 +171,18 @@ async function* tryProvider(
       ...opts,
       model: p.model,
       maxTokens: Math.min(opts.maxTokens ?? p.outputCap, p.outputCap),
+    })
+    return
+  }
+  if (p.name === 'gemini_compat') {
+    yield* streamOpenAICompat({
+      baseUrl: GEMINI_COMPAT.baseUrl,
+      apiKey: (process.env.GEMINI_API_KEY ?? process.env.GOOGLE_AI_API_KEY)!,
+      model: p.model,
+      system: opts.system,
+      userMessage: opts.userMessage,
+      maxTokens: Math.min(opts.maxTokens ?? p.outputCap, p.outputCap),
+      temperature: opts.temperature,
     })
     return
   }

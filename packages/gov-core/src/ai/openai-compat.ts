@@ -107,6 +107,25 @@ export const CEREBRAS = {
   },
 } as const
 
+/**
+ * Gemini via endpoint OpenAI-compatible do Google.
+ *
+ * Usar este endpoint em vez do SDK oficial @google/generative-ai resolve
+ * diferenças sutis de auth (o SDK oficial as vezes rejeita a mesma chave
+ * que o endpoint OpenAI-compat aceita). Padrão já adotado no B2B
+ * (apps/web/src/lib/ai-client.ts), agora unificado no Gov.
+ *
+ * Docs: https://ai.google.dev/gemini-api/docs/openai
+ */
+export const GEMINI_COMPAT = {
+  baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+  envKey: 'GEMINI_API_KEY',
+  models: {
+    reasoning: 'gemini-2.5-flash',
+    fast: 'gemini-2.5-flash',
+  },
+} as const
+
 export const OPENROUTER = {
   baseUrl: 'https://openrouter.ai/api/v1',
   envKey: 'OPENROUTER_API_KEY',
