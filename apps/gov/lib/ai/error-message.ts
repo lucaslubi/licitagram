@@ -19,8 +19,15 @@ export function friendlyAIError(err: unknown): string {
     return 'Limite de requisições atingido temporariamente. Tente novamente em alguns segundos — o sistema já tenta provedores alternativos automaticamente.'
   }
 
+  if (
+    s.includes('todos providers falharam') &&
+    (s.includes('401') || s.includes('403') || s.includes('api key') || s.includes('unauthorized'))
+  ) {
+    return 'Todos os provedores de IA rejeitaram a requisição (chaves inválidas ou sem permissão). Contate o administrador do órgão.'
+  }
   if (s.includes('api key') || s.includes('api_key') || s.includes('unauthorized') || s.includes('401')) {
-    return 'Chave da API de IA inválida ou ausente. Contate o administrador do órgão.'
+    // Caso raro: erro chegou sem passar pelo fallback chain. Orienta tentar de novo.
+    return 'Provedor de IA rejeitou a requisição. O sistema está tentando alternativas automaticamente — aguarde alguns segundos e tente novamente.'
   }
 
   if (s.includes('permission') || s.includes('403')) {

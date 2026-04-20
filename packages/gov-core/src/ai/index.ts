@@ -223,12 +223,19 @@ async function* tryProvider(
   }
 }
 
-/** Detecta erros transitórios por HTTP code + keywords. Mais robusto. */
+/**
+ * Detecta erros retryable (transient OU auth específico de uma key).
+ *
+ * Inclui 401/403: quando um provider rejeita a chave (expirada, quota
+ * diária de free tier, modelo não habilitado), é melhor tentar o
+ * próximo provider do chain em vez de abortar tudo. Se TODOS falharem,
+ * o erro final de "Todos providers falharam" dá contexto completo.
+ */
 function isTransientError(msg: string): boolean {
   // HTTP codes no prefix (openai-compat joga "HTTP 429..." / "HTTP 503...")
-  if (/HTTP (408|409|425|429|5\d\d)\b/.test(msg)) return true
-  // Keywords do SDK Gemini/Claude
-  return /timeout|deadline|quota|resource[_ ]?exhausted|rate[_ ]?limit|overloaded|fetch failed|ECONN|network|unavailable/i.test(
+  if (/HTTP (401|403|408|409|425|429|5\d\d)\b/.test(msg)) return true
+  // Keywords de SDK Gemini/Claude + auth-related
+  return /timeout|deadline|quota|resource[_ ]?exhausted|rate[_ ]?limit|overloaded|fetch failed|ECONN|network|unavailable|api[_ ]?key|unauthorized|forbidden|authentication|permission[_ ]?denied/i.test(
     msg,
   )
 }
