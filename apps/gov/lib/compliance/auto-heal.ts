@@ -11,26 +11,15 @@ import { buildUpstreamContext } from '@/lib/artefatos/upstream-context'
 import { montarCestaIA, calcCestaStats, salvarCestaIA } from '@/lib/precos/cesta-ia'
 import { logger } from '@/lib/logger'
 import { revalidatePath } from 'next/cache'
+import type { HealAction } from './auto-heal-types'
 
 /**
- * Auto-heal: resolve automaticamente as pendências de compliance que
- * podem ser corrigidas por regeneração de artefato ou execução de RPC.
- *
- * Filosofia: tendência da ferramenta é ser autônoma. O servidor público
- * clica "Resolver automaticamente" e o sistema itera pelas pendências,
- * executando a ação corretiva específica de cada uma. Algumas pendências
- * (ex.: assinatura formal, aprovação humana) não são auto-resolvíveis —
- * essas ficam sinalizadas.
+ * Auto-heal: resolve automaticamente as pendências de compliance.
+ * Filosofia: a ferramenta tende a ser autônoma — servidor clica "Resolver
+ * automaticamente" e sistema itera pelas pendências, executando ação
+ * corretiva específica de cada. Pendências que exigem ato humano formal
+ * ficam sinalizadas como não-resolvíveis.
  */
-
-export interface HealAction {
-  checkId: string
-  checkLabel: string
-  action: string
-  status: 'pending' | 'running' | 'success' | 'failed' | 'unresolvable'
-  detail?: string
-  error?: string
-}
 
 /**
  * Map de handlers por check.id. Handler retorna promessa com descrição do

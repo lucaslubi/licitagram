@@ -13,7 +13,8 @@ import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { executarAutoHeal, type HealAction } from '@/lib/compliance/auto-heal'
+import { executarAutoHeal } from '@/lib/compliance/auto-heal'
+import type { HealAction } from '@/lib/compliance/auto-heal-types'
 
 interface Props {
   processoId: string
