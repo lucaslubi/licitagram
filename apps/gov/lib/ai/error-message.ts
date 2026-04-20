@@ -50,10 +50,32 @@ export function friendlyAIError(err: unknown): string {
     return 'Todos os provedores de IA estão fora no momento. Aguarde 1 minuto e tente novamente.'
   }
 
-  // Fallback seguro: primeira linha sem JSON gigante
+  // Tenta extrair mensagem de JSON (providers costumam responder
+  // {"error": {"message": "...", "code": ...}}).
+  const jsonMatch = raw.match(/\{[\s\S]*\}/)
+  if (jsonMatch) {
+    try {
+      const obj = JSON.parse(jsonMatch[0]) as { error?: { message?: string } | string; message?: string }
+      const inner =
+        typeof obj.error === 'string'
+          ? obj.error
+          : obj.error?.message ?? obj.message ?? ''
+      if (inner && inner.length > 0 && inner.length < 240) {
+        return `IA: ${inner}`
+      }
+    } catch {
+      /* not json */
+    }
+  }
+
+  // Fallback seguro: primeira linha legível
   const firstLine = raw.split('\n')[0]?.trim() ?? ''
   if (firstLine.length > 0 && firstLine.length < 240 && !firstLine.includes('{')) {
     return firstLine
   }
-  return 'Falha na geração por IA. Tente novamente em instantes.'
+  // Último recurso: expõe os primeiros 200 chars do raw pra dar alguma pista
+  const snippet = raw.slice(0, 200).trim()
+  return snippet
+    ? `Falha na geração por IA: ${snippet}`
+    : 'Falha na geração por IA. Tente novamente em instantes.'
 }

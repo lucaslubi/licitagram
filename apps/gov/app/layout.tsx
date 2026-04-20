@@ -48,6 +48,11 @@ export const metadata: Metadata = {
   manifest: '/manifest.webmanifest',
   applicationName: 'LicitaGram Gov',
   appleWebApp: { capable: true, title: 'LicitaGov', statusBarStyle: 'black-translucent' },
+  other: {
+    // Modernização do apple-mobile-web-app-capable (ambos são recomendados
+    // até que todos browsers adotem a tag nova).
+    'mobile-web-app-capable': 'yes',
+  },
 }
 
 export const viewport: Viewport = {
