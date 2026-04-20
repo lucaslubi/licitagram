@@ -30,15 +30,17 @@ export default async function PublicarPage({ params }: { params: { id: string } 
           </Link>
         </Button>
       </div>
-      <header className="space-y-1.5">
-        <p className="font-mono text-xs uppercase tracking-wide text-primary">
-          {processo.numeroInterno ?? '—'}
+      <header className="rule-top space-y-2 pt-6">
+        <p className="label-institutional font-mono">
+          {processo.numeroInterno ?? 'a atribuir'} · {processo.objeto.slice(0, 70)}
+          {processo.objeto.length > 70 ? '…' : ''}
         </p>
-        <h1 className="flex items-center gap-2 text-3xl font-semibold tracking-tight">
-          <Send className="h-7 w-7 text-primary" /> Publicação PNCP
+        <h1 className="flex items-center gap-3 font-display text-[2rem] leading-[1.12] tracking-tight">
+          <Send className="h-7 w-7 text-accent" />
+          Publicação no PNCP
         </h1>
         <p className="text-sm text-muted-foreground">
-          Art. 94 da Lei 14.133/2021 — prazos de 10 a 20 dias úteis conforme natureza do ato.
+          Lei 14.133/2021 art. 54 (publicidade) · art. 55 (prazos mínimos) · MP 2.200-2/2001 (ICP-Brasil).
         </p>
       </header>
       <PublicarClient
@@ -46,6 +48,8 @@ export default async function PublicarPage({ params }: { params: { id: string } 
         compliance={compliance}
         publicacoes={publicacoes}
         isTerminal={processo.faseAtual === 'publicado'}
+        numeroInterno={processo.numeroInterno}
+        objeto={processo.objeto}
       />
     </div>
   )

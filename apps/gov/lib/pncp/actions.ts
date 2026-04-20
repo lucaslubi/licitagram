@@ -82,6 +82,63 @@ export async function publishProcessoAction(processoId: string): Promise<Result>
   return { ok: true, publicacaoId: pubId as string, status: result.status }
 }
 
+/**
+ * Confirma publicação manual realizada pelo usuário no portal PNCP.
+ * Fluxo semi-auto: sistema gera o pacote assinável → user leva ao portal
+ * PNCP → cola o numeroControlePNCP retornado aqui pra finalizar.
+ *
+ * Valida o formato típico (ex: 00414607000118-1-000001/2026) antes de
+ * confirmar. Marca a última publicação como 'publicado', avança fase
+ * do processo e revalida.
+ */
+export async function confirmarPublicacaoManualAction(
+  processoId: string,
+  numeroControlePNCP: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const profile = await getCurrentProfile()
+  if (!profile?.orgao) return { ok: false, error: 'Sem órgão' }
+  if (profile.papel !== 'admin' && profile.papel !== 'coordenador') {
+    return { ok: false, error: 'Apenas admin/coordenador pode confirmar publicação' }
+  }
+
+  const clean = numeroControlePNCP.trim()
+  // Formato esperado: CNPJ-sequencial-numero/ano ou variações com / ou -
+  if (clean.length < 8 || clean.length > 60) {
+    return {
+      ok: false,
+      error: 'Número de controle PNCP inválido (ex: 00414607000118-1-000001/2026).',
+    }
+  }
+
+  const supabase = createClient()
+  const { error: regErr } = await supabase.rpc('register_publicacao_pncp', {
+    p_processo_id: processoId,
+    p_tipo_documento: 'edital',
+    p_status: 'publicado',
+    p_payload: { origem: 'manual', confirmado_por: profile.nomeCompleto },
+    p_resposta: { numeroControlePNCP: clean, metodo: 'portal_pncp_manual' },
+    p_numero_controle: clean,
+  })
+  if (regErr) {
+    logger.error({ err: regErr.message }, 'register_publicacao_pncp manual failed')
+    return { ok: false, error: regErr.message }
+  }
+
+  const { error: faseErr } = await supabase.rpc('set_processo_fase', {
+    p_processo_id: processoId,
+    p_fase: 'publicado',
+  })
+  if (faseErr) {
+    logger.warn({ err: faseErr.message }, 'set_processo_fase → publicado falhou pós-manual')
+  }
+
+  revalidatePath(`/processos/${processoId}`)
+  revalidatePath('/processos')
+  revalidatePath('/dashboard')
+
+  return { ok: true }
+}
+
 export interface PublicacaoRow {
   id: string
   tipoDocumento: string

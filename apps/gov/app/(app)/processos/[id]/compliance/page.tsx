@@ -16,6 +16,7 @@ import { listEstimativas } from '@/lib/precos/actions'
 import { summarizeCompliance, type ComplianceCheck } from '@/lib/compliance/engine'
 import { AvancarComplianceButton } from './avancar-button'
 import { PlanoAcaoIA } from './plano-acao-ia'
+import { AutoHealPanel } from './auto-heal-panel'
 import { ArrowRight, FileText, Send } from 'lucide-react'
 
 export const metadata: Metadata = { title: 'Compliance' }
@@ -29,6 +30,7 @@ export default async function CompliancePage({ params }: { params: { id: string 
   const pendentesSeveras = summary.checks.filter(
     (c) => !c.passed && (c.severity === 'critica' || c.severity === 'alta'),
   )
+  const totalPendentes = summary.checks.filter((c) => !c.passed).length
 
   return (
     <div className="mx-auto max-w-5xl space-y-10 animate-ink-in">
@@ -109,7 +111,12 @@ export default async function CompliancePage({ params }: { params: { id: string 
         )}
       </Card>
 
-      {/* Plano de Ação IA — só aparece quando há pendências severas */}
+      {/* Ferramenta autônoma: resolve pendências automaticamente */}
+      {totalPendentes > 0 && (
+        <AutoHealPanel processoId={params.id} pendentesCount={totalPendentes} />
+      )}
+
+      {/* Plano de Ação IA — narrativo, complementar ao auto-heal */}
       {pendentesSeveras.length > 0 && (
         <PlanoAcaoIA processoId={params.id} pendentesCount={pendentesSeveras.length} />
       )}
