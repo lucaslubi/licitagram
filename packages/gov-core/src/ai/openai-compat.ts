@@ -1,6 +1,10 @@
 /**
  * Cliente OpenAI-compatible genérico usado pra Groq, Cerebras, OpenRouter,
  * Together, etc. Todos expõem /v1/chat/completions idêntico à OpenAI.
+ *
+ * Detecta truncamento por `finish_reason: length` e emite um marker
+ * sentinela `__TRUNCATED__` pro consumidor decidir (fallback pro próximo
+ * provider ou warning no UI).
  */
 
 export interface OpenAICompatOptions {
@@ -13,6 +17,9 @@ export interface OpenAICompatOptions {
   temperature?: number
   extraHeaders?: Record<string, string>
 }
+
+/** Marker sentinela emitido quando o provider encerra com finish_reason=length. */
+export const TRUNCATION_MARKER = '\u0000__TRUNCATED__\u0000'
 
 export async function* streamOpenAICompat(opts: OpenAICompatOptions): AsyncGenerator<string> {
   const messages: Array<{ role: string; content: string }> = []
@@ -37,6 +44,8 @@ export async function* streamOpenAICompat(opts: OpenAICompatOptions): AsyncGener
 
   if (!res.ok) {
     const body = await res.text().catch(() => '')
+    // Anexa status HTTP na mensagem pra o fallback detectar transient errors
+    // sem depender de substring fragile no corpo.
     throw new Error(`HTTP ${res.status} ${opts.baseUrl}: ${body.slice(0, 300)}`)
   }
   if (!res.body) throw new Error('Sem stream')
@@ -44,6 +53,8 @@ export async function* streamOpenAICompat(opts: OpenAICompatOptions): AsyncGener
   const reader = res.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
+  let finishReason: string | null = null
+
   while (true) {
     const { done, value } = await reader.read()
     if (done) break
@@ -53,19 +64,25 @@ export async function* streamOpenAICompat(opts: OpenAICompatOptions): AsyncGener
     for (const line of lines) {
       if (!line.startsWith('data: ')) continue
       const payload = line.slice(6).trim()
-      if (payload === '[DONE]') return
+      if (payload === '[DONE]') {
+        if (finishReason === 'length') yield TRUNCATION_MARKER
+        return
+      }
       if (!payload) continue
       try {
         const parsed = JSON.parse(payload) as {
-          choices?: Array<{ delta?: { content?: string } }>
+          choices?: Array<{ delta?: { content?: string }; finish_reason?: string | null }>
         }
-        const delta = parsed.choices?.[0]?.delta?.content
+        const choice = parsed.choices?.[0]
+        const delta = choice?.delta?.content
         if (delta) yield delta
+        if (choice?.finish_reason) finishReason = choice.finish_reason
       } catch {
         /* ignore linhas parciais */
       }
     }
   }
+  if (finishReason === 'length') yield TRUNCATION_MARKER
 }
 
 // ─── Provider presets ────────────────────────────────────────────────────
@@ -73,7 +90,7 @@ export async function* streamOpenAICompat(opts: OpenAICompatOptions): AsyncGener
 export const GROQ = {
   baseUrl: 'https://api.groq.com/openai/v1',
   envKey: 'GROQ_API_KEY',
-  /** Llama 3.3 70B é o melhor modelo gratuito do Groq pra raciocínio. */
+  /** Llama 3.3 70B Versatile: 32k context / 8k saída no free tier. */
   models: {
     reasoning: 'llama-3.3-70b-versatile',
     fast: 'llama-3.1-8b-instant',
@@ -83,6 +100,7 @@ export const GROQ = {
 export const CEREBRAS = {
   baseUrl: 'https://api.cerebras.ai/v1',
   envKey: 'CEREBRAS_API_KEY',
+  /** llama-3.3-70b: 128k context / 8k saída. */
   models: {
     reasoning: 'llama-3.3-70b',
     fast: 'llama3.1-8b',
@@ -92,7 +110,7 @@ export const CEREBRAS = {
 export const OPENROUTER = {
   baseUrl: 'https://openrouter.ai/api/v1',
   envKey: 'OPENROUTER_API_KEY',
-  /** Versões :free do OpenRouter — sem custo de tokens. */
+  /** Versões :free do OpenRouter — sem custo de tokens, context 128k. */
   models: {
     reasoning: 'meta-llama/llama-3.3-70b-instruct:free',
     fast: 'meta-llama/llama-3.3-70b-instruct:free',

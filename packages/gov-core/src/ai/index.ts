@@ -1,10 +1,11 @@
 import { streamGemini } from './gemini'
 import { streamMessage as streamClaude, CLAUDE_MODELS } from './claude'
-import { streamOpenAICompat, GROQ, CEREBRAS, OPENROUTER } from './openai-compat'
+import { streamOpenAICompat, TRUNCATION_MARKER, GROQ, CEREBRAS, OPENROUTER } from './openai-compat'
 
 export { CLAUDE_MODELS, getClaude, streamMessage } from './claude'
 export type { ClaudeModel, StreamOptions } from './claude'
 export { streamGemini } from './gemini'
+export { TRUNCATION_MARKER } from './openai-compat'
 export { embed, embedBatch, EMBEDDING_MODEL, EMBEDDING_DIM } from './embeddings'
 export { retrieveContext, formatContext, knowledgeStats } from './rag'
 export type { KnowledgeChunk } from './rag'
@@ -44,14 +45,19 @@ function resolveProviders(model: string): ProviderAttempt[] {
   const attempts: ProviderAttempt[] = []
 
   // Llama/Qwen via providers OpenAI-compatible
+  //
+  // Ordem escolhida pensando em doc longo (ETP/TR/edital ≈ 15-25k tokens):
+  //   1. Gemini 2.5 Flash — 65K output tokens, corta menos, rate limit tranquilo
+  //   2. Cerebras — velocidade absurda (1000+ tok/s), mas cap 8K saída
+  //   3. Groq — cap 8K saída + free tier 30 rpm (derruba fácil)
+  //   4. OpenRouter — fallback de última linha (latência alta)
   if (m.startsWith('llama') || m.startsWith('qwen') || m.startsWith('deepseek') || m.startsWith('mixtral')) {
-    if (process.env.GROQ_API_KEY) attempts.push({ name: 'groq', model: GROQ.models.reasoning })
-    if (process.env.CEREBRAS_API_KEY) attempts.push({ name: 'cerebras', model: CEREBRAS.models.reasoning })
-    if (process.env.OPENROUTER_API_KEY) attempts.push({ name: 'openrouter', model: OPENROUTER.models.reasoning })
-    // Fallback final: Gemini Flash (sempre disponível se GEMINI_API_KEY setada)
     if (process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY) {
       attempts.push({ name: 'gemini', model: 'gemini-2.5-flash' })
     }
+    if (process.env.CEREBRAS_API_KEY) attempts.push({ name: 'cerebras', model: CEREBRAS.models.reasoning })
+    if (process.env.GROQ_API_KEY) attempts.push({ name: 'groq', model: GROQ.models.reasoning })
+    if (process.env.OPENROUTER_API_KEY) attempts.push({ name: 'openrouter', model: OPENROUTER.models.reasoning })
     return attempts
   }
 
@@ -132,33 +138,73 @@ async function* tryProvider(
   }
 }
 
+/** Detecta erros transitórios por HTTP code + keywords. Mais robusto. */
+function isTransientError(msg: string): boolean {
+  // HTTP codes no prefix (openai-compat joga "HTTP 429..." / "HTTP 503...")
+  if (/HTTP (408|409|425|429|5\d\d)\b/.test(msg)) return true
+  // Keywords do SDK Gemini/Claude
+  return /timeout|deadline|quota|resource[_ ]?exhausted|rate[_ ]?limit|overloaded|fetch failed|ECONN|network|unavailable/i.test(
+    msg,
+  )
+}
+
 /**
  * Iterator unificado com fallback automático entre providers gratuitos.
- * Tenta Groq → Cerebras → OpenRouter → Gemini. Se o primeiro falhar com
- * 429/5xx/timeout, cai pro próximo. Custo = R$ 0 (tudo free tier).
+ * Tenta Gemini → Cerebras → Groq → OpenRouter (ordem revisada — Gemini 2.5
+ * Flash tem 65K output, evita cortar ETP/TR longos). Se o primeiro falhar
+ * com 429/5xx/timeout, cai pro próximo.
+ *
+ * Também reage a truncamento (`TRUNCATION_MARKER`): logra um warning no
+ * stream e tenta continuação com o próximo provider se houver. Pra
+ * consumidor do stream, o marker é removido antes de fluir.
+ *
+ * Custo = R$ 0 (tudo free tier).
  */
 export async function* streamText(opts: StreamTextOptions): AsyncGenerator<string> {
   const providers = resolveProviders(opts.model)
   if (providers.length === 0) {
     throw new Error(
-      'Nenhum provider configurado. Setar uma de: GROQ_API_KEY, CEREBRAS_API_KEY, OPENROUTER_API_KEY, GEMINI_API_KEY.',
+      'Nenhum provider configurado. Setar uma de: GEMINI_API_KEY, CEREBRAS_API_KEY, GROQ_API_KEY, OPENROUTER_API_KEY.',
     )
   }
 
   const errors: string[] = []
   for (let i = 0; i < providers.length; i++) {
     const p = providers[i]!
+    let truncated = false
     try {
-      yield* tryProvider(p, opts)
-      return
+      for await (const chunk of tryProvider(p, opts)) {
+        if (chunk === TRUNCATION_MARKER) {
+          truncated = true
+          continue
+        }
+        yield chunk
+      }
+      // Sucesso não-truncado → fim.
+      if (!truncated) return
+      // Truncado: não é erro fatal, foi só cap de output. Devolve o que tem.
+      // O UI avisa o usuário via error-message. Não retenta porque a
+      // continuação iria duplicar conteúdo do meio.
+      throw new Error(
+        `Provider [${p.name}] truncou por limite de saída (finish_reason=length). Use Gemini 2.5 Flash pra documentos longos.`,
+      )
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       errors.push(`[${p.name}] ${msg.slice(0, 200)}`)
       const isLast = i === providers.length - 1
-      if (isLast) throw new Error(`Todos providers falharam:\n${errors.join('\n')}`)
-      // Só faz fallback em erros transitórios; erro de prompt/conteúdo sobe direto
-      const isTransient = /429|5\d\d|timeout|quota|fetch failed|ECONN|network/i.test(msg)
-      if (!isTransient) throw e
+      if (isLast) {
+        // Se só tivemos truncation (conteúdo OK mas cortado), sobe msg clara.
+        if (truncated && errors.every((x) => x.includes('truncou'))) {
+          throw new Error(
+            'Documento excedeu o limite de tokens da IA (tente reduzir o objeto ou configurar GEMINI_API_KEY).',
+          )
+        }
+        throw new Error(`Todos providers falharam:\n${errors.join('\n')}`)
+      }
+      // Só faz fallback em erros transitórios OU truncation; erro de
+      // prompt/conteúdo (400 bad request, safety block) sobe direto.
+      const canRetry = isTransientError(msg) || truncated
+      if (!canRetry) throw e
       // Senão, continua pro próximo provider
     }
   }
