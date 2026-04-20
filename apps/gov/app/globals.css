@@ -114,6 +114,73 @@
     --glass-bg: hsl(222 12% 8% / 0.92);
     --glass-border: hsl(222 12% 18% / 0.6);
   }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+   * LIGHT MODE — Paper-on-ink editorial
+   * Ativado automaticamente pelo next-themes quando theme=light ou system
+   * no OS em modo claro. Mantém a mesma alma institucional, só invertendo
+   * o ink system: papel creme em vez de ink escuro.
+   * ═══════════════════════════════════════════════════════════════════ */
+  .light {
+    /* Papel creme (não branco puro — evita glare) */
+    --background: 40 14% 96%;
+    --foreground: 220 18% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 18% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 18% 10%;
+
+    --muted: 40 10% 92%;
+    --muted-foreground: 220 10% 40%;
+
+    --primary: 214 35% 28%;
+    --primary-foreground: 40 12% 97%;
+
+    --brand: 214 35% 28%;
+    --brand-dark: 214 35% 18%;
+    --brand-light: 214 25% 45%;
+    --brand-foreground: 40 12% 97%;
+
+    --secondary: 40 10% 92%;
+    --secondary-foreground: 220 18% 10%;
+
+    /* Accent azure — mesma tonalidade mas mais escurecida pra contraste
+     * sobre fundo claro. */
+    --accent: 209 76% 44%;
+    --accent-foreground: 40 12% 97%;
+
+    --success: 160 55% 32%;
+    --success-foreground: 40 12% 97%;
+
+    --warning: 28 80% 42%;
+    --warning-foreground: 40 12% 97%;
+
+    --destructive: 358 65% 48%;
+    --destructive-foreground: 40 12% 97%;
+
+    --info: 215 30% 38%;
+    --info-foreground: 40 12% 97%;
+
+    --border: 40 10% 86%;
+    --input: 40 10% 88%;
+    --ring: 209 76% 44%;
+
+    --surface-dark: 0 0% 100%;
+    --surface-darker: 40 14% 96%;
+    --surface-warm: 0 0% 100%;
+    --surface-overlay: 40 10% 92%;
+
+    --shadow-sm: 0 1px 0 0 hsl(220 18% 10% / 0.04), 0 0 0 1px hsl(220 18% 10% / 0.03) inset;
+    --shadow-md: 0 1px 3px 0 hsl(220 18% 10% / 0.06), 0 0 0 1px hsl(220 18% 10% / 0.03) inset;
+    --shadow-lg: 0 4px 12px -2px hsl(220 18% 10% / 0.08), 0 0 0 1px hsl(220 18% 10% / 0.04) inset;
+    --shadow-xl: 0 8px 24px -4px hsl(220 18% 10% / 0.1), 0 0 0 1px hsl(220 18% 10% / 0.04) inset;
+
+    --gradient-brand: hsl(214 35% 28%);
+    --gradient-brand-soft: hsl(214 35% 28% / 0.08);
+    --glass-bg: hsl(0 0% 100% / 0.95);
+    --glass-border: hsl(220 18% 10% / 0.08);
+  }
 }
 
 @layer base {
@@ -122,17 +189,19 @@
   }
   html {
     color-scheme: dark;
-    /* Firmer letter-spacing globally — ajusta tipografia de tela */
     font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1, 'ss01' 1;
+  }
+  html.light {
+    color-scheme: light;
   }
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
     font-variant-numeric: oldstyle-nums;
-    /* Subtle paper grain — adds institutional texture. Zero cost. */
+    /* Paper grain — pattern adapta ao tema via currentColor em alpha baixo */
     background-image:
-      radial-gradient(hsl(40 12% 93% / 0.008) 1px, transparent 1px),
-      radial-gradient(hsl(40 12% 93% / 0.004) 1px, transparent 1px);
+      radial-gradient(hsl(var(--foreground) / 0.008) 1px, transparent 1px),
+      radial-gradient(hsl(var(--foreground) / 0.004) 1px, transparent 1px);
     background-size: 4px 4px, 9px 9px;
     background-position: 0 0, 2px 2px;
   }

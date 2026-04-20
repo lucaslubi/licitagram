@@ -69,7 +69,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang="pt-BR"
       suppressHydrationWarning
-      className={`dark ${plexSans.variable} ${plexMono.variable} ${newsreader.variable}`}
+      className={`${plexSans.variable} ${plexMono.variable} ${newsreader.variable}`}
       style={{
         // Remap legacy font variables so old components (if any) keep working
         '--font-inter': 'var(--font-plex-sans)',
