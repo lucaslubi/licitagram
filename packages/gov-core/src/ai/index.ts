@@ -72,35 +72,29 @@ function resolveProviders(model: string, requestedMaxTokens?: number): ProviderA
   void requestedMaxTokens
 
   if (m.startsWith('llama') || m.startsWith('qwen') || m.startsWith('deepseek') || m.startsWith('mixtral')) {
-    // ─── Camada 1: Gemini direto (OpenAI-compat) ──────────────────────
+    // ─── CHAIN 100% FREE TIER ──────────────────────────────────────────
+    // Nenhum provider pago. Se algum bater rate limit, próximo :free
+    // independente cobre. Qualquer paid só se explicitamente habilitado
+    // via env var DEEPSEEK_ENABLED=true / OPENROUTER_PAID_ENABLED=true.
+
+    // Camada 1: Gemini direto (free tier 15 RPM, 1500 RPD)
     if (process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY) {
       attempts.push({ name: 'gemini_compat', model: GEMINI_COMPAT.models.reasoning, outputCap: 65536 })
     }
 
-    // ─── Camada 2: OpenRouter premium (Gemini 2.5 Flash Preview) ──────
+    // Camada 2: OpenRouter :free modernos (cada um com rate limit próprio)
     if (process.env.OPENROUTER_API_KEY) {
-      attempts.push({ name: 'openrouter', model: OPENROUTER.models.reasoning, outputCap: 65536 })
-    }
-
-    // ─── Camada 3: OpenRouter :free modernos (rate limits independentes) ─
-    // Ordem: capacidade de output + qualidade de raciocínio.
-    if (process.env.OPENROUTER_API_KEY) {
-      // Gemini 2.5 Pro Exp — 65K out grátis, infra Google
+      // Gemini 2.5 Pro Exp :free — 65K out
       attempts.push({ name: 'openrouter', model: OPENROUTER.models.reasoningFreeHuge, outputCap: 65536 })
-      // GLM 4.6 — 200K ctx, raciocínio top tier, provedor Z.AI
+      // GLM 4.6 :free — 200K ctx, raciocínio SOTA, Z.AI
       attempts.push({ name: 'openrouter', model: OPENROUTER.models.reasoningFreeGLM, outputCap: 32768 })
-      // NVIDIA Nemotron Super 49B — 32K output
+      // NVIDIA Nemotron Super 49B :free — 32K out
       attempts.push({ name: 'openrouter', model: OPENROUTER.models.reasoningFreeLong, outputCap: 32768 })
-      // Gemma 3 27B IT — Google, 128K ctx, 8K out
+      // Gemma 3 27B IT :free — Google, 128K ctx, 8K out
       attempts.push({ name: 'openrouter', model: OPENROUTER.models.reasoningFreeGemma, outputCap: 8192 })
     }
 
-    // ─── Camada 4: provedores diretos 8K (truncam mas rápidos) ────────
-    // DeepSeek é PAGO — só habilita se explicitamente flagged em DEEPSEEK_ENABLED.
-    // Conta zerada retornaria 402 Insufficient Balance em toda request.
-    if (process.env.DEEPSEEK_API_KEY && process.env.DEEPSEEK_ENABLED === 'true') {
-      attempts.push({ name: 'deepseek', model: DEEPSEEK.models.reasoning, outputCap: 8192 })
-    }
+    // Camada 3: diretos free tier (8K out)
     if (process.env.CEREBRAS_API_KEY) {
       attempts.push({ name: 'cerebras', model: CEREBRAS.models.reasoning, outputCap: 8192 })
     }
@@ -108,10 +102,21 @@ function resolveProviders(model: string, requestedMaxTokens?: number): ProviderA
       attempts.push({ name: 'groq', model: GROQ.models.reasoning, outputCap: 8192 })
     }
 
-    // ─── Camada 5: último recurso (llama :free) ───────────────────────
+    // Camada 4: último recurso (llama :free via OpenRouter)
     if (process.env.OPENROUTER_API_KEY) {
       attempts.push({ name: 'openrouter', model: OPENROUTER.models.reasoningFallback, outputCap: 8192 })
     }
+
+    // ─── OPT-IN: providers pagos (só se explicitamente habilitados) ────
+    // OpenRouter gemini-2.5-flash-preview consumiria crédito — usar só
+    // se OPENROUTER_PAID_ENABLED=true na env do Vercel.
+    if (process.env.OPENROUTER_API_KEY && process.env.OPENROUTER_PAID_ENABLED === 'true') {
+      attempts.push({ name: 'openrouter', model: OPENROUTER.models.reasoning, outputCap: 65536 })
+    }
+    if (process.env.DEEPSEEK_API_KEY && process.env.DEEPSEEK_ENABLED === 'true') {
+      attempts.push({ name: 'deepseek', model: DEEPSEEK.models.reasoning, outputCap: 8192 })
+    }
+
     return attempts
   }
 
