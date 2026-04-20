@@ -136,13 +136,26 @@ export const OPENROUTER = {
   baseUrl: 'https://openrouter.ai/api/v1',
   envKey: 'OPENROUTER_API_KEY',
   /**
-   * Reasoning: Gemini 2.5 Flash via OpenRouter (65K output, 1M context).
-   * É o modelo ideal pra artefatos longos (ETP, TR, Edital, Parecer).
-   * Free tier mas limit alto via OpenRouter credits.
-   * Fallback pro llama :free se o gemini falhar por rate.
+   * Cascade de modelos :free modernos, priorizados por qualidade e
+   * capacidade de saída pra docs longos (ETP, TR, Edital, Parecer):
+   *
+   *   reasoning             — Gemini 2.5 Flash Preview (paga, 65K out)
+   *   reasoningFreeHuge     — Gemini 2.5 Pro Exp :free (GRÁTIS 65K out, 1M ctx)
+   *   reasoningFreeGLM      — GLM 4.6 :free (GRÁTIS, 200K ctx, raciocínio top tier)
+   *   reasoningFreeGemma    — Gemma 3 27B IT :free (GRÁTIS, 128K ctx, Google)
+   *   reasoningFreeLong     — NVIDIA Nemotron Super 49B :free (GRÁTIS 32K out)
+   *   reasoningFallback     — Llama 3.3 70B :free (GRÁTIS, 8K out) — último recurso
+   *   fast                  — idem reasoningFallback
+   *
+   * Diversificação proposital: cada :free tem rate limit próprio, então
+   * se um estoura, o próximo pega. Impossível ficar sem fallback.
    */
   models: {
     reasoning: 'google/gemini-2.5-flash-preview-05-20',
+    reasoningFreeHuge: 'google/gemini-2.5-pro-exp-03-25:free',
+    reasoningFreeGLM: 'z-ai/glm-4.6:free',
+    reasoningFreeGemma: 'google/gemma-3-27b-it:free',
+    reasoningFreeLong: 'nvidia/llama-3.3-nemotron-super-49b-v1:free',
     reasoningFallback: 'meta-llama/llama-3.3-70b-instruct:free',
     fast: 'meta-llama/llama-3.3-70b-instruct:free',
   },

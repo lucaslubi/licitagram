@@ -72,17 +72,30 @@ function resolveProviders(model: string, requestedMaxTokens?: number): ProviderA
   void requestedMaxTokens
 
   if (m.startsWith('llama') || m.startsWith('qwen') || m.startsWith('deepseek') || m.startsWith('mixtral')) {
-    // Gemini via endpoint OpenAI-compat (mesma auth do B2B — resolve 401
-    // que rolava com o SDK oficial @google/generative-ai)
+    // ─── Camada 1: Gemini direto (OpenAI-compat) ──────────────────────
     if (process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY) {
       attempts.push({ name: 'gemini_compat', model: GEMINI_COMPAT.models.reasoning, outputCap: 65536 })
     }
+
+    // ─── Camada 2: OpenRouter premium (Gemini 2.5 Flash Preview) ──────
     if (process.env.OPENROUTER_API_KEY) {
       attempts.push({ name: 'openrouter', model: OPENROUTER.models.reasoning, outputCap: 65536 })
     }
-    // Providers 8K como fallback SEMPRE — em caso de rate limit dos
-    // primários (Gemini/OpenRouter), um doc truncado de 8K é muito melhor
-    // que falha total. Smart retry em streamText decide se mantém.
+
+    // ─── Camada 3: OpenRouter :free modernos (rate limits independentes) ─
+    // Ordem: capacidade de output + qualidade de raciocínio.
+    if (process.env.OPENROUTER_API_KEY) {
+      // Gemini 2.5 Pro Exp — 65K out grátis, infra Google
+      attempts.push({ name: 'openrouter', model: OPENROUTER.models.reasoningFreeHuge, outputCap: 65536 })
+      // GLM 4.6 — 200K ctx, raciocínio top tier, provedor Z.AI
+      attempts.push({ name: 'openrouter', model: OPENROUTER.models.reasoningFreeGLM, outputCap: 32768 })
+      // NVIDIA Nemotron Super 49B — 32K output
+      attempts.push({ name: 'openrouter', model: OPENROUTER.models.reasoningFreeLong, outputCap: 32768 })
+      // Gemma 3 27B IT — Google, 128K ctx, 8K out
+      attempts.push({ name: 'openrouter', model: OPENROUTER.models.reasoningFreeGemma, outputCap: 8192 })
+    }
+
+    // ─── Camada 4: provedores diretos 8K (truncam mas rápidos) ────────
     if (process.env.DEEPSEEK_API_KEY) {
       attempts.push({ name: 'deepseek', model: DEEPSEEK.models.reasoning, outputCap: 8192 })
     }
@@ -92,6 +105,8 @@ function resolveProviders(model: string, requestedMaxTokens?: number): ProviderA
     if (process.env.GROQ_API_KEY) {
       attempts.push({ name: 'groq', model: GROQ.models.reasoning, outputCap: 8192 })
     }
+
+    // ─── Camada 5: último recurso (llama :free) ───────────────────────
     if (process.env.OPENROUTER_API_KEY) {
       attempts.push({ name: 'openrouter', model: OPENROUTER.models.reasoningFallback, outputCap: 8192 })
     }
