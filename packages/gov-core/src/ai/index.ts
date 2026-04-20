@@ -293,10 +293,14 @@ export async function* streamText(opts: StreamTextOptions): AsyncGenerator<strin
   }
 
   const errors: string[] = []
+  const chainInfo = providers.map((p) => `${p.name}:${p.model}`).join(' → ')
+  console.log(`[streamText] chain: ${chainInfo}`)
+
   for (let i = 0; i < providers.length; i++) {
     const p = providers[i]!
     let truncated = false
     let bytesEmitted = 0
+    const attemptStart = Date.now()
     try {
       for await (const chunk of tryProvider(p, opts)) {
         if (chunk === TRUNCATION_MARKER) {
@@ -325,6 +329,8 @@ export async function* streamText(opts: StreamTextOptions): AsyncGenerator<strin
       )
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
+      const elapsed = Date.now() - attemptStart
+      console.warn(`[streamText] provider ${i + 1}/${providers.length} [${p.name}] falhou em ${elapsed}ms: ${msg.slice(0, 250)}`)
       errors.push(`[${p.name}] ${msg.slice(0, 200)}`)
       const isLast = i === providers.length - 1
       if (isLast) {
