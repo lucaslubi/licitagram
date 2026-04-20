@@ -22,6 +22,7 @@ import {
   addMultiplePainelToCesta,
   getPainelStats,
   searchPainelOficial,
+  syncPainelOnDemand,
   type PainelOficialRow,
   type PainelOficialStats,
 } from '@/lib/precos/painel-oficial'
@@ -80,11 +81,64 @@ export function PainelOficialSection({ processoId, objeto, codigoCatmat, codigoC
         searchPainelOficial(filters),
         getPainelStats(filters),
       ])
+
+      // On-demand sync: se não achou nada E tem código específico, busca na
+      // API oficial do Compras.gov em tempo real, ingere e re-busca.
+      if (rows.length === 0 && filters.codigo) {
+        const detectedTipo = filters.tipo ?? (/^\d{6,}$/.test(filters.codigo) ? 'M' : 'M')
+        toast.info('Buscando na fonte oficial Compras.gov.br…', { duration: 8000 })
+        const syncRes = await syncPainelOnDemand({
+          tipo: detectedTipo,
+          codigo: filters.codigo,
+        })
+        if (syncRes.error) {
+          toast.error(syncRes.error)
+          setResults([])
+          setStats(null)
+          setSelected(new Set())
+          return
+        }
+        if (syncRes.synced === 0) {
+          // Tenta CATSER se CATMAT não trouxe nada
+          if (detectedTipo === 'M' && !filters.tipo) {
+            const syncRes2 = await syncPainelOnDemand({ tipo: 'S', codigo: filters.codigo })
+            if (syncRes2.synced === 0) {
+              toast.info('Código não encontrado no Painel Oficial (nem como CATMAT nem CATSER)')
+              setResults([])
+              setStats(null)
+              setSelected(new Set())
+              return
+            }
+          } else {
+            toast.info(`Código ${filters.codigo} sem preços recentes no Painel Oficial`)
+            setResults([])
+            setStats(null)
+            setSelected(new Set())
+            return
+          }
+        } else {
+          toast.success(`${syncRes.synced} preço(s) oficiais sincronizados da fonte`)
+        }
+
+        // Re-busca depois do sync
+        const [freshRows, freshStats] = await Promise.all([
+          searchPainelOficial(filters),
+          getPainelStats(filters),
+        ])
+        setResults(freshRows)
+        setStats(freshStats)
+        setSelected(new Set())
+        return
+      }
+
       setResults(rows)
       setStats(aggregated)
       setSelected(new Set())
-      if (rows.length === 0) toast.info('Painel Oficial sem resultados — sync sob demanda por código necessário')
-      else toast.success(`${rows.length} preço(s) oficial(is) encontrado(s)`)
+      if (rows.length === 0) {
+        toast.info('Informe um CATMAT/CATSER específico pra buscar na fonte oficial')
+      } else {
+        toast.success(`${rows.length} preço(s) oficial(is) encontrado(s)`)
+      }
     })
   }, [filters])
 
@@ -301,9 +355,10 @@ export function PainelOficialSection({ processoId, objeto, codigoCatmat, codigoC
 
         {results.length === 0 && !searching && stats == null && (
           <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-            Painel de Preços Oficial do Compras.gov.br. Busca por descrição ou código CATMAT/CATSER.
+            Painel de Preços Oficial do Compras.gov.br. Busca por CATMAT/CATSER específico.
             <br />
-            O sync sob demanda é acionado automaticamente pelo worker — aguarde alguns minutos caso esteja vazio.
+            Sync sob demanda: se o código não tiver dados no banco, consultamos a fonte oficial em tempo real e
+            trazemos os preços na hora.
           </p>
         )}
       </CardContent>
