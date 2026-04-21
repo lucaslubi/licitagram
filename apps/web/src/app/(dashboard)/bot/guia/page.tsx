@@ -12,6 +12,11 @@ export const metadata: Metadata = {
   title: 'Guia — Robô de Lances',
 }
 
+// Força render dinâmico — página estava timeoutando na pré-renderização
+// estática do Next durante o build do Vercel. Render por request evita o
+// deadlock.
+export const dynamic = 'force-dynamic'
+
 export default function GuiaPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 print:max-w-none print:px-0 print:py-4">
