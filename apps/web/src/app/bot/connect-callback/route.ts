@@ -1,15 +1,21 @@
 /**
  * POST /bot/connect-callback
  *
- * Recebe form-POST do bookmarklet (que roda no domínio Compras.gov.br).
- * Como é cross-origin, precisa aceitar o POST sem CSRF token e redirecionar
- * pra página de sucesso com os metadados do token.
+ * Recebe form-POST do bookmarklet contendo:
+ *   - accessToken (JWT do Compras.gov.br)
+ *   - refreshToken (JWT opcional)
+ *   - key (UUID do bot_connect_tokens, gerado enquanto user estava logado)
  *
- * Autenticação: usa o cookie de sessão Supabase (mesmo domínio do nosso app).
- * Se o cliente não estiver logado no nosso site, redireciona pro /login.
+ * A chave (key) substitui a necessidade de cookie de sessão do Licitagram,
+ * permitindo que o bookmarklet funcione mesmo se o cookie expirou.
+ *
+ * A chave:
+ *   - É válida por 10 minutos
+ *   - É consumida uma vez (used_at setado)
+ *   - Associa a company_id automaticamente
  */
 
-import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { encryptCredential } from '@/lib/bot-crypto'
 
 function decodeJwtPayload(token: string): Record<string, unknown> | null {
@@ -43,7 +49,7 @@ function renderPage(params: {
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <style>
   body{margin:0;font-family:system-ui,sans-serif;background:#0a0a0b;color:#e8e8e8;min-height:100vh;display:flex;align-items:center;justify-content:center}
-  .card{max-width:420px;padding:2rem;text-align:center}
+  .card{max-width:460px;padding:2rem;text-align:center}
   .icon{font-size:3rem;margin-bottom:1rem}
   h1{font-size:1.4rem;margin:0 0 .75rem}
   p{color:#9aa0a6;font-size:.9rem;line-height:1.5;margin:.35rem 0}
@@ -52,12 +58,14 @@ function renderPage(params: {
 </style></head><body>
 <div class="card">
   <div class="icon">${ok ? '✅' : '❌'}</div>
-  <h1>${ok ? 'Conta Compras.gov.br conectada!' : 'Erro ao conectar'}</h1>
+  <h1>${ok ? 'Conta Compras.gov.br conectada!' : 'Não conseguimos conectar'}</h1>
   ${ok && params.cnpj ? `<p class="mono"><span style="color:#6b7280">CNPJ:</span> ${params.cnpj}</p>` : ''}
   ${ok && params.nome ? `<p>${params.nome}</p>` : ''}
   ${ok && params.exp ? `<p>Token válido por ${params.exp} minutos (renovação automática).</p>` : ''}
+  ${ok ? '<p style="margin-top:1rem">Pode fechar esta aba — seu robô está pronto.</p>' : ''}
   ${!ok && params.error ? `<p>${params.error}</p>` : ''}
-  <a href="/bot">${ok ? 'Ir pro Robô de Lances' : 'Voltar'}</a>
+  ${!ok ? '<p style="font-size:.8rem;color:#6b7280;margin-top:.75rem">Volte ao Licitagram e gere um novo link de conexão.</p>' : ''}
+  <a href="/bot">${ok ? 'Ir pro Robô de Lances' : 'Voltar pro Licitagram'}</a>
 </div>
 </body></html>`
   return new Response(html, {
@@ -80,51 +88,80 @@ export function GET(req: Request): Response {
 export async function POST(req: Request) {
   const formData = await req.formData().catch(() => null)
   if (!formData) {
-    return redirectTo(req, '/bot/connect-callback', { error: 'Form inválido' })
+    return redirectTo(req, '/bot/connect-callback', { error: 'Formulário inválido' })
   }
 
   const accessToken = String(formData.get('accessToken') || '')
   const refreshTokenValue = String(formData.get('refreshToken') || '')
+  const key = String(formData.get('key') || '')
 
   if (!accessToken) {
-    return redirectTo(req, '/bot/connect-callback', { error: 'accessToken obrigatório' })
+    return redirectTo(req, '/bot/connect-callback', {
+      error: 'Não encontramos seu login no Compras.gov.br. Verifique se está logado lá.',
+    })
+  }
+
+  if (!key) {
+    return redirectTo(req, '/bot/connect-callback', {
+      error: 'Link de conexão inválido. Gere um novo no Licitagram e tente de novo.',
+    })
   }
 
   const payload = decodeJwtPayload(accessToken)
   if (!payload) {
-    return redirectTo(req, '/bot/connect-callback', { error: 'JWT inválido' })
+    return redirectTo(req, '/bot/connect-callback', { error: 'Token do Compras inválido' })
   }
 
   const now = Math.floor(Date.now() / 1000)
   const accessExp = typeof payload.exp === 'number' ? payload.exp : 0
   if (accessExp <= now) {
-    return redirectTo(req, '/bot/connect-callback', { error: 'Token expirado' })
+    return redirectTo(req, '/bot/connect-callback', {
+      error: 'Seu login no Compras.gov.br expirou. Entre de novo lá e tente outra vez.',
+    })
   }
   if (payload.identificacao_fornecedor === undefined) {
     return redirectTo(req, '/bot/connect-callback', {
-      error: 'Faça login no Compras.gov.br primeiro',
+      error: 'Você precisa entrar na área do fornecedor do Compras.gov.br antes de clicar no atalho.',
     })
   }
 
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) {
-    const login = new URL('/login', req.url)
-    login.searchParams.set('next', '/bot')
-    return Response.redirect(login.toString(), 303)
+  // ─── Valida a chave única (sem depender de cookie de auth) ──────────
+  // Usa service role pra ignorar RLS (o callback é chamado sem sessão
+  // do usuário — a segurança vem da própria UUID curta + expires_at).
+  const serviceUrl =
+    process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  if (!serviceUrl || !serviceKey) {
+    console.error('[connect-callback] missing service role env')
+    return redirectTo(req, '/bot/connect-callback', { error: 'Erro interno do servidor' })
+  }
+  const admin = createAdminClient(serviceUrl, serviceKey, {
+    auth: { persistSession: false },
+  })
+
+  const { data: keyRow, error: keyErr } = await admin
+    .from('bot_connect_tokens')
+    .select('id, company_id, expires_at, used_at')
+    .eq('id', key)
+    .maybeSingle()
+
+  if (keyErr || !keyRow) {
+    return redirectTo(req, '/bot/connect-callback', {
+      error: 'Link de conexão não encontrado. Gere um novo no Licitagram.',
+    })
+  }
+  if (keyRow.used_at) {
+    return redirectTo(req, '/bot/connect-callback', {
+      error: 'Este link já foi usado. Gere um novo se precisar reconectar.',
+    })
+  }
+  if (new Date(keyRow.expires_at).getTime() < Date.now()) {
+    return redirectTo(req, '/bot/connect-callback', {
+      error: 'Link de conexão expirou (válido por 10 min). Gere um novo.',
+    })
   }
 
-  const { data: profile } = await supabase
-    .from('users')
-    .select('company_id')
-    .eq('id', user.id)
-    .single()
-  if (!profile?.company_id) {
-    return redirectTo(req, '/bot/connect-callback', { error: 'Empresa não configurada' })
-  }
-
+  // Metadata do token
   const cnpj =
     typeof payload.identificacao_fornecedor === 'string'
       ? (payload.identificacao_fornecedor as string)
@@ -146,9 +183,9 @@ export async function POST(req: Request) {
   const accessEnc = encryptCredential(accessToken)
   const refreshEnc = refreshTokenValue ? encryptCredential(refreshTokenValue) : null
 
-  const { error } = await supabase.from('bot_tokens').upsert(
+  const { error: upsertErr } = await admin.from('bot_tokens').upsert(
     {
-      company_id: profile.company_id,
+      company_id: keyRow.company_id,
       portal: 'comprasgov',
       access_token_cipher: accessEnc.cipher,
       access_token_nonce: accessEnc.nonce,
@@ -165,10 +202,16 @@ export async function POST(req: Request) {
     { onConflict: 'company_id,portal' },
   )
 
-  if (error) {
-    console.error('[connect-callback] upsert error', error)
-    return redirectTo(req, '/bot/connect-callback', { error: 'Erro ao salvar' })
+  if (upsertErr) {
+    console.error('[connect-callback] upsert bot_tokens error', upsertErr)
+    return redirectTo(req, '/bot/connect-callback', { error: 'Erro ao salvar sua conexão' })
   }
+
+  // Marca a chave como usada
+  await admin
+    .from('bot_connect_tokens')
+    .update({ used_at: new Date().toISOString() })
+    .eq('id', keyRow.id)
 
   const minutes = Math.max(0, Math.floor((accessExp - now) / 60))
   return redirectTo(req, '/bot/connect-callback', {
