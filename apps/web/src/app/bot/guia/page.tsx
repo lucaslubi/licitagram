@@ -7,6 +7,7 @@
 
 import Link from 'next/link'
 import type { Metadata } from 'next'
+import { PrintButton } from './print-button'
 
 export const metadata: Metadata = {
   title: 'Guia — Robô de Lances',
@@ -29,13 +30,7 @@ export default function GuiaPage() {
           ← Voltar ao Robô de Lances
         </Link>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => typeof window !== 'undefined' && window.print()}
-            className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium hover:bg-secondary"
-          >
-            🖨️ Imprimir / Salvar PDF
-          </button>
+          <PrintButton />
         </div>
       </div>
 
