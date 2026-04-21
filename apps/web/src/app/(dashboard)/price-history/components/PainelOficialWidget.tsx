@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { createClient } from '@/lib/supabase/client'
+import { syncPainelOnDemand } from '@/lib/painel-oficial'
 
 interface PainelRow {
   id: string
@@ -49,35 +50,79 @@ export function PainelOficialWidget({ initialQuery = '' }: { initialQuery?: stri
   const [stats, setStats] = useState<PainelStats | null>(null)
   const [loading, startLoad] = useTransition()
 
+  const [syncMsg, setSyncMsg] = useState<string | null>(null)
+
+  const buscarNoBanco = useCallback(async () => {
+    const supabase = createClient()
+    const [rowsRes, statsRes] = await Promise.all([
+      supabase.rpc('buscar_preco_painel_oficial', {
+        p_query: query.trim() || null,
+        p_codigo: codigo.trim() || null,
+        p_tipo: null,
+        p_modalidade: null,
+        p_meses: 24,
+        p_limit: 100,
+      }),
+      supabase.rpc('stats_painel_oficial', {
+        p_query: query.trim() || null,
+        p_codigo: codigo.trim() || null,
+        p_tipo: null,
+        p_meses: 24,
+      }),
+    ])
+    const rows = ((rowsRes.data ?? []) as unknown as PainelRow[]).map((r) => ({
+      ...r,
+      valor_unitario: Number(r.valor_unitario),
+    }))
+    const s = Array.isArray(statsRes.data) ? statsRes.data[0] : statsRes.data
+    return { rows, stats: s ? (s as unknown as PainelStats) : null }
+  }, [query, codigo])
+
   const run = useCallback(() => {
     if (!codigo.trim() && query.trim().length < 3) return
+    setSyncMsg(null)
     startLoad(async () => {
-      const supabase = createClient()
-      const [rowsRes, statsRes] = await Promise.all([
-        supabase.rpc('buscar_preco_painel_oficial', {
-          p_query: query.trim() || null,
-          p_codigo: codigo.trim() || null,
-          p_tipo: null,
-          p_modalidade: null,
-          p_meses: 24,
-          p_limit: 100,
-        }),
-        supabase.rpc('stats_painel_oficial', {
-          p_query: query.trim() || null,
-          p_codigo: codigo.trim() || null,
-          p_tipo: null,
-          p_meses: 24,
-        }),
-      ])
-      const rows = ((rowsRes.data ?? []) as unknown as PainelRow[]).map((r) => ({
-        ...r,
-        valor_unitario: Number(r.valor_unitario),
-      }))
-      setResults(rows)
-      const s = Array.isArray(statsRes.data) ? statsRes.data[0] : statsRes.data
-      setStats(s ? (s as unknown as PainelStats) : null)
+      // 1. Tenta banco local primeiro
+      const first = await buscarNoBanco()
+
+      // 2. Se vazio e tem código, faz sync on-demand na API Compras.gov
+      if (first.rows.length === 0 && codigo.trim()) {
+        setSyncMsg('Buscando na fonte oficial Compras.gov.br…')
+        const syncRes = await syncPainelOnDemand({ tipo: 'M', codigo: codigo.trim() })
+        if (syncRes.error) {
+          setSyncMsg(`Erro: ${syncRes.error}`)
+          setResults([])
+          setStats(null)
+          return
+        }
+        if (syncRes.synced === 0) {
+          // Tenta CATSER se CATMAT vazio
+          const syncRes2 = await syncPainelOnDemand({ tipo: 'S', codigo: codigo.trim() })
+          if (syncRes2.synced === 0) {
+            setSyncMsg(`Código ${codigo.trim()} sem preços recentes no Painel Oficial.`)
+            setResults([])
+            setStats(null)
+            return
+          }
+          setSyncMsg(`${syncRes2.synced} preço(s) oficiais sincronizados.`)
+        } else {
+          setSyncMsg(`${syncRes.synced} preço(s) oficiais sincronizados.`)
+        }
+        // Re-busca depois do sync
+        const fresh = await buscarNoBanco()
+        setResults(fresh.rows)
+        setStats(fresh.stats)
+        return
+      }
+
+      // 3. Caminho normal (banco já tinha dados)
+      setResults(first.rows)
+      setStats(first.stats)
+      if (first.rows.length === 0) {
+        setSyncMsg('Informe um CATMAT/CATSER específico pra consultar a fonte oficial.')
+      }
     })
-  }, [codigo, query])
+  }, [codigo, query, buscarNoBanco])
 
   const sortedByDate = useMemo(
     () =>
@@ -132,6 +177,12 @@ export function PainelOficialWidget({ initialQuery = '' }: { initialQuery?: stri
             </Button>
           </div>
         </div>
+
+        {syncMsg && (
+          <p className="rounded-md border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-500">
+            {syncMsg}
+          </p>
+        )}
 
         {stats && stats.n > 0 && (
           <div className="grid grid-cols-2 gap-3 rounded-md border border-emerald-500/20 bg-emerald-500/5 p-3 sm:grid-cols-4">
