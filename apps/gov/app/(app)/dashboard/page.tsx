@@ -8,6 +8,7 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { listCampanhas } from '@/lib/pca/queries'
 import { listProcessos } from '@/lib/processos/queries'
 import { FASE_LABEL } from '@/lib/validations/processo'
+import { DashboardCharts } from './dashboard-charts'
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
@@ -65,6 +66,18 @@ export default async function DashboardPage() {
           borderLeft
         />
       </section>
+
+      {/* Visualização analítica — fluxo temporal + distribuição por fase + produtividade */}
+      {processos.length > 0 && (
+        <DashboardCharts
+          processos={processos.map((p) => ({
+            id: p.id,
+            faseAtual: p.faseAtual,
+            criadoEm: p.criadoEm,
+            artefatosCount: p.artefatosCount,
+          }))}
+        />
+      )}
 
       <section className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">

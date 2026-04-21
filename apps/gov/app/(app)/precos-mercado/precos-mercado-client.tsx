@@ -129,7 +129,10 @@ export function PrecosMercadoClient({
       uf: uf || null,
       dateFrom: dateFrom || null,
       dateTo: dateTo || null,
-      limit: 100,
+      // Limite generoso: com janela de 6 meses, mostrar até 300 registros
+      // (RPC tem cap interno de 500) pra usuário ter diversidade temporal
+      // sem precisar paginar.
+      limit: 300,
     }),
     [query, modalidade, uf, dateFrom, dateTo],
   )
