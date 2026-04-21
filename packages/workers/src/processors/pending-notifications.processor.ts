@@ -150,18 +150,40 @@ const pendingNotificationsWorker = new Worker(
     }
 
     // Get subscriptions for all companies to know their plan
+    // IMPORTANTE: só inclui active + trialing não-vencido. Trial-expirado,
+    // canceled, inactive são EXCLUÍDOS daqui → viram set de companies
+    // bloqueadas que pulam o loop inteiro abaixo.
     const { data: subs } = await supabase
       .from('subscriptions')
-      .select('company_id, plan, status')
+      .select('company_id, plan, status, expires_at')
       .in('company_id', companyIdList)
-      .in('status', ['active', 'trialing'])
-
-    const planByCompany = new Map<string, string>()
-    for (const sub of subs || []) {
-      planByCompany.set(sub.company_id, sub.plan)
-    }
 
     const now = new Date()
+    const planByCompany = new Map<string, string>()
+    const blockedCompanies = new Set<string>()
+    for (const sub of subs || []) {
+      const isActive = sub.status === 'active'
+      const isTrialing = sub.status === 'trialing'
+      const expiresAt = sub.expires_at ? new Date(sub.expires_at as string) : null
+      const trialExpiredLagged = isTrialing && expiresAt && expiresAt < now
+
+      if ((isActive || isTrialing) && !trialExpiredLagged) {
+        planByCompany.set(sub.company_id, sub.plan)
+      } else {
+        blockedCompanies.add(sub.company_id)
+      }
+    }
+    // Companies sem subscription = bloqueadas também (evita fallback 'free' grátis)
+    for (const cid of companyIdList) {
+      if (!planByCompany.has(cid)) blockedCompanies.add(cid)
+    }
+    if (blockedCompanies.size > 0) {
+      logger.info(
+        { blocked: blockedCompanies.size, total: companyIdList.length },
+        'pending-notifications: companies com subscription expirada/inexistente — notificações bloqueadas',
+      )
+    }
+
     const currentHourUTC = now.getUTCHours()
     const isLateDay = currentHourUTC >= 21 // 18h BRT = 21h UTC
     const today = now.toISOString().split('T')[0]
@@ -206,6 +228,9 @@ const pendingNotificationsWorker = new Worker(
 
       // ── Loop through each company ──
       for (const companyId of companyIdsForUser) {
+        // Skip companies sem subscription ativa (trial expirado, canceled, sem sub)
+        if (blockedCompanies.has(companyId)) continue
+
         const settings = companySettingsMap.get(companyId) || { companyId, minScore: 50, minValor: null, maxValor: null, targetUfs: [] as string[] }
         const plan = planByCompany.get(companyId) || 'free'
         const batchSize = BATCH_BY_PLAN[plan] || 1

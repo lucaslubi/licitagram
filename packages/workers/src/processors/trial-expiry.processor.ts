@@ -49,15 +49,17 @@ const trialExpiryWorker = new Worker(
         logger.info({ count: expiredTrials.length }, 'Expired local trial subscriptions')
       }
 
-      // Notify users of expired trials
+      // Notify users of expired trials — via TODOS os canais disponíveis
+      // (email + telegram + whatsapp) com CTA forte de conversão.
       for (const trial of expiredTrials) {
         try {
           const { data: users } = await supabase
             .from('users')
-            .select('id, email, telegram_chat_id')
+            .select('id, email, telegram_chat_id, whatsapp_number, whatsapp_verified')
             .eq('company_id', trial.company_id)
 
           for (const user of users || []) {
+            // ── Email ───────────────────────────────────────────────────
             if (user.email) {
               await emailQueue.add(
                 `trial-expired-${user.id}`,
@@ -68,6 +70,42 @@ const trialExpiryWorker = new Worker(
                 },
                 { jobId: `trial-expired-${user.id}-${Date.now()}` },
               )
+            }
+
+            // ── Telegram ────────────────────────────────────────────────
+            if (user.telegram_chat_id) {
+              try {
+                const { bot } = await import('../telegram/bot')
+                if (bot) {
+                  await bot.api.sendMessage(
+                    user.telegram_chat_id,
+                    `🔒 *Seu trial expirou*\n\n` +
+                      `As notificações de licitações foram pausadas. Pra voltar a receber oportunidades ` +
+                      `que combinam com o perfil da sua empresa, escolha um plano agora:\n\n` +
+                      `👉 https://licitagram.com/billing?expired=1\n\n` +
+                      `_Equipe Licitagram_`,
+                    { parse_mode: 'Markdown', link_preview_options: { is_disabled: true } },
+                  )
+                }
+              } catch (tgErr) {
+                logger.debug({ userId: user.id, err: tgErr }, 'Trial expired TG notification failed')
+              }
+            }
+
+            // ── WhatsApp ────────────────────────────────────────────────
+            if (user.whatsapp_number && user.whatsapp_verified) {
+              try {
+                const { sendWhatsAppText } = await import('../whatsapp/client')
+                await sendWhatsAppText(
+                  user.whatsapp_number,
+                  `🔒 *Seu trial Licitagram expirou*\n\n` +
+                    `As notificações foram pausadas. Pra continuar recebendo oportunidades:\n\n` +
+                    `👉 https://licitagram.com/billing?expired=1\n\n` +
+                    `Equipe Licitagram`,
+                )
+              } catch (waErr) {
+                logger.debug({ userId: user.id, err: waErr }, 'Trial expired WA notification failed')
+              }
             }
           }
         } catch (err) {
@@ -95,8 +133,13 @@ const trialExpiryWorker = new Worker(
         try {
           const { data: users } = await supabase
             .from('users')
-            .select('id, email, telegram_chat_id')
+            .select('id, email, telegram_chat_id, whatsapp_number, whatsapp_verified')
             .eq('company_id', trial.company_id)
+
+          const daysLeft = Math.ceil(
+            (new Date(trial.expires_at).getTime() - Date.now()) / (24 * 60 * 60 * 1000),
+          )
+          const daysLabel = `${daysLeft} dia${daysLeft > 1 ? 's' : ''}`
 
           for (const user of users || []) {
             // Send email warning
@@ -119,20 +162,33 @@ const trialExpiryWorker = new Worker(
               try {
                 const { bot } = await import('../telegram/bot')
                 if (bot) {
-                  const daysLeft = Math.ceil(
-                    (new Date(trial.expires_at).getTime() - Date.now()) / (24 * 60 * 60 * 1000),
-                  )
                   await bot.api.sendMessage(
                     user.telegram_chat_id,
-                    `⏰ *Seu trial do Licitagram expira em ${daysLeft} dia${daysLeft > 1 ? 's' : ''}!*\n\n` +
-                      `Para continuar recebendo alertas de licitações e usando todas as funcionalidades, escolha um plano:\n\n` +
-                      `👉 https://licitagram.com/billing\n\n` +
+                    `⏰ *Seu trial do Licitagram expira em ${daysLabel}!*\n\n` +
+                      `Pra continuar recebendo alertas de licitações e usando todas as funcionalidades, escolha um plano:\n\n` +
+                      `👉 https://licitagram.com/billing?upgrade=1\n\n` +
                       `_Equipe Licitagram_`,
-                    { parse_mode: 'Markdown' },
+                    { parse_mode: 'Markdown', link_preview_options: { is_disabled: true } },
                   )
                 }
               } catch (tgErr) {
                 logger.debug({ userId: user.id, err: tgErr }, 'Trial warning TG failed')
+              }
+            }
+
+            // Send WhatsApp warning
+            if (user.whatsapp_number && user.whatsapp_verified) {
+              try {
+                const { sendWhatsAppText } = await import('../whatsapp/client')
+                await sendWhatsAppText(
+                  user.whatsapp_number,
+                  `⏰ *Seu trial expira em ${daysLabel}*\n\n` +
+                    `Pra não perder acesso às oportunidades, escolha um plano:\n\n` +
+                    `👉 https://licitagram.com/billing?upgrade=1\n\n` +
+                    `Equipe Licitagram`,
+                )
+              } catch (waErr) {
+                logger.debug({ userId: user.id, err: waErr }, 'Trial warning WA failed')
               }
             }
           }

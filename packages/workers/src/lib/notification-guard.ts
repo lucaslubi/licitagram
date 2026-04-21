@@ -17,7 +17,11 @@ const NON_COMPETITIVE_MODALIDADES = new Set([9, 12, 14])
 const MIN_NOTIFICATION_SCORE = 50
 
 // ─── Only AI-verified sources get notified ─────────────────────────────────
-const VERIFIED_SOURCES = new Set(['ai', 'ai_triage', 'semantic', 'keyword'])
+const VERIFIED_SOURCES = new Set(['ai', 'ai_triage', 'semantic', 'keyword', 'pgvector_rules'])
+
+// ─── Subscription statuses que permitem receber notificações ───────────────
+// Trial expirado, canceled, inactive NÃO recebem — só active + trialing.
+const ACTIVE_SUBSCRIPTION_STATUSES = new Set(['active', 'trialing'])
 
 export interface GuardResult {
   allowed: boolean
@@ -67,6 +71,41 @@ export async function validateNotification(matchId: string): Promise<GuardResult
   
   if (!settings) {
     return { allowed: false, reason: `company_settings_not_found` }
+  }
+
+  // 1.5. Subscription gate — bloqueia notificações de trial expirado,
+  //      canceled, inactive. Só passa active + trialing.
+  //      Query separada (não JOIN) porque subscriptions pode não existir
+  //      pra company (edge case de signup velho) e JOIN implícito filtraria.
+  const companyId = match.company_id as string
+  const { data: sub } = await supabase
+    .from('subscriptions')
+    .select('status, plan, expires_at')
+    .eq('company_id', companyId)
+    .maybeSingle()
+
+  if (!sub) {
+    logger.warn({ matchId, companyId }, 'GUARD BLOCKED: company sem subscription')
+    return { allowed: false, reason: 'no_subscription' }
+  }
+  if (!ACTIVE_SUBSCRIPTION_STATUSES.has(sub.status)) {
+    logger.info(
+      { matchId, companyId, status: sub.status, plan: sub.plan, expires_at: sub.expires_at },
+      'GUARD BLOCKED: subscription inactive/expired',
+    )
+    return { allowed: false, reason: `subscription_${sub.status}` }
+  }
+  // Defesa em profundidade: mesmo com status='trialing', se expires_at passou,
+  // bloqueia — trial-expiry.processor roda 1x/dia, pode haver lag de algumas horas.
+  if (sub.status === 'trialing' && sub.expires_at) {
+    const expiresAt = new Date(sub.expires_at as string)
+    if (expiresAt < new Date()) {
+      logger.info(
+        { matchId, companyId, expires_at: sub.expires_at },
+        'GUARD BLOCKED: trialing mas expires_at passou',
+      )
+      return { allowed: false, reason: 'trial_expired_lagged' }
+    }
   }
 
   // 2. Block non-competitive modalities (inexigibilidade, credenciamento, inaplicabilidade)
