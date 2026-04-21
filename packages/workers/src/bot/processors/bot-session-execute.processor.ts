@@ -23,6 +23,7 @@ import { supabase } from '../../lib/supabase'
 import { logger } from '../../lib/logger'
 import { QUEUE_NAME, type BotSessionExecuteJobData, enqueueBotSession } from '../queues/bot-session-execute.queue'
 import { BotSessionRunner } from '../bot-session-runner'
+import { runNexusSession } from '../nexus/runner'
 
 const LOCK_DURATION_MS = 5 * 60 * 1000
 const RE_ENQUEUE_DELAY_MS = 500 // tiny delay so we don't busy-loop
@@ -84,6 +85,48 @@ export const botSessionExecuteWorker = new Worker<BotSessionExecuteJobData>(
     }
 
     try {
+      // Tenta primeiro o engine novo (API direto via bot_tokens).
+      // Se a empresa tem token conectado, usa ele — muito mais rápido
+      // e confiável. Senão cai no runner legado (Playwright).
+      const { data: sessRow } = await supabase
+        .from('bot_sessions')
+        .select('company_id, pregao_id, mode, min_price, strategy_config, portal')
+        .eq('id', sessionId)
+        .single()
+
+      if (sessRow && sessRow.portal === 'comprasgov' || sessRow?.portal === 'comprasnet') {
+        const { data: tokRow } = await supabase
+          .from('bot_tokens')
+          .select('id')
+          .eq('company_id', sessRow.company_id)
+          .eq('portal', 'comprasgov')
+          .eq('status', 'active')
+          .maybeSingle()
+
+        if (tokRow) {
+          log.info({ sessionId }, 'Using Nexus HTTP engine (bot_tokens connected)')
+          const nexusResult = await runNexusSession({
+            sessionId,
+            companyId: sessRow.company_id,
+            pregaoId: sessRow.pregao_id,
+            mode: (sessRow.mode || 'supervisor') as 'shadow' | 'supervisor' | 'auto_bid',
+            minPrice: sessRow.min_price,
+            strategyConfig:
+              typeof sessRow.strategy_config === 'object' && sessRow.strategy_config
+                ? (sessRow.strategy_config as Record<string, number>)
+                : null,
+          })
+          result = { reEnqueue: false, reason: nexusResult.reason }
+          log.info({ result: nexusResult }, 'Nexus session finished')
+          return
+        }
+
+        log.info(
+          { sessionId },
+          'No bot_tokens connected — falling back to legacy Playwright runner',
+        )
+      }
+
       const runner = new BotSessionRunner(sessionId, tag)
       result = await runner.run()
       log.info({ result }, 'Session run finished')

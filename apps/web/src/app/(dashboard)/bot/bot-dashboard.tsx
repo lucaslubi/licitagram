@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { GuidedLogin } from './guided-login'
 import { BotBulkScheduler } from './bot-bulk-scheduler'
+import { ConnectGovPanel } from './connect-gov-panel'
 
 /* ── Types ──────────────────────────────────────────────────────────────────── */
 
@@ -102,7 +103,9 @@ function StatusBadge({ status }: { status: string }) {
 
 export function BotDashboard({ configs: initialConfigs, sessions: initialSessions, companyId }: Props) {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<'configs' | 'bulk' | 'sessions' | 'history'>('configs')
+  const [activeTab, setActiveTab] = useState<
+    'configs' | 'connect' | 'bulk' | 'sessions' | 'history'
+  >('connect')
   const [configs, setConfigs] = useState(initialConfigs)
   const [sessions, setSessions] = useState(initialSessions)
 
@@ -428,6 +431,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
       {/* Tab Navigation — inline pills */}
       <div className="flex gap-1 border-b border-border mb-5 overflow-x-auto">
         {[
+          { key: 'connect' as const, label: 'Conectar Conta Gov.br' },
           { key: 'configs' as const, label: 'Portais Configurados' },
           { key: 'bulk' as const, label: 'Agendar em Lote' },
           { key: 'sessions' as const, label: `Sessões Ativas (${activeSessions.length})` },
@@ -559,6 +563,9 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
           )}
         </div>
       )}
+
+      {/* ═══ Tab: Conectar conta Gov.br (NOVO ENGINE API-FIRST) ═══ */}
+      {activeTab === 'connect' && <ConnectGovPanel />}
 
       {/* ═══ Tab: Bulk Scheduler ═══ */}
       {activeTab === 'bulk' && (
