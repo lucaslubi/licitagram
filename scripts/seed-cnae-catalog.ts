@@ -31,9 +31,23 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
 })
 
 interface IbgeCnae {
-  id: { secao: string; divisao: string; grupo: string; classe: string; subclasse: string }
-  classe: { id: string; descricao: string; grupo: { id: string; descricao: string; divisao: { id: string; descricao: string } } }
+  id: string // "4929902"
   descricao: string
+  classe: {
+    id: string // "49299"
+    descricao: string
+    grupo: {
+      id: string // "492"
+      descricao: string
+      divisao: {
+        id: string // "49"
+        descricao: string
+      }
+    }
+    observacoes?: string[]
+  }
+  atividades?: string[]
+  observacoes?: string[]
 }
 
 async function fetchIbgeCnae(): Promise<IbgeCnae[]> {
@@ -86,14 +100,33 @@ interface CnaeRow {
 
 function normalize(ibge: IbgeCnae[]): CnaeRow[] {
   return ibge.map((item) => {
-    const codigoFormatado = item.id.subclasse  // ex: "4120-4/00"
-    const codigo = codigoFormatado.replace(/[^0-9]/g, '').padStart(7, '0')  // "4120400"
-    const divisao = item.id.divisao.padStart(2, '0')
-    const grupo = item.id.grupo.padStart(3, '0')
-    const classe = item.id.classe.replace(/[^0-9]/g, '').padStart(5, '0')
+    // id: "4929902" → 7 dígitos sem formatação
+    const codigo = item.id.padStart(7, '0')
+    // Formatado: "4929-9/02"
+    const codigoFormatado = `${codigo.slice(0, 4)}-${codigo.slice(4, 5)}/${codigo.slice(5, 7)}`
+    const divisao = item.classe.grupo.divisao.id.padStart(2, '0')
+    const grupo = item.classe.grupo.id.padStart(3, '0')
+    const classe = item.classe.id.padStart(5, '0')
 
     const descricao = item.descricao
-    const embedText = `${item.classe.grupo.divisao.descricao} · ${item.classe.grupo.descricao} · ${item.classe.descricao} · ${descricao}`
+    // Texto rico pra embedding: divisão + grupo + classe + subclasse + atividades + observações
+    const parts: string[] = [
+      item.classe.grupo.divisao.descricao,
+      item.classe.grupo.descricao,
+      item.classe.descricao,
+      descricao,
+    ]
+    if (item.atividades && item.atividades.length > 0) {
+      parts.push('Atividades: ' + item.atividades.slice(0, 10).join('; '))
+    }
+    if (item.observacoes && item.observacoes.length > 0) {
+      // Filtra só a parte "compreende" (ignora "NÃO compreende" pra não confundir embedding)
+      const compreende = item.observacoes
+        .filter((o) => !o.toLowerCase().includes('não compreende'))
+        .join(' ')
+      if (compreende) parts.push(compreende.slice(0, 500))
+    }
+    const embedText = parts.join(' · ').slice(0, 2000)
     const hash = createHash('sha256').update(embedText).digest('hex').slice(0, 16)
 
     return {

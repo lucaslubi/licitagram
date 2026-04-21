@@ -19,7 +19,10 @@ import { Worker, type Job } from 'bullmq'
 import { connection } from '../queues/connection'
 import type { PgvectorMatchingJobData } from '../queues/pgvector-matching.queue'
 import { aiTriageQueue } from '../queues/ai-triage.queue'
-import { db as supabase } from '../lib/db'
+// IMPORTANT: usa Supabase authoritative (não db router com mirror local),
+// porque embedding é column nova que só existe em Supabase — mirror_tenders
+// ainda não tem. RPC e matches.upsert sempre vão pra Supabase de qualquer jeito.
+import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
 
 const AUTO_HIGH_THRESHOLD = 0.70

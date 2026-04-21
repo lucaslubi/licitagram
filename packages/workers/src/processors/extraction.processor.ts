@@ -160,16 +160,14 @@ const extractionWorker = new Worker<ExtractionJobData>(
     }
 
     // 5. Embed tender for semantic matching FIRST (primary pipeline)
+    // embedTender returns boolean (false on skip/fail, true on success/already-embedded)
+    // and only throws on unexpected errors — respect its return value.
     let tenderEmbedded = false
-    // Ollama/BGE-M3 always available locally — always embed tenders
-    {
-      try {
-        const { embedTender } = await import('./company-profiler')
-        await embedTender(tenderId)
-        tenderEmbedded = true
-      } catch (err) {
-        logger.warn({ tenderId, err }, 'Tender embedding failed (will retry in sweep)')
-      }
+    try {
+      const { embedTender } = await import('./company-profiler')
+      tenderEmbedded = await embedTender(tenderId)
+    } catch (err) {
+      logger.warn({ tenderId, err }, 'Tender embedding failed (will retry in sweep)')
     }
 
     // 5b. Enfileira pgvector-matching (shadow mode) — nova engine determinística
