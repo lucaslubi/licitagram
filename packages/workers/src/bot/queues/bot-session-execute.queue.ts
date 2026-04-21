@@ -24,7 +24,7 @@ export const QUEUE_NAME = 'bot-session-execute'
 export interface BotSessionExecuteJobData {
   sessionId: string
   /** Why this job was enqueued — for observability / debugging. */
-  source: 'initial' | 'resume' | 'watchdog' | 'manual'
+  source: 'initial' | 'resume' | 'watchdog' | 'manual' | 'scheduled' | 'bulk'
 }
 
 export const botSessionExecuteQueue = new Queue<BotSessionExecuteJobData>(QUEUE_NAME, {

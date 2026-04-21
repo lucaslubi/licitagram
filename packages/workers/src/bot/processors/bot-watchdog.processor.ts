@@ -138,8 +138,53 @@ export const botWatchdogWorker = new Worker<BotWatchdogJobData>(
       }
     }
 
-    logger.info({ reaped, reEnqueued }, '[bot-watchdog] sweep complete')
-    return { reaped, reEnqueued }
+    // ─── Scheduled sessions sweep ────────────────────────────────────────
+    // Pega sessões com status='scheduled' cujo scheduled_at já passou e
+    // promove pra 'pending' + enfileira. Isso permite cadastrar N pregões
+    // em lote pra semana toda e o sistema dispara cada um no horário certo.
+    let promoted = 0
+    try {
+      const { data: due } = await supabase
+        .from('bot_sessions')
+        .select('id, scheduled_at')
+        .eq('status', 'scheduled')
+        .lte('scheduled_at', nowIso)
+        .limit(100)
+
+      for (const s of due ?? []) {
+        const { error: upErr } = await supabase
+          .from('bot_sessions')
+          .update({ status: 'pending' })
+          .eq('id', s.id)
+          .eq('status', 'scheduled') // guard race
+
+        if (upErr) {
+          logger.warn({ sessionId: s.id, err: upErr.message }, '[bot-watchdog] scheduled→pending failed')
+          continue
+        }
+
+        try {
+          await enqueueBotSession(s.id, 'scheduled', 0)
+          promoted++
+        } catch (err) {
+          logger.error(
+            { sessionId: s.id, err: err instanceof Error ? err.message : err },
+            '[bot-watchdog] scheduled enqueue failed',
+          )
+        }
+      }
+      if (promoted > 0) {
+        logger.info({ promoted }, '[bot-watchdog] scheduled sessions promoted')
+      }
+    } catch (err) {
+      logger.error(
+        { err: err instanceof Error ? err.message : err },
+        '[bot-watchdog] scheduled sweep failed',
+      )
+    }
+
+    logger.info({ reaped, reEnqueued, promoted }, '[bot-watchdog] sweep complete')
+    return { reaped, reEnqueued, promoted }
   },
   {
     connection,

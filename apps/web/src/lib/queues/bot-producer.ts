@@ -42,7 +42,7 @@ function getQueue(): Queue<{ sessionId: string; source: string }> {
  */
 export async function enqueueBotSession(
   sessionId: string,
-  source: 'initial' | 'resume' | 'watchdog' | 'manual' = 'initial',
+  source: 'initial' | 'resume' | 'watchdog' | 'manual' | 'scheduled' | 'bulk' = 'initial',
   delayMs = 0,
 ): Promise<void> {
   const q = getQueue()

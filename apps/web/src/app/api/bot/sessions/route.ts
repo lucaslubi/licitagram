@@ -269,10 +269,13 @@ export async function PATCH(req: NextRequest) {
       )
     }
 
+    // Se a sessão está 'scheduled' (aguardando horário), resume volta pra
+    // scheduled (não pending) pra não disparar antes do scheduled_at.
+    const resumeStatus = existing.status === 'scheduled' ? 'scheduled' : 'pending'
     const statusMap: Record<string, string> = {
       pause: 'paused',
-      resume: 'pending',  // worker polls for 'pending' status
-      cancel: 'cancelled', // valid after migration 20260416200000_bot_phase0_hardening
+      resume: resumeStatus,  // worker polls for 'pending'; watchdog promove 'scheduled' no horário
+      cancel: 'cancelled',
     }
 
     const updatePayload: Record<string, unknown> = { status: statusMap[action] }
