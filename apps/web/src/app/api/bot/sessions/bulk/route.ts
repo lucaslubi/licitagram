@@ -112,12 +112,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Erro ao criar sessoes em lote' }, { status: 500 })
     }
 
-    const rows = (results ?? []) as Array<{
-      session_id: string | null
-      pregao_id: string
-      status: 'created' | 'deduped' | 'error'
-      error: string | null
+    // RPC retorna colunas prefixadas (result_*) pra evitar ambiguidade com
+    // variáveis PL/pgSQL dentro da função. Renormaliza pra shape da API.
+    const rawRows = (results ?? []) as Array<{
+      result_session_id: string | null
+      result_pregao_id: string
+      result_status: 'created' | 'deduped' | 'error'
+      result_error: string | null
     }>
+
+    const rows = rawRows.map((r) => ({
+      session_id: r.result_session_id,
+      pregao_id: r.result_pregao_id,
+      status: r.result_status,
+      error: r.result_error,
+    }))
 
     // Enfileira execução imediata pra sessões criadas SEM scheduled_at futuro.
     // As "scheduled" são picked up pelo watchdog no horário.
