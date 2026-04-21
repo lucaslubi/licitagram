@@ -37,9 +37,11 @@ export function BotWarRoom({ configs, sessions, companyId }: Props) {
             Configure um portal, inicie uma sessão, acompanhe em tempo real.{' '}
             <a
               href="/bot/guia"
+              target="_blank"
+              rel="noopener noreferrer"
               className="text-primary underline underline-offset-2 hover:text-primary/80"
             >
-              📖 Ver guia completo
+              📖 Ver guia completo ↗
             </a>
           </p>
         </div>
