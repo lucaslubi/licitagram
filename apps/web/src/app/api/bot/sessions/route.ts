@@ -328,3 +328,113 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
   }
 }
+
+/**
+ * DELETE /api/bot/sessions?id=<uuid>
+ *   Exclui uma única sessão permanentemente.
+ *
+ * DELETE /api/bot/sessions?all=history
+ *   Exclui TODAS as sessões em estado terminal (cancelled, failed,
+ *   completed) da empresa. Útil pra limpar o histórico.
+ *
+ * Regras de segurança:
+ *   - Só exclui sessões em estado terminal (cancelled/failed/completed).
+ *     Sessões pending/active/scheduled NÃO podem ser deletadas —
+ *     precisam ser canceladas antes via PATCH.
+ *   - Só sessões da própria empresa do usuário (RLS).
+ *   - Cascateia bot_actions, bot_events (via FK ON DELETE CASCADE do DB).
+ */
+export async function DELETE(req: NextRequest) {
+  try {
+    const planUser = await getUserWithPlan()
+    if (!planUser) {
+      return NextResponse.json({ error: 'Nao autenticado' }, { status: 401 })
+    }
+    if (!hasActiveSubscription(planUser)) {
+      return NextResponse.json({ error: 'Subscription required' }, { status: 403 })
+    }
+
+    const supabase = await createClient()
+    const { data: profile } = await supabase
+      .from('users')
+      .select('company_id')
+      .eq('id', planUser.userId)
+      .single()
+    if (!profile?.company_id) {
+      return NextResponse.json({ error: 'Empresa nao configurada' }, { status: 400 })
+    }
+
+    const url = new URL(req.url)
+    const id = url.searchParams.get('id')
+    const all = url.searchParams.get('all')
+
+    const TERMINAL = ['cancelled', 'failed', 'completed']
+
+    // ── Modo 1: DELETE individual ──────────────────────────────────────
+    if (id) {
+      // Valida que sessão é da empresa e está em estado terminal
+      const { data: existing } = await supabase
+        .from('bot_sessions')
+        .select('id, status, company_id')
+        .eq('id', id)
+        .eq('company_id', profile.company_id)
+        .single()
+
+      if (!existing) {
+        return NextResponse.json({ error: 'Sessao nao encontrada' }, { status: 404 })
+      }
+      if (!TERMINAL.includes(existing.status)) {
+        return NextResponse.json(
+          {
+            error: `Nao e possivel excluir sessao em estado "${existing.status}". Cancele primeiro.`,
+          },
+          { status: 409 },
+        )
+      }
+
+      const { error: delErr } = await supabase
+        .from('bot_sessions')
+        .delete()
+        .eq('id', id)
+        .eq('company_id', profile.company_id)
+
+      if (delErr) {
+        console.error('[API bot/sessions] DELETE error:', delErr)
+        return NextResponse.json({ error: 'Erro ao excluir sessao' }, { status: 500 })
+      }
+
+      return NextResponse.json({ deleted: 1 })
+    }
+
+    // ── Modo 2: DELETE em lote do histórico ───────────────────────────
+    if (all === 'history') {
+      // Conta antes pra devolver quantas foram
+      const { count: countBefore } = await supabase
+        .from('bot_sessions')
+        .select('id', { count: 'exact', head: true })
+        .eq('company_id', profile.company_id)
+        .in('status', TERMINAL)
+
+      const { error: delErr } = await supabase
+        .from('bot_sessions')
+        .delete()
+        .eq('company_id', profile.company_id)
+        .in('status', TERMINAL)
+
+      if (delErr) {
+        console.error('[API bot/sessions] DELETE history error:', delErr)
+        return NextResponse.json({ error: 'Erro ao limpar historico' }, { status: 500 })
+      }
+
+      return NextResponse.json({ deleted: countBefore || 0 })
+    }
+
+    return NextResponse.json(
+      { error: 'Informe ?id=<uuid> ou ?all=history' },
+      { status: 400 },
+    )
+  } catch (err) {
+    console.error('[API bot/sessions] DELETE error:', err)
+    return NextResponse.json({ error: 'Erro interno' }, { status: 500 })
+  }
+}

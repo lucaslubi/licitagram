@@ -396,6 +396,47 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
     }
   }
 
+  async function handleSessionDelete(sessionId: string) {
+    if (!confirm('Excluir esta sessão permanentemente? Essa ação não pode ser desfeita.')) return
+    try {
+      const res = await fetch(`/api/bot/sessions?id=${encodeURIComponent(sessionId)}`, {
+        method: 'DELETE',
+      })
+      if (res.ok) {
+        setSessions(prev => prev.filter(s => s.id !== sessionId))
+        router.refresh()
+      } else {
+        const data = await res.json().catch(() => ({}))
+        setError(data.error || `Erro ao excluir (HTTP ${res.status})`)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao excluir')
+    }
+  }
+
+  async function handleClearHistory() {
+    const terminalCount = sessions.filter(s => ['completed', 'failed', 'cancelled'].includes(s.status)).length
+    if (terminalCount === 0) {
+      setError('Não há sessões antigas pra limpar.')
+      return
+    }
+    if (!confirm(`Excluir ${terminalCount} sessão(ões) do histórico permanentemente? Essa ação não pode ser desfeita.`)) return
+    try {
+      const res = await fetch('/api/bot/sessions?all=history', { method: 'DELETE' })
+      if (res.ok) {
+        const data = await res.json()
+        setSessions(prev => prev.filter(s => !['completed', 'failed', 'cancelled'].includes(s.status)))
+        router.refresh()
+        alert(`${data.deleted || 0} sessão(ões) excluída(s) do histórico.`)
+      } else {
+        const data = await res.json().catch(() => ({}))
+        setError(data.error || `Erro ao limpar histórico (HTTP ${res.status})`)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao limpar histórico')
+    }
+  }
+
   /* ── Mask CPF ──────────────────────────────────────────────────────────── */
 
   function maskCpf(cpf: string): string {
@@ -714,12 +755,23 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                         {session.status === 'scheduled' ? 'Iniciar agora' : 'Retomar'}
                       </button>
                     )}
-                    <button
-                      onClick={() => handleSessionAction(session.id, 'cancel')}
-                      className="text-sm px-3 py-1.5 rounded-md border border-red-500/20 text-red-400 hover:bg-red-900/10 transition-colors font-medium"
-                    >
-                      Cancelar
-                    </button>
+                    {!['completed', 'failed', 'cancelled'].includes(session.status) && (
+                      <button
+                        onClick={() => handleSessionAction(session.id, 'cancel')}
+                        className="text-sm px-3 py-1.5 rounded-md border border-red-500/20 text-red-400 hover:bg-red-900/10 transition-colors font-medium"
+                      >
+                        Cancelar
+                      </button>
+                    )}
+                    {['completed', 'failed', 'cancelled'].includes(session.status) && (
+                      <button
+                        onClick={() => handleSessionDelete(session.id)}
+                        className="text-sm px-3 py-1.5 rounded-md border border-red-500/20 text-red-400 hover:bg-red-900/10 transition-colors font-medium"
+                        title="Excluir sessão permanentemente"
+                      >
+                        Excluir
+                      </button>
+                    )}
                     <Link
                       href={`/bot/${session.id}/replay`}
                       className="ml-auto text-sm px-3 py-1.5 rounded-md border border-brand/30 text-brand hover:bg-brand/10 transition-colors font-medium"
@@ -744,7 +796,19 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
       {/* ═══ Tab: History ═══ */}
       {activeTab === 'history' && (
         <div className="space-y-4">
-          <h2 className="text-xl font-semibold text-white">Histórico de Sessões</h2>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-xl font-semibold text-white">Histórico de Sessões</h2>
+            {historySessions.length > 0 && (
+              <button
+                type="button"
+                onClick={handleClearHistory}
+                className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/20"
+                title="Excluir todas as sessões do histórico permanentemente"
+              >
+                🗑️ Limpar histórico ({historySessions.length})
+              </button>
+            )}
+          </div>
 
           {historySessions.length === 0 ? (
             <div className="rounded-xl border border-white/[0.06] bg-card shadow-sm p-8 text-center">
@@ -762,6 +826,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                       <th className="text-left px-4 py-3 text-sm font-medium text-gray-400 uppercase tracking-wider">Lances</th>
                       <th className="text-left px-4 py-3 text-sm font-medium text-gray-400 uppercase tracking-wider">Resultado</th>
                       <th className="text-left px-4 py-3 text-sm font-medium text-gray-400 uppercase tracking-wider">Data</th>
+                      <th className="text-right px-4 py-3 text-sm font-medium text-gray-400 uppercase tracking-wider">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
@@ -782,6 +847,16 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                         </td>
                         <td className="px-4 py-3 text-gray-400 text-sm">
                           {new Date(session.created_at).toLocaleDateString('pt-BR')}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => handleSessionDelete(session.id)}
+                            className="rounded px-2 py-1 text-xs text-red-400 hover:bg-red-500/10 transition-colors"
+                            title="Excluir sessão permanentemente"
+                          >
+                            Excluir
+                          </button>
                         </td>
                       </tr>
                     ))}
