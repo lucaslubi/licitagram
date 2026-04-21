@@ -225,6 +225,8 @@ async function processScrapingJob(job: Job<ScrapingJobData>) {
 export const scrapingWorker = new Worker<ScrapingJobData>('scraping', processScrapingJob, {
   connection,
   concurrency: 3, // Reduced from 8 — with 2 PM2 instances = 6 total parallel
+  lockDuration: 600_000, // 10 min — scrapers lentos não perdem lock
+  stalledInterval: 600_000,
 })
 
 scrapingWorker.on('completed', (job) => {

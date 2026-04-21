@@ -141,7 +141,7 @@ async function processDocumentExpiry(job: Job<DocumentExpiryJobData>) {
 export const documentExpiryWorker = new Worker<DocumentExpiryJobData>(
   'document-expiry',
   processDocumentExpiry,
-  { connection, concurrency: 1 },
+  { connection, concurrency: 1, lockDuration: 600_000, stalledInterval: 600_000 },
 )
 
 documentExpiryWorker.on('completed', (job) => {

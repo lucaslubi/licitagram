@@ -148,6 +148,8 @@ export const botPreDisputeChecklistWorker = new Worker<PreDisputeChecklistJobDat
   {
     connection,
     concurrency: 3,
+    lockDuration: 600_000,
+    stalledInterval: 600_000,
   },
 )
 

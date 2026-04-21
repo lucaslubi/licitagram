@@ -151,6 +151,8 @@ export const comprasgovScrapingWorker = new Worker<ComprasGovScrapingJobData>(
   {
     connection,
     concurrency: 1, // Respect rate limits
+    lockDuration: 600_000,
+    stalledInterval: 600_000,
   },
 )
 

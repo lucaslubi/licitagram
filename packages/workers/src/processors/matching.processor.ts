@@ -20,7 +20,9 @@ const matchingWorker = new Worker<MatchingJobData>(
   },
   {
     connection,
-    concurrency: 5, // Reduced from 10 — still drains fast enough
+    concurrency: 5,
+    lockDuration: 600_000,
+    stalledInterval: 600_000,
   },
 )
 

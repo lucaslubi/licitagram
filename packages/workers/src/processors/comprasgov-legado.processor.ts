@@ -80,6 +80,8 @@ export const legadoScrapingWorker = new Worker<LegadoScrapingJobData>(
   {
     connection,
     concurrency: 1,
+    lockDuration: 600_000,
+    stalledInterval: 600_000,
   },
 )
 

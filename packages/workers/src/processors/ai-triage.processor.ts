@@ -516,7 +516,9 @@ LEMBRE: score 0-15 para objetos TOTALMENTE fora do escopo da empresa. Avalie TOD
 
 // ─── Worker ──────────────────────────────────────────────────────────────────
 
-const BATCH_SIZE = 50 // Items per LLM call (batch classification for efficiency)
+// Batch maior = menos overhead por job, mais matches por LLM call.
+// 100 items entram confortavelmente em 8K tokens de prompt + resposta.
+const BATCH_SIZE = Number(process.env.AI_TRIAGE_BATCH_SIZE ?? 100)
 
 const aiTriageWorker = new Worker<AiTriageJobData>(
   'ai-triage',
@@ -639,9 +641,13 @@ const aiTriageWorker = new Worker<AiTriageJobData>(
   },
   {
     connection,
-    concurrency: 2, // 2 companies can be triaged in parallel (reduced from 3 for memory)
-    limiter: { max: 10, duration: 60_000 }, // Max 10 jobs per minute
-    stalledInterval: 300_000, // 5 min stall timeout
+    // Autonomous scaling: read CONCURRENCY_AI_TRIAGE env (defaults 6) pra
+    // escalar em burst de 166K+ jobs sem tocar código. Multi-key OpenRouter
+    // + Groq + Gemini suportam 6 em paralelo com rate limit independente.
+    concurrency: Number(process.env.CONCURRENCY_AI_TRIAGE ?? 6),
+    limiter: { max: 30, duration: 60_000 }, // Max 30 jobs/min (era 10)
+    lockDuration: 900_000, // 15 min lock pra batches grandes
+    stalledInterval: 900_000,
   },
 )
 

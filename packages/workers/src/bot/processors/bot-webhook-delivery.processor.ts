@@ -206,6 +206,8 @@ export const botWebhookDeliveryWorker = new Worker<WebhookDeliveryJobData>(
   {
     connection,
     concurrency: 10,
+    lockDuration: 600_000,
+    stalledInterval: 600_000,
   },
 )
 

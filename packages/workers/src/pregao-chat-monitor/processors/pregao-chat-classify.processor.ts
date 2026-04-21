@@ -168,6 +168,8 @@ export const pregaoChatClassifyWorker = new Worker<PregaoChatClassifyJobData>(
   {
     connection,
     concurrency: 20,
+    lockDuration: 600_000,
+    stalledInterval: 600_000,
     removeOnComplete: { count: 1000 },
     removeOnFail: { count: 500 },
   },

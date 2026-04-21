@@ -144,6 +144,8 @@ export const botWatchdogWorker = new Worker<BotWatchdogJobData>(
   {
     connection,
     concurrency: 1, // serial — there's no value in parallel sweeps
+    lockDuration: 600_000,
+    stalledInterval: 600_000,
   },
 )
 

@@ -210,7 +210,7 @@ async function processCertidoesPoller(job: Job) {
 export const certidoesWorker = new Worker(
   'certidoes',
   processCertidoesPoller,
-  { connection, concurrency: 1 },
+  { connection, concurrency: 1, lockDuration: 600_000, stalledInterval: 600_000 },
 )
 
 certidoesWorker.on('completed', (job) => {
