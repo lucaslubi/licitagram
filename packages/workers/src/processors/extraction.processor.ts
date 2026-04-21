@@ -3,6 +3,7 @@ import { connection } from '../queues/connection'
 import { type ExtractionJobData } from '../queues/extraction.queue'
 import { aiTriageQueue } from '../queues/ai-triage.queue'
 import { semanticMatchingQueue } from '../queues/semantic-matching.queue'
+import { pgvectorMatchingQueue } from '../queues/pgvector-matching.queue'
 import { extractTextFromPDF } from '../scrapers/pdf-extractor'
 import { runKeywordMatching } from './keyword-matcher'
 import { classifyTenderCNAEs } from '../ai/cnae-classifier'
@@ -168,6 +169,21 @@ const extractionWorker = new Worker<ExtractionJobData>(
         tenderEmbedded = true
       } catch (err) {
         logger.warn({ tenderId, err }, 'Tender embedding failed (will retry in sweep)')
+      }
+    }
+
+    // 5b. Enfileira pgvector-matching (shadow mode) — nova engine determinística
+    // que substitui o ai-triage em 95% dos casos. Zero LLM, zero custo,
+    // ~100ms por tender. Roda em paralelo ao pipeline existente.
+    if (tenderEmbedded) {
+      try {
+        await pgvectorMatchingQueue.add(
+          `pgvector-${tenderId}`,
+          { tenderId },
+          { jobId: `pgvector-${tenderId}` },
+        )
+      } catch (err) {
+        logger.warn({ tenderId, err }, 'Failed to enqueue pgvector-matching (non-fatal)')
       }
     }
 

@@ -45,7 +45,9 @@ async function loadWorkers(): Promise<Worker[]> {
     const { aiTriageWorker } = await import('./processors/ai-triage.processor')
     const { semanticMatchingWorker } = await import('./processors/semantic-matching.processor')
     const { weeklyActionsWorker: weeklyActionsWorkerMatching } = await import('./processors/weekly-actions.processor')
-    workers.push(matchingWorker, aiTriageWorker, semanticMatchingWorker, weeklyActionsWorkerMatching)
+    // Novo engine determinístico (shadow mode — roda em paralelo ao ai-triage)
+    const { pgvectorMatcherWorker } = await import('./processors/pgvector-matcher.processor')
+    workers.push(matchingWorker, aiTriageWorker, semanticMatchingWorker, weeklyActionsWorkerMatching, pgvectorMatcherWorker)
   }
 
   // Legacy 'notification' group loads everything (backward compatible)
