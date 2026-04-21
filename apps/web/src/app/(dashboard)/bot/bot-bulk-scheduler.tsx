@@ -208,7 +208,12 @@ export function BotBulkScheduler({ configs }: Props) {
           scheduled_at: r.scheduled_at ? new Date(r.scheduled_at).toISOString() : undefined,
           min_price: r.min_price ? Number(r.min_price) : undefined,
           mode: r.mode,
-          idempotency_key: `${r.config_id}:${r.pregao_id.trim()}:${r.scheduled_at || 'now'}`,
+          // Inclui piso + modo + tempId pra que:
+          //   - Sessões com pisos/modos diferentes MAS mesmo pregão/data
+          //     sejam tratadas como sessões distintas (não dedup)
+          //   - Retry da mesma submissão (mesmo form) dedupe
+          //   - Recarregar a página gera novos tempIds → nova sessão
+          idempotency_key: `${r.config_id}:${r.pregao_id.trim()}:${r.scheduled_at || 'now'}:${r.min_price || '0'}:${r.mode}:${r.tempId}`,
         })),
       }
       const res = await fetch('/api/bot/sessions/bulk', {
@@ -413,44 +418,107 @@ export function BotBulkScheduler({ configs }: Props) {
       </div>
 
       {/* Resultado */}
-      {result && (
-        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold text-emerald-400">
-                {result.summary.created} sessões criadas de {result.summary.total}
-              </p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {result.summary.scheduled} agendadas · {result.summary.immediate} disparadas agora
-                {result.summary.deduped > 0 && ` · ${result.summary.deduped} já existiam (dedup)`}
-                {result.summary.errors > 0 && ` · ${result.summary.errors} erros`}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={clearAll}
-              className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-400 transition-colors hover:bg-emerald-500/20"
-            >
-              Novo lote
-            </button>
-          </div>
+      {result && (() => {
+        const allDeduped =
+          result.summary.created === 0 &&
+          result.summary.errors === 0 &&
+          result.summary.deduped > 0
+        const hasErrors = result.summary.errors > 0
+        const success = result.summary.created > 0
+        const borderColor = success
+          ? 'border-emerald-500/20 bg-emerald-500/5'
+          : allDeduped
+            ? 'border-amber-500/30 bg-amber-500/5'
+            : hasErrors
+              ? 'border-destructive/30 bg-destructive/5'
+              : 'border-border bg-card'
+        const titleColor = success
+          ? 'text-emerald-400'
+          : allDeduped
+            ? 'text-amber-400'
+            : 'text-destructive'
 
-          {result.summary.errors > 0 && (
-            <div className="mt-3 rounded-md border border-destructive/20 bg-destructive/5 p-2">
-              <p className="text-xs font-medium text-destructive">Erros por linha:</p>
-              <ul className="mt-1 space-y-0.5 text-[11px] text-destructive/90">
-                {result.results
-                  .filter((r) => r.status === 'error')
-                  .map((r, i) => (
-                    <li key={i} className="font-mono">
-                      {r.pregao_id}: {r.error}
-                    </li>
-                  ))}
-              </ul>
+        return (
+          <div className={`rounded-xl border p-4 ${borderColor}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1">
+                <p className={`text-sm font-semibold ${titleColor}`}>
+                  {success
+                    ? `✅ ${result.summary.created} ${result.summary.created === 1 ? 'sessão criada' : 'sessões criadas'}`
+                    : allDeduped
+                      ? '⚠️ Nada foi criado — já existiam sessões iguais'
+                      : '❌ Nenhuma sessão criada'}
+                </p>
+
+                {success && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {result.summary.scheduled > 0 &&
+                      `${result.summary.scheduled} agendada${result.summary.scheduled > 1 ? 's' : ''}`}
+                    {result.summary.scheduled > 0 && result.summary.immediate > 0 && ' · '}
+                    {result.summary.immediate > 0 &&
+                      `${result.summary.immediate} rodando agora`}
+                    {result.summary.deduped > 0 &&
+                      ` · ${result.summary.deduped} já existiam (ignoradas)`}
+                  </p>
+                )}
+
+                {allDeduped && (
+                  <div className="mt-2 space-y-1.5 text-xs text-amber-400/90">
+                    <p>
+                      Você já tinha <strong>{result.summary.deduped} sessão(ões)</strong> cadastrada(s)
+                      com os mesmos dados (mesmo pregão, horário e piso).
+                    </p>
+                    <p className="text-muted-foreground">
+                      O que você pode fazer:
+                    </p>
+                    <ul className="ml-4 space-y-0.5 text-[11px] text-muted-foreground">
+                      <li>
+                        • Ver elas na aba <strong className="text-foreground">Sessões Ativas</strong>
+                      </li>
+                      <li>
+                        • Mudar o piso ou o horário aqui e tentar de novo — vira sessão nova
+                      </li>
+                      <li>
+                        • Se quer substituir: cancele a sessão antiga primeiro em{' '}
+                        <strong className="text-foreground">Sessões Ativas</strong>, depois cadastre aqui de novo
+                      </li>
+                    </ul>
+                  </div>
+                )}
+
+                {hasErrors && !success && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {result.summary.errors} erro(s) — veja abaixo
+                  </p>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={clearAll}
+                className="shrink-0 rounded-lg border border-border bg-card/50 px-3 py-1.5 text-xs font-medium hover:bg-secondary"
+              >
+                Novo lote
+              </button>
             </div>
-          )}
-        </div>
-      )}
+
+            {hasErrors && (
+              <div className="mt-3 rounded-md border border-destructive/20 bg-destructive/5 p-2">
+                <p className="text-xs font-medium text-destructive">Erros por linha:</p>
+                <ul className="mt-1 space-y-0.5 text-[11px] text-destructive/90">
+                  {result.results
+                    .filter((r) => r.status === 'error')
+                    .map((r, i) => (
+                      <li key={i} className="font-mono">
+                        {r.pregao_id}: {r.error}
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )
+      })()}
     </div>
   )
 }
