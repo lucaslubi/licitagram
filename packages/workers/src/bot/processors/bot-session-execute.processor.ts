@@ -22,7 +22,6 @@ import { connection } from '../../queues/connection'
 import { supabase } from '../../lib/supabase'
 import { logger } from '../../lib/logger'
 import { QUEUE_NAME, type BotSessionExecuteJobData, enqueueBotSession } from '../queues/bot-session-execute.queue'
-import { BotSessionRunner } from '../bot-session-runner'
 import { runNexusSession } from '../nexus/runner'
 
 const LOCK_DURATION_MS = 5 * 60 * 1000
@@ -94,7 +93,9 @@ export const botSessionExecuteWorker = new Worker<BotSessionExecuteJobData>(
         .eq('id', sessionId)
         .single()
 
-      if (sessRow && sessRow.portal === 'comprasgov' || sessRow?.portal === 'comprasnet') {
+      const isComprasGov = sessRow?.portal === 'comprasgov' || sessRow?.portal === 'comprasnet'
+
+      if (isComprasGov && sessRow) {
         const { data: tokRow } = await supabase
           .from('bot_tokens')
           .select('id')
@@ -103,33 +104,58 @@ export const botSessionExecuteWorker = new Worker<BotSessionExecuteJobData>(
           .eq('status', 'active')
           .maybeSingle()
 
-        if (tokRow) {
-          log.info({ sessionId }, 'Using Nexus HTTP engine (bot_tokens connected)')
-          const nexusResult = await runNexusSession({
-            sessionId,
-            companyId: sessRow.company_id,
-            pregaoId: sessRow.pregao_id,
-            mode: (sessRow.mode || 'supervisor') as 'shadow' | 'supervisor' | 'auto_bid',
-            minPrice: sessRow.min_price,
-            strategyConfig:
-              typeof sessRow.strategy_config === 'object' && sessRow.strategy_config
-                ? (sessRow.strategy_config as Record<string, number>)
-                : null,
-          })
-          result = { reEnqueue: false, reason: nexusResult.reason }
-          log.info({ result: nexusResult }, 'Nexus session finished')
+        if (!tokRow) {
+          // Sem token conectado — falha com mensagem clara pedindo conectar.
+          // NÃO cai pro Playwright porque o Playwright não funciona e só
+          // geraria erro confuso. Esse é o novo fluxo padrão: sem token = sem robô.
+          log.warn({ sessionId }, 'Bot session sem bot_tokens conectado')
+          await supabase
+            .from('bot_sessions')
+            .update({
+              status: 'failed',
+              completed_at: new Date().toISOString(),
+              result: {
+                error:
+                  'Conta Compras.gov.br não conectada. Abra /bot → Conectar Conta Gov.br e use o bookmarklet.',
+                code: 'no_gov_connection',
+              },
+            })
+            .eq('id', sessionId)
+          result = { reEnqueue: false, reason: 'no_gov_connection' }
           return
         }
 
-        log.info(
-          { sessionId },
-          'No bot_tokens connected — falling back to legacy Playwright runner',
-        )
+        log.info({ sessionId }, 'Using Nexus HTTP engine (bot_tokens connected)')
+        const nexusResult = await runNexusSession({
+          sessionId,
+          companyId: sessRow.company_id,
+          pregaoId: sessRow.pregao_id,
+          mode: (sessRow.mode || 'supervisor') as 'shadow' | 'supervisor' | 'auto_bid',
+          minPrice: sessRow.min_price,
+          strategyConfig:
+            typeof sessRow.strategy_config === 'object' && sessRow.strategy_config
+              ? (sessRow.strategy_config as Record<string, number>)
+              : null,
+        })
+        result = { reEnqueue: false, reason: nexusResult.reason }
+        log.info({ result: nexusResult }, 'Nexus session finished')
+        return
       }
 
-      const runner = new BotSessionRunner(sessionId, tag)
-      result = await runner.run()
-      log.info({ result }, 'Session run finished')
+      // Portal não suportado
+      log.warn({ sessionId, portal: sessRow?.portal }, 'Portal não suportado')
+      await supabase
+        .from('bot_sessions')
+        .update({
+          status: 'failed',
+          completed_at: new Date().toISOString(),
+          result: {
+            error: `Portal "${sessRow?.portal}" ainda não suportado. Use comprasgov.`,
+            code: 'portal_not_supported',
+          },
+        })
+        .eq('id', sessionId)
+      result = { reEnqueue: false, reason: 'portal_not_supported' }
     } catch (err) {
       log.error(
         { err: err instanceof Error ? err.message : String(err) },
