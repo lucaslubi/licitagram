@@ -34,7 +34,13 @@ export function BotWarRoom({ configs, sessions, companyId }: Props) {
             Robô de Lances
           </h1>
           <p className="mt-1 text-xs text-muted-foreground">
-            Configure um portal, inicie uma sessão, acompanhe em tempo real.
+            Configure um portal, inicie uma sessão, acompanhe em tempo real.{' '}
+            <a
+              href="/bot/guia"
+              className="text-primary underline underline-offset-2 hover:text-primary/80"
+            >
+              📖 Ver guia completo
+            </a>
           </p>
         </div>
 
