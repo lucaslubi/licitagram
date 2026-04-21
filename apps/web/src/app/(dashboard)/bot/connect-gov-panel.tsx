@@ -3,17 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
 /**
- * Painel "Conectar conta Compras.gov.br".
- *
- * Fluxo:
- *   1. Cliente faz login no Compras.gov.br normalmente (outra aba)
- *   2. Depois de logado, clica no bookmarklet "Conectar Licitagram"
- *      que extrai o JWT do localStorage/sessionStorage
- *   3. Bookmarklet abre popup do nosso domínio com os tokens via
- *      postMessage ou window.open?token=...
- *   4. Nossa página recebe, valida, e POST /api/bot/connect-token
- *
- * Alternativa manual: colar os JWTs direto (pra quem não quer bookmarklet).
+ * Painel "Conectar conta Compras.gov.br" — versão amigável pra leigo.
  */
 
 interface Connection {
@@ -35,6 +25,7 @@ export function ConnectGovPanel() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
 
   const loadStatus = useCallback(async () => {
     try {
@@ -54,7 +45,7 @@ export function ConnectGovPanel() {
     setError(null)
     setSuccess(null)
     if (!accessToken.trim()) {
-      setError('Cole o accessToken primeiro')
+      setError('Cole o primeiro código (accessToken) no campo de cima')
       return
     }
     setSubmitting(true)
@@ -73,7 +64,7 @@ export function ConnectGovPanel() {
         return
       }
       setSuccess(
-        `Conectado como ${data.cnpj ?? 'fornecedor'}${data.nome ? ' (' + data.nome + ')' : ''}. Token válido por ${data.expires_in_minutes} min.`,
+        `Pronto! Conectado como ${data.cnpj ?? 'fornecedor'}${data.nome ? ' (' + data.nome + ')' : ''}.`,
       )
       setAccessToken('')
       setRefreshTokenVal('')
@@ -86,11 +77,7 @@ export function ConnectGovPanel() {
     }
   }, [accessToken, refreshTokenVal, loadStatus])
 
-  // Bookmarklet: quando clicado na barra do navegador do cliente
-  // (enquanto ele tá logado no Compras.gov.br), extrai tokens e
-  // manda pro nosso endpoint via POST form em nova janela.
-  //
-  // O cliente ARRASTA esse link pra barra de favoritos dele.
+  // Script que o cliente vai colar como link de favorito
   const bookmarkletCode = `
     (function(){
       function getOrigin(){return "${typeof window !== 'undefined' ? window.location.origin : 'https://licitagram.com'}";}
@@ -101,7 +88,7 @@ export function ConnectGovPanel() {
       for(var s=0;s<st.length;s++){var stg=st[s];try{for(var i=0;i<stg.length;i++){var v=stg.getItem(stg.key(i));if(v)scan(v,cands,0);}}catch(e){}}
       var acc=null,ref=null,accExp=0,refExp=0;
       cands.forEach(function(t){var p=decode(t);if(!p||typeof p!=="object")return;var exp=p.exp||0;if(p.id_sessao!==undefined&&p.identificacao_fornecedor===undefined){if(exp>refExp){refExp=exp;ref=t;}}else if(p.identificacao_fornecedor!==undefined){if(exp>accExp){accExp=exp;acc=t;}}});
-      if(!acc){alert("Nenhum token de acesso encontrado. Faça login no Compras.gov.br e tente de novo.");return;}
+      if(!acc){alert("Nao encontramos seu login no Compras.gov.br. Verifique se voce esta logado na pagina.");return;}
       var form=document.createElement("form");form.method="POST";form.action=getOrigin()+"/bot/connect-callback";form.target="_blank";
       var a=document.createElement("input");a.type="hidden";a.name="accessToken";a.value=acc;form.appendChild(a);
       if(ref){var r=document.createElement("input");r.type="hidden";r.name="refreshToken";r.value=ref;form.appendChild(r);}
@@ -113,13 +100,27 @@ export function ConnectGovPanel() {
 
   const bookmarkletHref = `javascript:${encodeURIComponent(bookmarkletCode)}`
 
+  const copyBookmarklet = async () => {
+    try {
+      await navigator.clipboard.writeText(bookmarkletHref)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2500)
+    } catch {
+      /* ignore */
+    }
+  }
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {/* Cabeçalho */}
       <div>
-        <h2 className="text-xl font-semibold text-foreground">Conectar conta Compras.gov.br</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          O robô precisa do seu login no Compras.gov.br pra dar lances. Conecte uma vez e o token
-          é renovado automaticamente enquanto válido.
+        <h2 className="text-xl font-semibold text-foreground">Conectar sua conta do Compras.gov.br</h2>
+        <p className="mt-1.5 text-sm text-muted-foreground">
+          Pra dar lances automáticos, precisamos do seu login no site do Compras.gov.br.
+          Conecte uma vez aqui e o robô vai dar lance por você.{' '}
+          <span className="text-foreground">É seguro</span> — a gente só guarda uma chave
+          temporária que te autoriza, igual um cartão de acesso. Seu CPF e senha nunca são
+          salvos.
         </p>
       </div>
 
@@ -129,10 +130,10 @@ export function ConnectGovPanel() {
           Carregando…
         </div>
       ) : conns.length === 0 ? (
-        <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm">
-          <p className="font-medium text-amber-400">Nenhuma conexão ativa</p>
-          <p className="mt-1 text-xs text-amber-400/70">
-            Use o bookmarklet abaixo ou cole o JWT manualmente pra conectar sua conta.
+        <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+          <p className="font-medium text-amber-400">Ainda sem conta conectada</p>
+          <p className="mt-1 text-xs text-amber-400/80">
+            Siga o passo a passo abaixo. Leva 2 minutos.
           </p>
         </div>
       ) : (
@@ -151,103 +152,200 @@ export function ConnectGovPanel() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-medium text-foreground">
-                    {c.portal === 'comprasgov' ? 'Compras.gov.br' : c.portal}
+                    {c.is_expired ? '⚠️ Conexão expirou — reconecte' : '✅ Conectado'}
                   </p>
+                  {c.nome && <p className="mt-1 text-sm text-foreground">{c.nome}</p>}
                   {c.cnpj && (
                     <p className="mt-0.5 font-mono text-xs tabular-nums text-muted-foreground">
                       CNPJ {c.cnpj}
                     </p>
                   )}
-                  {c.nome && (
-                    <p className="text-xs text-muted-foreground">{c.nome}</p>
-                  )}
                 </div>
-                <div className="text-right text-[11px]">
-                  {c.is_expired ? (
-                    <span className="font-medium text-destructive">Expirado — reconectar</span>
-                  ) : (
-                    <span className="font-mono tabular-nums text-muted-foreground">
-                      {c.expires_in_minutes} min restantes
-                    </span>
-                  )}
-                </div>
+                {!c.is_expired && (
+                  <div className="text-right text-[11px] font-mono tabular-nums text-muted-foreground">
+                    Vence em {c.expires_in_minutes} min
+                  </div>
+                )}
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Bookmarklet */}
-      <div className="rounded-xl border border-border bg-card p-4">
-        <h3 className="text-sm font-semibold text-foreground">Opção 1 — Bookmarklet (recomendado)</h3>
-        <ol className="mt-2 space-y-1 text-xs text-muted-foreground">
-          <li>
-            1. <strong className="text-foreground">Arraste o botão abaixo</strong> pra barra de favoritos do seu
-            navegador
-          </li>
-          <li>2. Abra <code className="font-mono text-[11px]">compras.gov.br</code> em outra aba e faça seu login</li>
-          <li>3. Com a página do Compras logada, clique no favorito que você acabou de criar</li>
-          <li>4. Uma aba nossa abre com os tokens capturados — pronto, conectado.</li>
-        </ol>
-        <div className="mt-3">
-          <a
-            href={bookmarkletHref}
-            className="inline-block rounded-lg border border-primary/40 bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/20"
-            onClick={(e) => {
-              // Previne execução acidental — é pra ser arrastado
-              e.preventDefault()
-              alert('Arraste este botão para a barra de favoritos do navegador.')
-            }}
-          >
-            📌 Conectar Licitagram (arraste para favoritos)
-          </a>
+      {/* PASSO A PASSO VISUAL */}
+      <div className="rounded-xl border border-primary/20 bg-primary/[0.03] p-5">
+        <div className="flex items-start gap-3">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-base font-semibold text-primary">
+            📌
+          </span>
+          <div>
+            <h3 className="text-base font-semibold text-foreground">Como conectar — jeito mais fácil</h3>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Você vai criar um &quot;atalho mágico&quot; na barra do navegador. Depois é só clicar nele
+              quando estiver logado no Compras.gov.br.
+            </p>
+          </div>
+        </div>
+
+        {/* Passo 1 */}
+        <div className="mt-5 space-y-4 pl-11">
+          <Step number={1} title="Deixe a barra de favoritos aparecendo no navegador">
+            <p>
+              No Chrome/Edge: aperte <Kbd>Ctrl+Shift+B</Kbd> (Windows) ou{' '}
+              <Kbd>⌘+Shift+B</Kbd> (Mac) pra mostrar a barra de favoritos (aquela faixa fina
+              logo abaixo da barra de endereço).
+            </p>
+            <p className="mt-1 text-muted-foreground">
+              Se você já vê essa barra, pode pular pro próximo passo.
+            </p>
+          </Step>
+
+          <Step number={2} title="Arraste o botão laranja abaixo pra essa barra">
+            <p>
+              Segure o botão com o mouse e solte em cima da barra de favoritos. Ele vira um
+              link salvo lá.
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <a
+                href={bookmarkletHref}
+                draggable
+                onClick={(e) => {
+                  e.preventDefault()
+                  alert(
+                    'Este botão é pra você ARRASTAR pra barra de favoritos do seu navegador, não clicar aqui.\n\nSegure com o mouse e solte em cima da barra de favoritos.',
+                  )
+                }}
+                className="inline-flex cursor-grab items-center gap-2 rounded-lg border-2 border-orange-500/50 bg-orange-500/10 px-4 py-2.5 text-sm font-medium text-orange-300 hover:bg-orange-500/20 active:cursor-grabbing"
+                title="Arraste este botão pra barra de favoritos"
+              >
+                📌 Conectar Licitagram
+              </a>
+              <span className="text-[11px] text-muted-foreground">
+                ↑ arraste este botão
+              </span>
+            </div>
+
+            <details className="mt-3 text-[11px]">
+              <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                Não consigo arrastar — tem outro jeito?
+              </summary>
+              <div className="mt-2 space-y-1.5 rounded border border-border bg-card/40 p-2 text-muted-foreground">
+                <p>Sim! Copie o código do atalho e adicione manualmente:</p>
+                <ol className="ml-4 list-decimal space-y-1">
+                  <li>
+                    Clique em &quot;Copiar código do atalho&quot; abaixo
+                    <button
+                      onClick={copyBookmarklet}
+                      className="ml-2 rounded border border-border bg-card px-2 py-0.5 text-[10px] font-medium text-foreground hover:bg-secondary"
+                    >
+                      {copied ? '✓ Copiado' : 'Copiar código do atalho'}
+                    </button>
+                  </li>
+                  <li>Clique com o botão direito na barra de favoritos → &quot;Adicionar página&quot;</li>
+                  <li>
+                    Nome: <code className="font-mono">Conectar Licitagram</code>
+                  </li>
+                  <li>URL: cole o código que você copiou</li>
+                  <li>Salvar</li>
+                </ol>
+              </div>
+            </details>
+          </Step>
+
+          <Step number={3} title="Abra o Compras.gov.br e faça seu login normal">
+            <p>
+              Em outra aba, vá em{' '}
+              <a
+                href="https://www.compras.gov.br/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary underline underline-offset-2 hover:text-primary/80"
+              >
+                compras.gov.br
+              </a>{' '}
+              e faça login como você já faz todo dia (com CPF e senha do gov.br).
+            </p>
+            <p className="mt-1 text-muted-foreground">
+              Entre na área do fornecedor — aquela tela que mostra seus pregões.
+            </p>
+          </Step>
+
+          <Step number={4} title="Com a página do Compras aberta e logada, clique no favorito">
+            <p>
+              Clique no atalho <strong>📌 Conectar Licitagram</strong> que você acabou de
+              criar lá em cima na barra.
+            </p>
+            <p className="mt-1 text-muted-foreground">
+              Uma nova aba nossa vai abrir com <span className="text-emerald-400">✅ Conta conectada</span>.
+              Pronto — o robô tem o que precisa pra dar lance.
+            </p>
+          </Step>
         </div>
       </div>
 
-      {/* Paste manual */}
+      {/* Avançado — colar manualmente */}
       <div className="rounded-xl border border-border bg-card p-4">
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-sm font-semibold text-foreground">Opção 2 — Colar manualmente</h3>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Pra quem não pode usar bookmarklet. Abra o DevTools do Compras.gov.br e copie os
-              tokens do localStorage ou sessionStorage.
+            <h3 className="text-sm font-semibold text-foreground">
+              Não deu certo com o favorito?
+            </h3>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Tem um jeito manual pra quem tem restrição no navegador do trabalho. Requer
+              conhecimento técnico.
             </p>
           </div>
           <button
             type="button"
             onClick={() => setShowPasteForm((v) => !v)}
-            className="rounded-md border border-border px-2 py-1 text-xs font-medium hover:bg-secondary"
+            className="shrink-0 rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-secondary"
           >
-            {showPasteForm ? 'Ocultar' : 'Mostrar'}
+            {showPasteForm ? 'Fechar' : 'Abrir jeito manual'}
           </button>
         </div>
 
         {showPasteForm && (
-          <div className="mt-3 space-y-3">
+          <div className="mt-4 space-y-3 border-t border-border pt-4">
+            <div className="rounded-md border border-border bg-background/50 p-3 text-[11px] leading-relaxed text-muted-foreground">
+              <p className="font-medium text-foreground">Como pegar os códigos:</p>
+              <ol className="ml-4 mt-1 list-decimal space-y-0.5">
+                <li>No Compras.gov.br logado, aperte <Kbd>F12</Kbd> (abre as ferramentas do desenvolvedor)</li>
+                <li>Clique na aba <strong>Application</strong> (ou <strong>Armazenamento</strong>)</li>
+                <li>Do lado esquerdo: abra <strong>Local Storage</strong> → clique no endereço do Compras</li>
+                <li>
+                  Procure chaves que tenham valores grandes começando com <code>eyJ...</code> — esses são os
+                  tokens. Copie e cole abaixo.
+                </li>
+              </ol>
+            </div>
+
             <div>
               <label className="block text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                Access Token (obrigatório)
+                Primeiro código (accessToken) — obrigatório
               </label>
               <textarea
                 value={accessToken}
                 onChange={(e) => setAccessToken(e.target.value)}
-                placeholder="eyJhbGciOi..."
+                placeholder="Cole aqui algo parecido com eyJhbGciOiJSUzI1NiJ9..."
                 rows={3}
                 className="mt-1 w-full rounded-md border border-border bg-background p-2 font-mono text-[11px] break-all"
               />
             </div>
             <div>
               <label className="block text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                Refresh Token (opcional — dá mais autonomia ao robô)
+                Segundo código (refreshToken) — opcional mas recomendado
               </label>
               <textarea
                 value={refreshTokenVal}
                 onChange={(e) => setRefreshTokenVal(e.target.value)}
-                placeholder="eyJhbGciOi..."
+                placeholder="Cole aqui se encontrar um segundo token eyJ..."
                 rows={3}
                 className="mt-1 w-full rounded-md border border-border bg-background p-2 font-mono text-[11px] break-all"
               />
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                Com esse segundo código, o robô renova a sessão sozinho e não precisa te
+                pedir pra conectar de novo toda hora.
+              </p>
             </div>
 
             {error && (
@@ -267,11 +365,41 @@ export function ConnectGovPanel() {
               disabled={submitting}
               className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
             >
-              {submitting ? 'Conectando…' : 'Conectar'}
+              {submitting ? 'Conectando…' : 'Conectar com esses códigos'}
             </button>
           </div>
         )}
       </div>
     </div>
+  )
+}
+
+function Step({
+  number,
+  title,
+  children,
+}: {
+  number: number
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="flex gap-3">
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[11px] font-bold text-primary">
+        {number}
+      </span>
+      <div className="flex-1 text-sm text-foreground/90">
+        <p className="font-medium text-foreground">{title}</p>
+        <div className="mt-1 text-xs leading-relaxed">{children}</div>
+      </div>
+    </div>
+  )
+}
+
+function Kbd({ children }: { children: React.ReactNode }) {
+  return (
+    <kbd className="mx-0.5 inline-block rounded border border-border bg-card px-1.5 py-0.5 font-mono text-[10px] shadow-sm">
+      {children}
+    </kbd>
   )
 }
