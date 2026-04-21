@@ -240,7 +240,7 @@ export async function PATCH(req: NextRequest) {
       )
     }
 
-    const validActions = ['pause', 'resume', 'cancel']
+    const validActions = ['pause', 'resume', 'cancel', 'start_now']
     if (!validActions.includes(action)) {
       return NextResponse.json(
         { error: `Acao invalida. Use: ${validActions.join(', ')}` },
@@ -271,14 +271,21 @@ export async function PATCH(req: NextRequest) {
 
     // Se a sessão está 'scheduled' (aguardando horário), resume volta pra
     // scheduled (não pending) pra não disparar antes do scheduled_at.
+    // Ação 'start_now' força início imediato independente do scheduled_at.
     const resumeStatus = existing.status === 'scheduled' ? 'scheduled' : 'pending'
     const statusMap: Record<string, string> = {
       pause: 'paused',
       resume: resumeStatus,  // worker polls for 'pending'; watchdog promove 'scheduled' no horário
+      start_now: 'pending',   // força início imediato (zera scheduled_at abaixo)
       cancel: 'cancelled',
     }
 
     const updatePayload: Record<string, unknown> = { status: statusMap[action] }
+
+    if (action === 'start_now') {
+      // Zera o scheduled_at pra worker pegar imediatamente
+      updatePayload.scheduled_at = null
+    }
 
     if (action === 'cancel') {
       updatePayload.completed_at = new Date().toISOString()
@@ -297,13 +304,21 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Erro ao atualizar sessao' }, { status: 500 })
     }
 
-    // On resume, re-enqueue the execution job so the worker picks it up
-    // again. pause/cancel do not enqueue.
-    if (action === 'resume' && updated?.id) {
+    // On resume OR start_now (não-scheduled), re-enqueue execution.
+    // Scheduled sessions resumed stay in status='scheduled' — watchdog promove.
+    const shouldEnqueue =
+      (action === 'resume' && existing.status !== 'scheduled') ||
+      action === 'start_now'
+
+    if (shouldEnqueue && updated?.id) {
       try {
-        await enqueueBotSession(updated.id, 'resume', 0)
+        await enqueueBotSession(
+          updated.id,
+          action === 'start_now' ? 'manual' : 'resume',
+          0,
+        )
       } catch (enqueueErr) {
-        console.error('[API bot/sessions] resume enqueue error:', enqueueErr)
+        console.error('[API bot/sessions] resume/start_now enqueue error:', enqueueErr)
       }
     }
 

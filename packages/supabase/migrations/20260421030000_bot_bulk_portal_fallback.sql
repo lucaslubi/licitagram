@@ -1,55 +1,15 @@
 -- ============================================================
--- Bot Supreme: agendamento de sessões de lance
+-- Hotfix: bulk_create_bot_sessions — portal NOT NULL
 -- ============================================================
--- Permite criar sessões de lance em lote com horário de início específico
--- (scheduled_at). Watchdog detecta sessões com scheduled_at <= now() e
--- status='scheduled' → promove pra 'pending' + enfileira execução.
--- ============================================================
-
--- 1. Coluna scheduled_at — quando a sessão deve começar.
-ALTER TABLE public.bot_sessions
-  ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMPTZ;
-
--- 2. Expandir CHECK constraint do status pra incluir 'scheduled'.
-DO $$
-DECLARE _cname TEXT;
-BEGIN
-  FOR _cname IN
-    SELECT conname FROM pg_constraint
-    WHERE conrelid = 'public.bot_sessions'::regclass
-      AND contype = 'c'
-      AND pg_get_constraintdef(oid) ILIKE '%status%'
-  LOOP
-    EXECUTE format('ALTER TABLE public.bot_sessions DROP CONSTRAINT IF EXISTS %I', _cname);
-  END LOOP;
-END $$;
-
-ALTER TABLE public.bot_sessions
-  ADD CONSTRAINT bot_sessions_status_check
-  CHECK (status IN (
-    'scheduled', 'pending', 'active', 'paused',
-    'completed', 'failed', 'cancelled'
-  ));
-
--- 3. Índices
-CREATE INDEX IF NOT EXISTS idx_bot_sessions_scheduled_due
-  ON public.bot_sessions (scheduled_at)
-  WHERE status = 'scheduled';
-
-CREATE INDEX IF NOT EXISTS idx_bot_sessions_company_status
-  ON public.bot_sessions (company_id, status, scheduled_at DESC);
-
--- 4. RPC: bulk_create_bot_sessions
---    Implementação 100% LANGUAGE sql (sem PL/pgSQL) usando CTEs.
---    Evita o bug do parser do Supabase que trata variáveis locais como
---    nomes de relação em SELECT INTO (v_* E _* falham).
+-- Bug descoberto no teste E2E: quando payload do /api/bot/sessions/bulk
+-- não traz 'portal' explícito (usuário confia no portal do bot_config),
+-- o INSERT falha com:
+--   "null value in column portal of relation bot_sessions violates not-null constraint"
 --
---    Estratégia:
---    1. Decompõe input JSONB em linhas via jsonb_array_elements WITH ORDINALITY
---    2. Valida config_id pertence à company (LEFT JOIN)
---    3. Checa idempotency existente (LEFT JOIN com bot_sessions)
---    4. INSERT condicional via INSERT ... SELECT ... WHERE
---    5. UNION dos 3 casos (error / deduped / created) pro retorno
+-- Fix: adicionar fallback na CTE — COALESCE(i.portal, bc.portal) puxa
+-- o portal do bot_config quando não vem no input JSON.
+-- ============================================================
+
 DROP FUNCTION IF EXISTS public.bulk_create_bot_sessions(UUID, JSONB);
 
 CREATE OR REPLACE FUNCTION public.bulk_create_bot_sessions(
@@ -72,7 +32,7 @@ AS $fn$
       NULLIF(t.item->>'config_id', '')::UUID AS config_id,
       (t.item->>'pregao_id')                  AS pregao_id,
       NULLIF(t.item->>'tender_id', '')::UUID  AS tender_id,
-      (t.item->>'portal')                     AS portal,
+      NULLIF(t.item->>'portal', '')           AS portal_input,
       COALESCE(t.item->'strategy_config', '{}'::jsonb) AS strategy_config,
       NULLIF(t.item->>'min_price', '')::NUMERIC       AS min_price,
       NULLIF(t.item->>'max_bids', '')::INTEGER        AS max_bids,
@@ -81,15 +41,14 @@ AS $fn$
       NULLIF(t.item->>'scheduled_at', '')::TIMESTAMPTZ AS scheduled_at
     FROM jsonb_array_elements(p_sessions) WITH ORDINALITY AS t(item, ord)
   ),
-  -- Valida que config_id existe e pertence à company.
-  -- Também puxa o portal do bot_configs caso não venha no payload (fallback).
+  -- Valida config_id + resolve portal (input OU fallback do bot_configs)
   with_validation AS (
     SELECT
-      i.ord, i.item,
+      i.ord,
       i.config_id,
       i.pregao_id,
       i.tender_id,
-      COALESCE(NULLIF(i.portal, ''), bc.portal) AS portal,
+      COALESCE(i.portal_input, bc.portal) AS portal,
       i.strategy_config,
       i.min_price,
       i.max_bids,
@@ -102,7 +61,7 @@ AS $fn$
       ON bc.id = i.config_id
      AND bc.company_id = p_company_id
   ),
-  -- Verifica sessão existente por idempotency
+  -- Idempotency check
   with_dedup AS (
     SELECT
       w.*,
@@ -113,7 +72,7 @@ AS $fn$
      AND bs.idempotency_key = w.idempotency_key
      AND w.idempotency_key IS NOT NULL
   ),
-  -- INSERT condicional: só linhas com config válido E sem duplicata
+  -- INSERT condicional
   inserted AS (
     INSERT INTO public.bot_sessions (
       company_id, config_id, pregao_id, tender_id, portal,
@@ -142,7 +101,7 @@ AS $fn$
       AND d.existing_id IS NULL
     RETURNING id, pregao_id, idempotency_key
   )
-  -- Compõe resultado: errors + deduped + created, preservando ordem
+  -- Resultado por linha, preservando ordem do input
   SELECT
     CASE
       WHEN d.config_valid = FALSE THEN NULL
@@ -169,4 +128,4 @@ $fn$;
 GRANT EXECUTE ON FUNCTION public.bulk_create_bot_sessions(UUID, JSONB) TO authenticated, service_role;
 
 COMMENT ON FUNCTION public.bulk_create_bot_sessions IS
-  'Cria múltiplas bot_sessions em transação (LANGUAGE sql puro pra evitar bug do parser PL/pgSQL do Supabase). Decide status automaticamente entre scheduled/pending baseado em scheduled_at. Retorna status por item (created/deduped/error).';
+  'v2: Portal agora tem fallback pro bot_configs quando não vem no input. Evita violação de NOT NULL constraint.';

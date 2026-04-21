@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { GuidedLogin } from './guided-login'
+import { BotBulkScheduler } from './bot-bulk-scheduler'
 
 /* ── Types ──────────────────────────────────────────────────────────────────── */
 
@@ -35,11 +36,13 @@ interface BotSession {
   pregao_id: string
   portal: string
   strategy: string
-  status: 'pending' | 'active' | 'completed' | 'failed' | 'paused' | 'cancelled'
+  status: 'scheduled' | 'pending' | 'active' | 'completed' | 'failed' | 'paused' | 'cancelled'
   bids_placed: number
   min_price: number | null
   max_bids: number | null
   current_price: number | null
+  scheduled_at: string | null
+  mode?: string
   result: Record<string, unknown> | null
   bot_actions: BotAction[]
   created_at: string
@@ -64,6 +67,7 @@ const STRATEGY_OPTIONS = [
 ]
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
+  scheduled: { label: 'Agendado', bg: 'bg-violet-900/20', text: 'text-violet-400' },
   pending: { label: 'Pendente', bg: 'bg-amber-900/20', text: 'text-amber-400' },
   active: { label: 'Ativo', bg: 'bg-blue-900/20', text: 'text-blue-400' },
   completed: { label: 'Concluido', bg: 'bg-emerald-900/20', text: 'text-emerald-400' },
@@ -98,7 +102,7 @@ function StatusBadge({ status }: { status: string }) {
 
 export function BotDashboard({ configs: initialConfigs, sessions: initialSessions, companyId }: Props) {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<'configs' | 'sessions' | 'history'>('configs')
+  const [activeTab, setActiveTab] = useState<'configs' | 'bulk' | 'sessions' | 'history'>('configs')
   const [configs, setConfigs] = useState(initialConfigs)
   const [sessions, setSessions] = useState(initialSessions)
 
@@ -136,8 +140,10 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Derived data
-  const activeSessions = sessions.filter(s => s.status === 'pending' || s.status === 'active')
-  const historySessions = sessions.filter(s => !['pending', 'active'].includes(s.status))
+  // "Ativas" agora inclui scheduled (agendadas aguardando horário), pending
+  // (prontas pra worker pegar) e active (em execução no portal).
+  const activeSessions = sessions.filter(s => ['scheduled', 'pending', 'active'].includes(s.status))
+  const historySessions = sessions.filter(s => ['completed', 'failed', 'paused', 'cancelled'].includes(s.status))
   const totalBids = sessions.reduce((sum, s) => sum + (s.bids_placed || 0), 0)
   const completedSessions = sessions.filter(s => s.status === 'completed')
   const finishedSessions = sessions.filter(s => ['completed', 'failed'].includes(s.status))
@@ -369,7 +375,7 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
     }
   }
 
-  async function handleSessionAction(sessionId: string, action: 'pause' | 'resume' | 'cancel') {
+  async function handleSessionAction(sessionId: string, action: 'pause' | 'resume' | 'cancel' | 'start_now') {
     try {
       const res = await fetch('/api/bot/sessions', {
         method: 'PATCH',
@@ -420,9 +426,10 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
       </div>
 
       {/* Tab Navigation — inline pills */}
-      <div className="flex gap-1 border-b border-border mb-5">
+      <div className="flex gap-1 border-b border-border mb-5 overflow-x-auto">
         {[
           { key: 'configs' as const, label: 'Portais Configurados' },
+          { key: 'bulk' as const, label: 'Agendar em Lote' },
           { key: 'sessions' as const, label: `Sessões Ativas (${activeSessions.length})` },
           { key: 'history' as const, label: 'Histórico' },
         ].map(tab => (
@@ -553,6 +560,19 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
         </div>
       )}
 
+      {/* ═══ Tab: Bulk Scheduler ═══ */}
+      {activeTab === 'bulk' && (
+        <BotBulkScheduler
+          configs={configs.map((c) => ({
+            id: c.id,
+            portal: c.portal,
+            username: c.username,
+            is_active: c.is_active,
+            has_cookies: c.has_cookies,
+          }))}
+        />
+      )}
+
       {/* ═══ Tab: Active Sessions ═══ */}
       {activeTab === 'sessions' && (
         <div className="space-y-4">
@@ -626,6 +646,26 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                     </div>
                   )}
 
+                  {session.status === 'scheduled' && session.scheduled_at && (
+                    <div className="mt-3 rounded-lg border border-violet-500/30 bg-violet-500/10 p-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-violet-400 mb-1">
+                        Agendado para
+                      </p>
+                      <p className="text-sm font-mono tabular-nums text-violet-300">
+                        {new Date(session.scheduled_at).toLocaleString('pt-BR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </p>
+                      <p className="mt-1 text-[11px] text-violet-400/70">
+                        O robô inicia automaticamente nesse horário.
+                      </p>
+                    </div>
+                  )}
+
                   {session.status === 'failed' && (() => {
                     // Surface the real error from the most recent action.
                     const lastErr = [...(session.bot_actions || [])]
@@ -653,12 +693,18 @@ export function BotDashboard({ configs: initialConfigs, sessions: initialSession
                         Pausar
                       </button>
                     )}
-                    {session.status === 'paused' && (
+                    {(session.status === 'paused' || session.status === 'scheduled') && (
                       <button
-                        onClick={() => handleSessionAction(session.id, 'resume')}
+                        onClick={() =>
+                          handleSessionAction(
+                            session.id,
+                            session.status === 'scheduled' ? 'start_now' : 'resume',
+                          )
+                        }
                         className="text-sm px-3 py-1.5 rounded-md bg-brand text-white hover:bg-brand-dark transition-colors font-medium"
+                        title={session.status === 'scheduled' ? 'Forçar início agora (ignora scheduled_at)' : 'Retomar'}
                       >
-                        Retomar
+                        {session.status === 'scheduled' ? 'Iniciar agora' : 'Retomar'}
                       </button>
                     )}
                     <button
