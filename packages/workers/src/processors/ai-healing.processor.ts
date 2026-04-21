@@ -415,6 +415,24 @@ function detectIssuesFromRules(metrics: SystemMetrics): DetectedIssue[] {
       }
     }
 
+    // Backlog enorme MAS com workers ativos = processamento lento.
+    // Auto-scale concurrency via env var + pm2 reload. Limitado aos
+    // workers escaláveis (ai-triage é o principal).
+    if (
+      stats.waiting > 10_000 &&
+      stats.active > 0 &&
+      isScalableQueue(queueName)
+    ) {
+      issues.push({
+        action_type: 'autoscale_concurrency',
+        severity: 'autonomous',
+        description: `Fila "${queueName}" com ${stats.waiting.toLocaleString()} waiting + ${stats.active} active. Escalando concurrency.`,
+        details: { queue: queueName, waiting: stats.waiting, active: stats.active },
+        action_command: getScaleCommandForQueue(queueName, stats.waiting),
+        triggered_by: 'system',
+      })
+    }
+
     // Excessive failed jobs
     if (stats.failed > 500) {
       issues.push({
@@ -484,6 +502,37 @@ function detectIssuesFromRules(metrics: SystemMetrics): DetectedIssue[] {
   }
 
   return issues
+}
+
+/**
+ * Filas que suportam escalar concurrency via env var sem redeploy.
+ * Cada uma tem uma variável CONCURRENCY_* lida pelo processor no boot.
+ */
+function isScalableQueue(queueName: string): boolean {
+  return ['ai-triage', 'semantic-matching', 'extraction'].includes(queueName)
+}
+
+/**
+ * Gera comando PM2 pra aumentar concurrency de um worker escalável.
+ * Usa pm2 set + restart --update-env pra aplicar sem downtime significativo.
+ *
+ * Estratégia de escalonamento progressivo:
+ *   < 20K waiting  → concurrency 8
+ *   < 50K waiting  → concurrency 12
+ *   ≥ 50K waiting  → concurrency 16 (teto — multi-key OpenRouter limit)
+ */
+function getScaleCommandForQueue(queueName: string, waiting: number): string {
+  const newConcurrency = waiting >= 50_000 ? 16 : waiting >= 20_000 ? 12 : 8
+
+  const ENV_VAR_MAP: Record<string, { envKey: string; pm2Name: string }> = {
+    'ai-triage': { envKey: 'CONCURRENCY_AI_TRIAGE', pm2Name: 'worker-matching' },
+    'semantic-matching': { envKey: 'CONCURRENCY_SEMANTIC', pm2Name: 'worker-matching' },
+    'extraction': { envKey: 'CONCURRENCY_EXTRACTION', pm2Name: 'worker-extraction' },
+  }
+  const cfg = ENV_VAR_MAP[queueName]
+  if (!cfg) return `echo "queue ${queueName} not scalable"`
+
+  return `pm2 set ${cfg.envKey} ${newConcurrency} && pm2 restart ${cfg.pm2Name} --update-env`
 }
 
 // Map queue names to PM2 worker restart commands
@@ -616,7 +665,8 @@ async function executeAction(issue: DetectedIssue): Promise<{ success: boolean; 
 
     case 'restart_worker':
     case 'restart_queue_worker':
-    case 'clean_logs': {
+    case 'clean_logs':
+    case 'autoscale_concurrency': {
       if (!issue.action_command) return { success: false, result: 'Sem comando definido' }
       try {
         const { stdout, stderr } = await execAsync(issue.action_command)
