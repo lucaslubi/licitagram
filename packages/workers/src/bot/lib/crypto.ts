@@ -72,6 +72,35 @@ export interface BotConfigRow {
   cookies_nonce: Buffer | Uint8Array | null
 }
 
+/**
+ * Converte valor bytea de Supabase pra Buffer.
+ *
+ * Supabase/PostgREST retorna bytea de 3 formas diferentes dependendo da versão
+ * e config:
+ *   1. Buffer/Uint8Array direto (driver binário) — já é Buffer, OK
+ *   2. String '\x<hex>' — formato Postgres default (hex com prefixo \x)
+ *   3. String <hex> — hex sem prefixo
+ *
+ * Buffer.from(string) sem encoding gera bytes UTF-8 (cada caractere vira 1+
+ * bytes), causando nonce 'gigante' (ex: 252-258 bytes quando deveria ser 12
+ * ou 28). Isso quebrava a descriptografia das credenciais do bot.
+ */
+function byteaToBuffer(v: Buffer | Uint8Array | string): Buffer {
+  if (Buffer.isBuffer(v)) return v
+  if (v instanceof Uint8Array) return Buffer.from(v)
+  if (typeof v === 'string') {
+    // Formato Postgres: '\x' + hex
+    if (v.startsWith('\\x')) return Buffer.from(v.slice(2), 'hex')
+    // Hex puro (sem prefixo)
+    if (/^[0-9a-fA-F]+$/.test(v) && v.length % 2 === 0) {
+      return Buffer.from(v, 'hex')
+    }
+    // Fallback: trata como base64
+    return Buffer.from(v, 'base64')
+  }
+  throw new Error(`bytea format desconhecido: typeof=${typeof v}`)
+}
+
 export function readBotConfigSecrets(row: BotConfigRow): BotConfigSecrets {
   let password: string
   let cookies: string | null = null
@@ -79,8 +108,8 @@ export function readBotConfigSecrets(row: BotConfigRow): BotConfigSecrets {
 
   if (row.password_cipher && row.password_nonce) {
     password = decryptSecret(
-      Buffer.from(row.password_cipher),
-      Buffer.from(row.password_nonce),
+      byteaToBuffer(row.password_cipher as Buffer | Uint8Array | string),
+      byteaToBuffer(row.password_nonce as Buffer | Uint8Array | string),
     )
   } else if (row.password_hash) {
     password = row.password_hash
@@ -93,8 +122,8 @@ export function readBotConfigSecrets(row: BotConfigRow): BotConfigSecrets {
 
   if (row.cookies_cipher && row.cookies_nonce) {
     cookies = decryptSecret(
-      Buffer.from(row.cookies_cipher),
-      Buffer.from(row.cookies_nonce),
+      byteaToBuffer(row.cookies_cipher as Buffer | Uint8Array | string),
+      byteaToBuffer(row.cookies_nonce as Buffer | Uint8Array | string),
     )
   } else if (row.cookies) {
     cookies = row.cookies
