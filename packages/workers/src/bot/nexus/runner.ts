@@ -175,7 +175,9 @@ export async function runNexusSession(input: RunnerInput): Promise<RunnerOutput>
     }
   }
 
-  // 3. Strategy por item (pra MVP, mesma strategy global; futuro: per-lote no DB)
+  // 3. Strategy por item — carrega mapa de bot_session_items (se existir).
+  //    Cada item pode ter piso/ativo próprios; se não houver linha, usa
+  //    o session.min_price como fallback pra TODOS os itens (legacy).
   const baseStrategy: EngineStrategy = {
     chaoFinanceiro: minPrice,
     puloMinimo: strategyConfig?.puloMinimo ?? 0.01,
@@ -186,7 +188,39 @@ export async function runNexusSession(input: RunnerInput): Promise<RunnerOutput>
     standbyMin: strategyConfig?.standbyMin ?? 0,
     ativo: true,
   }
-  const strategyByItem = (_num: number): EngineStrategy | null => baseStrategy
+
+  // Carrega configuração por item
+  const { data: itemRows } = await supabase
+    .from('bot_session_items')
+    .select('item_numero, piso, ativo')
+    .eq('session_id', sessionId)
+
+  const itemConfigMap = new Map<number, { piso: number | null; ativo: boolean }>()
+  for (const r of itemRows || []) {
+    itemConfigMap.set(Number(r.item_numero), {
+      piso: r.piso != null ? Number(r.piso) : null,
+      ativo: r.ativo !== false,
+    })
+  }
+  const hasItemConfig = itemConfigMap.size > 0
+
+  const strategyByItem = (numero: number): EngineStrategy | null => {
+    if (!hasItemConfig) return baseStrategy // legacy: mesmo piso pra todos
+
+    const cfg = itemConfigMap.get(numero)
+    if (!cfg) {
+      // Item não configurado pelo usuário → não operar nesse
+      return { ...baseStrategy, ativo: false }
+    }
+    if (!cfg.ativo) {
+      return { ...baseStrategy, ativo: false }
+    }
+    return {
+      ...baseStrategy,
+      chaoFinanceiro: cfg.piso ?? minPrice, // se não tem piso no item, usa global
+      ativo: true,
+    }
+  }
 
   // 4. Marca sessão active + start
   await supabase
