@@ -296,6 +296,21 @@
   color: hsl(18 95% 55%);
 }
 
+/* Item bloqueado (feature não incluída no plano) — ainda clicável, leva pra /billing */
+.sidebar-nav-item-locked {
+  opacity: 0.55;
+}
+.sidebar-nav-item-locked .sidebar-nav-label {
+  color: hsl(var(--muted-foreground));
+}
+.sidebar-nav-item-locked:hover {
+  opacity: 0.9;
+  background: hsl(var(--accent) / 0.06);
+}
+.sidebar-nav-item-locked:hover .sidebar-nav-label {
+  color: hsl(var(--foreground));
+}
+
 /* ─── Opportunities Table ─────────────────────────────────────────────────── */
 
 .opp-table {

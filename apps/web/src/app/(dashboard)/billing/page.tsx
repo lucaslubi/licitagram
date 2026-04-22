@@ -132,7 +132,7 @@ function getPlanBadge(plan: Plan): string | null {
 export default async function BillingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ success?: string; canceled?: string; expired?: string; upgrade?: string; plan?: string; billing?: string }>
+  searchParams: Promise<{ success?: string; canceled?: string; expired?: string; upgrade?: string; plan?: string; billing?: string; feature?: string; from?: string }>
 }) {
   const params = await searchParams
   const user = await getUserWithPlan()
@@ -170,12 +170,39 @@ export default async function BillingPage({
         </div>
       )}
 
-      {params.upgrade && (
-        <div className="mb-6 p-4 bg-blue-900/20 border border-blue-900/30 rounded-lg text-blue-400 text-sm">
-          A funcionalidade que você tentou acessar requer um plano superior.
-          Faça upgrade para desbloquear.
-        </div>
-      )}
+      {params.upgrade && (() => {
+        // Mapeia feature_key → label amigável + plano mínimo que libera
+        const FEATURE_LABELS: Record<string, { label: string; minPlan: string }> = {
+          competitive_intel: { label: 'Espionagem Competitiva', minPlan: 'Profissional' },
+          proposal_generator: { label: 'Fábrica de Propostas / Engenharia de Custos', minPlan: 'Profissional' },
+          compliance_checker: { label: 'Blindagem de Compliance', minPlan: 'Essencial' },
+          pregao_chat_monitor: { label: 'Monitor de Pregão', minPlan: 'Profissional' },
+          bidding_bot: { label: 'Robô de Lances (Agente IA)', minPlan: 'Enterprise' },
+          bidding_bot_supreme: { label: 'Chaves de API do Robô', minPlan: 'Profissional' },
+          lead_engine: { label: 'Prospector de Leads B2B', minPlan: 'Enterprise' },
+          multi_cnpj: { label: 'Multi-CNPJ (várias empresas)', minPlan: 'Enterprise' },
+          certidoes_bot: { label: 'Guardian (certidões automáticas)', minPlan: 'Enterprise' },
+          api_integration: { label: 'API de Integração', minPlan: 'Enterprise' },
+          intelligence_center: { label: 'Central de Inteligência', minPlan: 'Enterprise' },
+          graph_societario: { label: 'Grafo Societário (67M CNPJs)', minPlan: 'Enterprise' },
+          radar_map: { label: 'Radar Geográfico', minPlan: 'Profissional' },
+          whatsapp_alerts: { label: 'Alertas WhatsApp', minPlan: 'Profissional' },
+          export_excel: { label: 'Exportar Excel', minPlan: 'Profissional' },
+        }
+        const info = params.feature ? FEATURE_LABELS[params.feature] : null
+        return (
+          <div className="mb-6 p-4 bg-blue-900/20 border border-blue-900/30 rounded-lg text-blue-400 text-sm">
+            {info ? (
+              <>
+                <p className="font-semibold">🔒 {info.label} está bloqueado no seu plano atual.</p>
+                <p className="mt-1">Disponível a partir do plano <strong>{info.minPlan}</strong>. Escolha abaixo o plano ideal.</p>
+              </>
+            ) : (
+              <>A funcionalidade que você tentou acessar requer um plano superior. Faça upgrade para desbloquear.</>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Current plan */}
       <Card className="mb-8">

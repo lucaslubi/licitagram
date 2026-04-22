@@ -15,7 +15,7 @@ import {
   type NavItemConfig,
 } from '@/config/navigation'
 import type { PlanFeatureKey } from '@licitagram/shared'
-import { LogOut, ChevronsUpDown } from 'lucide-react'
+import { LogOut, ChevronsUpDown, Lock } from 'lucide-react'
 import { GlobalPlaybook } from '@/components/global-playbook'
 
 interface DashboardSidebarProps {
@@ -65,9 +65,13 @@ export function DashboardSidebar({
     }
   }, [mobileOpen])
 
-  function isItemVisible(item: NavItemConfig): boolean {
-    if (!item.requiredFeature) return true
-    return enabledFeatures.includes(item.requiredFeature)
+  /**
+   * Feature está bloqueada pro plano atual? (não esconde mais; só marca)
+   * Retorna true quando o item exige feature que o plano não tem.
+   */
+  function isItemLocked(item: NavItemConfig): boolean {
+    if (!item.requiredFeature) return false
+    return !enabledFeatures.includes(item.requiredFeature)
   }
 
   function isActive(href: string): boolean {
@@ -98,27 +102,37 @@ export function DashboardSidebar({
       {/* Navigation groups */}
       <nav className="flex-1 overflow-y-auto px-2 pb-2 sidebar-scrollbar">
         {navigationGroups.map((group) => {
-          const visibleItems = group.items.filter(isItemVisible)
-          if (visibleItems.length === 0) return null
-
+          // Mostra TODOS os items; os bloqueados ganham cadeado + redireciona pra /billing
           return (
             <div key={group.label} className="mb-5">
               <span className="block px-2 mb-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/60 select-none">
                 {group.label}
               </span>
               <ul className="space-y-px">
-                {visibleItems.map((item) => {
+                {group.items.map((item) => {
+                  const locked = isItemLocked(item)
                   const active = isActive(item.href)
                   const Icon = item.icon
+                  const href = locked
+                    ? `/billing?upgrade=1&feature=${encodeURIComponent(item.requiredFeature || '')}&from=${encodeURIComponent(item.href)}`
+                    : item.href
                   return (
                     <li key={item.id}>
                       <Link
-                        href={item.href}
+                        href={href}
                         id={NAV_TOUR_IDS[item.href]}
-                        className={`sidebar-nav-item ${active ? 'sidebar-nav-item-active' : ''}`}
+                        className={`sidebar-nav-item ${active ? 'sidebar-nav-item-active' : ''} ${locked ? 'sidebar-nav-item-locked' : ''}`}
+                        title={locked ? 'Disponível em plano superior — clique pra fazer upgrade' : undefined}
                       >
                         <Icon size={16} className="sidebar-nav-icon" />
                         <span className="sidebar-nav-label">{item.label}</span>
+                        {locked && (
+                          <Lock
+                            size={11}
+                            className="ml-auto shrink-0 text-muted-foreground/60"
+                            aria-label="Feature bloqueada"
+                          />
+                        )}
                       </Link>
                     </li>
                   )
