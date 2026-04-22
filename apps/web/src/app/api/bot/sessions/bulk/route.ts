@@ -132,9 +132,29 @@ export async function POST(req: NextRequest) {
     // As "scheduled" são picked up pelo watchdog no horário.
     const summary = { total: rows.length, created: 0, deduped: 0, errors: 0, scheduled: 0, immediate: 0 }
 
+    // Acumula linhas de bot_session_items pra inserir em lote no final
+    type ItemInsert = {
+      session_id: string
+      item_numero: number
+      piso: number | null
+      ativo: boolean
+      descricao: string | null
+      valor_estimado: number | null
+    }
+    const itemsToInsert: ItemInsert[] = []
+
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i]!
-      const input = sessions[i]!
+      const input = sessions[i]! as {
+        scheduled_at?: string
+        items?: Array<{
+          numero: number
+          piso: number | null
+          ativo: boolean
+          descricao?: string
+          valor_estimado?: number | null
+        }>
+      }
 
       if (row.status === 'error' || !row.session_id) {
         summary.errors++
@@ -146,6 +166,20 @@ export async function POST(req: NextRequest) {
       }
 
       summary.created++
+
+      // Se o user configurou items individualmente, prepara insert
+      if (input.items && Array.isArray(input.items) && input.items.length > 0) {
+        for (const it of input.items) {
+          itemsToInsert.push({
+            session_id: row.session_id,
+            item_numero: Number(it.numero),
+            piso: it.piso != null ? Number(it.piso) : null,
+            ativo: it.ativo !== false,
+            descricao: it.descricao ?? null,
+            valor_estimado: it.valor_estimado ?? null,
+          })
+        }
+      }
 
       // Se tem scheduled_at no futuro → watchdog cuida
       if (input.scheduled_at && new Date(input.scheduled_at).getTime() > Date.now()) {
@@ -160,6 +194,18 @@ export async function POST(req: NextRequest) {
       } catch (enqueueErr) {
         console.error('[API bot/sessions/bulk] enqueue error:', enqueueErr)
         summary.errors++
+      }
+    }
+
+    // Insert em lote dos items (se houver)
+    if (itemsToInsert.length > 0) {
+      const { error: itemsErr } = await supabase
+        .from('bot_session_items')
+        .insert(itemsToInsert)
+      if (itemsErr) {
+        console.error('[API bot/sessions/bulk] insert items error:', itemsErr)
+        // Não falha tudo — sessões já foram criadas; só loga.
+        // User pode reconfigurar itens depois se precisar.
       }
     }
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useRef } from 'react'
+import { BotItemsModal, type ItemConfig } from './bot-items-modal'
 
 /**
  * BotBulkScheduler — agenda múltiplas sessões de lance em um único form.
@@ -34,6 +35,8 @@ interface BulkRow {
   scheduled_at: string // datetime-local format (YYYY-MM-DDTHH:mm)
   min_price: string
   mode: 'shadow' | 'supervisor' | 'auto_bid'
+  /** Config por item (se user clicou em "Configurar itens"). Se null, usa min_price pra todos. */
+  items?: ItemConfig[] | null
 }
 
 interface Props {
@@ -128,6 +131,7 @@ export function BotBulkScheduler({ configs }: Props) {
 
   const [rows, setRows] = useState<BulkRow[]>([emptyRow(defaultConfigId)])
   const [submitting, setSubmitting] = useState(false)
+  const [itemsModalTempId, setItemsModalTempId] = useState<string | null>(null)
   const [result, setResult] = useState<null | {
     summary: { total: number; created: number; deduped: number; errors: number; scheduled: number; immediate: number }
     results: BulkResult[]
@@ -208,11 +212,16 @@ export function BotBulkScheduler({ configs }: Props) {
           scheduled_at: r.scheduled_at ? new Date(r.scheduled_at).toISOString() : undefined,
           min_price: r.min_price ? Number(r.min_price) : undefined,
           mode: r.mode,
-          // Inclui piso + modo + tempId pra que:
-          //   - Sessões com pisos/modos diferentes MAS mesmo pregão/data
-          //     sejam tratadas como sessões distintas (não dedup)
-          //   - Retry da mesma submissão (mesmo form) dedupe
-          //   - Recarregar a página gera novos tempIds → nova sessão
+          // Se o user configurou itens individualmente, envia também
+          items: r.items && r.items.length > 0
+            ? r.items.map((it) => ({
+                numero: it.numero,
+                piso: it.ativo && it.piso ? Number(it.piso) : null,
+                ativo: it.ativo,
+                descricao: it.descricao,
+                valor_estimado: it.valor_estimado,
+              }))
+            : undefined,
           idempotency_key: `${r.config_id}:${r.pregao_id.trim()}:${r.scheduled_at || 'now'}:${r.min_price || '0'}:${r.mode}:${r.tempId}`,
         })),
       }
@@ -368,8 +377,25 @@ export function BotBulkScheduler({ configs }: Props) {
                     value={row.min_price}
                     onChange={(e) => updateRow(row.tempId, { min_price: e.target.value })}
                     placeholder="0,00"
-                    className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-right font-mono text-xs tabular-nums focus:border-primary focus:outline-none"
+                    disabled={!!row.items && row.items.length > 0}
+                    className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-right font-mono text-xs tabular-nums focus:border-primary focus:outline-none disabled:opacity-40"
+                    title={row.items && row.items.length > 0 ? 'Piso por item configurado — este campo não é usado' : 'Piso único aplicado a todos os itens'}
                   />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!row.pregao_id.trim()) {
+                        alert('Preencha o ID do pregão primeiro.')
+                        return
+                      }
+                      setItemsModalTempId(row.tempId)
+                    }}
+                    className="mt-1 w-full rounded border border-border bg-card/40 px-2 py-1 text-[10px] font-medium text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  >
+                    {row.items && row.items.length > 0
+                      ? `📋 ${row.items.filter(i => i.ativo).length} itens`
+                      : '⚙️ Configurar por item'}
+                  </button>
                 </td>
                 <td className="px-3 py-2">
                   <select
@@ -517,6 +543,23 @@ export function BotBulkScheduler({ configs }: Props) {
               </div>
             )}
           </div>
+        )
+      })()}
+
+      {/* Modal: configurar itens individualmente */}
+      {itemsModalTempId && (() => {
+        const row = rows.find((r) => r.tempId === itemsModalTempId)
+        if (!row) return null
+        return (
+          <BotItemsModal
+            pregaoId={row.pregao_id}
+            initialConfig={row.items ?? null}
+            onClose={() => setItemsModalTempId(null)}
+            onSave={(config) => {
+              updateRow(row.tempId, { items: config })
+              setItemsModalTempId(null)
+            }}
+          />
         )
       })()}
     </div>
