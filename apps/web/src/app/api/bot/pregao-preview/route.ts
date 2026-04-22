@@ -154,15 +154,42 @@ function extractCompraId(urlOrId: string): string | null {
   return m ? m[1]! : null
 }
 
+// Dados demo pra demonstrar o UX quando o cliente ainda não tem conta
+// conectada do Compras.gov.br. Itens realistas de um pregão típico.
+const DEMO_ITEMS = [
+  { numero: 1, descricao: 'Caneta esferográfica azul, corpo transparente, ponta 1,0mm', valor_estimado: 2.5, quantidade: 500, unidade_medida: 'UN', tipo: 'item' as const },
+  { numero: 2, descricao: 'Papel A4 75g, branco, pacote com 500 folhas', valor_estimado: 28.9, quantidade: 200, unidade_medida: 'PCT', tipo: 'item' as const },
+  { numero: 3, descricao: 'Pasta cartão duplex, 2 ganchos plásticos, A4', valor_estimado: 4.75, quantidade: 300, unidade_medida: 'UN', tipo: 'item' as const },
+  { numero: 4, descricao: 'Notebook 15.6" i5, 8GB RAM, SSD 256GB, Windows 11', valor_estimado: 3450, quantidade: 15, unidade_medida: 'UN', tipo: 'item' as const },
+  { numero: 5, descricao: 'Monitor LED 24" Full HD, HDMI+DisplayPort', valor_estimado: 890, quantidade: 15, unidade_medida: 'UN', tipo: 'item' as const },
+  { numero: 6, descricao: 'Cadeira giratória ergonômica, braços reguláveis, tela mesh', valor_estimado: 485, quantidade: 30, unidade_medida: 'UN', tipo: 'item' as const },
+  { numero: 7, descricao: 'Mesa de escritório 1,20 x 0,60m, MDF 18mm, com gavetas', valor_estimado: 390, quantidade: 30, unidade_medida: 'UN', tipo: 'item' as const },
+  { numero: 8, descricao: 'Tóner impressora HP LaserJet Pro M404, preto, original', valor_estimado: 345, quantidade: 20, unidade_medida: 'UN', tipo: 'item' as const },
+  { numero: 9, descricao: 'Serviço de instalação de rede cat6 — 50 pontos', valor_estimado: 12000, quantidade: 1, unidade_medida: 'SV', tipo: 'item' as const },
+  { numero: 10, descricao: 'Licença Office 365 Business — 12 meses, por usuário', valor_estimado: 648, quantidade: 50, unidade_medida: 'LIC', tipo: 'item' as const },
+]
+
 export async function GET(req: NextRequest) {
   try {
+    const url = new URL(req.url)
+    const isDemo = url.searchParams.get('demo') === '1'
+
+    // Modo demo: retorna dados fake sem precisar de auth nem conta Gov.br
+    if (isDemo) {
+      return NextResponse.json({
+        compra_id: 'DEMO-90001112026',
+        total_items: DEMO_ITEMS.length,
+        items: DEMO_ITEMS,
+        demo: true,
+      })
+    }
+
     const planUser = await getUserWithPlan()
     if (!planUser) return NextResponse.json({ error: 'Nao autenticado' }, { status: 401 })
     if (!hasActiveSubscription(planUser)) {
       return NextResponse.json({ error: 'Subscription required' }, { status: 403 })
     }
 
-    const url = new URL(req.url)
     const pregaoInput = url.searchParams.get('pregao_id')
     if (!pregaoInput) {
       return NextResponse.json({ error: 'Parametro pregao_id obrigatorio' }, { status: 400 })
