@@ -28,22 +28,32 @@ export function BotWarRoom({ configs, sessions, companyId }: Props) {
 
   return (
     <div className="relative">
-      <div className="mb-5 flex items-start justify-between gap-4">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-foreground">
             Robô de Lances
           </h1>
           <p className="mt-1 text-xs text-muted-foreground">
-            Configure um portal, inicie uma sessão, acompanhe em tempo real.{' '}
+            Configure um portal, inicie uma sessão, acompanhe em tempo real.
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
+            <a
+              href="/bot/demo"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-brand/40 bg-brand/10 px-3 py-1.5 font-medium text-brand hover:bg-brand/20"
+            >
+              ▶️ Ver demonstração (2 min) ↗
+            </a>
             <a
               href="/bot/guia"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary underline underline-offset-2 hover:text-primary/80"
+              className="inline-flex items-center gap-1.5 text-muted-foreground underline underline-offset-2 hover:text-foreground"
             >
-              📖 Ver guia completo ↗
+              📖 Guia completo ↗
             </a>
-          </p>
+          </div>
         </div>
 
         {activeSessions > 0 && (

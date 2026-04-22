@@ -148,6 +148,31 @@ export function ConnectGovPanel() {
         </p>
       </div>
 
+      {/* Banner demo — primeira coisa que o cliente novo vê */}
+      <a
+        href="/bot/demo"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="group block rounded-xl border border-brand/30 bg-gradient-to-r from-brand/10 via-brand/5 to-transparent p-4 transition-colors hover:border-brand/60 hover:bg-brand/15"
+      >
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand/20 text-2xl">
+            ▶️
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-foreground">
+              Primeira vez aqui? Veja o robô em ação primeiro
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Demonstração interativa de 2 minutos — entenda o produto antes de conectar.
+            </p>
+          </div>
+          <div className="shrink-0 text-sm font-medium text-brand group-hover:translate-x-1 transition-transform">
+            Ver demo ↗
+          </div>
+        </div>
+      </a>
+
       {/* Status atual */}
       {loading ? (
         <div className="rounded-xl border border-border bg-card p-4 text-xs text-muted-foreground">
