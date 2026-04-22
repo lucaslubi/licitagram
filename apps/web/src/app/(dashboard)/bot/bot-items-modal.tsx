@@ -60,7 +60,10 @@ export function BotItemsModal({ pregaoId, initialConfig, onSave, onClose }: Prop
       }
       const preview = data as PreviewResponse
       if (!preview.items || preview.items.length === 0) {
-        setError('Nenhum item em disputa encontrado. Verifique o ID do pregão e se a disputa já foi aberta.')
+        setError(
+          'Nenhum item em disputa foi encontrado agora. Os itens só aparecem depois que a disputa é aberta pelo pregoeiro. ' +
+            'Se você está agendando com antecedência: feche este modal, preencha o "Piso" único na linha e o robô vai usar esse piso pra todos os itens quando a disputa abrir.',
+        )
         setItems([])
         return
       }
@@ -300,12 +303,19 @@ export function BotItemsModal({ pregaoId, initialConfig, onSave, onClose }: Prop
                 </table>
               </div>
 
-              <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
-                💡 <strong className="text-foreground">Piso global</strong> aplica o mesmo valor a todos os
-                itens ativos de uma vez (você pode ajustar cada um depois). Itens{' '}
-                <strong className="text-foreground">desativados</strong> não recebem lance do robô — o robô
-                simplesmente ignora eles no pregão.
-              </p>
+              <div className="mt-3 space-y-2 text-[11px] leading-relaxed text-muted-foreground">
+                <p>
+                  💡 <strong className="text-foreground">Piso global</strong> aplica o mesmo valor a todos os
+                  itens ativos de uma vez (você pode ajustar cada um depois). Itens{' '}
+                  <strong className="text-foreground">desativados</strong> não recebem lance do robô.
+                </p>
+                <p className="rounded border border-amber-500/20 bg-amber-500/5 px-2 py-1.5 text-amber-400/90">
+                  ⚠️ <strong>Importante:</strong> se algum item novo aparecer durante a disputa e não estiver nesta
+                  lista (caso raro), o robô vai <strong>ignorar</strong> ele. Se quiser que o robô opere em
+                  TUDO (mesmo itens que surgirem depois), cancele esta configuração e use apenas o Piso único
+                  da linha anterior.
+                </p>
+              </div>
             </>
           )}
         </div>

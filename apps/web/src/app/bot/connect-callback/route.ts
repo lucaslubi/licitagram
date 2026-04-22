@@ -16,7 +16,7 @@
  */
 
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import { encryptCredential } from '@/lib/bot-crypto'
+import { encryptCredential, bufferToBytea } from '@/lib/bot-crypto'
 
 function decodeJwtPayload(token: string): Record<string, unknown> | null {
   try {
@@ -187,10 +187,10 @@ export async function POST(req: Request) {
     {
       company_id: keyRow.company_id,
       portal: 'comprasgov',
-      access_token_cipher: accessEnc.cipher,
-      access_token_nonce: accessEnc.nonce,
-      refresh_token_cipher: refreshEnc?.cipher ?? null,
-      refresh_token_nonce: refreshEnc?.nonce ?? null,
+      access_token_cipher: bufferToBytea(accessEnc.cipher),
+      access_token_nonce: bufferToBytea(accessEnc.nonce),
+      refresh_token_cipher: refreshEnc ? bufferToBytea(refreshEnc.cipher) : null,
+      refresh_token_nonce: refreshEnc ? bufferToBytea(refreshEnc.nonce) : null,
       access_exp: accessExp,
       refresh_exp: refreshExp || null,
       cnpj_fornecedor: cnpj,

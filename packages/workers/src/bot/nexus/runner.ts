@@ -52,9 +52,32 @@ function byteaToBuffer(v: Buffer | Uint8Array | string | null): Buffer | null {
   if (Buffer.isBuffer(v)) return v
   if (v instanceof Uint8Array) return Buffer.from(v)
   if (typeof v === 'string') {
-    if (v.startsWith('\\x')) return Buffer.from(v.slice(2), 'hex')
-    if (/^[0-9a-fA-F]+$/.test(v) && v.length % 2 === 0) return Buffer.from(v, 'hex')
-    return Buffer.from(v, 'base64')
+    let hex = v
+    if (hex.startsWith('\\x')) hex = hex.slice(2)
+    let buf: Buffer
+    if (/^[0-9a-fA-F]+$/.test(hex) && hex.length % 2 === 0) {
+      buf = Buffer.from(hex, 'hex')
+    } else {
+      buf = Buffer.from(v, 'base64')
+    }
+    // Double-encode detection: se o Buffer decodificado começa com
+    // '{"type":"Buffer"', é porque o Supabase-JS driver serializou um
+    // Buffer como JSON string antes de salvar no bytea. Faz o
+    // "unwrap" lendo o data array do JSON.
+    if (buf.length > 16) {
+      const prefix = buf.toString('utf8', 0, 16)
+      if (prefix.startsWith('{"type":"Buffer"')) {
+        try {
+          const parsed = JSON.parse(buf.toString('utf8')) as { type?: string; data?: number[] }
+          if (parsed.type === 'Buffer' && Array.isArray(parsed.data)) {
+            return Buffer.from(parsed.data)
+          }
+        } catch {
+          /* segue com o buf original */
+        }
+      }
+    }
+    return buf
   }
   return null
 }

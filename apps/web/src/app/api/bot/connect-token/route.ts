@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getUserWithPlan, hasActiveSubscription } from '@/lib/auth-helpers'
-import { encryptCredential } from '@/lib/bot-crypto'
+import { encryptCredential, bufferToBytea } from '@/lib/bot-crypto'
 
 /**
  * POST /api/bot/connect-token
@@ -124,10 +124,10 @@ export async function POST(req: NextRequest) {
       {
         company_id: profile.company_id,
         portal,
-        access_token_cipher: accessEnc.cipher,
-        access_token_nonce: accessEnc.nonce,
-        refresh_token_cipher: refreshEnc?.cipher ?? null,
-        refresh_token_nonce: refreshEnc?.nonce ?? null,
+        access_token_cipher: bufferToBytea(accessEnc.cipher),
+        access_token_nonce: bufferToBytea(accessEnc.nonce),
+        refresh_token_cipher: refreshEnc ? bufferToBytea(refreshEnc.cipher) : null,
+        refresh_token_nonce: refreshEnc ? bufferToBytea(refreshEnc.nonce) : null,
         access_exp: accessExp,
         refresh_exp: refreshExp || null,
         cnpj_fornecedor: cnpjFornecedor,

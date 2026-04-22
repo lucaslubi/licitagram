@@ -60,6 +60,20 @@ export function encryptCredential(plaintext: string): EncryptedData {
   return { cipher: encrypted, nonce }
 }
 
+/**
+ * Serializa Buffer pro formato aceito pelo Supabase-JS ao inserir numa
+ * coluna bytea. Se passar Buffer direto, o driver JS faz JSON stringify
+ * `{"type":"Buffer","data":[...]}` e isso é salvo como string no bytea,
+ * dobrando o conteúdo ao ler depois.
+ *
+ * O fix é passar uma string com prefixo `\x<hex>` que o Postgres
+ * reconhece como literal bytea. Ao ler, volta no formato `\x<hex>`
+ * original (não o JSON duplamente encoded).
+ */
+export function bufferToBytea(b: Buffer): string {
+  return '\\x' + b.toString('hex')
+}
+
 export function decryptCredential(cipherBuf: Buffer, nonceBuf: Buffer): string {
   const key = getMasterKey()
   let iv: Buffer
