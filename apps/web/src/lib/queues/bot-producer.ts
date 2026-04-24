@@ -37,8 +37,12 @@ function getQueue(): Queue<{ sessionId: string; source: string }> {
 }
 
 /**
- * Enqueue a bot session for execution. Idempotent: if a job for this
- * session already exists, BullMQ dedupes by jobId.
+ * Enqueue a bot session for execution.
+ *
+ * BullMQ dedupes by jobId. A completed/failed job with the same jobId
+ * blocks future adds (silently breaks "retomar"/"start_now"). Fix: drop
+ * terminal stale jobs before adding. See workers/bot/queues/bot-session-
+ * execute.queue.ts for the mirror implementation on the worker side.
  */
 export async function enqueueBotSession(
   sessionId: string,
@@ -46,9 +50,17 @@ export async function enqueueBotSession(
   delayMs = 0,
 ): Promise<void> {
   const q = getQueue()
-  await q.add(
-    'execute',
-    { sessionId, source },
-    { jobId: `session-${sessionId}`, delay: delayMs },
-  )
+  const jobId = `session-${sessionId}`
+  try {
+    const existing = await q.getJob(jobId)
+    if (existing) {
+      const state = await existing.getState()
+      if (state === 'completed' || state === 'failed') {
+        await existing.remove()
+      }
+    }
+  } catch {
+    /* best effort */
+  }
+  await q.add('execute', { sessionId, source }, { jobId, delay: delayMs })
 }

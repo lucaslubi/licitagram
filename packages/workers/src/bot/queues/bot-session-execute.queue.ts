@@ -39,19 +39,44 @@ export const botSessionExecuteQueue = new Queue<BotSessionExecuteJobData>(QUEUE_
 })
 
 /**
- * Enqueue a session for execution. Idempotent: if a job for this session
- * already exists (regardless of state), BullMQ dedupes by jobId.
+ * Enqueue a session for execution.
+ *
+ * BullMQ dedupes by jobId. The jobId `session-${id}` gives us idempotency
+ * against rapid-fire clicks, BUT completed/failed jobs stay in the queue
+ * (via removeOnComplete/Fail config), and re-adding with the same jobId
+ * returns the existing (terminal) job WITHOUT running it again. That
+ * silently breaks "retomar" and "start_now".
+ *
+ * Fix: drop any existing terminal job first, THEN add. We keep the stable
+ * jobId so concurrent clicks still dedupe while a job is actually pending/
+ * active — `remove()` on an active job throws (BullMQ guards locked jobs),
+ * so we catch and ignore.
  */
 export async function enqueueBotSession(
   sessionId: string,
   source: BotSessionExecuteJobData['source'],
   delayMs = 0,
 ): Promise<void> {
+  const jobId = `session-${sessionId}`
+  try {
+    const existing = await botSessionExecuteQueue.getJob(jobId)
+    if (existing) {
+      const state = await existing.getState()
+      // Only replace terminal jobs. If it's waiting/active/delayed, BullMQ
+      // will dedupe as intended — no need to touch it.
+      if (state === 'completed' || state === 'failed') {
+        await existing.remove()
+      }
+    }
+  } catch {
+    /* best effort — fall through to add, BullMQ will dedupe if needed */
+  }
+
   await botSessionExecuteQueue.add(
     'execute',
     { sessionId, source },
     {
-      jobId: `session-${sessionId}`,
+      jobId,
       delay: delayMs,
     },
   )
