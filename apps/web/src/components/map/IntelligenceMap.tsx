@@ -21,33 +21,51 @@ interface IntelligenceMapProps {
   matchMarkers: MatchMarker[]
 }
 
-// ─── Score → color (new palette: green → lime → amber → slate) ──────────────
+// ─── Score → color (recalibrada 2026-04-27 pra distribuição real do pgvector) ─
+//
+// Régua antiga (≥70 amber, resto cinza) deixava 99% dos matches como "baixo"
+// porque pgvector normalmente sai 50-65, não 90+ como o legado ai_triage.
+// Resultado: cliente via mapa todo cinza e achava que oportunidades eram ruins.
+//
+// Nova régua reflete distribuição real: tudo que entra no mapa já passou
+// por filtro de qualidade (score >= 40 + sources verificadas + vigência),
+// portanto MERECE cor. Banimos cinza por completo.
+//
+//   ≥75   Excelente  (top 5%)              emerald
+//   65-74 Muito bom  (próximos 15%)        green
+//   55-64 Bom        (maioria saudável)    lime
+//   45-54 Promissor  (vale olhar)          amber
+//   40-44 Inicial    (passou no filtro)    soft yellow
 function getScoreColor(score: number): string {
-  if (score >= 90) return '#10B981' // emerald — excellent
-  if (score >= 80) return '#84CC16' // lime — good
-  if (score >= 70) return '#F59E0B' // amber — moderate
-  return '#64748B'                  // slate — low
+  if (score >= 75) return '#10B981' // emerald
+  if (score >= 65) return '#22C55E' // green
+  if (score >= 55) return '#84CC16' // lime
+  if (score >= 45) return '#F59E0B' // amber
+  return '#FBBF24'                   // soft yellow — sempre colorido
 }
 
 function getScoreLabel(score: number): string {
-  if (score >= 90) return 'Excelente'
-  if (score >= 80) return 'Bom'
-  if (score >= 70) return 'Moderado'
-  return 'Baixo'
+  if (score >= 75) return 'Excelente'
+  if (score >= 65) return 'Muito bom'
+  if (score >= 55) return 'Bom'
+  if (score >= 45) return 'Promissor'
+  return 'Inicial'
 }
 
 function getScoreColorClass(score: number): string {
-  if (score >= 90) return 'text-emerald-400'
-  if (score >= 80) return 'text-lime-400'
-  if (score >= 70) return 'text-amber-400'
-  return 'text-slate-400'
+  if (score >= 75) return 'text-emerald-400'
+  if (score >= 65) return 'text-green-400'
+  if (score >= 55) return 'text-lime-400'
+  if (score >= 45) return 'text-amber-400'
+  return 'text-yellow-300'
 }
 
 function getScoreBadgeClass(score: number): string {
-  if (score >= 90) return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-  if (score >= 80) return 'bg-lime-500/10 text-lime-400 border-lime-500/20'
-  if (score >= 70) return 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-  return 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+  if (score >= 75) return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+  if (score >= 65) return 'bg-green-500/10 text-green-400 border-green-500/20'
+  if (score >= 55) return 'bg-lime-500/10 text-lime-400 border-lime-500/20'
+  if (score >= 45) return 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+  return 'bg-yellow-500/10 text-yellow-300 border-yellow-500/20'
 }
 
 /** Days until tender closes */
@@ -468,16 +486,18 @@ export function IntelligenceMap({
     if (!selectedUfMarkers.length) return null
     const total = selectedUfMarkers.length
     const ranges = [
-      { label: '90-100', count: 0, color: 'bg-emerald-500' },
-      { label: '80-89', count: 0, color: 'bg-lime-500' },
-      { label: '70-79', count: 0, color: 'bg-amber-500' },
-      { label: '50-69', count: 0, color: 'bg-slate-500' },
+      { label: 'Excelente (75+)',   count: 0, color: 'bg-emerald-500' },
+      { label: 'Muito bom (65-74)', count: 0, color: 'bg-green-500' },
+      { label: 'Bom (55-64)',       count: 0, color: 'bg-lime-500' },
+      { label: 'Promissor (45-54)', count: 0, color: 'bg-amber-500' },
+      { label: 'Inicial (40-44)',   count: 0, color: 'bg-yellow-400' },
     ]
     for (const m of selectedUfMarkers) {
-      if (m.score >= 90) ranges[0].count++
-      else if (m.score >= 80) ranges[1].count++
-      else if (m.score >= 70) ranges[2].count++
-      else ranges[3].count++
+      if (m.score >= 75) ranges[0].count++
+      else if (m.score >= 65) ranges[1].count++
+      else if (m.score >= 55) ranges[2].count++
+      else if (m.score >= 45) ranges[3].count++
+      else ranges[4].count++
     }
     return { ranges, total }
   }, [selectedUfMarkers])
@@ -517,10 +537,11 @@ export function IntelligenceMap({
       'fill-color': [
         'step',
         ['get', 'opportunityScore'],
-        'rgba(100, 116, 139, 0.08)',  // 0-49: barely visible slate
-        50, 'rgba(245, 158, 11, 0.08)', // 50-69: faint amber
-        70, 'rgba(132, 204, 22, 0.08)', // 70-79: faint lime
-        80, 'rgba(16, 185, 129, 0.10)', // 80+: faint emerald
+        'rgba(251, 191, 36, 0.08)',  // 0-44: soft yellow (sem cinza)
+        45, 'rgba(245, 158, 11, 0.10)', // 45-54: amber
+        55, 'rgba(132, 204, 22, 0.10)', // 55-64: lime
+        65, 'rgba(34, 197, 94, 0.12)',  // 65-74: green
+        75, 'rgba(16, 185, 129, 0.14)', // 75+:   emerald
       ],
       'fill-opacity': [
         'interpolate',
@@ -549,13 +570,14 @@ export function IntelligenceMap({
     source: 'opportunities',
     filter: ['has', 'point_count'],
     paint: {
-      // Cluster color reflects the HIGHEST score in the group
+      // Cluster color reflects the HIGHEST score in the group (recalibrado)
       'circle-color': [
         'case',
-        ['>=', ['get', 'maxScore'], 90], 'rgba(16, 185, 129, 0.25)',  // emerald
-        ['>=', ['get', 'maxScore'], 80], 'rgba(132, 204, 22, 0.25)',  // lime
-        ['>=', ['get', 'maxScore'], 70], 'rgba(245, 158, 11, 0.25)',  // amber
-        'rgba(100, 116, 139, 0.25)',                                   // slate
+        ['>=', ['get', 'maxScore'], 75], 'rgba(16, 185, 129, 0.30)',  // emerald
+        ['>=', ['get', 'maxScore'], 65], 'rgba(34, 197, 94, 0.30)',   // green
+        ['>=', ['get', 'maxScore'], 55], 'rgba(132, 204, 22, 0.28)',  // lime
+        ['>=', ['get', 'maxScore'], 45], 'rgba(245, 158, 11, 0.28)',  // amber
+        'rgba(251, 191, 36, 0.25)',                                    // soft yellow
       ],
       'circle-radius': [
         'step',
@@ -569,10 +591,11 @@ export function IntelligenceMap({
       'circle-stroke-width': 2,
       'circle-stroke-color': [
         'case',
-        ['>=', ['get', 'maxScore'], 90], 'rgba(16, 185, 129, 0.6)',   // emerald
-        ['>=', ['get', 'maxScore'], 80], 'rgba(132, 204, 22, 0.6)',   // lime
-        ['>=', ['get', 'maxScore'], 70], 'rgba(245, 158, 11, 0.6)',   // amber
-        'rgba(100, 116, 139, 0.4)',                                    // slate
+        ['>=', ['get', 'maxScore'], 75], 'rgba(16, 185, 129, 0.7)',   // emerald
+        ['>=', ['get', 'maxScore'], 65], 'rgba(34, 197, 94, 0.7)',    // green
+        ['>=', ['get', 'maxScore'], 55], 'rgba(132, 204, 22, 0.6)',   // lime
+        ['>=', ['get', 'maxScore'], 45], 'rgba(245, 158, 11, 0.6)',   // amber
+        'rgba(251, 191, 36, 0.55)',                                    // soft yellow
       ],
     },
   }
@@ -620,10 +643,11 @@ export function IntelligenceMap({
       ],
       'circle-color': [
         'case',
-        ['>=', ['get', 'score'], 90], '#10B981',
-        ['>=', ['get', 'score'], 80], '#84CC16',
-        ['>=', ['get', 'score'], 70], '#F59E0B',
-        '#64748B',
+        ['>=', ['get', 'score'], 75], '#10B981', // emerald
+        ['>=', ['get', 'score'], 65], '#22C55E', // green
+        ['>=', ['get', 'score'], 55], '#84CC16', // lime
+        ['>=', ['get', 'score'], 45], '#F59E0B', // amber
+        '#FBBF24',                                // soft yellow
       ],
       'circle-opacity': 0.15,
       'circle-blur': 0.4,
@@ -641,10 +665,11 @@ export function IntelligenceMap({
     paint: {
       'circle-color': [
         'case',
-        ['>=', ['get', 'score'], 90], '#10B981', // emerald
-        ['>=', ['get', 'score'], 80], '#84CC16', // lime
-        ['>=', ['get', 'score'], 70], '#F59E0B', // amber
-        '#64748B',                                // slate
+        ['>=', ['get', 'score'], 75], '#10B981', // emerald
+        ['>=', ['get', 'score'], 65], '#22C55E', // green
+        ['>=', ['get', 'score'], 55], '#84CC16', // lime
+        ['>=', ['get', 'score'], 45], '#F59E0B', // amber
+        '#FBBF24',                                // soft yellow
       ],
       'circle-radius': [
         'interpolate',
