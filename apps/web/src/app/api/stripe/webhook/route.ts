@@ -234,7 +234,7 @@ export async function POST(request: NextRequest) {
       const subscription = event.data.object as Stripe.Subscription
       const { error: delErr } = await supabase
         .from('subscriptions')
-        .update({ status: 'canceled' })
+        .update({ status: 'canceled', cancel_at_period_end: false })
         .eq('stripe_subscription_id', subscription.id)
       if (delErr) {
         console.error('[stripe-webhook] Error updating subscription on deletion:', delErr)
@@ -287,6 +287,11 @@ export async function POST(request: NextRequest) {
       }
       if (subRaw.current_period_end) {
         updateData.current_period_end = new Date(subRaw.current_period_end * 1000).toISOString()
+      }
+
+      // Sync cancel-at-period-end flag (driven from /conta/assinatura UI or Stripe Portal)
+      if (typeof subRaw.cancel_at_period_end === 'boolean') {
+        updateData.cancel_at_period_end = subRaw.cancel_at_period_end
       }
 
       // If transitioning from trial to active, clear expires_at and update started_at
