@@ -307,46 +307,22 @@ async function upsertMatchAndNotify(
   matchSource: string,
 ): Promise<string | false> {
   // Returns matchId on success (new keyword match), false on skip/error
-  // Check if match already exists WITH AI analysis — don't overwrite AI data
+  // Engine grava só na coluna do seu engine (score_by_keyword);
+  // trigger calcula score_final = GREATEST(score_by_*) e espelha em `score`.
+  // Não há mais colisão entre engines, então não precisamos da guarda
+  // anti-sobrescrita por match_source — cada engine atualiza só sua coluna.
   const { data: existing } = await supabase
     .from('matches')
-    .select('id, match_source, ai_justificativa')
+    .select('id, match_source')
     .eq('company_id', companyId)
     .eq('tender_id', tenderId)
     .single()
-
-  if (existing?.match_source === 'ai' && existing?.ai_justificativa) {
-    // Match was already AI-analyzed — only update keyword_score, don't touch AI fields
-    const { error } = await supabase
-      .from('matches')
-      .update({ keyword_score: finalScore })
-      .eq('id', existing.id)
-
-    if (error) {
-      logger.error({ companyId, tenderId, error }, 'Failed to update keyword_score on AI match')
-      return false
-    }
-    return false // Match exists with AI, not a new keyword match
-  }
-
-  // If match already has ai_triage, don't overwrite with keyword score
-  if (existing?.match_source === 'ai_triage') {
-    const { error } = await supabase
-      .from('matches')
-      .update({ keyword_score: finalScore })
-      .eq('id', existing.id)
-
-    if (error) {
-      logger.error({ companyId, tenderId, error }, 'Failed to update keyword_score on ai_triage match')
-    }
-    return false // Already triaged, skip
-  }
 
   const { data: upserted, error } = await supabase.from('matches').upsert(
     {
       company_id: companyId,
       tender_id: tenderId,
-      score: finalScore,
+      score_by_keyword: finalScore,
       keyword_score: finalScore,
       breakdown,
       ...(existing ? {} : {
@@ -381,6 +357,14 @@ async function upsertMatchAndNotify(
 
   await invalidateMatchCaches(companyId)
   await incrementStat('matches-today')
+
+  // Só dispara notificação/conta como "new keyword match" se o match foi
+  // criado AGORA (não existia antes). Se existing != null, outra engine
+  // (pgvector/ai/etc) já notificou — só atualizamos score_by_keyword.
+  if (existing) {
+    return false
+  }
+
   await enqueueNotifications(companyId, tenderId, finalScore)
 
   return upserted?.id || false

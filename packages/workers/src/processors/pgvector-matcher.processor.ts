@@ -93,7 +93,8 @@ async function processPgvectorMatching(job: Job<PgvectorMatchingJobData>) {
   const toInsert = [...autoHigh, ...(!ENABLE_AI_BORDERLINE ? borderline : [])].map((r) => ({
     company_id: r.company_id,
     tender_id: tenderId,
-    score: Math.round(r.score * SCORE_TO_PERCENT),
+    // Engine grava só na sua coluna; trigger calcula score_final = GREATEST(score_by_*).
+    score_by_pgvector: Math.round(r.score * SCORE_TO_PERCENT),
     breakdown: r.reasons,
     match_source: 'pgvector_rules',
     match_tier: r.match_tier,
