@@ -18,7 +18,7 @@ import type { Worker } from 'bullmq'
 const queuesArg = process.argv.find(a => a.startsWith('--queues='))?.split('=')[1]
   || (process.argv.indexOf('--queues') >= 0 ? process.argv[process.argv.indexOf('--queues') + 1] : null)
 
-const ALL_GROUPS = ['scraping', 'extraction', 'matching', 'alerts', 'telegram', 'whatsapp', 'email', 'enrichment', 'notification', 'analysis', 'certidoes', 'pregao-chat', 'bot']
+const ALL_GROUPS = ['scraping', 'extraction', 'matching', 'alerts', 'telegram', 'whatsapp', 'email', 'enrichment', 'notification', 'analysis', 'certidoes', 'pregao-chat', 'bot', 'outbound']
 const selectedGroups = queuesArg ? queuesArg.split(',').map(g => g.trim()) : ALL_GROUPS
 const isFullMode = !queuesArg
 
@@ -86,6 +86,13 @@ async function loadWorkers(): Promise<Worker[]> {
   if (selectedGroups.includes('whatsapp')) {
     const { whatsappNotificationWorker } = await import('./processors/whatsapp-notification.processor')
     workers.push(whatsappNotificationWorker)
+  }
+
+  // Outbound multi-canal (cold WhatsApp prospecting from admin_leads_fornecedores)
+  if (isFullMode || selectedGroups.includes('outbound') || selectedGroups.includes('notification')) {
+    const { outboundPersonalizeWorker } = await import('./processors/outbound-personalize.processor')
+    const { outboundWhatsappWorker } = await import('./processors/outbound-whatsapp.processor')
+    workers.push(outboundPersonalizeWorker, outboundWhatsappWorker)
   }
 
   if (selectedGroups.includes('email')) {

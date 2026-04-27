@@ -142,3 +142,115 @@ LIMIT 200;
 4. **Webhook opt-out** — endpoint `POST /api/leads/opt-out` (token signed) que seta `opt_out=true, opt_out_data=NOW(), opt_out_origem='email_unsubscribe'` e cancela campanhas no Smartlead
 5. **Scrape de site institucional** — para leads sem email RFB, baixar site (`site_institucional` quando preenchido) e regex `[a-z]+@dominio` para extrair contato comercial
 6. **Re-scoring incremental** — workflow noturno que recalcula `score_fit_licitagram` quando `total_licitacoes_ganhas_*` muda, mantendo `versao_score` versionado
+
+---
+
+# WhatsApp Outbound — Hardening Anti-Ban
+
+> **CRÍTICO**: o número principal do Licitagram (sessão WAHA `default`) é usado para alertas a clientes pagos. Banir esse número quebra o produto. O worker `outbound-whatsapp` foi blindado para **NUNCA** usar essa sessão. Se as env vars dedicadas não estiverem configuradas, ele simplesmente falha cada job com erro permanente — o `default` continua intocado.
+
+## Setup do número dedicado (one-time)
+
+1. **Comprar chip novo** (qualquer operadora). NÃO usar pessoal nem o principal do Licitagram.
+2. **Ativar WhatsApp** no chip + criar perfil business com nome `Licitagram - Comercial` e foto de perfil decente.
+3. **Subir nova sessão WAHA** dedicada:
+   - Pode ser na mesma instância WAHA do principal, em **outra sessão** (ex.: `outbound`), OU em outra instância WAHA isolada (mais seguro). Recomendado isolar.
+   - Conectar QR code do número novo nessa sessão.
+4. **Setar env vars no VPS1** (`/opt/licitagram/.env`):
+   ```env
+   WAHA_OUTBOUND_URL=http://127.0.0.1:3001          # ou URL da instância dedicada
+   WAHA_OUTBOUND_API_KEY=<api-key-da-sessao>
+   WAHA_OUTBOUND_SESSION=outbound
+   WHATSAPP_OUTBOUND_DAILY_CAP=15                    # ramp-up conservador
+   # WHATSAPP_TEST_PHONE=5511XXXXXXXXX               # opcional: redireciona TUDO pra esse número durante setup
+   ```
+   Reload PM2: `pm2 reload all && pm2 logs workers --lines 50`.
+5. **AQUECIMENTO 30 dias antes do primeiro cold disparo** (CRÍTICO — sem isso BAN é certo):
+   - Dias 1-7: 3-5 msgs/dia para família/equipe (precisam responder e arquivar conversas).
+   - Dias 8-15: 5-10 msgs/dia para parceiros + clientes warm (todos respondendo).
+   - Dias 16-30: 10-15 msgs/dia, mistura warm + alguns leads que pediram contato (manual).
+   - **Só depois do dia 30** roda o piloto cold.
+6. **Configurar webhook** na sessão dedicada:
+   - URL: `https://licitagram.com/api/webhooks/zapi` (ou `/whatsapp` — confirmar com infra).
+   - Eventos: `ReceivedCallback`, `MessageStatusCallback`, `DisconnectedCallback`.
+
+## Operação (piloto)
+
+```bash
+# 1. Dry-run pra revisar as 50 mensagens (sem enfileirar nada)
+ssh vps1
+cd /opt/licitagram/packages/workers
+PILOT_LIMIT=50 PILOT_PRIORIDADE=HOT PILOT_PLANO=ENTERPRISE \
+  npx tsx src/scripts/launch-whatsapp-pilot.ts --dry-run
+
+# 2. Live (gera as outbound_messages com approved_by_admin=false, NADA é enviado ainda)
+PILOT_LIMIT=50 PILOT_PRIORIDADE=HOT PILOT_PLANO=ENTERPRISE \
+  npx tsx src/scripts/launch-whatsapp-pilot.ts
+
+# 3. Inspecionar 5 amostras no Supabase
+SELECT lead_cnpj, to_address, message_body
+FROM outbound_messages
+WHERE campaign_id = '<id>' AND status='queued'
+LIMIT 5;
+
+# 4. Aprovar disparo (gate humano)
+UPDATE outbound_messages
+SET approved_by_admin = true, approved_at = NOW(), approved_by = 'lucas'
+WHERE campaign_id = '<id>' AND status = 'queued';
+
+# 5. Acompanhar
+SELECT status, COUNT(*) FROM outbound_messages
+WHERE campaign_id = '<id>' GROUP BY 1;
+```
+
+## Kill switch (PAUSA EMERGÊNCIA)
+
+```bash
+# Pausar TODOS os disparos (jobs ficam delayed 60s e re-checam)
+ssh root@187.77.241.93 'touch /tmp/outbound-disabled'
+
+# Retomar
+ssh root@187.77.241.93 'rm /tmp/outbound-disabled'
+```
+
+Path do flag é configurável via `OUTBOUND_KILL_SWITCH_PATH`.
+
+## Guard-rails ativos no worker
+
+| Camada | Mecanismo | Como ajustar |
+|---|---|---|
+| Sessão WAHA dedicada | Hard-fail se `WAHA_OUTBOUND_*` não setadas — **nunca** usa a sessão `default` | env vars |
+| Approval gate | Worker ignora msgs com `approved_by_admin=false` (defer 5min) | UPDATE manual |
+| Daily cap | Conta `sent` últimas 24h; ao atingir cap → defer pra próxima janela 9h | `WHATSAPP_OUTBOUND_DAILY_CAP` |
+| Rate limit (BullMQ) | 1 msg / 60s, concurrency 1 | hard-coded (ajustar no processor) |
+| Send jitter | personalize enfileira com `delay` aleatório 8-25 min | hard-coded |
+| Quiet hours | 9h-18h BRT, dias úteis (sáb/dom = quiet) | hard-coded no `isQuietHours()` |
+| Kill switch | `/tmp/outbound-disabled` pausa todos | `OUTBOUND_KILL_SWITCH_PATH` |
+| Test redirect | `WHATSAPP_TEST_PHONE` redireciona tudo pra teu número | env var |
+| Permanent-error fail-fast | `4xx`/`banned`/`blocked`/`number_invalid` → UnrecoverableError | regex no processor |
+
+## Sinais de alerta (monitoramento manual)
+
+| Sinal | Ação |
+|---|---|
+| Webhook recebendo `BlockedNumber` ou disconnects frequentes | PAUSAR (`touch /tmp/outbound-disabled`). Possível ban iminente. |
+| Reply rate < 1% após 100 msgs | Mensagem ruim. Pausar e iterar pitch. |
+| Reply rate > 10% | Bom. Considerar adicionar 2º número e dobrar volume. |
+| `status='failed'` > 5% | Possível flag — abaixa cap, espera 24h. |
+| Sessão WAHA fica `SCAN_QR_CODE` repetidamente | Ban quase certo. Investigar antes de re-conectar. |
+
+## Plano de escalação
+
+- **Mês 1**: 1 número aquecido, 15 msgs/dia úteis = ~330 msgs/mês.
+- **Mês 2**: 2 números (chip novo + 30d aquecimento) = ~660/mês.
+- **Mês 3+**: pool de 4-5 números rotativos, ~1500/mês.
+
+Para múltiplos números: criar mais sessões WAHA (`outbound2`, `outbound3`...) e roteamento round-robin no worker (não implementado — TODO).
+
+## Riscos residuais conhecidos
+
+1. **Z-API não é usado pelo outbound** — todo o stack passa por WAHA. Se um dia migrar pra Z-API, refazer o hardening (env vars `ZAPI_OUTBOUND_*` em vez de `WAHA_OUTBOUND_*`).
+2. **Daily cap é por banco, não por sessão** — se rodar múltiplas sessões em paralelo, o cap soma todas. OK por enquanto pq só temos 1.
+3. **Quiet hours fixo em BRT** — assume servidor não tem DST surpresa (Brasil não tem desde 2019).
+4. **Approval gate via SQL manual** — UI admin de revisão é TODO. Por ora, fazer no Supabase Studio.
+
