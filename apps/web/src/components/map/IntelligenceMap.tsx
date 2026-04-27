@@ -12,6 +12,7 @@ import {
   type MatchMarker,
   formatCompactBRL,
 } from '@/lib/geo/map-utils'
+import { MatchConfidenceBadge } from '@/components/match-confidence-badge'
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
 
@@ -182,6 +183,7 @@ export function IntelligenceMap({
           municipio: m.municipio || '',
           modalidade: m.modalidade || '',
           dataEncerramento: m.dataEncerramento || '',
+          matchConfidence: m.matchConfidence || '',
           lat: m.lat,
           lng: m.lng,
         },
@@ -299,6 +301,7 @@ export function IntelligenceMap({
               municipio: p.municipio || null,
               score: p.score || 0,
               matchSource: '',
+              matchConfidence: (p.matchConfidence as 'high' | 'medium' | 'low' | null) ?? null,
               valor: p.valor || null,
               modalidade: p.modalidade || null,
               recomendacao: null,
@@ -346,6 +349,7 @@ export function IntelligenceMap({
           municipio: props.municipio || null,
           score: props.score || 0,
           matchSource: '',
+          matchConfidence: (props.matchConfidence || null) as 'high' | 'medium' | 'low' | null,
           valor: props.valor || null,
           modalidade: props.modalidade || null,
           recomendacao: null,
@@ -702,6 +706,7 @@ export function IntelligenceMap({
           municipio: props.municipio || null,
           score: props.score || 0,
           matchSource: '',
+          matchConfidence: (props.matchConfidence || null) as 'high' | 'medium' | 'low' | null,
           valor: props.valor || null,
           modalidade: props.modalidade || null,
           recomendacao: null,
@@ -1151,13 +1156,18 @@ export function IntelligenceMap({
                           >
                             {match.score}
                           </span>
-                          <div>
-                            <span className={`text-[10px] font-medium ${getScoreColorClass(match.score)}`}>
-                              {getScoreLabel(match.score)}
-                            </span>
-                            <span className="text-muted-foreground text-[10px] ml-1.5">
-                              {match.municipio ? `${match.municipio}/${match.uf}` : match.uf}
-                            </span>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className={`text-[10px] font-medium ${getScoreColorClass(match.score)}`}>
+                                {getScoreLabel(match.score)}
+                              </span>
+                              <span className="text-muted-foreground text-[10px]">
+                                {match.municipio ? `${match.municipio}/${match.uf}` : match.uf}
+                              </span>
+                              {match.matchConfidence && (
+                                <MatchConfidenceBadge level={match.matchConfidence} compact />
+                              )}
+                            </div>
                           </div>
                         </div>
                         <p className={`font-medium text-foreground leading-snug line-clamp-2 mb-1.5 ${isMobile ? 'text-xs' : 'text-sm'}`}>

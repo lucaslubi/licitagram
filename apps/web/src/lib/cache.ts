@@ -332,7 +332,7 @@ async function fetchMatchListFromDB(params: MatchListParams): Promise<MatchListR
   let query = supabase
     .from('matches')
     .select(
-      `id, score, status, ai_justificativa, recomendacao, match_source, created_at,
+      `id, score, score_final, score_by_pgvector, score_by_keyword, score_semantic, score_cnae, score_keyword, score_valor, score_uf, score_modalidade, breakdown, match_source_primary, status, ai_justificativa, recomendacao, match_source, match_confidence, created_at,
        tenders!inner(
          id, objeto, orgao_nome, orgao_cnpj, uf, municipio,
          valor_estimado, valor_homologado, data_abertura, data_publicacao, data_encerramento,
@@ -532,7 +532,9 @@ export async function getMatchDetail(matchId: string): Promise<Record<string, an
       const { data } = await supabase
         .from('matches')
         .select(`
-          id, company_id, tender_id, score, keyword_score, match_source,
+          id, company_id, tender_id, score, score_final, score_by_pgvector, score_by_keyword,
+          score_semantic, score_cnae, score_keyword, score_valor, score_uf, score_modalidade,
+          keyword_score, match_source, match_source_primary, match_confidence,
           breakdown, ai_justificativa, riscos, acoes_necessarias, recomendacao,
           competition_score,
           status, notified_at, created_at,

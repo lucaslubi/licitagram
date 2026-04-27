@@ -8,6 +8,7 @@ export interface MatchMarker {
   municipio: string | null
   score: number
   matchSource: string
+  matchConfidence: 'high' | 'medium' | 'low' | null
   valor: number | null
   modalidade: string | null
   recomendacao: string | null

@@ -48,7 +48,7 @@ export default async function MapPage() {
     const { data: pageRows, error: pageErr } = await supabase
       .from('matches')
       .select(`
-        id, score, is_hot, match_source, recomendacao,
+        id, score, score_final, score_by_pgvector, score_by_keyword, score_semantic, score_cnae, score_keyword, score_valor, score_uf, score_modalidade, breakdown, match_source_primary, is_hot, match_source, match_confidence, recomendacao,
         tenders!inner (
           id, objeto, orgao_nome, uf, municipio,
           valor_estimado, modalidade_nome, modalidade_id,
@@ -80,6 +80,7 @@ export default async function MapPage() {
       status: 'new' as string,
       recomendacao: m.recomendacao as string | null,
       match_source: (m.match_source || 'ai_triage') as string,
+      match_confidence: (m.match_confidence as 'high' | 'medium' | 'low' | null) ?? null,
       is_hot: m.is_hot as boolean,
       competition_score: null as number | null,
       tenders: {
@@ -135,6 +136,7 @@ export default async function MapPage() {
         municipio,
         score: match.score,
         matchSource: (match.match_source as string) || 'keyword',
+        matchConfidence: match.match_confidence ?? null,
         valor: tender.valor_estimado as number | null,
         modalidade: tender.modalidade_nome as string | null,
         recomendacao: match.recomendacao as string | null,
