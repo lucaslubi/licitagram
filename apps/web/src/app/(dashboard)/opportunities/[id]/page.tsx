@@ -15,7 +15,10 @@ import { RiskAnalysisCard } from '@/components/fraud/RiskAnalysisCard'
 import { FraudAlertBadges } from '@/components/fraud/FraudAlertBadges'
 import { HabilitacaoChecklist } from './habilitacao-checklist'
 import { ImpugnationCard } from './impugnation-card'
+import { MatchFeedbackButtons } from '@/components/match-feedback-buttons'
 import { formatCompactBRL } from '@/lib/geo/map-utils'
+import { MatchConfidenceBadge } from '@/components/match-confidence-badge'
+import { MatchExplanation } from '@/components/match-explanation'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -88,6 +91,24 @@ export default async function OpportunityDetailPage({
     }
   }
 
+  // ── Company context for match explanation ──
+  let companyContext: {
+    palavras_chave?: string[] | null
+    cnae_principal?: string | null
+    cnaes_secundarios?: string[] | null
+    ufs_interesse?: string[] | null
+    min_valor?: number | null
+    max_valor?: number | null
+  } | null = null
+  if (companyId) {
+    const { data: companyData } = await supabase
+      .from('companies')
+      .select('palavras_chave, cnae_principal, cnaes_secundarios, ufs_interesse, min_valor, max_valor')
+      .eq('id', companyId)
+      .single()
+    companyContext = companyData ?? null
+  }
+
   let nicheCompetitors: Array<Record<string, unknown>> = []
   if (tenderUf && tenderCnaeDivisions.length > 0) {
     try {
@@ -120,6 +141,18 @@ export default async function OpportunityDetailPage({
   const documents = ((tender?.tender_documents as unknown) as Array<{
     id: string; titulo: string | null; tipo: string | null; url: string; texto_extraido: string | null; status: string
   }>) || []
+
+  // F-Q4: load this user's vote (if any) for initial render of feedback buttons
+  let userVote: 'up' | 'down' | null = null
+  if (auth.userId) {
+    const { data: feedbackRow } = await supabase
+      .from('match_feedback')
+      .select('vote')
+      .eq('match_id', String(match.id))
+      .eq('user_id', auth.userId)
+      .maybeSingle()
+    userVote = (feedbackRow?.vote as 'up' | 'down' | undefined) ?? null
+  }
 
   const dl = deadlineInfo(tender?.data_encerramento as string | null)
   const dlProgress = deadlineProgress(tender?.data_abertura as string | null, tender?.data_encerramento as string | null)
@@ -172,6 +205,9 @@ export default async function OpportunityDetailPage({
                 <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium border bg-foreground/5 text-muted-foreground border-border">
                   {(tender?.source as string) === 'comprasgov' ? 'Compras.gov' : 'PNCP'}
                 </span>
+                {(match as Record<string, unknown>).match_confidence ? (
+                  <MatchConfidenceBadge level={(match as Record<string, unknown>).match_confidence as 'high' | 'medium' | 'low'} />
+                ) : null}
               </div>
               <h1 className="text-lg lg:text-xl font-semibold text-foreground tracking-tight leading-snug mb-2 max-w-3xl">
                 {(tender?.objeto as string) || 'N/A'}
@@ -208,6 +244,14 @@ export default async function OpportunityDetailPage({
                 >
                   Gerar Proposta
                 </Link>
+                <div className="flex items-center justify-center gap-2">
+                  <span className="text-[10px] text-muted-foreground/80 uppercase tracking-wider">Esse match faz sentido?</span>
+                  <MatchFeedbackButtons
+                    matchId={String(match.id)}
+                    initialVote={userVote}
+                    size="sm"
+                  />
+                </div>
                 {linkPncp && (
                   <a href={linkPncp} target="_blank" rel="noopener noreferrer" className="text-[11px] text-muted-foreground hover:text-foreground transition-colors text-center">
                     Ver no PNCP &rarr;
@@ -272,6 +316,45 @@ export default async function OpportunityDetailPage({
 
           {/* AI Analysis (Score breakdown, compatibility donut, risks) */}
           <AnalysisSlot />
+
+          {/* Why this match (transparent breakdown) */}
+          <div className="card-refined">
+            <div className="card-refined-header">
+              <div className="flex items-center gap-2.5">
+                <div className="card-refined-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" /></svg>
+                </div>
+                <div>
+                  <h3 className="card-refined-title">Por que esse match</h3>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Fatores que pesaram na recomendação</p>
+                </div>
+              </div>
+            </div>
+            <MatchExplanation
+              match={{
+                score: match.score as number | null,
+                score_final: match.score_final as number | null,
+                score_by_pgvector: match.score_by_pgvector as number | null,
+                score_by_keyword: match.score_by_keyword as number | null,
+                score_semantic: match.score_semantic as number | null,
+                score_cnae: match.score_cnae as number | null,
+                score_keyword: match.score_keyword as number | null,
+                score_valor: match.score_valor as number | null,
+                score_uf: match.score_uf as number | null,
+                score_modalidade: match.score_modalidade as number | null,
+                breakdown: match.breakdown as Record<string, any> | null,
+                match_source: match.match_source as string | null,
+                match_source_primary: match.match_source_primary as string | null,
+                recomendacao: typeof recomendacao === 'string' && !['participar', 'avaliar_melhor', 'nao_recomendado'].includes(recomendacao) ? recomendacao : null,
+              }}
+              tender={{
+                uf: tender?.uf as string | null,
+                valor_estimado: tender?.valor_estimado as number | null,
+                modalidade_nome: tender?.modalidade_nome as string | null,
+              }}
+              company={companyContext}
+            />
+          </div>
 
           {/* Competition Analysis */}
           <div className="card-refined">

@@ -13,6 +13,8 @@ import {
 import { getUserWithPlan, hasFeature } from '@/lib/auth-helpers'
 import { PipelineTag } from '@/components/pipeline-tag'
 import { ModalidadeBadge } from '@/components/modalidade-badge'
+import { MatchConfidenceBadge } from '@/components/match-confidence-badge'
+import { MatchFeedbackButtons } from '@/components/match-feedback-buttons'
 import { createClient } from '@/lib/supabase/server'
 import type { PlanFeatures } from '@licitagram/shared'
 import { formatCompactBRL } from '@/lib/geo/map-utils'
@@ -166,6 +168,21 @@ export default async function OpportunitiesPage({
 
     const effectiveMinScore = scoreMinFilter > 0 ? scoreMinFilter : userMinScore
 
+    // F-Q4: load this user's existing votes for visible matches
+    const matchFeedbackMap = new Map<string, 'up' | 'down'>()
+    if (auth.userId && matchResult.matches && matchResult.matches.length > 0) {
+      const supabase = await createClient()
+      const visibleIds = matchResult.matches.map((m: any) => m.id)
+      const { data: feedbackRows } = await supabase
+        .from('match_feedback')
+        .select('match_id, vote')
+        .eq('user_id', auth.userId)
+        .in('match_id', visibleIds)
+      for (const f of feedbackRows || []) {
+        matchFeedbackMap.set(f.match_id as string, f.vote as 'up' | 'down')
+      }
+    }
+
     return (
       <div>
         {/* Header */}
@@ -291,6 +308,7 @@ export default async function OpportunitiesPage({
                     <th style={{ width: 140 }}>Prazo</th>
                     <th style={{ width: 90 }}>Fonte</th>
                     <th style={{ width: 100 }}>Status</th>
+                    <th style={{ width: 76 }}>Avaliar</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -316,11 +334,14 @@ export default async function OpportunitiesPage({
                               <span className="opp-dot">·</span>
                               <span>{(tender?.uf as string) || '-'}</span>
                             </div>
-                            {!!(tender?.modalidade_nome || tender?.modalidade_id) && (
-                              <div className="mt-0.5">
+                            <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
+                              {!!(tender?.modalidade_nome || tender?.modalidade_id) && (
                                 <ModalidadeBadge modalidadeId={tender?.modalidade_id as number} modalidadeNome={tender?.modalidade_nome as string} compact />
-                              </div>
-                            )}
+                              )}
+                              {match.match_confidence && (
+                                <MatchConfidenceBadge level={match.match_confidence} />
+                              )}
+                            </div>
                           </Link>
                         </td>
                         <td className="opp-col-value">
@@ -364,6 +385,12 @@ export default async function OpportunitiesPage({
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium border ${statusInfo.cls}`}>
                             {statusInfo.label}
                           </span>
+                        </td>
+                        <td className="align-middle">
+                          <MatchFeedbackButtons
+                            matchId={match.id}
+                            initialVote={matchFeedbackMap.get(match.id) ?? null}
+                          />
                         </td>
                       </tr>
                     )
