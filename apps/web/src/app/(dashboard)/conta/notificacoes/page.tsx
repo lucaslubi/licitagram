@@ -31,8 +31,8 @@ export default async function NotificacoesPage() {
 
   if (!profile?.company_id) {
     return (
-      <div className="max-w-3xl mx-auto p-6">
-        <h1 className="text-2xl font-semibold mb-2">Notificações</h1>
+      <div>
+        <h2 className="text-xl font-semibold mb-2">Notificações</h2>
         <p className="text-muted-foreground">Você precisa estar associado a uma empresa para configurar notificações.</p>
       </div>
     )
@@ -68,10 +68,10 @@ export default async function NotificacoesPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-6">
-      <header className="mb-6">
+    <div>
+      <div className="mb-6">
         <div className="flex items-center gap-2 mb-1">
-          <h1 className="text-2xl font-semibold">Notificações</h1>
+          <h2 className="text-xl font-semibold">Notificações</h2>
           <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
             ✨ Powered by IA
           </span>
@@ -79,7 +79,7 @@ export default async function NotificacoesPage() {
         <p className="text-muted-foreground text-sm">
           Configure como nossa IA Licitagram filtra e entrega oportunidades nos seus canais.
         </p>
-      </header>
+      </div>
       <NotificacoesForm initial={initial} defaults={DEFAULT_PREFS} channelStatus={channelStatus} />
     </div>
   )

@@ -71,7 +71,7 @@ export const navigationGroups: NavGroup[] = [
 export const accountItems: NavItemConfig[] = [
   { id: 'empresa', label: 'Empresa', icon: Building, href: '/company' },
   { id: 'plano', label: 'Plano', icon: CreditCard, href: '/billing' },
-  { id: 'configuracoes', label: 'Configurações', icon: Settings, href: '/settings' },
+  { id: 'conta', label: 'Conta', icon: Settings, href: '/conta' },
 ]
 
 export const adminItem: NavItemConfig = {
