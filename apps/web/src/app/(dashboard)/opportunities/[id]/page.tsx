@@ -378,8 +378,11 @@ export default async function OpportunityDetailPage({
                 </div>
                 <div>
                   <h3 className="card-refined-title">Por que esse match</h3>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">Fatores que pesaram na recomendação</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Fatores que nossa IA usou pra recomendar essa oportunidade</p>
                 </div>
+                <span className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                  ✨ Match feito por IA
+                </span>
               </div>
             </div>
             <MatchExplanation

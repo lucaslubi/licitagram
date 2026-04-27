@@ -46,12 +46,12 @@ function fmtBRL(n: number): string {
 export function MatchExplanation({ match, tender, company, compact = false }: MatchExplanationProps) {
   const reasons: Array<{ ok: boolean; label: string; detail?: string }> = []
 
-  // Semantic similarity
+  // Aderência semântica detectada pela IA
   if (match.score_semantic != null) {
     const v = match.score_semantic as number
     reasons.push({
       ok: v >= 0.4,
-      label: 'Semelhança semântica',
+      label: 'IA detectou aderência ao seu negócio',
       detail: pct(v),
     })
   }
@@ -66,18 +66,18 @@ export function MatchExplanation({ match, tender, company, compact = false }: Ma
     })
   }
 
-  // Keyword match (engine-level score 0-100, when present and > 0)
+  // Termos do seu perfil casaram com o objeto da licitação
   if (match.score_by_keyword != null && (match.score_by_keyword as number) > 0) {
     reasons.push({
       ok: true,
-      label: 'Palavras-chave casaram',
+      label: 'Termos do seu perfil casaram',
       detail: `${match.score_by_keyword}/100`,
     })
   } else if (match.score_keyword != null) {
     const v = match.score_keyword as number
     reasons.push({
       ok: v >= 0.4,
-      label: 'Palavras-chave',
+      label: 'Termos do seu perfil',
       detail: pct(v),
     })
   }
@@ -123,11 +123,9 @@ export function MatchExplanation({ match, tender, company, compact = false }: Ma
     })
   }
 
-  const engine =
-    match.match_source_primary === 'pgvector_rules' || match.match_source === 'pgvector_rules' ? 'Análise semântica (pgvector)' :
-    match.match_source_primary === 'keyword' || match.match_source === 'keyword' ? 'Palavras-chave' :
-    match.match_source_primary === 'semantic' || match.match_source === 'semantic' ? 'Semantic clássico' :
-    'Multi-engine'
+  // Narrativa cliente: SEMPRE "Inteligência Artificial Licitagram".
+  // Cliente não precisa saber qual engine interno casou — pra ele é A NOSSA IA.
+  const engine = 'Inteligência Artificial Licitagram'
 
   const visibleReasons = compact ? reasons.slice(0, 3) : reasons
   const finalScore = match.score_final ?? match.score ?? null
@@ -137,7 +135,9 @@ export function MatchExplanation({ match, tender, company, compact = false }: Ma
       {!compact && (
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>Por que esse match{finalScore != null ? ` (score ${finalScore})` : ''}</span>
-          <span className="text-[10px]">via {engine}</span>
+          <span className="text-[10px] inline-flex items-center gap-1 text-purple-600 dark:text-purple-400">
+            <span>✨</span> via {engine}
+          </span>
         </div>
       )}
       <ul className="space-y-1.5">

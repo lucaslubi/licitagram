@@ -35,10 +35,11 @@ const PRESET_DEFAULTS: Record<NotifPrefs['preset'], { min_score: number; max_per
   custom:         { min_score: 55, max_per_day: 30, label: 'Personalizado',  hint: 'controles avançados abaixo' },
 }
 
+// Narrativa cliente: tudo é IA. Engines internos descritos por benefício, não por nome técnico.
 const ENGINE_LABELS: Record<string, string> = {
-  pgvector_rules: 'pgvector (semântico + regras)',
-  keyword: 'keyword (palavras-chave)',
-  semantic: 'semantic (IA pura)',
+  pgvector_rules: 'IA semântica (entende o contexto do negócio)',
+  keyword: 'IA por termos-chave (perfil + objeto da licitação)',
+  semantic: 'IA legacy (modelo anterior)',
 }
 
 export function NotificacoesForm({

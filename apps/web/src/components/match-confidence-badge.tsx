@@ -1,23 +1,25 @@
 export type ConfidenceLevel = 'high' | 'medium' | 'low'
 
+// Narrativa cliente: nossa IA Licitagram tem N estrelas de certeza desse match.
+// Não expõe detalhes do engine interno (pgvector/keyword/semantic).
 const CONFIG = {
   high: {
-    label: 'Alta confiança',
+    label: 'IA: Alta certeza',
     icon: '⭐⭐⭐',
     className: 'bg-emerald-500/15 text-emerald-700 border border-emerald-500/30',
-    description: 'Engines pgvector e keyword concordam em alta relevância',
+    description: 'Nossa IA Licitagram identificou múltiplos sinais fortes de aderência',
   },
   medium: {
-    label: 'Média confiança',
+    label: 'IA: Boa certeza',
     icon: '⭐⭐',
     className: 'bg-amber-500/15 text-amber-700 border border-amber-500/30',
-    description: 'Um engine sinaliza forte relevância',
+    description: 'Nossa IA Licitagram detectou aderência relevante ao seu perfil',
   },
   low: {
-    label: 'Baixa confiança',
+    label: 'IA: Vale conferir',
     icon: '⭐',
     className: 'bg-zinc-500/15 text-zinc-600 border border-zinc-500/30',
-    description: 'Match passou no threshold mínimo',
+    description: 'Nossa IA Licitagram sinalizou potencial — vale uma olhada',
   },
 } as const
 
