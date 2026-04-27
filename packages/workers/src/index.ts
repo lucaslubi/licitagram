@@ -60,7 +60,9 @@ async function loadWorkers(): Promise<Worker[]> {
     const { outcomeCheckWorker } = await import('./processors/outcome-check.processor')
     const { channelOnboardingWorker } = await import('./processors/channel-onboarding.processor')
     const { trialExpiryWorker: trialExpiryNotifWorker } = await import('./processors/trial-expiry.processor')
-    workers.push(notificationWorker, pendingNotificationsWorker, hotAlertsWorker, whatsappNotificationWorker, outcomeCheckWorker, channelOnboardingWorker, trialExpiryNotifWorker)
+    const { dataExportWorker } = await import('./processors/data-export.processor')
+    const { accountDeletionWorker } = await import('./processors/account-deletion.processor')
+    workers.push(notificationWorker, pendingNotificationsWorker, hotAlertsWorker, whatsappNotificationWorker, outcomeCheckWorker, channelOnboardingWorker, trialExpiryNotifWorker, dataExportWorker, accountDeletionWorker)
   }
 
   // Split notification groups for parallel mode
@@ -75,7 +77,9 @@ async function loadWorkers(): Promise<Worker[]> {
     const { weeklyActionsWorker } = await import('./processors/weekly-actions.processor')
     const { channelOnboardingWorker } = await import('./processors/channel-onboarding.processor')
     const { trialExpiryWorker } = await import('./processors/trial-expiry.processor')
-    workers.push(pendingNotificationsWorker, hotAlertsWorker, mapCacheWorker, pipelineHealthWorker, outcomeCheckWorker, dailyAuditWorker, aiHealingWorker, weeklyActionsWorker, channelOnboardingWorker, trialExpiryWorker)
+    const { dataExportWorker } = await import('./processors/data-export.processor')
+    const { accountDeletionWorker } = await import('./processors/account-deletion.processor')
+    workers.push(pendingNotificationsWorker, hotAlertsWorker, mapCacheWorker, pipelineHealthWorker, outcomeCheckWorker, dailyAuditWorker, aiHealingWorker, weeklyActionsWorker, channelOnboardingWorker, trialExpiryWorker, dataExportWorker, accountDeletionWorker)
   }
 
   if (selectedGroups.includes('telegram')) {
@@ -186,6 +190,7 @@ import { certidoesQueue } from './queues/certidoes.queue'
 import { aiHealingQueue } from './queues/ai-healing.queue'
 import { weeklyActionsQueue } from './queues/weekly-actions.queue'
 import { trialExpiryQueue } from './queues/trial-expiry.queue'
+import { accountDeletionQueue } from './queues/account-deletion.queue'
 
 async function setupRepeatableJobs() {
   const today = formatDatePNCP(new Date())
@@ -489,6 +494,17 @@ async function setupRepeatableJobs() {
   )
   logger.info('Trial expiry sweep scheduled (daily 2 AM BRT / 05:00 UTC)')
 
+  // Account deletion sweep daily at 03:00 UTC (LGPD 14d grace period)
+  await accountDeletionQueue.add(
+    'account-deletion-sweep',
+    {},
+    {
+      repeat: { pattern: '0 3 * * *' },
+      jobId: 'account-deletion-daily-03utc',
+    },
+  )
+  logger.info('Account deletion sweep scheduled (daily 03:00 UTC)')
+
   // Trigger immediate map cache refresh on startup
   mapCacheQueue.add('refresh-map-startup', {}).catch((err) => {
     logger.error({ err }, 'Failed to enqueue startup map cache refresh')
@@ -641,6 +657,17 @@ async function setupAlertRepeatableJobs() {
     },
   )
   logger.info('[alerts] Trial expiry sweep scheduled (daily 2 AM BRT)')
+
+  // Account deletion sweep: daily at 03:00 UTC (LGPD 14d grace period)
+  await accountDeletionQueue.add(
+    'account-deletion-sweep',
+    {},
+    {
+      repeat: { pattern: '0 3 * * *' },
+      jobId: 'account-deletion-daily-03utc',
+    },
+  )
+  logger.info('[alerts] Account deletion sweep scheduled (daily 03:00 UTC)')
 }
 
 /**
