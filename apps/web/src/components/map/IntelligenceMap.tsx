@@ -1241,15 +1241,16 @@ export function IntelligenceMap({
           isMobile ? 'bottom-24 left-2' : 'bottom-2 left-4'
         }`}>
           <div className={`bg-black/80 backdrop-blur-sm border border-white/[0.06] rounded-xl text-white ${isMobile ? 'p-2.5' : 'p-3.5'}`}>
-            <p className={`font-medium mb-2.5 text-white/80 ${isMobile ? 'text-[10px]' : 'text-[11px]'}`}>
-              Score do Match
+            <p className={`font-medium mb-2.5 text-white/80 inline-flex items-center gap-1 ${isMobile ? 'text-[10px]' : 'text-[11px]'}`}>
+              <span className="text-purple-400">✨</span> Score IA
             </p>
             <div className="space-y-1.5">
               {[
-                { color: '#10B981', label: '90-100', sublabel: 'Excelente' },
-                { color: '#84CC16', label: '80-89', sublabel: 'Bom' },
-                { color: '#F59E0B', label: '70-79', sublabel: 'Moderado' },
-                { color: '#64748B', label: '50-69', sublabel: 'Baixo' },
+                { color: '#10B981', label: '75+',   sublabel: 'Excelente' },
+                { color: '#22C55E', label: '65-74', sublabel: 'Muito bom' },
+                { color: '#84CC16', label: '55-64', sublabel: 'Bom' },
+                { color: '#F59E0B', label: '45-54', sublabel: 'Promissor' },
+                { color: '#FBBF24', label: '40-44', sublabel: 'Inicial' },
               ].map((item) => (
                 <div key={item.label} className="flex items-center gap-2">
                   <div

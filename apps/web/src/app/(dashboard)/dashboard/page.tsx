@@ -197,13 +197,13 @@ export default async function DashboardPage() {
   const scores = (allMatchScores.data || []).map((m) => m.score)
   const avgScore = scores.length > 0 ? Math.round(scores.reduce((a: number, b: number) => a + b, 0) / scores.length) : 0
 
+  // Faixas alinhadas com a paleta recalibrada do mapa (sem cinza, gradiente IA).
   const scoreDistribution = [
-    { range: '90-100', count: scores.filter((s: number) => s >= 90).length, color: '#10B981' },
-    { range: '70-89', count: scores.filter((s: number) => s >= 70 && s < 90).length, color: '#34D399' },
-    { range: '50-69', count: scores.filter((s: number) => s >= 50 && s < 70).length, color: '#FBBF24' },
-    ...(minScore < 50 ? [
-      { range: `${minScore}-49`, count: scores.filter((s: number) => s >= minScore && s < 50).length, color: '#EF4444' },
-    ] : []),
+    { range: 'Excelente (75+)',   count: scores.filter((s: number) => s >= 75).length,                        color: '#10B981' },
+    { range: 'Muito bom (65-74)', count: scores.filter((s: number) => s >= 65 && s < 75).length,              color: '#22C55E' },
+    { range: 'Bom (55-64)',       count: scores.filter((s: number) => s >= 55 && s < 65).length,              color: '#84CC16' },
+    { range: 'Promissor (45-54)', count: scores.filter((s: number) => s >= 45 && s < 55).length,              color: '#F59E0B' },
+    { range: 'Inicial (40-44)',   count: scores.filter((s: number) => s >= 40 && s < 45).length,              color: '#FBBF24' },
   ]
 
   // Match details for Valor, UFs, Modalidades
