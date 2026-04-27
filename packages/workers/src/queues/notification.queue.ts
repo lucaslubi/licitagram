@@ -27,8 +27,16 @@ export interface WeeklyActionItem {
   deltaText?: string
 }
 
+// F-Q5: optional summary of fit/risk flags (CND, capital, valor) attached
+// to notification payloads. Counts only — full details rendered in dashboard.
+export interface FitFlagsSummary {
+  high: number
+  medium: number
+  low: number
+}
+
 export type NotificationJobData =
-  | { matchId: string; telegramChatId?: number; whatsappNumber?: string }
+  | { matchId: string; telegramChatId?: number; whatsappNumber?: string; fit_flags_summary?: FitFlagsSummary }
   | { matchId: string; telegramChatId: number; type: 'hot'; rank: number; plan: string; competitionScore: number; topCompetitors: Array<{ nome: string; winRate: number; porte: string }> }
   | { telegramChatId: number; type: 'urgency_48h'; matches: UrgencyMatchItem[]; totalValor: number }
   | { telegramChatId: number; type: 'urgency_24h'; matches: UrgencyMatchItem[]; totalValor: number }

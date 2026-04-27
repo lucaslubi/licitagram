@@ -19,6 +19,8 @@ import { MatchFeedbackButtons } from '@/components/match-feedback-buttons'
 import { formatCompactBRL } from '@/lib/geo/map-utils'
 import { MatchConfidenceBadge } from '@/components/match-confidence-badge'
 import { MatchExplanation } from '@/components/match-explanation'
+import { MatchFitFlags } from '@/components/match-fit-flags'
+import { computeFitFlags } from '@/lib/match/fit-flags'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -91,7 +93,7 @@ export default async function OpportunityDetailPage({
     }
   }
 
-  // ── Company context for match explanation ──
+  // ── Company context for match explanation + fit flags ──
   let companyContext: {
     palavras_chave?: string[] | null
     cnae_principal?: string | null
@@ -99,14 +101,46 @@ export default async function OpportunityDetailPage({
     ufs_interesse?: string[] | null
     min_valor?: number | null
     max_valor?: number | null
+    capital_social?: number | null
   } | null = null
   if (companyId) {
-    const { data: companyData } = await supabase
+    // capital_social may not exist on older schemas — query defensively
+    let { data: companyData } = await supabase
       .from('companies')
-      .select('palavras_chave, cnae_principal, cnaes_secundarios, ufs_interesse, min_valor, max_valor')
+      .select('palavras_chave, cnae_principal, cnaes_secundarios, ufs_interesse, min_valor, max_valor, capital_social')
       .eq('id', companyId)
       .single()
+    if (!companyData) {
+      const fallback = await supabase
+        .from('companies')
+        .select('palavras_chave, cnae_principal, cnaes_secundarios, ufs_interesse, min_valor, max_valor')
+        .eq('id', companyId)
+        .single()
+      companyData = fallback.data as typeof companyData
+    }
     companyContext = companyData ?? null
+  }
+
+  // ── F-Q5: Fit/Risk flags ──
+  let fitFlags: { flags: import('@/lib/match/fit-flags').FitFlag[]; fit_score: number } | null = null
+  if (companyId) {
+    try {
+      fitFlags = await computeFitFlags(
+        supabase,
+        companyId,
+        {
+          valor_estimado: tender?.valor_estimado as number | null,
+          requisitos: tender?.requisitos,
+        },
+        {
+          capital_social: companyContext?.capital_social ?? null,
+          min_valor: companyContext?.min_valor ?? null,
+          max_valor: companyContext?.max_valor ?? null,
+        },
+      )
+    } catch (e) {
+      console.error('Failed to compute fit flags:', e)
+    }
   }
 
   let nicheCompetitors: Array<Record<string, unknown>> = []
@@ -316,6 +350,24 @@ export default async function OpportunityDetailPage({
 
           {/* AI Analysis (Score breakdown, compatibility donut, risks) */}
           <AnalysisSlot />
+
+          {/* F-Q5: Fit / Risk Flags (CNDs, capital social, faixa de valor) */}
+          {fitFlags && (
+            <div className="card-refined">
+              <div className="card-refined-header">
+                <div className="flex items-center gap-2.5">
+                  <div className="card-refined-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="M9 12l2 2 4-4" /></svg>
+                  </div>
+                  <div>
+                    <h3 className="card-refined-title">Aderência da sua empresa</h3>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">Requisitos básicos pra participar dessa licitação</p>
+                  </div>
+                </div>
+              </div>
+              <MatchFitFlags flags={fitFlags.flags} fit_score={fitFlags.fit_score} />
+            </div>
+          )}
 
           {/* Why this match (transparent breakdown) */}
           <div className="card-refined">

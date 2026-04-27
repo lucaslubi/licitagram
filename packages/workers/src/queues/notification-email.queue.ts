@@ -1,8 +1,9 @@
 import { Queue } from 'bullmq'
 import { connection } from './connection'
+import type { FitFlagsSummary } from './notification.queue'
 
 export type EmailNotificationJobData =
-  | { matchId: string; userEmail: string; userId: string }
+  | { matchId: string; userEmail: string; userId: string; fit_flags_summary?: FitFlagsSummary }
   | { matchId: string; userEmail: string; userId: string; type: 'hot_alert' }
   | { matchId: string; userEmail: string; userId: string; type: 'urgency_digest'; matches: string[] }
   | { userEmail: string; userId: string; type: 'certidao_expiring'; certidaoTipo: string; diasRestantes: number }

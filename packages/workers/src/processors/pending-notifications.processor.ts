@@ -8,6 +8,35 @@ import { logger } from '../lib/logger'
 import { purgeNonCompetitiveMatches } from '../lib/notification-guard'
 
 /**
+ * F-Q5: lightweight fit-flags summary for notification payload.
+ * Only computes capital/value flags (in-memory data) — CND checks happen at
+ * render time in dashboard via apps/web/src/lib/match/fit-flags.ts.
+ * NÃO bloqueia envio — só sinaliza no template.
+ */
+function computeQuickFitSummary(
+  valorEstimado: number | null | undefined,
+  capitalSocial: number | null,
+  minValor: number | null,
+  maxValor: number | null,
+): { high: number; medium: number; low: number } {
+  let high = 0
+  let medium = 0
+  let low = 0
+  const valor = Number(valorEstimado || 0)
+  const capital = Number(capitalSocial || 0)
+  if (valor > 0 && capital > 0) {
+    const ratio = capital / valor
+    if (ratio < 0.05) high++
+    else if (ratio < 0.10) medium++
+  }
+  if (valor > 0) {
+    if (maxValor != null && valor > maxValor) low++
+    if (minValor != null && valor < minValor) low++
+  }
+  return { high, medium, low }
+}
+
+/**
  * Determine job priority based on match score and age.
  * Uses NOTIFICATION_PRIORITY constants for consistency across the system.
  */
@@ -133,10 +162,24 @@ const pendingNotificationsWorker = new Worker(
       return
     }
 
-    const { data: companyRows } = await supabase
-      .from('companies')
-      .select('id, min_score, min_valor, max_valor, ufs_interesse')
-      .in('id', companyIdList)
+    // F-Q5: also pull capital_social for fit-flags computation downstream.
+    // Defensive select — capital_social may be absent on older schemas.
+    let companyRows: Array<Record<string, any>> | null = null
+    {
+      const withCapital = await supabase
+        .from('companies')
+        .select('id, min_score, min_valor, max_valor, ufs_interesse, capital_social')
+        .in('id', companyIdList)
+      if (withCapital.error) {
+        const fallback = await supabase
+          .from('companies')
+          .select('id, min_score, min_valor, max_valor, ufs_interesse')
+          .in('id', companyIdList)
+        companyRows = (fallback.data as Array<Record<string, any>>) || null
+      } else {
+        companyRows = (withCapital.data as Array<Record<string, any>>) || null
+      }
+    }
 
     const companySettingsMap = new Map<string, any>()
     for (const c of companyRows || []) {
@@ -146,7 +189,56 @@ const pendingNotificationsWorker = new Worker(
         minValor: c.min_valor ?? null,
         maxValor: c.max_valor ?? null,
         targetUfs: (c.ufs_interesse as string[]) || [],
+        capitalSocial: c.capital_social ?? null,
       })
+    }
+
+    // ── F-Q3: Notification preferences per company (bot_configs portal='_notifications') ──
+    // Cliente self-service via /conta/notificacoes. Se não houver row, usa defaults.
+    const { data: notifPrefRows } = await supabase
+      .from('bot_configs')
+      .select(
+        'company_id, min_score_notify, max_notifs_per_day, notif_quiet_start, notif_quiet_end, notif_channels, notif_engines, notif_excluded_terms, daily_digest_enabled',
+      )
+      .eq('portal', '_notifications')
+      .in('company_id', companyIdList)
+
+    const notifPrefsByCompany = new Map<string, {
+      minScoreNotify: number | null
+      maxPerDay: number | null
+      quietStart: string | null
+      quietEnd: string | null
+      channels: string[] | null
+      engines: string[] | null
+      excludedTerms: string[]
+      dailyDigest: boolean
+    }>()
+    for (const row of notifPrefRows || []) {
+      notifPrefsByCompany.set(row.company_id, {
+        minScoreNotify: row.min_score_notify ?? null,
+        maxPerDay: row.max_notifs_per_day ?? null,
+        quietStart: (row.notif_quiet_start as string) || null,
+        quietEnd: (row.notif_quiet_end as string) || null,
+        channels: (row.notif_channels as string[]) || null,
+        engines: (row.notif_engines as string[]) || null,
+        excludedTerms: (row.notif_excluded_terms as string[]) || [],
+        dailyDigest: row.daily_digest_enabled !== false,
+      })
+    }
+
+    // Helper: is current UTC time within [start, end] window?
+    // Supports overnight (e.g. 22:00 → 06:00).
+    function inQuietWindow(start: string | null, end: string | null, ref: Date): boolean {
+      if (!start || !end) return false
+      const [sh, sm] = start.split(':').map(Number)
+      const [eh, em] = end.split(':').map(Number)
+      const nowMin = ref.getUTCHours() * 60 + ref.getUTCMinutes()
+      const startMin = sh * 60 + sm
+      const endMin = eh * 60 + em
+      if (startMin === endMin) return false
+      return startMin < endMin
+        ? nowMin >= startMin && nowMin < endMin
+        : nowMin >= startMin || nowMin < endMin
     }
 
     // Get subscriptions for all companies to know their plan
@@ -236,6 +328,43 @@ const pendingNotificationsWorker = new Worker(
         const batchSize = BATCH_BY_PLAN[plan] || 1
         const minDaily = MIN_DAILY_BY_PLAN[plan] || 1
 
+        // F-Q3: client-tunable notification prefs override company defaults when set.
+        const notifPrefs = notifPrefsByCompany.get(companyId)
+        const effectiveMinScore = Math.max(
+          settings.minScore,
+          notifPrefs?.minScoreNotify ?? 0,
+        )
+
+        // Quiet window: skip this company entirely if we're inside the silence band.
+        if (notifPrefs && inQuietWindow(notifPrefs.quietStart, notifPrefs.quietEnd, now)) {
+          logger.debug(
+            { companyId, quietStart: notifPrefs.quietStart, quietEnd: notifPrefs.quietEnd },
+            'Skipping company — inside notification quiet window',
+          )
+          continue
+        }
+
+        // Daily cap from client prefs (if set), bounded by per-cycle batch logic below.
+        const clientDailyCap = notifPrefs?.maxPerDay ?? null
+
+        // Engine allowlist: defaults to existing trusted set if not configured.
+        const allowedEngines = new Set<string>(
+          notifPrefs?.engines && notifPrefs.engines.length > 0
+            ? notifPrefs.engines
+            : ['pgvector_rules', 'keyword', 'ai', 'ai_triage', 'semantic'],
+        )
+
+        // Channel allowlist (intersection with what the user actually has linked).
+        const allowedChannels = new Set<string>(
+          notifPrefs?.channels && notifPrefs.channels.length > 0
+            ? notifPrefs.channels
+            : ['email', 'whatsapp', 'telegram'],
+        )
+
+        const excludedTerms = (notifPrefs?.excludedTerms || [])
+          .map((t) => t.toLowerCase().trim())
+          .filter(Boolean)
+
         // Unified query: fetch ALL matches above company minScore, any source.
         // Quality gates:
         //   - AI-verified (ai, ai_triage, semantic): trust any score >= minScore
@@ -247,10 +376,10 @@ const pendingNotificationsWorker = new Worker(
 
         const { data: allMatches } = await supabase
           .from('matches')
-          .select('id, score, match_source, breakdown, created_at, tenders!inner(data_encerramento, modalidade_id, valor_estimado, uf)')
+          .select('id, score, match_source, breakdown, created_at, tenders!inner(data_encerramento, modalidade_id, valor_estimado, uf, objeto, descricao)')
           .eq('company_id', companyId)
           .eq('status', 'new')
-          .gte('score', settings.minScore)
+          .gte('score', effectiveMinScore)
           .gte('created_at', cutoffDate)
           .is('notified_at', null)
           .gte('tenders.data_encerramento', today)
@@ -298,6 +427,15 @@ const pendingNotificationsWorker = new Worker(
           const tenderUf = m.tenders?.uf
           if (settings.targetUfs.length > 0 && tenderUf && !settings.targetUfs.includes(tenderUf)) return false
 
+          // F-Q3: engine allowlist from client prefs.
+          if (m.match_source && !allowedEngines.has(m.match_source)) return false
+
+          // F-Q3: excluded keywords (objeto + descricao). Case-insensitive substring match.
+          if (excludedTerms.length > 0) {
+            const haystack = `${m.tenders?.objeto || ''} ${m.tenders?.descricao || ''}`.toLowerCase()
+            if (haystack && excludedTerms.some((t) => haystack.includes(t))) return false
+          }
+
           return true
         })
 
@@ -305,11 +443,25 @@ const pendingNotificationsWorker = new Worker(
 
         const alreadySent = sentTodayByCompany.get(companyId) || 0
 
+        // F-Q3: respect client-set daily cap. If reached, skip this company for today.
+        if (clientDailyCap != null && alreadySent >= clientDailyCap) {
+          logger.debug(
+            { companyId, alreadySent, clientDailyCap },
+            'Skipping company — client daily notification cap reached',
+          )
+          continue
+        }
+
         const backlogBatch = BACKLOG_BATCH_BY_PLAN[plan] || 5
         let cycleBatch = validMatches.length > 50 ? backlogBatch : batchSize
 
         if (isLateDay && alreadySent < minDaily) {
           cycleBatch = Math.max(cycleBatch, minDaily - alreadySent)
+        }
+
+        // Bound cycle batch by remaining daily budget if client set one.
+        if (clientDailyCap != null) {
+          cycleBatch = Math.min(cycleBatch, Math.max(0, clientDailyCap - alreadySent))
         }
 
         const batch = validMatches.slice(0, cycleBatch)
@@ -333,12 +485,22 @@ const pendingNotificationsWorker = new Worker(
           try {
             const priority = getJobPriority(match.score, (match as any).created_at)
 
-            if (hasTelegram) {
+            // F-Q5: quick fit summary in payload (capital/value flags only;
+            // CND flags resolved at render time on dashboard).
+            const fitSummary = computeQuickFitSummary(
+              (match as any).tenders?.valor_estimado as number | null,
+              settings.capitalSocial ?? null,
+              settings.minValor,
+              settings.maxValor,
+            )
+
+            if (hasTelegram && allowedChannels.has('telegram')) {
               await notificationQueue.add(
                 `tg-${user.id}-${match.id}`,
                 {
                   matchId: match.id,
                   telegramChatId: user.telegram_chat_id,
+                  fit_flags_summary: fitSummary,
                 },
                 {
                   jobId: `tg-${user.id}-${match.id}`,
@@ -347,12 +509,13 @@ const pendingNotificationsWorker = new Worker(
               )
             }
 
-            if (hasWhatsApp) {
+            if (hasWhatsApp && allowedChannels.has('whatsapp')) {
               await whatsappQueue.add(
                 `wa-${user.id}-${match.id}`,
                 {
                   matchId: match.id,
                   whatsappNumber: user.whatsapp_number,
+                  fit_flags_summary: fitSummary,
                 },
                 {
                   jobId: `wa-${user.id}-${match.id}`,
@@ -362,13 +525,14 @@ const pendingNotificationsWorker = new Worker(
             }
 
             // Email notifications
-            if (hasEmail) {
+            if (hasEmail && allowedChannels.has('email')) {
               await emailQueue.add(
                 `em-${user.id}-${match.id}`,
                 {
                   matchId: match.id,
                   userEmail: user.email,
                   userId: user.id,
+                  fit_flags_summary: fitSummary,
                 },
                 {
                   jobId: `em-${user.id}-${match.id}`,
