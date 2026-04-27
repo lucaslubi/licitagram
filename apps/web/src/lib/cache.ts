@@ -5,8 +5,17 @@ import crypto from 'crypto'
 /** Minimum score to display matches — hides unverified / low-confidence results */
 export const MIN_DISPLAY_SCORE = 40
 
-/** Only show matches from AI-verified sources */
-export const AI_VERIFIED_SOURCES = ['ai', 'ai_triage', 'semantic', 'keyword'] as const
+/**
+ * Engines de matching cujos resultados podem virar notificação/aparecer no mapa.
+ *
+ * pgvector_rules é o engine PRINCIPAL (substituiu ai-triage em 2026-04-21).
+ * keyword/semantic complementam.
+ *
+ * ai/ai_triage REMOVIDOS — deprecated. Tinham 12k+ entries score 95 que dominavam
+ * o top-N e impediam matches pgvector novos de aparecerem (bug encontrado em SpaceApps,
+ * 2026-04-27).
+ */
+export const AI_VERIFIED_SOURCES = ['pgvector_rules', 'keyword', 'semantic'] as const
 
 /**
  * Server-side cached data fetchers.

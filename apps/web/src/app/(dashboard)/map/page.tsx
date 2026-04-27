@@ -34,23 +34,43 @@ export default async function MapPage() {
   // ── Query matches for ACTIVE company only (map is company-specific) ──────
   const today = new Date().toISOString().split('T')[0]
 
-  const { data: liveData } = await supabase
-    .from('matches')
-    .select(`
-      id, score, is_hot, match_source, recomendacao,
-      tenders!inner (
-        id, objeto, orgao_nome, uf, municipio,
-        valor_estimado, modalidade_nome, modalidade_id,
-        data_abertura, data_encerramento, status
-      )
-    `)
-    .eq('company_id', companyId)
-    .in('match_source', [...AI_VERIFIED_SOURCES])
-    .gte('score', MIN_DISPLAY_SCORE)
-    .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
-    .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
-    .order('score', { ascending: false })
-    .limit(10000)
+  // Supabase REST corta em 1000 rows por request mesmo com .limit(N).
+  // Pra mapa SEM cap (mostrar TODAS as oportunidades vigentes), paginamos
+  // até a página vir vazia. Hard upper bound de 50 páginas (50k matches)
+  // como salvaguarda contra OOM. 50k > qualquer empresa real hoje.
+  const PAGE_SIZE = 1000
+  const MAX_PAGES = 50
+  const liveData: any[] = []
+
+  for (let pageIdx = 0; pageIdx < MAX_PAGES; pageIdx++) {
+    const from = pageIdx * PAGE_SIZE
+    const to = from + PAGE_SIZE - 1
+    const { data: pageRows, error: pageErr } = await supabase
+      .from('matches')
+      .select(`
+        id, score, is_hot, match_source, recomendacao,
+        tenders!inner (
+          id, objeto, orgao_nome, uf, municipio,
+          valor_estimado, modalidade_nome, modalidade_id,
+          data_abertura, data_publicacao, data_encerramento, status
+        )
+      `)
+      .eq('company_id', companyId)
+      .in('match_source', [...AI_VERIFIED_SOURCES])
+      .gte('score', MIN_DISPLAY_SCORE)
+      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
+      .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
+      .order('score', { ascending: false })
+      .range(from, to)
+
+    if (pageErr) {
+      console.error('[map] paginated fetch error', { page: pageIdx, error: pageErr.message })
+      break
+    }
+    if (!pageRows || pageRows.length === 0) break
+    liveData.push(...pageRows)
+    if (pageRows.length < PAGE_SIZE) break // last page
+  }
 
   const matches = (liveData || []).map((m: any) => {
     const t = m.tenders as Record<string, any>
