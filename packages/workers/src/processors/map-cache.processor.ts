@@ -7,13 +7,20 @@
  *
  * Only includes matches with:
  * - score >= 40
- * - match_source IN ('ai', 'ai_triage', 'semantic', 'keyword', 'pgvector_rules')
+ * - match_source IN ('keyword', 'pgvector_rules', 'semantic')
+ *   (ai/ai_triage REMOVIDOS — deprecated 2026-04-21. Estavam dominando o
+ *    top-5000 por score com 12k+ entries score=95 e impedindo matches
+ *    pgvector de aparecerem no mapa.)
  * - tender has a valid UF (Brazilian state)
  * - tender not expired (data_encerramento is null or >= today)
  */
 import { Worker } from 'bullmq'
 import { connection } from '../queues/connection'
-import { db as supabase } from '../lib/db'
+// Lê direto do Supabase (canonical) em vez do mirror PG, que está stale
+// desde 2026-03-29 e não tem entries pgvector_rules. Sem isso, o map_cache
+// nunca via os matches semânticos novos (todos clientes ficavam só com
+// keyword/ai_triage antigos).
+import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
 
 const BATCH_SIZE = 500
@@ -57,7 +64,7 @@ async function refreshMapCache() {
           )
         `)
         .eq('company_id', company.id)
-        .in('match_source', ['ai', 'ai_triage', 'semantic', 'keyword', 'pgvector_rules'])
+        .in('match_source', ['keyword', 'pgvector_rules', 'semantic'])
         .gte('score', 40)
         .order('score', { ascending: false })
         .range(offset, offset + PAGE - 1)
@@ -152,7 +159,7 @@ export async function refreshMapCacheForCompany(companyId: string): Promise<numb
         )
       `)
       .eq('company_id', companyId)
-      .in('match_source', ['ai', 'ai_triage', 'semantic', 'keyword', 'pgvector_rules'])
+      .in('match_source', ['keyword', 'pgvector_rules', 'semantic'])
       .gte('score', 40)
       .order('score', { ascending: false })
       .range(offset, offset + PAGE - 1)
