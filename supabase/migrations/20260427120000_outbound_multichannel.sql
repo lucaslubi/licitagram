@@ -17,13 +17,8 @@ CREATE TABLE IF NOT EXISTS public.outbound_messages (
   delivered_at TIMESTAMPTZ,
   read_at TIMESTAMPTZ,
   replied_at TIMESTAMPTZ,
-  failed_at TIMESTAMPTZ,
-  approved_by_admin BOOLEAN NOT NULL DEFAULT false,
-  approved_at TIMESTAMPTZ,
-  approved_by TEXT
+  failed_at TIMESTAMPTZ
 );
-CREATE INDEX IF NOT EXISTS idx_outbound_pending_approval ON public.outbound_messages(approved_by_admin, status, queued_at) WHERE status = 'queued' AND approved_by_admin = false;
-COMMENT ON COLUMN public.outbound_messages.approved_by_admin IS 'Anti-spam guard: every message requires admin approval before send worker fires.';
 CREATE INDEX IF NOT EXISTS idx_outbound_lead_cnpj ON public.outbound_messages(lead_cnpj);
 CREATE INDEX IF NOT EXISTS idx_outbound_status_channel ON public.outbound_messages(status, channel, queued_at DESC);
 CREATE INDEX IF NOT EXISTS idx_outbound_campaign ON public.outbound_messages(campaign_id);
