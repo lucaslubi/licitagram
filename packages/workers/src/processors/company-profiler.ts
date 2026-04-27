@@ -15,93 +15,224 @@ import { logger } from '../lib/logger'
 import { generateEmbedding, formatVector } from '../ai/embedding-client'
 import { CNAE_DIVISIONS } from '@licitagram/shared'
 
+/** Hard cap for the embedded profile (chars). Voyage-3 ≈ 4 chars/token,
+ *  so ~1500 chars ≈ 375 tokens — well below the 32k input limit and roughly
+ *  3–10× the median tender objeto (~150 chars), avoiding the long/short
+ *  asymmetry that flattens cosine similarity. */
+const PROFILE_MAX_CHARS = 1500
+
 /**
  * Build an expanded text profile for a company.
  * This text is what gets embedded into a vector for semantic matching.
+ *
+ * Design: dedup CNAE division descriptions (multiple CNAEs in the same
+ * 2-digit division would otherwise repeat the SAME paragraph N times,
+ * diluting the embedding). Cap total length to PROFILE_MAX_CHARS.
  */
 export function buildExpandedProfile(company: Record<string, unknown>): string {
   const parts: string[] = []
 
   // Company identity
   if (company.razao_social) parts.push(`Empresa: ${company.razao_social}`)
-  if (company.nome_fantasia) parts.push(`Nome fantasia: ${company.nome_fantasia}`)
+  if (company.nome_fantasia && company.nome_fantasia !== company.razao_social) {
+    parts.push(`Nome fantasia: ${company.nome_fantasia}`)
+  }
 
-  // CNAE descriptions (rich semantic context)
+  // Collect all CNAEs (principal + secundários, dedup raw codes)
   const allCnaes: string[] = []
   if (company.cnae_principal) allCnaes.push(String(company.cnae_principal))
   if (Array.isArray(company.cnaes_secundarios)) {
     allCnaes.push(...(company.cnaes_secundarios as string[]))
   }
+  const uniqueCnaes = Array.from(new Set(allCnaes.filter(Boolean)))
 
-  const cnaeTexts: string[] = []
-  for (const cnae of allCnaes) {
-    const division = cnae.substring(0, 2)
-    const div = CNAE_DIVISIONS[division]
-    if (div) {
-      cnaeTexts.push(`CNAE ${cnae}: ${div.nome} — ${div.descricao}`)
+  // Group CNAE codes by division so we emit each division description ONCE.
+  // Map preserves insertion order → principal's division comes first.
+  const codesByDivision = new Map<string, string[]>()
+  for (const cnae of uniqueCnaes) {
+    const div = cnae.substring(0, 2)
+    if (!codesByDivision.has(div)) codesByDivision.set(div, [])
+    codesByDivision.get(div)!.push(cnae)
+  }
+
+  const cnaeLines: string[] = []
+  for (const [div, codes] of codesByDivision) {
+    const meta = CNAE_DIVISIONS[div]
+    const codeList = codes.join(', ')
+    if (meta) {
+      cnaeLines.push(`${meta.nome} (CNAE ${codeList}): ${meta.descricao}`)
     } else {
-      cnaeTexts.push(`CNAE ${cnae}`)
+      cnaeLines.push(`CNAE ${codeList}`)
     }
   }
-  if (cnaeTexts.length > 0) {
-    parts.push(`Atividades econômicas:\n${cnaeTexts.join('\n')}`)
+  if (cnaeLines.length > 0) {
+    parts.push(`Atividades:\n${cnaeLines.join('\n')}`)
   }
 
-  // Company-provided descriptions
+  // Company-provided descriptions (trimmed)
   if (company.descricao_servicos) {
-    parts.push(`Descrição de serviços: ${String(company.descricao_servicos).slice(0, 2000)}`)
+    parts.push(`Serviços: ${String(company.descricao_servicos).slice(0, 600)}`)
   }
 
   if (Array.isArray(company.palavras_chave) && (company.palavras_chave as string[]).length > 0) {
-    parts.push(`Palavras-chave: ${(company.palavras_chave as string[]).join(', ')}`)
+    parts.push(`Palavras-chave: ${(company.palavras_chave as string[]).slice(0, 30).join(', ')}`)
   }
 
   if (Array.isArray(company.capacidades) && (company.capacidades as string[]).length > 0) {
-    parts.push(`Capacidades: ${(company.capacidades as string[]).join(', ')}`)
+    parts.push(`Capacidades: ${(company.capacidades as string[]).slice(0, 20).join(', ')}`)
   }
 
   if (Array.isArray(company.certificacoes) && (company.certificacoes as string[]).length > 0) {
-    parts.push(`Certificações: ${(company.certificacoes as string[]).join(', ')}`)
+    parts.push(`Certificações: ${(company.certificacoes as string[]).slice(0, 10).join(', ')}`)
   }
 
   if (company.porte) parts.push(`Porte: ${company.porte}`)
 
-  // Include CNAE keywords for additional semantic coverage
+  // CNAE keywords: only the most distinct ones, dedup across divisions.
+  // Cap at 10 (was 50) — Voyage embeds natural prose far better than long
+  // keyword lists, and a long tail of generic terms muddies the centroid.
   const cnaeKeywords = new Set<string>()
-  for (const cnae of allCnaes) {
-    const division = cnae.substring(0, 2)
-    const div = CNAE_DIVISIONS[division]
+  for (const cnae of uniqueCnaes) {
+    const div = CNAE_DIVISIONS[cnae.substring(0, 2)]
     if (div?.keywords) {
       for (const kw of div.keywords) cnaeKeywords.add(kw)
     }
   }
   if (cnaeKeywords.size > 0) {
-    parts.push(`Termos relacionados: ${Array.from(cnaeKeywords).slice(0, 50).join(', ')}`)
+    parts.push(`Termos: ${Array.from(cnaeKeywords).slice(0, 10).join(', ')}`)
   }
 
-  return parts.join('\n\n')
+  let profile = parts.join('\n\n')
+  if (profile.length > PROFILE_MAX_CHARS) {
+    // Trim at a sentence/space boundary if possible.
+    const cut = profile.slice(0, PROFILE_MAX_CHARS)
+    const lastBreak = Math.max(cut.lastIndexOf('\n'), cut.lastIndexOf('. '), cut.lastIndexOf(', '))
+    profile = (lastBreak > PROFILE_MAX_CHARS * 0.6 ? cut.slice(0, lastBreak) : cut).trimEnd()
+  }
+  return profile
 }
 
 /**
  * Build the text used to embed a tender for semantic matching.
+ *
+ * Target ~1500–2000 chars to balance against the (recently shrunk)
+ * company profile (~1500). Order: objeto → resumo → requisitos →
+ * modalidade → orgao. Caps total length at TENDER_TEXT_MAX with a
+ * sentence-boundary trim.
  */
+const TENDER_TEXT_MAX = 2000
+
 export function buildTenderText(tender: Record<string, unknown>): string {
   const parts: string[] = []
 
-  if (tender.objeto) parts.push(`Objeto: ${String(tender.objeto)}`)
-  if (tender.modalidade_nome) parts.push(`Modalidade: ${tender.modalidade_nome}`)
-  if (tender.resumo) parts.push(`Resumo: ${String(tender.resumo).slice(0, 3000)}`)
+  if (tender.objeto) parts.push(`Objeto: ${String(tender.objeto).trim()}`)
+
+  if (tender.resumo) {
+    const r = String(tender.resumo).trim()
+    if (r.length > 10) parts.push(`Resumo: ${r}`)
+  }
 
   if (tender.requisitos) {
-    const reqStr = JSON.stringify(tender.requisitos)
-    if (reqStr.length > 5) {
-      parts.push(`Requisitos: ${reqStr.slice(0, 2000)}`)
+    let reqStr: string
+    if (typeof tender.requisitos === 'string') {
+      reqStr = tender.requisitos.trim()
+    } else {
+      reqStr = JSON.stringify(tender.requisitos)
+    }
+    // Skip placeholder-only requisitos
+    if (reqStr.length > 10 && !/^["']?n[ãa]o especificado/i.test(reqStr)) {
+      parts.push(`Requisitos: ${reqStr}`)
     }
   }
 
+  if (tender.modalidade_nome) parts.push(`Modalidade: ${tender.modalidade_nome}`)
   if (tender.orgao_nome) parts.push(`Órgão: ${tender.orgao_nome}`)
 
-  return parts.join('\n\n')
+  let text = parts.join('\n\n')
+  if (text.length > TENDER_TEXT_MAX) {
+    const cut = text.slice(0, TENDER_TEXT_MAX)
+    const lastBreak = Math.max(cut.lastIndexOf('\n'), cut.lastIndexOf('. '), cut.lastIndexOf(', '))
+    text = (lastBreak > TENDER_TEXT_MAX * 0.6 ? cut.slice(0, lastBreak) : cut).trimEnd()
+  }
+  return text
+}
+
+/**
+ * Use a cheap LLM to derive a concise resumo + requisitos from the
+ * tender object (and PDF excerpt when available). Persists both columns
+ * back to `tenders` so re-embeds skip the LLM.
+ *
+ * Uses task: 'summary' (Groq → Gemini Flash → OpenRouter free) — ~free
+ * at current scale. Returns null on failure.
+ */
+export async function enrichTenderText(
+  tenderId: string,
+  objeto: string,
+): Promise<{ resumo: string; requisitos: string } | null> {
+  try {
+    const { callLLM, parseJsonResponse } = await import('../ai/llm-client')
+
+    // Best-effort: include PDF excerpt for richer extraction
+    let sourceText = `Objeto: ${objeto}`
+    try {
+      const { data: docs } = await supabase
+        .from('tender_documents')
+        .select('texto_extraido')
+        .eq('tender_id', tenderId)
+        .eq('status', 'done')
+        .not('texto_extraido', 'is', null)
+        .limit(3)
+
+      if (docs && docs.length > 0) {
+        // Cap PDF excerpt aggressively (~2000 chars) — keeps LLM prompt small,
+        // avoids burning daily token quotas, and a 2-3 sentence summary needs
+        // very little context anyway.
+        const pdfText = (docs as Array<{ texto_extraido: string | null }>)
+          .map((d) => d.texto_extraido || '')
+          .filter((t) => t.length > 200)
+          .join('\n')
+          .slice(0, 2000)
+        if (pdfText.length > 200) {
+          sourceText = `Objeto: ${objeto}\n\nTrecho do edital:\n${pdfText}`
+        }
+      }
+    } catch {
+      // ignore — fall back to objeto-only
+    }
+
+    const system =
+      'Você extrai informações estruturadas de licitações públicas brasileiras. ' +
+      'Responda APENAS em JSON válido, sem markdown.'
+    const prompt =
+      `Dada a licitação abaixo, extraia em PT-BR:\n` +
+      `- "resumo": 2-3 frases descrevendo TECNICAMENTE o que será contratado (foque em substantivos do objeto, evite redundância com o objeto)\n` +
+      `- "requisitos": string com bullets ("- ") dos principais requisitos técnicos, qualificações ou habilitação exigidos. Se não houver, responda "Não especificado".\n\n` +
+      `Total combinado <= 800 caracteres.\n\n` +
+      `${sourceText}\n\n` +
+      `Responda em JSON: {"resumo": "...", "requisitos": "..."}`
+
+    const raw = await callLLM({ task: 'summary', system, prompt, jsonMode: true, maxRetries: 1 })
+    const parsed = parseJsonResponse<{ resumo?: string; requisitos?: string }>(raw)
+
+    const resumo = String(parsed.resumo || '').trim().slice(0, 1500)
+    const requisitos = String(parsed.requisitos || 'Não especificado').trim().slice(0, 1500)
+
+    if (resumo.length < 10) return null
+
+    try {
+      await supabase
+        .from('tenders')
+        .update({ resumo, requisitos })
+        .eq('id', tenderId)
+    } catch (err) {
+      logger.warn({ tenderId, err: (err as Error).message }, 'Failed to persist enriched tender fields')
+    }
+
+    return { resumo, requisitos }
+  } catch (err) {
+    logger.warn({ tenderId, err: (err as Error).message }, 'Tender enrichment via LLM failed')
+    return null
+  }
 }
 
 /**
@@ -189,8 +320,12 @@ export async function profileAllCompanies(): Promise<{ profiled: number; failed:
 
 /**
  * Embed a single tender and save to DB.
+ *
+ * If `force=true`, re-embed even if `embedding` is already set.
+ * If resumo/requisitos are missing, attempts LLM enrichment first
+ * (cheap: Groq summary task) so the embedding has richer text.
  */
-export async function embedTender(tenderId: string): Promise<boolean> {
+export async function embedTender(tenderId: string, opts: { force?: boolean } = {}): Promise<boolean> {
   const { data: tender, error } = await supabase
     .from('tenders')
     .select('id, objeto, modalidade_nome, resumo, requisitos, orgao_nome, embedding')
@@ -202,10 +337,20 @@ export async function embedTender(tenderId: string): Promise<boolean> {
     return false
   }
 
-  // Skip if already embedded
-  if (tender.embedding) return true
+  // Skip if already embedded (unless caller forces re-embed)
+  if (tender.embedding && !opts.force) return true
 
-  const text = buildTenderText(tender as Record<string, unknown>)
+  // Enrich missing resumo/requisitos via LLM (best-effort, cheap)
+  const t = tender as Record<string, unknown>
+  if (t.objeto && (!t.resumo || String(t.resumo).trim().length < 10)) {
+    const enriched = await enrichTenderText(tenderId, String(t.objeto))
+    if (enriched) {
+      t.resumo = enriched.resumo
+      t.requisitos = enriched.requisitos
+    }
+  }
+
+  const text = buildTenderText(t)
 
   if (text.length < 20) {
     logger.warn({ tenderId }, 'Tender text too short for embedding, skipping')
