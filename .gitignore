@@ -13,3 +13,6 @@ dump.rdb
 # RAG corpus raw files (181MB PAM + AGU) — ingested into Supabase, not versioned
 materiais/
 .claude/worktrees/
+
+# Supabase CLI temp files
+packages/supabase/.temp/
