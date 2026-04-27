@@ -848,7 +848,7 @@ async function checkNotificationDelivery(): Promise<DimensionResult> {
       .select('*', { count: 'exact', head: true })
       .is('notified_at', null)
       .eq('status', 'new')
-      .in('match_source', ['ai', 'ai_triage', 'semantic'])
+      .in('match_source', ['ai', 'ai_triage', 'semantic', 'pgvector_rules', 'keyword'])
       .gte('score', 50)
 
     const total = (sent ?? 0) + (pending ?? 0)

@@ -378,7 +378,7 @@ async function checkPipelineFlow(): Promise<{ issues: string[]; fixes: string[] 
     .select('*', { count: 'exact', head: true })
     .eq('status', 'new')
     .is('notified_at', null)
-    .in('match_source', ['ai', 'ai_triage', 'semantic'])
+    .in('match_source', ['ai', 'ai_triage', 'semantic', 'pgvector_rules', 'keyword'])
     .gte('score', 50)
 
   // If pending > 100, the notification pipeline might be stuck
@@ -394,25 +394,21 @@ async function checkPipelineFlow(): Promise<{ issues: string[]; fixes: string[] 
       await restartWorker('worker-telegram')
       fixes.push('Restarted alerts + telegram workers (notification backlog)')
       
-      // AUTO-HEALING: Push stuck notifications to the queue directly!
-      const { data: stuckMatches } = await supabase
-         .from('matches')
-         .select('id')
-         .eq('status', 'new')
-         .is('notified_at', null)
-         .in('match_source', ['ai', 'ai_triage', 'semantic'])
-         .gte('score', 50)
-         .limit(1000)
-         
-      if (stuckMatches && stuckMatches.length > 0) {
-         const q = new Queue('pending-notifications', { connection })
-         await q.addBulk(stuckMatches.map((m: any) => ({
-            name: 'process-notification',
-            data: { matchId: m.id },
-            opts: { removeOnComplete: true }
-         })))
-         fixes.push(`Auto-Healed: Queued ${stuckMatches.length} stuck notifications`)
-      }
+      // AUTO-HEALING: trigger ONE pending-notifications cycle immediately.
+      // IMPORTANTE: o worker `pending-notifications` é cron-triggered — ele IGNORA
+      // job.data e faz o scan completo do DB sozinho. Antes esse bloco enfileirava
+      // 1 job POR match com shape `{ matchId }`, gerando 748k+ jobs zumbis no
+      // bull:pending-notifications:wait (cada um disparava um full-scan com
+      // lockDuration 10min, derrubando worker-alerts em loop). Agora só
+      // disparamos UM job extra com data `{}` para forçar uma execução fora do
+      // ciclo de 5 min.
+      const q = new Queue('pending-notifications', { connection })
+      await q.add(
+         'check-pending',
+         {},
+         { jobId: `auto-heal-${Date.now()}`, removeOnComplete: true, removeOnFail: true },
+      )
+      fixes.push(`Auto-Healed: Triggered immediate pending-notifications cycle`)
     }
   } else {
     clearFailure('notifications-backlog')
@@ -459,38 +455,61 @@ async function checkPipelineFlow(): Promise<{ issues: string[]; fixes: string[] 
      clearFailure('tenders-stuck')
   }
 
+  // DESATIVADO — ai-triage substituído por pgvector_rules em 2026-04-21. Ver memory:#3618.
+  // O auto-heal abaixo enfileirava todos os matches "keyword" para a fila ai-triage,
+  // mas ai-triage está deprecated (engine determinístico pgvector cobre o caso).
+  // Bloco preservado comentado pra histórico — remover em cleanup sprint.
   // AUTO-HEALING: Keyword-only matches missing AI Triage
-  const { count: keywordMatches } = await supabase
-    .from('matches')
-    .select('id', { count: 'exact', head: true })
-    .eq('match_source', 'keyword')
-
-  if (keywordMatches && keywordMatches > 1000) {
-     issues.push(`${keywordMatches} keyword-only matches bypassing AI`)
-     const failCount = trackFailure('keyword-only-matches')
-     
-     if (failCount >= 3) {
-       // Auto-Heal: Push to AI Triage queue
-       const { data: aiMatches } = await supabase
-         .from('matches')
-         .select('id')
-         .eq('match_source', 'keyword')
-         .limit(500)
-         
-       if (aiMatches && aiMatches.length > 0) {
-         const triageQueue = new Queue('ai-triage', { connection })
-         await triageQueue.addBulk(aiMatches.map((m: any) => ({
-           name: 'triage-match',
-           data: { matchId: m.id },
-           opts: { removeOnComplete: true }
-         })))
-         fixes.push(`Auto-Healed: Queued ${aiMatches.length} keyword matches to AI Triage`)
-       }
-       clearFailure('keyword-only-matches')
-     }
-  } else {
-     clearFailure('keyword-only-matches')
-  }
+  // const { count: keywordMatches } = await supabase
+  //   .from('matches')
+  //   .select('id', { count: 'exact', head: true })
+  //   .eq('match_source', 'keyword')
+  //
+  // if (keywordMatches && keywordMatches > 1000) {
+  //    issues.push(`${keywordMatches} keyword-only matches bypassing AI`)
+  //    const failCount = trackFailure('keyword-only-matches')
+  //
+  //    if (failCount >= 3) {
+  //      // Auto-Heal: Push to AI Triage queue
+  //      // IMPORTANT: aiTriageWorker espera { companyId, matchIds: string[] } — NÃO { matchId }.
+  //      // Antes esse bloco enfileirava jobs com shape errado (matchId singular), que viravam
+  //      // no-ops infinitos ("AI triage called with no matchIds — skipping") e enchiam a fila
+  //      // com >180k jobs zumbi. Agora agrupamos por company_id e mandamos arrays.
+  //      const { data: aiMatches } = await supabase
+  //        .from('matches')
+  //        .select('id, company_id')
+  //        .eq('match_source', 'keyword')
+  //        .limit(500)
+  //
+  //      if (aiMatches && aiMatches.length > 0) {
+  //        const byCompany = new Map<string, string[]>()
+  //        for (const m of aiMatches as Array<{ id: string; company_id: string }>) {
+  //          if (!m.company_id) continue
+  //          const arr = byCompany.get(m.company_id) ?? []
+  //          arr.push(m.id)
+  //          byCompany.set(m.company_id, arr)
+  //        }
+  //
+  //        if (byCompany.size > 0) {
+  //          const triageQueue = new Queue('ai-triage', { connection })
+  //          const jobs = Array.from(byCompany.entries()).map(([companyId, matchIds]) => ({
+  //            name: 'triage-keyword-heal',
+  //            data: { companyId, matchIds },
+  //            opts: {
+  //              jobId: `heal-keyword-${companyId}-${Date.now()}`,
+  //              removeOnComplete: { count: 100 },
+  //            },
+  //          }))
+  //          await triageQueue.addBulk(jobs)
+  //          fixes.push(`Auto-Healed: Queued ${aiMatches.length} keyword matches across ${byCompany.size} companies to AI Triage`)
+  //        }
+  //      }
+  //      clearFailure('keyword-only-matches')
+  //    }
+  // } else {
+  //    clearFailure('keyword-only-matches')
+  // }
+  clearFailure('keyword-only-matches')
 
   return { issues, fixes }
 }

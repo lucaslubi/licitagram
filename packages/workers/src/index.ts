@@ -42,12 +42,13 @@ async function loadWorkers(): Promise<Worker[]> {
 
   if (isFullMode || selectedGroups.includes('matching')) {
     const { matchingWorker } = await import('./processors/matching.processor')
-    const { aiTriageWorker } = await import('./processors/ai-triage.processor')
+    // DESATIVADO — ai-triage substituído por pgvector_rules em 2026-04-21. Ver memory:#3618.
+    // const { aiTriageWorker } = await import('./processors/ai-triage.processor')
     const { semanticMatchingWorker } = await import('./processors/semantic-matching.processor')
     const { weeklyActionsWorker: weeklyActionsWorkerMatching } = await import('./processors/weekly-actions.processor')
-    // Novo engine determinístico (shadow mode — roda em paralelo ao ai-triage)
+    // Engine determinístico principal (substitui ai-triage)
     const { pgvectorMatcherWorker } = await import('./processors/pgvector-matcher.processor')
-    workers.push(matchingWorker, aiTriageWorker, semanticMatchingWorker, weeklyActionsWorkerMatching, pgvectorMatcherWorker)
+    workers.push(matchingWorker, /* aiTriageWorker, */ semanticMatchingWorker, weeklyActionsWorkerMatching, pgvectorMatcherWorker)
   }
 
   // Legacy 'notification' group loads everything (backward compatible)
@@ -799,33 +800,9 @@ async function main() {
             }
           }
 
-          // Step 5: Enqueue AI triage for all matches
-          try {
-            const { aiTriageQueue } = await import('./queues/ai-triage.queue')
-            const PAGE = 1000
-            let offset = 0
-            const allMatchIds: string[] = []
-            while (true) {
-              const { data: page } = await supabase
-                .from('matches')
-                .select('id')
-                .eq('company_id', companyId)
-                .in('match_source', ['keyword', 'semantic'])
-                .range(offset, offset + PAGE - 1)
-              if (!page || page.length === 0) break
-              allMatchIds.push(...page.map((m: { id: string }) => m.id))
-              if (page.length < PAGE) break
-              offset += PAGE
-            }
-
-            // AI triage disabled — pgvector semantic matching provides sufficient accuracy
-            // TODO: remove ai-triage code entirely in cleanup sprint
-            if (allMatchIds.length > 0) {
-              logger.info({ companyId, matchCount: allMatchIds.length }, 'Step 5: AI triage SKIPPED (disabled — pgvector sufficient)')
-            }
-          } catch (err) {
-            logger.error({ companyId, err }, 'Step 5: Failed to enqueue AI triage')
-          }
+          // Step 5: AI triage — REMOVIDO em 2026-04-21.
+          // pgvector_rules é o engine principal de matching e dispensa o triage por LLM.
+          // Bloco anterior (importava aiTriageQueue, paginava matches e logava SKIPPED) eliminado.
 
           // Step 6: Refresh map cache
           try {

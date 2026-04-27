@@ -5,7 +5,10 @@ import type { UrgencyMatchItem } from '../queues/notification.queue'
 import { db as supabase } from '../lib/db'
 import { logger } from '../lib/logger'
 
-const AI_SOURCES = ['ai', 'ai_triage', 'semantic']
+// MATCH_SOURCES_FOR_HOT_ALERT: sources eligible for hot-alert escalation.
+// pgvector_rules é o substituto deterministic do ai-triage desde 2026-04-21
+// (ai-triage descontinuado; pgvector é o engine principal de matching).
+const MATCH_SOURCES_FOR_HOT_ALERT = ['ai', 'ai_triage', 'semantic', 'pgvector_rules']
 // Inexigibilidade (9), Credenciamento (12), Inaplicabilidade (14) — impossible to bid competitively
 const EXCLUDED_MODALIDADES = [9, 12, 14]
 const ACTIVE_STATUSES = ['new', 'notified', 'viewed', 'interested']
@@ -200,7 +203,7 @@ async function handleHotDaily() {
       .eq('company_id', companyId)
       .gte('score', HOT_RELEVANCE_MIN)
       .in('status', ACTIVE_STATUSES)
-      .in('match_source', AI_SOURCES)
+      .in('match_source', MATCH_SOURCES_FOR_HOT_ALERT)
       .not('tenders.modalidade_id', 'in', `(${EXCLUDED_MODALIDADES.join(',')})`)
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
       .order('score', { ascending: false })
@@ -408,7 +411,7 @@ async function handleUrgencyCheck() {
       `)
       .eq('company_id', companyId)
       .in('status', ACTIVE_STATUSES)
-      .in('match_source', AI_SOURCES)
+      .in('match_source', MATCH_SOURCES_FOR_HOT_ALERT)
       .gte('score', HOT_RELEVANCE_MIN) // Only urgency for high-quality matches
       .not('tenders.modalidade_id', 'in', `(${EXCLUDED_MODALIDADES.join(',')})`)
       .gte('tenders.data_encerramento', now.toISOString())
@@ -521,7 +524,7 @@ async function handleNewMatchesDigest() {
       .eq('company_id', companyId)
       .eq('status', 'new')
       .gte('score', 60) // Include good matches, not just hot
-      .in('match_source', AI_SOURCES)
+      .in('match_source', MATCH_SOURCES_FOR_HOT_ALERT)
       .gte('created_at', since)
       .not('tenders.modalidade_id', 'in', `(${EXCLUDED_MODALIDADES.join(',')})`)
       .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })

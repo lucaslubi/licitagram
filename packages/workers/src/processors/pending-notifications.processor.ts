@@ -260,8 +260,10 @@ const pendingNotificationsWorker = new Worker(
 
         // Quality gate: filter keyword matches without CNAE validation
         const pendingMatches = (allMatches || []).filter((m: any) => {
-          // AI-verified sources always pass
-          if (['ai', 'ai_triage', 'semantic'].includes(m.match_source)) return true
+          // High-quality sources always pass (AI/semantic/pgvector all have semantic understanding).
+          // pgvector_rules é o engine determinístico que substituiu ai-triage em 2026-04-21
+          // (memory:#3618). Sem ele aqui, notificações de matches pgvector ficavam silenciosas.
+          if (['ai', 'ai_triage', 'semantic', 'pgvector_rules'].includes(m.match_source)) return true
 
           // Keyword matches: trust at company minScore, but check CNAE overlap
           if (m.match_source === 'keyword') {

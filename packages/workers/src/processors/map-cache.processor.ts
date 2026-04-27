@@ -7,7 +7,7 @@
  *
  * Only includes matches with:
  * - score >= 40
- * - match_source IN ('ai', 'ai_triage', 'semantic', 'keyword')
+ * - match_source IN ('ai', 'ai_triage', 'semantic', 'keyword', 'pgvector_rules')
  * - tender has a valid UF (Brazilian state)
  * - tender not expired (data_encerramento is null or >= today)
  */
@@ -57,7 +57,7 @@ async function refreshMapCache() {
           )
         `)
         .eq('company_id', company.id)
-        .in('match_source', ['ai', 'ai_triage', 'semantic', 'keyword'])
+        .in('match_source', ['ai', 'ai_triage', 'semantic', 'keyword', 'pgvector_rules'])
         .gte('score', 40)
         .order('score', { ascending: false })
         .range(offset, offset + PAGE - 1)
@@ -152,7 +152,7 @@ export async function refreshMapCacheForCompany(companyId: string): Promise<numb
         )
       `)
       .eq('company_id', companyId)
-      .in('match_source', ['ai', 'ai_triage', 'semantic', 'keyword'])
+      .in('match_source', ['ai', 'ai_triage', 'semantic', 'keyword', 'pgvector_rules'])
       .gte('score', 40)
       .order('score', { ascending: false })
       .range(offset, offset + PAGE - 1)
