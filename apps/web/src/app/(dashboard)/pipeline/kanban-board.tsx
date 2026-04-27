@@ -30,6 +30,7 @@ interface Match {
     valor_estimado: number | null
     data_abertura: string | null
     data_encerramento: string | null
+    modalidade_nome?: string | null
   } | null
 }
 
@@ -237,6 +238,8 @@ export function KanbanBoard({ initialMatches }: { initialMatches: Match[] }) {
   const [matches, setMatches] = useState(initialMatches)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState('')
+  // Filtro de modalidade (Pregão, Dispensa, Concorrência, etc).
+  const [modalidadeFilter, setModalidadeFilter] = useState<string>('')
   const router = useRouter()
   const [, startTransition] = useTransition()
 
@@ -246,15 +249,32 @@ export function KanbanBoard({ initialMatches }: { initialMatches: Match[] }) {
     }),
   )
 
+  // Modalidades disponíveis com contagem (calculadas do conjunto inicial)
+  const modalidadeOptions = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const m of initialMatches) {
+      const mod = m.tenders?.modalidade_nome
+      if (!mod) continue
+      counts.set(mod, (counts.get(mod) || 0) + 1)
+    }
+    return Array.from(counts.entries()).sort(([a], [b]) => a.localeCompare(b))
+  }, [initialMatches])
+
+  // Aplica filtro antes de agrupar nas colunas
+  const visibleMatches = useMemo(() => {
+    if (!modalidadeFilter) return matches
+    return matches.filter((m) => m.tenders?.modalidade_nome === modalidadeFilter)
+  }, [matches, modalidadeFilter])
+
   const grouped = useMemo(() => {
     const g: Record<string, Match[]> = {}
     for (const col of COLUMNS) {
-      g[col.key] = matches
+      g[col.key] = visibleMatches
         .filter((m) => m.status === col.key)
         .sort((a, b) => b.score - a.score)
     }
     return g
-  }, [matches])
+  }, [visibleMatches])
 
   const activeMatch = activeId ? matches.find((m) => m.id === activeId) : null
 
@@ -313,6 +333,35 @@ export function KanbanBoard({ initialMatches }: { initialMatches: Match[] }) {
           {errorMsg}
         </div>
       )}
+
+      {/* Filtros do pipeline */}
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <label className="text-xs font-medium text-muted-foreground">Modalidade:</label>
+        <select
+          value={modalidadeFilter}
+          onChange={(e) => setModalidadeFilter(e.target.value)}
+          className="text-xs border border-border rounded-md px-2.5 py-1 bg-secondary/50 text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+        >
+          <option value="">Todas as modalidades</option>
+          {modalidadeOptions.map(([mod, count]) => (
+            <option key={mod} value={mod}>
+              {mod} ({count})
+            </option>
+          ))}
+        </select>
+        {modalidadeFilter && (
+          <button
+            onClick={() => setModalidadeFilter('')}
+            className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Limpar
+          </button>
+        )}
+        <span className="text-[11px] text-muted-foreground ml-auto">
+          {visibleMatches.length} de {matches.length} matches
+        </span>
+      </div>
+
       <div className="flex gap-3 overflow-x-auto pb-4">
         {COLUMNS.map((col) => (
           <DroppableColumn

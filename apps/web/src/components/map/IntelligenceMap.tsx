@@ -104,6 +104,9 @@ export function IntelligenceMap({
   const [scoreFilter, setScoreFilter] = useState(50)
   const [minValor, setMinValor] = useState(0)
   const [regionFilter, setRegionFilter] = useState<Set<string>>(new Set(REGIONS))
+  // Filtro de modalidade — null = todas. Cliente pediu poder escolher
+  // tipo de licitação (Pregão, Dispensa, Concorrência, etc) no mapa.
+  const [modalidadeFilter, setModalidadeFilter] = useState<string | null>(null)
 
   // Mobile
   const [hoveredMatchId, setHoveredMatchId] = useState<string | null>(null)
@@ -175,9 +178,10 @@ export function IntelligenceMap({
       if (m.score < scoreFilter) return false
       if (!regionUfs.has(m.uf)) return false
       if (minValor > 0 && (m.valor || 0) < minValor) return false
+      if (modalidadeFilter && m.modalidade !== modalidadeFilter) return false
       return true
     })
-  }, [matchMarkers, scoreFilter, minValor, regionFilter, ufData])
+  }, [matchMarkers, scoreFilter, minValor, regionFilter, ufData, modalidadeFilter])
 
   // ─── GeoJSON for Mapbox GL native clustering ────────────────────────────
   const clusterGeoJson = useMemo<GeoJSON.FeatureCollection>(() => ({
@@ -858,6 +862,40 @@ export function IntelligenceMap({
             <option value={10000000}>Acima de R$ 10M</option>
             <option value={50000000}>Acima de R$ 50M</option>
             <option value={100000000}>Acima de R$ 100M</option>
+          </select>
+        </div>
+
+        {/* Modalidade filter — cliente escolhe tipo de licitação (Pregão, Dispensa, etc) */}
+        <div className="mb-3">
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-xs font-medium text-muted-foreground">
+              Modalidade: <span className="text-foreground">{modalidadeFilter || 'Todas'}</span>
+            </label>
+            {modalidadeFilter && (
+              <button
+                onClick={() => setModalidadeFilter(null)}
+                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Resetar
+              </button>
+            )}
+          </div>
+          <select
+            value={modalidadeFilter || ''}
+            onChange={(e) => setModalidadeFilter(e.target.value || null)}
+            className="w-full text-xs border border-border rounded-lg px-3 py-2 bg-secondary/50 text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          >
+            <option value="">Todas as modalidades</option>
+            {Array.from(new Set(matchMarkers.map((m) => m.modalidade).filter((m): m is string => Boolean(m))))
+              .sort()
+              .map((mod) => {
+                const count = matchMarkers.filter((m) => m.modalidade === mod).length
+                return (
+                  <option key={mod} value={mod}>
+                    {mod} ({count})
+                  </option>
+                )
+              })}
           </select>
         </div>
 

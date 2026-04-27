@@ -30,7 +30,7 @@ export default async function PipelinePage() {
     supabase
       .from('matches')
       .select(
-        'id, score, status, is_hot, competition_score, tenders!inner(objeto, orgao_nome, uf, valor_estimado, data_abertura, data_encerramento, modalidade_id)',
+        'id, score, status, is_hot, competition_score, tenders!inner(objeto, orgao_nome, uf, valor_estimado, data_abertura, data_encerramento, modalidade_id, modalidade_nome)',
       )
       .eq('company_id', profile.company_id)
       .in('status', ACTIVE_KEYS)
@@ -42,7 +42,7 @@ export default async function PipelinePage() {
     supabase
       .from('matches')
       .select(
-        'id, score, status, is_hot, competition_score, tenders!inner(objeto, orgao_nome, uf, valor_estimado, data_abertura, data_encerramento, modalidade_id)',
+        'id, score, status, is_hot, competition_score, tenders!inner(objeto, orgao_nome, uf, valor_estimado, data_abertura, data_encerramento, modalidade_id, modalidade_nome)',
       )
       .eq('company_id', profile.company_id)
       .in('status', DECIDED_KEYS)
@@ -53,7 +53,7 @@ export default async function PipelinePage() {
     supabase
       .from('matches')
       .select(
-        'id, score, status, tenders!inner(objeto, orgao_nome, uf, data_encerramento, modalidade_id)',
+        'id, score, status, tenders!inner(objeto, orgao_nome, uf, data_encerramento, modalidade_id, modalidade_nome)',
       )
       .eq('company_id', profile.company_id)
       .in('status', ['interested', 'applied'])
