@@ -35,7 +35,7 @@ export function PortalButton({ disabled }: { disabled?: boolean }) {
 export function ChangePlanButton() {
   return (
     <Button asChild variant="outline">
-      <Link href="/billing">Mudar plano</Link>
+      <Link href="/conta/assinatura?upgrade=1">Mudar plano</Link>
     </Button>
   )
 }

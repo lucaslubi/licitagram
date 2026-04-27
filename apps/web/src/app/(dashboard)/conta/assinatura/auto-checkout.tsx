@@ -20,9 +20,7 @@ export function AutoCheckout({ plans }: { plans: Plan[] }) {
   useEffect(() => {
     if (!planSlug || triggered.current) return
 
-    const plan = plans.find(
-      (p) => p.slug === planSlug || p.slug === planSlug.replace('starter', 'starter').replace('professional', 'professional')
-    )
+    const plan = plans.find((p) => p.slug === planSlug)
     if (!plan) return
 
     triggered.current = true
@@ -38,11 +36,10 @@ export function AutoCheckout({ plans }: { plans: Plan[] }) {
         if (data.url) {
           window.location.href = data.url
         } else {
-          // Clear params and show billing page normally
-          router.replace('/billing')
+          router.replace('/conta/assinatura')
         }
       } catch {
-        router.replace('/billing')
+        router.replace('/conta/assinatura')
       }
     }
 

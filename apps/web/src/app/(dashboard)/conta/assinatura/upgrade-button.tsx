@@ -4,7 +4,6 @@ import { useState } from 'react'
 
 export function UpgradeButton({ planId, label }: { planId: string; label: string }) {
   const [loading, setLoading] = useState(false)
-
   const [error, setError] = useState<string | null>(null)
 
   async function handleClick() {

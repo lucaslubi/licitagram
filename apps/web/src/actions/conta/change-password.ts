@@ -19,7 +19,7 @@ const PASSWORD_RULES = {
   special: /[^A-Za-z0-9]/,
 }
 
-export function validatePasswordRules(pwd: string): { ok: boolean; failed?: string[] } {
+function validatePasswordRules(pwd: string): { ok: boolean; failed?: string[] } {
   const failed: string[] = []
   if (pwd.length < PASSWORD_RULES.minLength) failed.push('minLength')
   if (!PASSWORD_RULES.upper.test(pwd)) failed.push('upper')

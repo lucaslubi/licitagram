@@ -70,7 +70,7 @@ export const navigationGroups: NavGroup[] = [
 
 export const accountItems: NavItemConfig[] = [
   { id: 'empresa', label: 'Empresa', icon: Building, href: '/company' },
-  { id: 'plano', label: 'Plano', icon: CreditCard, href: '/billing' },
+  { id: 'plano', label: 'Plano', icon: CreditCard, href: '/conta/assinatura' },
   { id: 'conta', label: 'Conta', icon: Settings, href: '/conta' },
 ]
 
@@ -97,5 +97,6 @@ export const NAV_TOUR_IDS: Record<string, string> = {
   '/drive': 'nav-drive',
   '/proposals': 'nav-propostas',
   '/company': 'nav-empresa',
-  '/settings': 'nav-settings',
+  '/conta': 'nav-conta',
+  '/conta/assinatura': 'nav-plano',
 }

@@ -114,7 +114,7 @@ export function DashboardSidebar({
                   const active = isActive(item.href)
                   const Icon = item.icon
                   const href = locked
-                    ? `/billing?upgrade=1&feature=${encodeURIComponent(item.requiredFeature || '')}&from=${encodeURIComponent(item.href)}`
+                    ? `/conta/assinatura?upgrade=1&feature=${encodeURIComponent(item.requiredFeature || '')}&from=${encodeURIComponent(item.href)}`
                     : item.href
                   return (
                     <li key={item.id}>

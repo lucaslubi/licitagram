@@ -5,7 +5,7 @@ import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { stripe } from '@/lib/stripe'
 import { revalidatePath } from 'next/cache'
 
-export const DELETION_GRACE_DAYS = 14
+const DELETION_GRACE_DAYS = 14
 
 export type DeleteAccountInput = {
   confirmation: string

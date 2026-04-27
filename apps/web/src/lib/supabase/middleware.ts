@@ -30,7 +30,6 @@ const SUBSCRIPTION_REQUIRED_ROUTES = [
   '/pipeline',
   '/competitors',
   '/documents',
-  '/settings',
 ]
 
 /** Public routes (no auth needed) */
@@ -95,6 +94,7 @@ export async function updateSession(request: NextRequest) {
   // so we avoid the cookie parse and potential DB queries altogether.
   if (
     pathname.startsWith('/billing') ||
+    pathname.startsWith('/conta') ||
     pathname.startsWith('/bot') ||
     pathname.startsWith('/company') ||
     pathname.startsWith('/onboarding')
@@ -144,7 +144,7 @@ export async function updateSession(request: NextRequest) {
     const isBrandNewUser = !planCtx.planSlug && !status && !planCtx.planId
     if (!isBrandNewUser && (!status || !['active', 'trialing'].includes(status))) {
       const url = request.nextUrl.clone()
-      url.pathname = '/billing'
+      url.pathname = '/conta/assinatura'
       url.searchParams.set('expired', '1')
       return NextResponse.redirect(url)
     }
@@ -155,8 +155,9 @@ export async function updateSession(request: NextRequest) {
     if (pathname.startsWith(route)) {
       if (!planCtx?.features || !hasFeatureFromCtx(planCtx.features, feature)) {
         const url = request.nextUrl.clone()
-        url.pathname = '/billing'
-        url.searchParams.set('upgrade', feature)
+        url.pathname = '/conta/assinatura'
+        url.searchParams.set('upgrade', '1')
+        url.searchParams.set('feature', feature)
         return NextResponse.redirect(url)
       }
     }

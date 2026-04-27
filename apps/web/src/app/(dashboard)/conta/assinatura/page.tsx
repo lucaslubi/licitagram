@@ -1,17 +1,19 @@
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
+import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { formatBRL, formatDate } from '@/lib/format'
 import { getStripe } from '@/lib/stripe'
+import { getActivePlans, checkMatchLimit } from '@/lib/plans'
 import {
   ChangePlanButton,
   PortalButton,
   ReactivateButton,
   CancelTrigger,
 } from './actions-bar'
+import { AutoCheckout } from './auto-checkout'
+import { UpgradeButton } from './upgrade-button'
 import type { Plan, PlanFeatures } from '@licitagram/shared'
 
 export const dynamic = 'force-dynamic'
@@ -19,12 +21,14 @@ export const metadata = { title: 'Assinatura · Licitagram' }
 
 const PLAN_FEATURES_STATIC: Record<string, string[]> = {
   essencial: [
-    'Telegram SmartAlerts',
+    'Telegram SmartAlerts (Notificações em tempo real)',
     '+200.000 licitações monitoradas/mês',
-    'AI Matching com score 0-100',
+    'AI Matching com score 0-100 (50/mês)',
     'Pipeline Kanban e Dashboards',
-    'Gestão de Certidões',
+    'Gestão de Certidões (13 tipos)',
+    'Filtros avançados e Busca full-text',
     '1 usuário',
+    'Suporte por email',
   ],
   starter: [
     'Telegram SmartAlerts',
@@ -33,13 +37,17 @@ const PLAN_FEATURES_STATIC: Record<string, string[]> = {
     '1 usuário',
   ],
   profissional: [
-    'WhatsApp FastMatch',
-    'Licitagram GeoRadar',
-    'AI Matching ilimitado',
-    '"Pergunte ao Edital" (Chat IA)',
-    'Compliance Checker',
-    'Gerador de Propostas',
+    'Tudo do Essencial +',
+    'WhatsApp FastMatch (Alertas instantâneos)',
+    'Licitagram GeoRadar (Visão estratégica regional)',
+    'AI Matching Ilimitado',
+    '"Pergunte ao Edital" (Chat IA com PDF)',
+    'Compliance Checker e Análise de Risco',
+    'Gerador de Propostas (Lei 14.133)',
+    'Pesquisa de Preços IN 65/2021',
+    'Inteligência Competitiva (5 módulos)',
     'Até 5 usuários',
+    'Suporte prioritário',
   ],
   professional: [
     'WhatsApp FastMatch',
@@ -49,13 +57,48 @@ const PLAN_FEATURES_STATIC: Record<string, string[]> = {
     'Até 5 usuários',
   ],
   enterprise: [
-    'Licitagram Prospector',
-    'Guardian Compliance',
-    'Robô de Lances com IA',
-    'Multi-CNPJ e API',
+    'Tudo do Profissional +',
+    'Licitagram Prospector (Outbound B2B)',
+    'Guardian Compliance (Certidões automáticas)',
+    'Robô de Lances com IA estratégica',
+    'Sugestão de lance e Detecção de Anomalias',
+    'Grafo Societário (67M+ CNPJs)',
+    'Multi-CNPJ e API de integração',
     'Usuários ilimitados',
-    'Suporte dedicado',
+    'Onboarding Premium e Suporte dedicado',
   ],
+}
+
+const PLAN_DISPLAY_NAMES: Record<string, string> = {
+  starter: 'Essencial',
+  essencial: 'Essencial',
+  professional: 'Profissional',
+  profissional: 'Profissional',
+  enterprise: 'Enterprise',
+}
+
+const PLAN_BADGES: Record<string, string> = {
+  professional: 'Mais popular',
+  profissional: 'Mais popular',
+  enterprise: 'Completo',
+}
+
+const FEATURE_LABELS: Record<string, { label: string; minPlan: string }> = {
+  competitive_intel: { label: 'Espionagem Competitiva', minPlan: 'Profissional' },
+  proposal_generator: { label: 'Fábrica de Propostas / Engenharia de Custos', minPlan: 'Profissional' },
+  compliance_checker: { label: 'Blindagem de Compliance', minPlan: 'Essencial' },
+  pregao_chat_monitor: { label: 'Monitor de Pregão', minPlan: 'Profissional' },
+  bidding_bot: { label: 'Robô de Lances (Agente IA)', minPlan: 'Enterprise' },
+  bidding_bot_supreme: { label: 'Chaves de API do Robô', minPlan: 'Profissional' },
+  lead_engine: { label: 'Prospector de Leads B2B', minPlan: 'Enterprise' },
+  multi_cnpj: { label: 'Multi-CNPJ (várias empresas)', minPlan: 'Enterprise' },
+  certidoes_bot: { label: 'Guardian (certidões automáticas)', minPlan: 'Enterprise' },
+  api_integration: { label: 'API de Integração', minPlan: 'Enterprise' },
+  intelligence_center: { label: 'Central de Inteligência', minPlan: 'Enterprise' },
+  graph_societario: { label: 'Grafo Societário (67M CNPJs)', minPlan: 'Enterprise' },
+  radar_map: { label: 'Radar Geográfico', minPlan: 'Profissional' },
+  whatsapp_alerts: { label: 'Alertas WhatsApp', minPlan: 'Profissional' },
+  export_excel: { label: 'Exportar Excel', minPlan: 'Profissional' },
 }
 
 function planFeaturesList(plan: Plan): string[] {
@@ -73,6 +116,14 @@ function planFeaturesList(plan: Plan): string[] {
   if (f.competitive_intel) features.push('Inteligência Competitiva')
   if (f.priority_support) features.push('Suporte prioritário')
   return features
+}
+
+function getPlanDisplayName(plan: Plan): string {
+  return PLAN_DISPLAY_NAMES[plan.slug?.toLowerCase() || ''] || plan.name
+}
+
+function getPlanBadge(plan: Plan): string | null {
+  return PLAN_BADGES[plan.slug?.toLowerCase() || ''] || null
 }
 
 type InvoiceRow = {
@@ -96,7 +147,7 @@ async function loadInvoices(customerId: string | null): Promise<InvoiceRow[]> {
       .map((i) => ({
         id: i.id ?? '',
         date: i.created ? new Date(i.created * 1000).toISOString() : null,
-        amount: i.amount_paid || i.amount_due || 0, // cents
+        amount: i.amount_paid || i.amount_due || 0,
         currency: (i.currency || 'brl').toUpperCase(),
         status: i.status || 'unknown',
         hostedUrl: i.hosted_invoice_url || null,
@@ -109,7 +160,21 @@ async function loadInvoices(customerId: string | null): Promise<InvoiceRow[]> {
   }
 }
 
-export default async function AssinaturaPage() {
+export default async function AssinaturaPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    success?: string
+    canceled?: string
+    expired?: string
+    upgrade?: string
+    plan?: string
+    billing?: string
+    feature?: string
+    from?: string
+  }>
+}) {
+  const params = await searchParams
   const supabase = await createClient()
   const {
     data: { user },
@@ -153,7 +218,15 @@ export default async function AssinaturaPage() {
   const isCancelling = !!sub?.cancel_at_period_end
   const periodEnd = sub?.current_period_end ?? sub?.expires_at ?? null
 
-  const invoices = await loadInvoices(sub?.stripe_customer_id ?? null)
+  const showPicker = !!(params.upgrade || params.expired || params.canceled || params.feature || !plan)
+
+  const [invoices, plansAll, matchLimit] = await Promise.all([
+    loadInvoices(sub?.stripe_customer_id ?? null),
+    showPicker ? getActivePlans() : Promise.resolve([]),
+    profile.company_id ? checkMatchLimit(profile.company_id) : Promise.resolve(null),
+  ])
+
+  const currentPlanSlug = plan?.slug || null
 
   const statusBadge = (() => {
     if (isCancelling) return { label: 'Cancelamento agendado', tone: 'amber' as const }
@@ -172,12 +245,49 @@ export default async function AssinaturaPage() {
     gray: 'bg-secondary text-muted-foreground border-border',
   }
 
+  const featureInfo = params.feature ? FEATURE_LABELS[params.feature] : null
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-semibold">Assinatura</h1>
         <p className="text-sm text-muted-foreground">Plano, faturas e cancelamento.</p>
       </div>
+
+      {/* Auto-checkout: ?plan=slug triggers Stripe Checkout */}
+      <Suspense>
+        <AutoCheckout plans={plansAll.map((p) => ({ id: p.id, slug: p.slug, name: p.name }))} />
+      </Suspense>
+
+      {params.success && (
+        <div className="rounded-lg border border-emerald-900/30 bg-emerald-900/20 p-4 text-sm text-emerald-400">
+          Assinatura realizada com sucesso! Seu plano já está ativo.
+        </div>
+      )}
+      {params.canceled && (
+        <div className="rounded-lg border border-amber-900/30 bg-amber-900/20 p-4 text-sm text-amber-400">
+          Checkout cancelado. Escolha um plano quando estiver pronto.
+        </div>
+      )}
+      {params.expired && (
+        <div className="rounded-lg border border-red-900/30 bg-red-900/20 p-4 text-sm text-red-400">
+          Sua assinatura expirou ou foi cancelada. Escolha um plano para continuar usando a plataforma.
+        </div>
+      )}
+      {params.upgrade && (
+        <div className="rounded-lg border border-blue-900/30 bg-blue-900/20 p-4 text-sm text-blue-400">
+          {featureInfo ? (
+            <>
+              <p className="font-semibold">🔒 {featureInfo.label} está bloqueado no seu plano atual.</p>
+              <p className="mt-1">
+                Disponível a partir do plano <strong>{featureInfo.minPlan}</strong>. Escolha abaixo o plano ideal.
+              </p>
+            </>
+          ) : (
+            <>A funcionalidade que você tentou acessar requer um plano superior. Faça upgrade para desbloquear.</>
+          )}
+        </div>
+      )}
 
       {isCancelling && (
         <div className="rounded-lg border border-amber-900/40 bg-amber-900/10 p-4 text-amber-300">
@@ -221,6 +331,35 @@ export default async function AssinaturaPage() {
                 </Badge>
               </div>
 
+              {matchLimit && (
+                <div className="bg-[#1a1c1f] rounded-lg p-4 space-y-2">
+                  <p className="text-sm font-medium text-gray-300">Uso do mês</p>
+                  <div className="flex-1">
+                    <div className="flex justify-between text-xs text-gray-400 mb-1">
+                      <span>Matches</span>
+                      <span>
+                        {matchLimit.used}
+                        {matchLimit.limit !== null ? ` / ${matchLimit.limit}` : ' (ilimitado)'}
+                      </span>
+                    </div>
+                    {matchLimit.limit !== null && (
+                      <div className="w-full bg-[#2d2f33] rounded-full h-2">
+                        <div
+                          className={`h-2 rounded-full transition-all ${
+                            matchLimit.used / matchLimit.limit > 0.9
+                              ? 'bg-red-500'
+                              : matchLimit.used / matchLimit.limit > 0.7
+                                ? 'bg-amber-500'
+                                : 'bg-emerald-500'
+                          }`}
+                          style={{ width: `${Math.min(100, (matchLimit.used / matchLimit.limit) * 100)}%` }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="flex flex-wrap gap-2">
                 <ChangePlanButton />
                 <PortalButton disabled={!sub?.stripe_customer_id} />
@@ -241,15 +380,76 @@ export default async function AssinaturaPage() {
           ) : (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                Você ainda não tem um plano ativo.
+                Você ainda não tem um plano ativo. Escolha um plano abaixo para começar.
               </p>
-              <Button asChild>
-                <Link href="/billing">Ver planos</Link>
-              </Button>
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Upgrade picker */}
+      {showPicker && (
+        <div>
+          <h2 className="text-lg font-semibold mb-4">Planos disponíveis</h2>
+          {plansAll.length === 0 ? (
+            <div className="rounded-lg border border-amber-900/30 bg-amber-900/20 p-4 text-sm text-amber-400">
+              Erro ao carregar planos. Tente recarregar a página ou entre em contato com o suporte.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {plansAll.map((p) => {
+                const isCurrent = currentPlanSlug === p.slug
+                const features = planFeaturesList(p)
+                const displayName = getPlanDisplayName(p)
+                const badge = getPlanBadge(p)
+
+                return (
+                  <Card
+                    key={p.id}
+                    className={`relative ${
+                      isCurrent ? 'border-brand border-2' : badge ? 'border-brand/50 border' : ''
+                    }`}
+                  >
+                    {badge && !isCurrent && (
+                      <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-brand text-white text-[10px] font-semibold px-3 py-1 rounded-full uppercase tracking-wider whitespace-nowrap">
+                        {badge}
+                      </span>
+                    )}
+                    <CardHeader>
+                      <CardTitle className="flex items-center justify-between">
+                        {displayName}
+                        {isCurrent && (
+                          <Badge className="bg-brand/10 text-brand border-brand/20" variant="outline">
+                            Atual
+                          </Badge>
+                        )}
+                      </CardTitle>
+                      <p className="text-2xl font-bold">
+                        {formatBRL(p.price_cents)}
+                        <span className="text-sm font-normal text-gray-400">/mês</span>
+                      </p>
+                      {p.description && (
+                        <p className="text-sm text-gray-400 mt-1">{p.description}</p>
+                      )}
+                    </CardHeader>
+                    <CardContent>
+                      <ul className="space-y-2 mb-6">
+                        {features.map((f) => (
+                          <li key={f} className="flex items-start gap-2 text-sm">
+                            <span className="text-emerald-500 shrink-0">✓</span>
+                            <span>{f}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      {!isCurrent && <UpgradeButton planId={p.id} label={`Assinar ${displayName}`} />}
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Invoices */}
       <Card>
