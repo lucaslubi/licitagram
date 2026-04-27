@@ -112,24 +112,16 @@ const emailWorker = new Worker<EmailNotificationJobData>(
 
       const resendId = await sendEmail(data.userEmail, subject, html)
 
-      // Log delivery
-      await supabase
-        .from('email_notification_logs')
-        .insert({
-          user_id: data.userId,
-          match_id: data.matchId,
-          template: (data as any).type || 'new_match',
-          subject,
-          status: resendId ? 'sent' : 'failed',
-          resend_id: resendId,
-        })
-
-      // Mark match as email-notified
+      // Mark match as notified (last-write-wins across channels)
+      // NOTE: tabela email_notification_logs e coluna matches.email_notified_at não existem no schema
+      // (verificado via Supabase REST 2026-04-27). Removidos pra evitar exceções silenciosas que
+      // travavam o worker. Se quiser tracking dedicado por canal, criar migration first.
       if (resendId) {
         await supabase
           .from('matches')
-          .update({ email_notified_at: new Date().toISOString() })
+          .update({ notified_at: new Date().toISOString(), status: 'notified' })
           .eq('id', data.matchId)
+        logger.info({ matchId: data.matchId, userId: data.userId, resendId }, 'Email notification sent')
       }
     } else if ('type' in data) {
       // Handle non-match emails (trial expiry, etc.)

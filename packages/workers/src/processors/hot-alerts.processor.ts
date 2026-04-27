@@ -129,8 +129,13 @@ async function calculateCompetitionScore(
 
 /**
  * Fetch ALL companies with their users (Telegram or not).
- * Hot marking happens for ALL companies.
+ * Hot marking happens for ALL companies WITH ACTIVE SUBSCRIPTION.
  * Telegram notifications only for users with telegram_chat_id.
+ *
+ * Subscription gate: trial expirado, canceled, expired, inactive são bloqueados —
+ * só active + trialing (com expires_at no futuro) recebem hot/urgency/digest.
+ * Sem isso, hot-alerts marcava `status=notified` em matches de subs vencidas
+ * (notification.processor blocked depois via guard, mas o estado do match já tinha mudado).
  */
 async function getCompaniesWithUsers(): Promise<
   Map<string, Array<{ id: string; telegram_chat_id: number | null }>>
@@ -142,14 +147,41 @@ async function getCompaniesWithUsers(): Promise<
 
   if (!users || users.length === 0) return new Map()
 
+  // Build company → users map
   const grouped = new Map<string, Array<{ id: string; telegram_chat_id: number | null }>>()
   for (const u of users) {
     if (!u.company_id) continue
-
     const list = grouped.get(u.company_id) || []
     list.push({ id: u.id, telegram_chat_id: u.telegram_chat_id })
     grouped.set(u.company_id, list)
   }
+
+  // Filter to only companies with active subscriptions
+  const companyIds = Array.from(grouped.keys())
+  if (companyIds.length === 0) return grouped
+
+  const { data: subs } = await supabase
+    .from('subscriptions')
+    .select('company_id, status, expires_at')
+    .in('company_id', companyIds)
+
+  const now = new Date()
+  const allowed = new Set<string>()
+  for (const sub of subs || []) {
+    const isActive = sub.status === 'active'
+    const isTrialing = sub.status === 'trialing'
+    const expiresAt = sub.expires_at ? new Date(sub.expires_at as string) : null
+    const trialExpiredLagged = isTrialing && expiresAt && expiresAt < now
+    if ((isActive || isTrialing) && !trialExpiredLagged) {
+      allowed.add(sub.company_id)
+    }
+  }
+
+  // Drop companies without active sub
+  for (const cid of companyIds) {
+    if (!allowed.has(cid)) grouped.delete(cid)
+  }
+
   return grouped
 }
 

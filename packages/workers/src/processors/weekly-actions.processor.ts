@@ -254,10 +254,33 @@ async function handleGenerateWeeklyActions() {
   const weekOf = getMonday()
   logger.info({ weekOf }, 'Generating weekly actions for all companies')
 
-  // Get all active companies
+  // Get all companies WITH ACTIVE SUBSCRIPTION
+  // Sem isso, weekly_digest era enfileirado pra empresas com trial expirado/canceled
+  // e o notification.processor handler de weekly_digest NÃO chama validateNotification
+  // (só os de match individual chamam) — então digest vazava pra clientes inativos.
+  const { data: subs } = await supabase
+    .from('subscriptions')
+    .select('company_id, status, expires_at')
+    .in('status', ['active', 'trialing'])
+    .limit(1000)
+
+  const nowISO = new Date()
+  const allowedCompanyIds = new Set<string>()
+  for (const sub of subs || []) {
+    const expiresAt = sub.expires_at ? new Date(sub.expires_at as string) : null
+    if (sub.status === 'trialing' && expiresAt && expiresAt < nowISO) continue
+    allowedCompanyIds.add(sub.company_id)
+  }
+
+  if (allowedCompanyIds.size === 0) {
+    logger.info('No active subscriptions, skipping weekly actions')
+    return
+  }
+
   const { data: companies } = await supabase
     .from('companies')
     .select('id, nome_fantasia, razao_social, cnae_principal, cnaes_secundarios')
+    .in('id', Array.from(allowedCompanyIds))
     .limit(500)
 
   if (!companies || companies.length === 0) {
