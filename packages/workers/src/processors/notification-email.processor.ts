@@ -44,8 +44,29 @@ async function sendEmail(to: string, subject: string, html: string): Promise<str
   }
 }
 
-function matchAlertHtml(data: { objeto: string; orgao: string; uf: string; valor: string; score: number; matchId: string }): string {
+function fitFlagsBlockHtml(summary?: { high: number; medium: number; low: number }, matchId?: string): string {
+  if (!summary) return ''
+  const total = (summary.high || 0) + (summary.medium || 0) + (summary.low || 0)
+  if (total === 0) {
+    return `<div style="margin-top:12px;padding:10px;background:#D1FAE5;border-left:3px solid #10B981;border-radius:4px;font-size:13px;color:#065F46">
+  <strong>✓</strong> Você atende aos requisitos básicos dessa licitação
+</div>`
+  }
+  const parts: string[] = []
+  if (summary.high > 0) parts.push(`<br>${summary.high} alerta(s) de aderência alta (CND/capital)`)
+  if (summary.medium > 0) parts.push(`<br>${summary.medium} alerta(s) de aderência média`)
+  if (summary.low > 0) parts.push(`<br>${summary.low} aviso(s) menor(es)`)
+  const linkPart = matchId
+    ? `<br><a href="https://licitagram.com/opportunities/${matchId}" style="color:#92400E">Ver detalhes</a>`
+    : ''
+  return `<div style="margin-top:12px;padding:10px;background:#FEF3C7;border-left:3px solid #F59E0B;border-radius:4px;font-size:13px;color:#92400E">
+  <strong>⚠ Atenção:</strong>${parts.join('')}${linkPart}
+</div>`
+}
+
+function matchAlertHtml(data: { objeto: string; orgao: string; uf: string; valor: string; score: number; matchId: string; fitFlagsSummary?: { high: number; medium: number; low: number } }): string {
   const scoreColor = data.score >= 70 ? '#10B981' : data.score >= 50 ? '#F59E0B' : '#EF4444'
+  const fitBlock = fitFlagsBlockHtml(data.fitFlagsSummary, data.matchId)
   return `
 <div style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;background:#f4f4f4;padding:20px">
   <div style="background:#111214;border-radius:8px;padding:24px;color:#fff">
@@ -60,7 +81,8 @@ function matchAlertHtml(data: { objeto: string; orgao: string; uf: string; valor
       <p style="color:#9CA3AF;font-size:13px;margin:4px 0">🏛 ${data.orgao}</p>
       <p style="color:#9CA3AF;font-size:13px;margin:4px 0">📍 ${data.uf} | 💰 ${data.valor}</p>
     </div>
-    <div style="text-align:center">
+    ${fitBlock}
+    <div style="text-align:center;margin-top:16px">
       <a href="https://licitagram.com/opportunities/${data.matchId}" style="display:inline-block;background:#10B981;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:14px">
         Ver no Licitagram →
       </a>
@@ -77,6 +99,103 @@ const emailWorker = new Worker<EmailNotificationJobData>(
   'notification-email',
   async (job) => {
     const data = job.data
+
+    // Handle account / data-export emails (no matchId, no userEmail required up front)
+    if ('type' in data && (data as any).type === 'data_export_ready') {
+      const payload = data as Extract<EmailNotificationJobData, { type: 'data_export_ready' }>
+      let email = payload.userEmail
+      let fullName = ''
+      if (!email) {
+        const { data: u } = await supabase.from('users').select('email, full_name').eq('id', payload.userId).single()
+        email = u?.email
+        fullName = u?.full_name || ''
+      } else {
+        const { data: u } = await supabase.from('users').select('full_name').eq('id', payload.userId).single()
+        fullName = u?.full_name || ''
+      }
+      if (!email) {
+        logger.warn({ userId: payload.userId }, 'data_export_ready: no email')
+        return
+      }
+      const expDate = new Date(payload.expiresAt).toLocaleDateString('pt-BR')
+      const html = `
+<div style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;background:#f4f4f4;padding:20px">
+  <div style="background:#111214;border-radius:8px;padding:24px;color:#fff">
+    <div style="text-align:center;margin-bottom:16px">
+      <span style="font-size:24px;font-weight:bold;color:#10B981">Licitagram</span>
+    </div>
+    <h2 style="color:#fff;font-size:18px;margin:0 0 8px">Olá ${fullName},</h2>
+    <p style="color:#9CA3AF;font-size:14px;margin:8px 0">Sua exportação de dados Licitagram (LGPD) está pronta!</p>
+    <p style="color:#9CA3AF;font-size:14px;margin:8px 0">Clique abaixo para baixar. O link expira em <strong style="color:#fff">${expDate}</strong>:</p>
+    <div style="text-align:center;margin-top:16px">
+      <a href="${payload.signedUrl}" style="display:inline-block;padding:12px 24px;background:#10B981;color:white;text-decoration:none;border-radius:6px;font-weight:bold">Baixar arquivo</a>
+    </div>
+    <p style="color:#6B7280;font-size:12px;margin-top:16px">Se o link expirar, solicite uma nova exportação em <a href="https://licitagram.com/conta/privacidade" style="color:#9CA3AF">/conta/privacidade</a></p>
+  </div>
+  <p style="text-align:center;color:#6B7280;font-size:11px;margin-top:16px">Equipe Licitagram</p>
+</div>`
+      await sendEmail(email, 'Sua exportação de dados está pronta', html)
+      logger.info({ userId: payload.userId, jobId: payload.jobId }, 'data_export_ready email sent')
+      return
+    }
+
+    if ('type' in data && (data as any).type === 'account_deletion_scheduled') {
+      const payload = data as Extract<EmailNotificationJobData, { type: 'account_deletion_scheduled' }>
+      const { data: u } = await supabase.from('users').select('email, full_name').eq('id', payload.userId).single()
+      const email = payload.userEmail || u?.email
+      if (!email) {
+        logger.warn({ userId: payload.userId }, 'account_deletion_scheduled: no email')
+        return
+      }
+      const formattedDate = new Date(payload.scheduledFor).toLocaleDateString('pt-BR')
+      const html = `
+<div style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;background:#f4f4f4;padding:20px">
+  <div style="background:#111214;border-radius:8px;padding:24px;color:#fff">
+    <div style="text-align:center;margin-bottom:16px">
+      <span style="font-size:24px;font-weight:bold;color:#10B981">Licitagram</span>
+    </div>
+    <h2 style="color:#fff;font-size:18px;margin:0 0 8px">Olá ${u?.full_name || ''},</h2>
+    <p style="color:#9CA3AF;font-size:14px;margin:8px 0">Recebemos sua solicitação de exclusão de conta. Sua conta será deletada permanentemente em <strong style="color:#F59E0B">${formattedDate}</strong>.</p>
+    <p style="color:#9CA3AF;font-size:14px;margin:8px 0">Você ainda pode reverter essa ação durante esse período:</p>
+    <div style="text-align:center;margin-top:16px">
+      <a href="${payload.cancelLink}" style="display:inline-block;padding:12px 24px;background:#3B82F6;color:white;text-decoration:none;border-radius:6px;font-weight:bold">Cancelar exclusão</a>
+    </div>
+    <p style="color:#6B7280;font-size:12px;margin-top:16px">Após ${formattedDate}, todos os seus dados serão apagados conforme LGPD e essa ação não poderá ser desfeita.</p>
+  </div>
+  <p style="text-align:center;color:#6B7280;font-size:11px;margin-top:16px">Equipe Licitagram</p>
+</div>`
+      await sendEmail(email, 'Sua conta será deletada em 14 dias', html)
+      logger.info({ userId: payload.userId }, 'account_deletion_scheduled email sent')
+      return
+    }
+
+    if ('type' in data && (data as any).type === 'account_deletion_cancelled') {
+      const payload = data as Extract<EmailNotificationJobData, { type: 'account_deletion_cancelled' }>
+      const { data: u } = await supabase.from('users').select('email, full_name').eq('id', payload.userId).single()
+      const email = payload.userEmail || u?.email
+      if (!email) {
+        logger.warn({ userId: payload.userId }, 'account_deletion_cancelled: no email')
+        return
+      }
+      const html = `
+<div style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;background:#f4f4f4;padding:20px">
+  <div style="background:#111214;border-radius:8px;padding:24px;color:#fff">
+    <div style="text-align:center;margin-bottom:16px">
+      <span style="font-size:24px;font-weight:bold;color:#10B981">Licitagram</span>
+    </div>
+    <h2 style="color:#fff;font-size:18px;margin:0 0 8px">Olá ${u?.full_name || ''},</h2>
+    <p style="color:#9CA3AF;font-size:14px;margin:8px 0">Sua conta Licitagram foi restaurada com sucesso. Você não perderá nenhum dado.</p>
+    <p style="color:#9CA3AF;font-size:14px;margin:8px 0">Continue acessando normalmente.</p>
+    <div style="text-align:center;margin-top:16px">
+      <a href="https://licitagram.com" style="display:inline-block;padding:12px 24px;background:#10B981;color:white;text-decoration:none;border-radius:6px;font-weight:bold">Acessar Licitagram</a>
+    </div>
+  </div>
+  <p style="text-align:center;color:#6B7280;font-size:11px;margin-top:16px">Equipe Licitagram</p>
+</div>`
+      await sendEmail(email, 'Conta restaurada', html)
+      logger.info({ userId: payload.userId }, 'account_deletion_cancelled email sent')
+      return
+    }
 
     if ('matchId' in data && data.matchId) {
       // Validate notification
@@ -108,6 +227,7 @@ const emailWorker = new Worker<EmailNotificationJobData>(
         valor,
         score: match.score,
         matchId: match.id,
+        fitFlagsSummary: (data as any).fit_flags_summary,
       })
 
       const resendId = await sendEmail(data.userEmail, subject, html)
@@ -157,6 +277,7 @@ const emailWorker = new Worker<EmailNotificationJobData>(
   </p>
 </div>`
 
+        if (!data.userEmail) return
         await sendEmail(data.userEmail, subject, html)
         logger.info({ userId: data.userId, type }, 'Trial expiring soon email sent')
       } else if (type === 'trial_expired') {
@@ -193,6 +314,7 @@ const emailWorker = new Worker<EmailNotificationJobData>(
   </p>
 </div>`
 
+        if (!data.userEmail) return
         await sendEmail(data.userEmail, subject, html)
         logger.info({ userId: data.userId, type }, 'Trial expired email sent')
       }

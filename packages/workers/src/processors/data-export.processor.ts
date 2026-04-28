@@ -127,10 +127,10 @@ const dataExportWorker = new Worker<ExportJobData>(
           await emailQueue.add(
             `data-export-${jobId}`,
             {
-              userEmail: profile.email,
               userId,
-              // @ts-expect-error — type 'data_export_ready' ainda não está no union
+              userEmail: profile.email,
               type: 'data_export_ready',
+              jobId,
               signedUrl: signed.signedUrl,
               expiresAt,
             },

@@ -4,6 +4,12 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { stripe } from '@/lib/stripe'
 import { revalidatePath } from 'next/cache'
+import {
+  enqueueAccountDeletionScheduled,
+  enqueueAccountDeletionCancelled,
+} from '@/lib/queues/email-producer'
+
+const APP_BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://licitagram.com'
 
 const DELETION_GRACE_DAYS = 14
 
@@ -108,11 +114,17 @@ export async function deleteAccount(input: DeleteAccountInput): Promise<DeleteAc
     console.warn('[delete-account] audit log insert failed:', logErr?.message)
   }
 
-  // 4. Email de confirmação — best-effort. Resend integration TBD;
-  // por ora, deixa marcado em metadata e o cron de email envia no próximo
-  // ciclo (worker pode ler future). Stub silencioso aqui.
-  // TODO(email-resend): integrar com worker notification-email quando
-  // o type 'account_deletion_scheduled' estiver disponível no union.
+  // 4. Email de confirmação — best-effort
+  try {
+    await enqueueAccountDeletionScheduled({
+      userId: user.id,
+      userEmail: userEmail || undefined,
+      scheduledFor: scheduledAt,
+      cancelLink: `${APP_BASE_URL}/conta/privacidade?cancel_deletion=1`,
+    })
+  } catch (emailErr: any) {
+    console.warn('[delete-account] email enqueue failed:', emailErr?.message)
+  }
 
   // 5. Logout
   try {
@@ -158,7 +170,15 @@ export async function cancelDeletion(): Promise<CancelDeletionResult> {
     console.warn('[cancel-deletion] audit log failed:', logErr?.message)
   }
 
-  // Email "Conta restaurada" — TODO(email-resend) idem deleteAccount.
+  // Email "Conta restaurada" — best-effort
+  try {
+    await enqueueAccountDeletionCancelled({
+      userId: user.id,
+      userEmail: (user.email || '').toLowerCase() || undefined,
+    })
+  } catch (emailErr: any) {
+    console.warn('[cancel-deletion] email enqueue failed:', emailErr?.message)
+  }
 
   revalidatePath('/conta/privacidade')
   return { success: true }
