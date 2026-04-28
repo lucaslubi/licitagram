@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { updateProfile } from '@/actions/conta/update-profile'
 import { uploadAvatar } from '@/actions/conta/upload-avatar'
+import { friendlyError } from '@/lib/error-messages'
 
 type Initial = {
   full_name: string
@@ -97,10 +98,15 @@ export function PerfilForm({
         setAvatarUrl(res.url)
         setFeedback({
           kind: res.error ? 'err' : 'ok',
-          msg: res.error ? `Imagem enviada, mas não foi possível salvar URL (${res.error}).` : 'Avatar atualizado.',
+          msg: res.error
+            ? 'Imagem enviada, mas não conseguimos salvar a URL. Tente novamente.'
+            : 'Avatar atualizado.',
         })
       } else {
-        setFeedback({ kind: 'err', msg: res.error || 'Falha ao enviar avatar.' })
+        setFeedback({
+          kind: 'err',
+          msg: res.error ? friendlyError(res.error) : 'Falha ao enviar avatar.',
+        })
       }
     } finally {
       setUploading(false)
@@ -144,7 +150,10 @@ export function PerfilForm({
       setFeedback(
         res.success
           ? { kind: 'ok', msg: 'Perfil atualizado.' }
-          : { kind: 'err', msg: errMap[res.error || ''] || res.error || 'Falha ao salvar.' },
+          : {
+              kind: 'err',
+              msg: errMap[res.error || ''] || (res.error ? friendlyError(res.error) : 'Falha ao salvar.'),
+            },
       )
     })
   }

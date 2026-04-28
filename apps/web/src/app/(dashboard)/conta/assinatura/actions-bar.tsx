@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { openStripePortal, reactivateSubscription } from '@/actions/conta/cancel-subscription'
 import { CancelModal } from './cancel-modal'
+import { friendlyError } from '@/lib/error-messages'
 
 export function PortalButton({ disabled }: { disabled?: boolean }) {
   const [pending, startTransition] = useTransition()
@@ -15,7 +16,7 @@ export function PortalButton({ disabled }: { disabled?: boolean }) {
     startTransition(async () => {
       const res = await openStripePortal()
       if (!res.success || !res.url) {
-        setError(res.error || 'Erro ao abrir portal.')
+        setError(res.error ? friendlyError(res.error) : 'Erro ao abrir portal.')
         return
       }
       window.location.href = res.url
@@ -49,7 +50,7 @@ export function ReactivateButton() {
     startTransition(async () => {
       const res = await reactivateSubscription()
       if (!res.success) {
-        setError(res.error || 'Erro ao reativar.')
+        setError(res.error ? friendlyError(res.error) : 'Erro ao reativar.')
       }
     })
   }

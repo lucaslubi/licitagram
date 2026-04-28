@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useCompanyContext } from '@/contexts/company-context'
 import { addCompanyAction } from '@/actions/multi-company'
+import { friendlyError } from '@/lib/error-messages'
 
 /** Format CNPJ as user types: 12.345.678/0001-99 */
 function maskCNPJ(value: string): string {
@@ -55,7 +56,7 @@ export function AddCompanyDialog({ onClose }: AddCompanyDialogProps) {
       .then((data) => {
         if (cancelled) return
         if (data.message) {
-          setError(data.message)
+          setError('Não conseguimos validar esse CNPJ na base pública. Confira o número e tente de novo.')
         } else {
           setCompanyName(data.razao_social || '')
           setFantasia(data.nome_fantasia || '')
@@ -103,7 +104,7 @@ export function AddCompanyDialog({ onClose }: AddCompanyDialogProps) {
       })
 
       if (result.error) {
-        setError(result.error)
+        setError(friendlyError(result.error))
         return
       }
 

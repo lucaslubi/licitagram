@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Monitor, Smartphone, Tablet } from 'lucide-react'
 import { revokeSession, revokeOtherSessions } from '@/actions/conta/revoke-session'
+import { friendlyError } from '@/lib/error-messages'
 import type { ParsedSession } from './types'
 
 function fmtDate(iso: string | null): string {
@@ -67,7 +68,10 @@ export function SessoesList({
         setFeedback({ kind: 'ok', msg: 'Sessão encerrada.' })
         router.refresh()
       } else {
-        setFeedback({ kind: 'err', msg: res.error || 'Falha ao encerrar.' })
+        setFeedback({
+          kind: 'err',
+          msg: res.error ? friendlyError(res.error) : 'Falha ao encerrar.',
+        })
       }
     })
   }
@@ -86,7 +90,10 @@ export function SessoesList({
         })
         router.refresh()
       } else {
-        setFeedback({ kind: 'err', msg: res.error || 'Falha ao encerrar sessões.' })
+        setFeedback({
+          kind: 'err',
+          msg: res.error ? friendlyError(res.error) : 'Falha ao encerrar sessões.',
+        })
       }
     })
   }

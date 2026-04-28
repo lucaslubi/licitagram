@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { Button } from '@/components/ui/button'
 import { cancelSubscription } from '@/actions/conta/cancel-subscription'
+import { friendlyError } from '@/lib/error-messages'
 
 type Step = 1 | 2 | 3 | 'done'
 
@@ -93,7 +94,7 @@ export function CancelModal({
         retentionAccepted: true,
       })
       if (!res.success) {
-        setError(res.error || 'Erro ao aplicar oferta.')
+        setError(res.error ? friendlyError(res.error) : 'Erro ao aplicar oferta.')
         return
       }
       setResultMsg(
@@ -119,7 +120,7 @@ export function CancelModal({
         retentionAccepted: false,
       })
       if (!res.success) {
-        setError(res.error || 'Erro ao cancelar.')
+        setError(res.error ? friendlyError(res.error) : 'Erro ao cancelar.')
         return
       }
       setResultMsg(

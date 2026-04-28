@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { updateNotifPrefs } from '@/actions/conta/update-notif-prefs'
+import { friendlyError } from '@/lib/error-messages'
 
 export type NotifPrefs = {
   preset: 'alta_qualidade' | 'equilibrado' | 'tudo' | 'custom'
@@ -88,7 +89,11 @@ export function NotificacoesForm({
     const payload = { ...prefs, excluded_terms }
     startTransition(async () => {
       const res = await updateNotifPrefs(payload)
-      setMessage(res.success ? 'Preferências salvas.' : `Erro: ${res.error}`)
+      setMessage(
+        res.success
+          ? 'Preferências salvas.'
+          : `Erro: ${res.error ? friendlyError(res.error) : 'Falha ao salvar.'}`,
+      )
     })
   }
 

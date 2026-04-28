@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { friendlyError } from '@/lib/error-messages'
 
 export function UpgradeButton({ planId, label }: { planId: string; label: string }) {
   const [loading, setLoading] = useState(false)
@@ -19,18 +20,18 @@ export function UpgradeButton({ planId, label }: { planId: string; label: string
       if (data.url && data.url.startsWith('http')) {
         window.location.href = data.url
       } else if (data.url) {
-        setError('URL de checkout invalida: ' + data.url)
+        console.error('[checkout] URL inválida:', data.url)
+        setError('Não conseguimos iniciar o checkout. Tente de novo em alguns instantes.')
         setLoading(false)
       } else {
         const errMsg = data.error || 'Erro ao criar sessão de pagamento'
-        setError(errMsg)
         console.error('[checkout]', errMsg)
+        setError(friendlyError(errMsg))
         setLoading(false)
       }
     } catch (err) {
-      const errMsg = err instanceof Error ? err.message : 'Erro de conexão'
-      setError(errMsg)
       console.error('[checkout]', err)
+      setError(friendlyError(err))
       setLoading(false)
     }
   }

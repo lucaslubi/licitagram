@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { lookupCNPJ, saveCompany } from '@/actions/company'
+import { friendlyError } from '@/lib/error-messages'
 
 type Step = 'empresa' | 'atividade' | 'contato' | 'pronto'
 
@@ -142,7 +143,7 @@ export function OnboardingWizard({ initialCompany }: Props) {
       if ('id' in result) {
         setStep('pronto')
       } else {
-        setError(result.error || 'Erro ao salvar. Tente novamente.')
+        setError(result.error ? friendlyError(result.error) : 'Erro ao salvar. Tente novamente.')
       }
     })
   }

@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { changePassword } from '@/actions/conta/change-password'
+import { friendlyError } from '@/lib/error-messages'
 
 type Check = { id: string; label: string; test: (s: string) => boolean }
 
@@ -61,7 +62,9 @@ export function SenhaForm() {
               ? 'A nova senha não atende aos requisitos.'
               : res.error === 'not_authenticated'
                 ? 'Sessão expirada. Faça login novamente.'
-                : `Falha ao alterar senha (${res.error || 'desconhecida'}).`
+                : res.error
+                  ? friendlyError(res.error)
+                  : 'Falha ao alterar senha.'
         setFeedback({ kind: 'err', msg: errMsg })
       }
     })
