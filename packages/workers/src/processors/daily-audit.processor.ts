@@ -102,7 +102,7 @@ const QUEUE_NAMES = [
 const EXPECTED_PM2_PROCESSES = [
   'worker-scraping', 'worker-extraction', 'worker-matching',
   'worker-alerts', 'worker-telegram', 'worker-whatsapp',
-  'queue-metrics', 'worker-enrichment',
+  'worker-enrichment',
 ]
 
 // ─── Safe Commands Whitelist (expanded for autonomous execution) ─────────
@@ -304,11 +304,17 @@ async function checkInfrastructure(): Promise<DimensionResult> {
     const processDetails: Record<string, unknown> = {}
     const autoRestarts: string[] = []
 
+    const selfPmName = process.env.name || process.env.PM2_NAME || ''
+
     for (const expected of EXPECTED_PM2_PROCESSES) {
       const proc = processes.find(p => p.name === expected)
       if (!proc) {
         allOnline = false
         processDetails[expected] = 'NOT FOUND'
+        if (expected === selfPmName) {
+          logger.warn({ expected, selfPmName }, '⚠️ Skipping self-restart of missing process (impossible — we are it)')
+          continue
+        }
         // AUTO-FIX: Start missing process
         try {
           await safeExec(`pm2 restart ${expected}`, 15000)
@@ -323,13 +329,17 @@ async function checkInfrastructure(): Promise<DimensionResult> {
       const status = proc.pm2_env.status
       if (status !== 'online') {
         allOnline = false
-        // AUTO-FIX: Restart stopped/errored process immediately
-        try {
-          await safeExec(`pm2 restart ${expected}`, 15000)
-          autoRestarts.push(expected)
-          logger.info({ process: expected, prevStatus: status }, '🔧 Auto-restarted PM2 process')
-        } catch {
-          // Will be reported
+        if (expected === selfPmName) {
+          logger.warn({ expected, status }, '⚠️ Skipping self-restart (would suicide own process)')
+        } else {
+          // AUTO-FIX: Restart stopped/errored process immediately
+          try {
+            await safeExec(`pm2 restart ${expected}`, 15000)
+            autoRestarts.push(expected)
+            logger.info({ process: expected, prevStatus: status }, '🔧 Auto-restarted PM2 process')
+          } catch {
+            // Will be reported
+          }
         }
       }
 
@@ -1006,11 +1016,16 @@ async function checkPerformance(): Promise<DimensionResult> {
       // AUTO-FIX: Restart workers using > 500MB (memory leak prevention)
       if (memMB > 500) {
         highMemory.push(`${proc.name}: ${memMB}MB`)
-        try {
-          await safeExec(`pm2 restart ${proc.name}`, 15000)
-          autoRestarted.push(proc.name)
-          logger.info({ worker: proc.name, memMB }, '🔧 Auto-restarted high-memory worker')
-        } catch { /* best effort */ }
+        const selfPmName = process.env.name || process.env.PM2_NAME || ''
+        if (proc.name === selfPmName) {
+          logger.warn({ worker: proc.name, memMB }, '⚠️ Skipping self-restart of high-memory worker (would suicide)')
+        } else {
+          try {
+            await safeExec(`pm2 restart ${proc.name}`, 15000)
+            autoRestarted.push(proc.name)
+            logger.info({ worker: proc.name, memMB }, '🔧 Auto-restarted high-memory worker')
+          } catch { /* best effort */ }
+        }
       } else if (memMB > 300) {
         highMemory.push(`${proc.name}: ${memMB}MB`)
       }

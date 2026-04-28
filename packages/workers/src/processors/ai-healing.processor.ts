@@ -569,6 +569,12 @@ function getRestartCommandForQueue(queueName: string): string {
 // ─── AI Analysis (for complex issues rules can't handle) ────────────────────
 
 async function runAIAnalysis(metrics: SystemMetrics, recentActions: Record<string, unknown>[]): Promise<DetectedIssue[]> {
+  // Disabled by default — LLM 429 loops were polluting logs and burning CPU.
+  // Set AI_HEALING_ENABLED=true to re-enable.
+  if (process.env.AI_HEALING_ENABLED !== 'true') {
+    logger.warn('Healing: AI analysis skipped (AI_HEALING_ENABLED != true)')
+    return []
+  }
   try {
     const memory = await loadHealingMemory()
     const memoryContext = memory.runbook_rules.length > 0 
@@ -668,6 +674,15 @@ async function executeAction(issue: DetectedIssue): Promise<{ success: boolean; 
     case 'clean_logs':
     case 'autoscale_concurrency': {
       if (!issue.action_command) return { success: false, result: 'Sem comando definido' }
+      // Self-restart guard: never let a worker SIGINT itself (caused 611+ restart loop on worker-alerts).
+      const selfName = process.env.name || process.env.PM2_NAME || ''
+      const targetWorker = (issue.details?.worker as string) || ''
+      const cmd = issue.action_command
+      const cmdTargetsSelf = selfName && (cmd.includes(`pm2 restart ${selfName}`) || cmd.includes(`pm2 reload ${selfName}`))
+      if (selfName && (targetWorker === selfName || cmdTargetsSelf)) {
+        logger.warn({ selfName, cmd, targetWorker }, 'Healing: skipping self-restart (would suicide own process)')
+        return { success: false, result: `Skipped self-restart of ${selfName} (would terminate healer)` }
+      }
       try {
         const { stdout, stderr } = await execAsync(issue.action_command)
         return { success: true, result: stdout || stderr || 'Comando executado com sucesso' }

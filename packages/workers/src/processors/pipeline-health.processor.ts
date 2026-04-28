@@ -95,6 +95,8 @@ const WORKER_MAP: Record<string, string> = {
 }
 
 // All PM2 processes we expect to be running
+// NOTE: 'queue-metrics' removed — it is not a PM2 app, just a tsx script.
+// Including it caused infinite "Booted missing PM2 worker" errors.
 const EXPECTED_PM2_PROCESSES = [
   'worker-scraping',
   'worker-extraction',
@@ -102,7 +104,6 @@ const EXPECTED_PM2_PROCESSES = [
   'worker-alerts',
   'worker-telegram',
   'worker-whatsapp',
-  'queue-metrics',
   'worker-enrichment',
 ]
 
@@ -169,11 +170,19 @@ async function recoverStalledJobs(queueName: string): Promise<number> {
 
 /** Level 2: Restart or Boot a specific PM2 worker */
 async function restartWorker(workerName: string, isMissing = false): Promise<boolean> {
+  // Self-restart guard: pipeline-health runs inside worker-alerts. Restarting self
+  // SIGINTs the running process mid-cycle, which caused a 611+ restart loop.
+  const selfName = process.env.name || process.env.PM2_NAME || ''
+  if (selfName && workerName === selfName) {
+    logger.warn({ workerName, selfName }, '⚠️ Skipping self-restart (would suicide own process)')
+    return false
+  }
   try {
     if (isMissing) {
       // If it's completely missing, restart fails. We must start from ecosystem.
-      await execAsync(`pm2 start ecosystem.config.js --only ${workerName}`)
-      logger.warn({ workerName }, '⚡ Level 3: Booted missing PM2 worker from ecosystem.config.js')
+      // Path is .cjs (CommonJS) on the VPS, not .js.
+      await execAsync(`pm2 start ecosystem.config.cjs --only ${workerName}`)
+      logger.warn({ workerName }, '⚡ Level 3: Booted missing PM2 worker from ecosystem.config.cjs')
     } else {
       await execAsync(`pm2 restart ${workerName}`)
       logger.warn({ workerName }, '⚡ Level 3: Restarted PM2 worker')
