@@ -3,7 +3,10 @@ import { connection } from '../queues/connection'
 import { notificationQueue, NOTIFICATION_PRIORITY } from '../queues/notification.queue'
 import { whatsappQueue } from '../queues/notification-whatsapp.queue'
 import { emailQueue } from '../queues/notification-email.queue'
-import { db as supabase } from '../lib/db'
+// IMPORTANTE: lê direto do Supabase canonical, NÃO do mirror PG.
+// O mirror está stale desde 2026-03-29 — não tem matches recentes
+// (mesmo bug que map_cache teve, fixado em commit 6c90e1b).
+import { supabase } from '../lib/supabase'
 import { logger } from '../lib/logger'
 import { purgeNonCompetitiveMatches } from '../lib/notification-guard'
 
@@ -301,7 +304,18 @@ const pendingNotificationsWorker = new Worker(
 
     const EXCLUDED_MODS = new Set([9, 12, 14])
 
+    // DEBUG counters (remover quando estabilizar)
+    let dbgUsersChecked = 0
+    let dbgUsersWithChannel = 0
+    let dbgCompaniesChecked = 0
+    let dbgCompaniesAfterBlocked = 0
+    let dbgQueriesRun = 0
+    let dbgMatchesFound = 0
+    let dbgMatchesAfterPending = 0
+    let dbgMatchesAfterValid = 0
+
     for (const user of users) {
+      dbgUsersChecked++
       const prefs = (user.notification_preferences as Record<string, boolean>) || {}
       const hasTelegram = user.telegram_chat_id && prefs.telegram !== false
       const hasWhatsApp = user.whatsapp_number && user.whatsapp_verified && prefs.whatsapp !== false
@@ -309,6 +323,7 @@ const pendingNotificationsWorker = new Worker(
 
       // FIXED: also process users who only have email
       if (!hasTelegram && !hasWhatsApp && !hasEmail) continue
+      dbgUsersWithChannel++
 
       // Get companies this user should receive notifications for
       const enabledCompanies = companiesByUser.get(user.id)
@@ -320,8 +335,10 @@ const pendingNotificationsWorker = new Worker(
 
       // ── Loop through each company ──
       for (const companyId of companyIdsForUser) {
+        dbgCompaniesChecked++
         // Skip companies sem subscription ativa (trial expirado, canceled, sem sub)
         if (blockedCompanies.has(companyId)) continue
+        dbgCompaniesAfterBlocked++
 
         const settings = companySettingsMap.get(companyId) || { companyId, minScore: 50, minValor: null, maxValor: null, targetUfs: [] as string[] }
         const plan = planByCompany.get(companyId) || 'free'
@@ -376,16 +393,23 @@ const pendingNotificationsWorker = new Worker(
 
         const { data: allMatches } = await supabase
           .from('matches')
-          .select('id, score, match_source, breakdown, created_at, tenders!inner(data_encerramento, modalidade_id, valor_estimado, uf, objeto, descricao)')
+          .select('id, score, match_source, breakdown, created_at, tenders!inner(data_encerramento, modalidade_id, valor_estimado, uf, objeto, resumo)')
           .eq('company_id', companyId)
           .eq('status', 'new')
           .gte('score', effectiveMinScore)
           .gte('created_at', cutoffDate)
           .is('notified_at', null)
-          .gte('tenders.data_encerramento', today)
+          // data_encerramento NULL é tratado como "ainda aberto" (consistente
+          // com map_cache + lista). Filtrar por .gte excluía silenciosamente
+          // milhares de matches válidos com data ausente — CIVIL ENGENHARIA
+          // tinha 7k+ travados por isso (2026-04-28).
+          .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
           .not('tenders.modalidade_id', 'in', '(9,12,14)')
           .order('score', { ascending: false })
           .limit(MAX_NOTIFICATIONS_PER_USER)
+
+        dbgQueriesRun++
+        dbgMatchesFound += (allMatches?.length || 0)
 
         // Quality gate: filter keyword matches without CNAE validation
         const pendingMatches = (allMatches || []).filter((m: any) => {
@@ -408,6 +432,7 @@ const pendingNotificationsWorker = new Worker(
           return m.score >= 75
         }).slice(0, MAX_NOTIFICATIONS_PER_USER)
 
+        dbgMatchesAfterPending += pendingMatches.length
         if (!pendingMatches || pendingMatches.length === 0) continue
 
         // Filter out expired tenders, non-competitive modalities, and value range
@@ -432,13 +457,14 @@ const pendingNotificationsWorker = new Worker(
 
           // F-Q3: excluded keywords (objeto + descricao). Case-insensitive substring match.
           if (excludedTerms.length > 0) {
-            const haystack = `${m.tenders?.objeto || ''} ${m.tenders?.descricao || ''}`.toLowerCase()
+            const haystack = `${m.tenders?.objeto || ''} ${m.tenders?.resumo || ''}`.toLowerCase()
             if (haystack && excludedTerms.some((t) => haystack.includes(t))) return false
           }
 
           return true
         })
 
+        dbgMatchesAfterValid += validMatches.length
         if (validMatches.length === 0) continue
 
         const alreadySent = sentTodayByCompany.get(companyId) || 0
@@ -549,7 +575,19 @@ const pendingNotificationsWorker = new Worker(
       }
     }
 
-    logger.info({ totalEnqueued }, 'Pending notifications check complete')
+    logger.info({
+      totalEnqueued,
+      dbg: {
+        usersChecked: dbgUsersChecked,
+        usersWithChannel: dbgUsersWithChannel,
+        companiesChecked: dbgCompaniesChecked,
+        companiesAfterBlocked: dbgCompaniesAfterBlocked,
+        queriesRun: dbgQueriesRun,
+        matchesFound: dbgMatchesFound,
+        matchesAfterPending: dbgMatchesAfterPending,
+        matchesAfterValid: dbgMatchesAfterValid,
+      },
+    }, 'Pending notifications check complete')
   },
   {
     connection,
