@@ -319,9 +319,9 @@ export async function getMatchList(params: MatchListParams): Promise<MatchListRe
 }
 
 async function fetchMatchListFromDB(params: MatchListParams): Promise<MatchListResult> {
+  const { applyVisibilityFilters } = await import('./match-filters')
   const supabase = await createClient()
   const { companyId, page, pageSize, uf, modalidade, dataFrom, dataTo, fonte, ordemValor, ordemData } = params
-  const effectiveMinScore = Math.max(MIN_DISPLAY_SCORE, (params.scoreMin && params.scoreMin > 0) ? params.scoreMin : params.minScore)
 
   // Supabase .order() with referencedTable only orders the EMBEDDED resource
   // (nested tenders array), NOT the parent match rows. When the user requests
@@ -329,26 +329,28 @@ async function fetchMatchListFromDB(params: MatchListParams): Promise<MatchListR
   // sort in JS. When using the default sort (score desc), we paginate in SQL.
   const needsJsSort = Boolean(ordemValor || ordemData)
 
-  let query = supabase
-    .from('matches')
-    .select(
-      `id, score, score_final, score_by_pgvector, score_by_keyword, score_semantic, score_cnae, score_keyword, score_valor, score_uf, score_modalidade, breakdown, match_source_primary, status, ai_justificativa, recomendacao, match_source, match_confidence, created_at,
-       tenders!inner(
-         id, objeto, orgao_nome, orgao_cnpj, uf, municipio,
-         valor_estimado, valor_homologado, data_abertura, data_publicacao, data_encerramento,
-         modalidade_nome, modalidade_id, status, situacao_nome, link_sistema_origem, link_pncp, source
-       )`,
-      { count: 'exact' },
-    )
-    .eq('company_id', companyId)
-    .in('match_source', [...AI_VERIFIED_SOURCES])
-    .gte('score', effectiveMinScore)
-
-  // Always exclude non-competitive modalities and expired tenders
   const today = new Date().toISOString().split('T')[0]
-  query = query
-    .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
-    .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
+  let query = applyVisibilityFilters(
+    supabase
+      .from('matches')
+      .select(
+        `id, score, score_final, score_by_pgvector, score_by_keyword, score_semantic, score_cnae, score_keyword, score_valor, score_uf, score_modalidade, breakdown, match_source_primary, status, ai_justificativa, recomendacao, match_source, match_confidence, created_at,
+         tenders!inner(
+           id, objeto, orgao_nome, orgao_cnpj, uf, municipio,
+           valor_estimado, valor_homologado, data_abertura, data_publicacao, data_encerramento,
+           modalidade_nome, modalidade_id, status, situacao_nome, link_sistema_origem, link_pncp, source
+         )`,
+        { count: 'exact' },
+      )
+      .eq('company_id', companyId),
+    today,
+  )
+
+  // userMinScore (preferência de notificação) NÃO é mais filtro DURO de exibição.
+  // Só respeita scoreMin quando o usuário setou explicitamente via UI.
+  if (params.scoreMin && params.scoreMin > MIN_DISPLAY_SCORE) {
+    query = query.gte('score', params.scoreMin)
+  }
 
   // Filters on the referenced tenders table
   if (uf) query = query.eq('tenders.uf', uf)
@@ -445,24 +447,25 @@ async function fetchMatchListFromDB(params: MatchListParams): Promise<MatchListR
 
 /**
  * Get match count for tab badge (cached).
- * Only counts matches with OPEN tenders (not expired).
+ * Only counts matches with OPEN tenders (not expired) usando a regra ÚNICA
+ * de visibilidade (`applyVisibilityFilters`). O parâmetro `minScore` é
+ * preservado APENAS como chave de cache pra compatibilidade — não filtra mais
+ * (badge deve refletir o mesmo total que /opportunities mostra).
  */
 export async function getMatchCount(companyId: string, minScore: number): Promise<number> {
   return cached(
     CacheKeys.matchCount(companyId, minScore),
     async () => {
+      const { applyVisibilityFilters } = await import('./match-filters')
       const supabase = await createClient()
       const today = new Date().toISOString().split('T')[0]
       // IMPORTANT: use head:true + count:'exact' to get accurate count
       // without being capped by PostgREST max_rows=1000
-      const { count } = await supabase
+      const baseQuery = supabase
         .from('matches')
-        .select('id, tenders!inner(data_encerramento, modalidade_id)', { count: 'exact', head: true })
+        .select('id, tenders!inner(data_encerramento, modalidade_id, modalidade_nome)', { count: 'exact', head: true })
         .eq('company_id', companyId)
-        .in('match_source', [...AI_VERIFIED_SOURCES])
-        .gte('score', Math.max(MIN_DISPLAY_SCORE, minScore))
-        .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
-        .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
+      const { count } = await applyVisibilityFilters(baseQuery, today)
       return count ?? 0
     },
     TTL.matchCount,

@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { KanbanBoard } from './kanban-board'
 import { PendingOutcomesBanner } from './pending-outcomes-banner'
 import { formatCompactBRL } from '@/lib/geo/map-utils'
+import { applyVisibilityFilters } from '@/lib/match-filters'
 
 
 export default async function PipelinePage() {
@@ -25,42 +26,52 @@ export default async function PipelinePage() {
   const ACTIVE_KEYS = ['new', 'interested', 'applied']
   const DECIDED_KEYS = ['won', 'lost']
 
+  // Active matches: only show non-closed tenders + helper visibility rules
+  const activeQuery = applyVisibilityFilters(
+    supabase
+      .from('matches')
+      .select(
+        'id, score, status, is_hot, competition_score, match_source, tenders!inner(objeto, orgao_nome, uf, valor_estimado, data_abertura, data_encerramento, modalidade_id, modalidade_nome)',
+      )
+      .eq('company_id', profile.company_id)
+      .in('status', ACTIVE_KEYS),
+    today,
+  ).order('score', { ascending: false })
+
+  // Won/lost: já decididos. Aplica source/score/modalidade pra filtrar zumbis,
+  // mas NÃO aplica filtro de vigência (decididos ficam sempre visíveis).
+  const decidedQuery = supabase
+    .from('matches')
+    .select(
+      'id, score, status, is_hot, competition_score, match_source, tenders!inner(objeto, orgao_nome, uf, valor_estimado, data_abertura, data_encerramento, modalidade_id, modalidade_nome)',
+    )
+    .eq('company_id', profile.company_id)
+    .in('status', DECIDED_KEYS)
+    .in('match_source', ['pgvector_rules', 'keyword', 'semantic'])
+    .gte('score', 40)
+    .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
+    .order('score', { ascending: false })
+    .limit(100)
+
+  // Pending outcomes: matches em interest/applied cujo prazo já encerrou
+  const pendingQuery = supabase
+    .from('matches')
+    .select(
+      'id, score, status, match_source, tenders!inner(objeto, orgao_nome, uf, data_encerramento, modalidade_id, modalidade_nome)',
+    )
+    .eq('company_id', profile.company_id)
+    .in('status', ['interested', 'applied'])
+    .in('match_source', ['pgvector_rules', 'keyword', 'semantic'])
+    .gte('score', 40)
+    .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
+    .lt('tenders.data_encerramento', today)
+    .order('tenders(data_encerramento)', { ascending: true })
+    .limit(5)
+
   const [matchesResult, decidedMatchesResult, pendingOutcomesResult] = await Promise.all([
-    // Active matches: only show non-closed tenders
-    supabase
-      .from('matches')
-      .select(
-        'id, score, status, is_hot, competition_score, tenders!inner(objeto, orgao_nome, uf, valor_estimado, data_abertura, data_encerramento, modalidade_id, modalidade_nome)',
-      )
-      .eq('company_id', profile.company_id)
-      .in('status', ACTIVE_KEYS)
-      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
-      .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
-      .order('score', { ascending: false }),
-
-    // Won/lost matches: no date filter — these are always past closing date
-    supabase
-      .from('matches')
-      .select(
-        'id, score, status, is_hot, competition_score, tenders!inner(objeto, orgao_nome, uf, valor_estimado, data_abertura, data_encerramento, modalidade_id, modalidade_nome)',
-      )
-      .eq('company_id', profile.company_id)
-      .in('status', DECIDED_KEYS)
-      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
-      .order('score', { ascending: false })
-      .limit(100),
-
-    supabase
-      .from('matches')
-      .select(
-        'id, score, status, tenders!inner(objeto, orgao_nome, uf, data_encerramento, modalidade_id, modalidade_nome)',
-      )
-      .eq('company_id', profile.company_id)
-      .in('status', ['interested', 'applied'])
-      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
-      .lt('tenders.data_encerramento', today)
-      .order('tenders(data_encerramento)', { ascending: true })
-      .limit(5),
+    activeQuery,
+    decidedQuery,
+    pendingQuery,
   ])
 
   // Merge active + decided matches

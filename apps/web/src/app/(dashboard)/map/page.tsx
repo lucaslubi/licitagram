@@ -10,7 +10,7 @@ const IntelligenceMap = nextDynamic(
 )
 import { calculateUfOpportunityScore, type UfMapData, type MatchMarker } from '@/lib/geo/map-utils'
 import { batchGetMunicipalityCoords } from '@/lib/geo/municipalities'
-import { MIN_DISPLAY_SCORE, AI_VERIFIED_SOURCES } from '@/lib/cache'
+import { applyVisibilityFilters } from '@/lib/match-filters'
 
 // Force dynamic rendering — map must always show fresh data
 export const dynamic = 'force-dynamic'
@@ -45,7 +45,7 @@ export default async function MapPage() {
   for (let pageIdx = 0; pageIdx < MAX_PAGES; pageIdx++) {
     const from = pageIdx * PAGE_SIZE
     const to = from + PAGE_SIZE - 1
-    const { data: pageRows, error: pageErr } = await supabase
+    const baseQuery = supabase
       .from('matches')
       .select(`
         id, score, score_final, score_by_pgvector, score_by_keyword, score_semantic, score_cnae, score_keyword, score_valor, score_uf, score_modalidade, breakdown, match_source_primary, is_hot, match_source, match_confidence, recomendacao,
@@ -56,10 +56,7 @@ export default async function MapPage() {
         )
       `)
       .eq('company_id', companyId)
-      .in('match_source', [...AI_VERIFIED_SOURCES])
-      .gte('score', MIN_DISPLAY_SCORE)
-      .not('tenders.modalidade_nome', 'in', '(Inexigibilidade,Credenciamento)')
-      .or(`data_encerramento.is.null,data_encerramento.gte.${today}`, { referencedTable: 'tenders' })
+    const { data: pageRows, error: pageErr } = await applyVisibilityFilters(baseQuery, today)
       .order('score', { ascending: false })
       .range(from, to)
 
