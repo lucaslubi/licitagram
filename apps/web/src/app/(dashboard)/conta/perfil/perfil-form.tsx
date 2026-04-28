@@ -111,6 +111,18 @@ export function PerfilForm({
   function handleSave(e: React.FormEvent) {
     e.preventDefault()
     setFeedback(null)
+
+    if (migrationApplied) {
+      const phoneDigits = phone.replace(/\D/g, '')
+      if (phoneDigits.length < 10 || phoneDigits.length > 11) {
+        setFeedback({
+          kind: 'err',
+          msg: 'Informe um telefone válido com DDD (10 ou 11 dígitos). Sem ele, não conseguimos te alertar via WhatsApp.',
+        })
+        return
+      }
+    }
+
     startTransition(async () => {
       const payload = {
         full_name: fullName.trim() || null,
@@ -123,10 +135,16 @@ export function PerfilForm({
           : {}),
       }
       const res = await updateProfile(payload)
+      const errMap: Record<string, string> = {
+        phone_required: 'Telefone obrigatório pra receber notificações.',
+        invalid_phone: 'Telefone inválido. Use DDD + número (10 ou 11 dígitos).',
+        invalid_full_name: 'Nome inválido (entre 2 e 120 caracteres).',
+        not_authenticated: 'Sessão expirada. Faça login novamente.',
+      }
       setFeedback(
         res.success
           ? { kind: 'ok', msg: 'Perfil atualizado.' }
-          : { kind: 'err', msg: res.error || 'Falha ao salvar.' },
+          : { kind: 'err', msg: errMap[res.error || ''] || res.error || 'Falha ao salvar.' },
       )
     })
   }
@@ -188,12 +206,16 @@ export function PerfilForm({
             Alterar email
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground">Mudança de email com confirmação — em breve.</p>
+        <p className="text-xs text-muted-foreground">
+          Notificações por email serão enviadas pra: <strong>{initial.email || '—'}</strong>. Mudança de email com confirmação — em breve.
+        </p>
       </div>
 
       {/* Phone */}
       <div className="space-y-2">
-        <Label htmlFor="phone">Telefone</Label>
+        <Label htmlFor="phone">
+          Telefone <span className="text-red-500">*</span>
+        </Label>
         <Input
           id="phone"
           name="phone"
@@ -201,8 +223,14 @@ export function PerfilForm({
           onChange={handlePhoneChange}
           placeholder="+55 (11) 91234-5678"
           inputMode="tel"
+          required
+          minLength={10}
           disabled={!migrationApplied}
+          aria-invalid={phone.replace(/\D/g, '').length > 0 && phone.replace(/\D/g, '').length < 10}
         />
+        <p className="text-xs text-muted-foreground">
+          Usado pra enviar notificações de licitações via WhatsApp. Inclua DDD (10 a 11 dígitos).
+        </p>
       </div>
 
       {/* Company (read-only link) */}

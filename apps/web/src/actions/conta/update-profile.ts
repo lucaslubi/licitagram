@@ -34,12 +34,14 @@ function sanitize(input: unknown): { ok: true; data: UpdateProfileInput } | { ok
 
   if (v.phone !== undefined) {
     if (v.phone === null || v.phone === '') {
-      out.phone = null
+      // Phone is required for notifications — reject empty submissions
+      return { ok: false, error: 'phone_required' }
     } else if (typeof v.phone === 'string') {
       const digits = v.phone.replace(PHONE_DIGITS_RX, '')
-      if (digits && (digits.length < 10 || digits.length > 15))
+      if (!digits) return { ok: false, error: 'phone_required' }
+      if (digits.length < 10 || digits.length > 15)
         return { ok: false, error: 'invalid_phone' }
-      out.phone = digits || null
+      out.phone = digits
     } else {
       return { ok: false, error: 'invalid_phone' }
     }

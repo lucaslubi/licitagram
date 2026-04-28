@@ -8,6 +8,7 @@ import { CompanySwitcher } from './company-switcher'
 import { getUserCompanies } from '@/actions/multi-company'
 import { MatchingProgressBanner } from '@/components/matching-progress-banner'
 import { ProfileHealthBanner } from '@/components/profile-health-banner'
+import { ProfileCompletionBanner } from '@/components/profile-completion-banner'
 import { TrialBanner } from '@/components/trial-banner'
 import { TrialExpiredOverlay } from '@/components/trial-expired-overlay'
 import { getActivePlans } from '@/lib/plans'
@@ -84,6 +85,16 @@ export default async function DashboardLayout({
         .then(({ data }) => !!data?.whatsapp_verified)
     : Promise.resolve(false)
 
+  const profileContactPromise = supabase
+    .from('users')
+    .select('phone, email')
+    .eq('id', user.userId)
+    .single()
+    .then(({ data }) => ({
+      phone: (data?.phone as string | null) || null,
+      email: (data?.email as string | null) || null,
+    }))
+
   const companiesPromise = getUserCompanies()
 
   const matchingPromise = user.companyId
@@ -114,8 +125,14 @@ export default async function DashboardLayout({
       )
     : Promise.resolve([])
 
-  const [hasWhatsapp, userCompanies, { status: matchingStatus, matchCount: initialMatchCount }, overlayPlans] =
-    await Promise.all([whatsappPromise, companiesPromise, matchingPromise, plansPromise])
+  const [hasWhatsapp, userCompanies, { status: matchingStatus, matchCount: initialMatchCount }, overlayPlans, profileContact] =
+    await Promise.all([whatsappPromise, companiesPromise, matchingPromise, plansPromise, profileContactPromise])
+
+  // ── Profile completion: phone + email required for notifications ─────────
+  const missingProfileFields: ('phone' | 'email')[] = []
+  const phoneDigits = (profileContact.phone || '').replace(/\D/g, '')
+  if (phoneDigits.length < 10) missingProfileFields.push('phone')
+  if (!profileContact.email && !user.email) missingProfileFields.push('email')
 
   // ── Multi-company support ──────────────────────────────────────────────
   const multiCnpjEnabled = hasFeature(user, 'multi_cnpj')
@@ -146,6 +163,11 @@ export default async function DashboardLayout({
         <main className="flex-1 overflow-y-auto min-h-0 bg-background">
           <div className="relative pt-14 md:pt-0 min-h-full">
             {showTrialBanner && <TrialBanner daysLeft={trialDaysLeft} />}
+            {missingProfileFields.length > 0 && (
+              <div className="px-4 md:px-8 pt-4">
+                <ProfileCompletionBanner missingFields={missingProfileFields} />
+              </div>
+            )}
             {matchingStatus && matchingStatus !== 'ready' && (
               <MatchingProgressBanner
                 initialStatus={matchingStatus}
