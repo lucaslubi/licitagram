@@ -15,6 +15,11 @@ import {
   TrendingUp,
 } from 'lucide-react'
 import { Logo } from '@/components/app/Logo'
+import dynamic from 'next/dynamic'
+
+const Hero3DSceneClient = dynamic(() => import('@/components/hero3d/Hero3DScene.client'), {
+  ssr: false,
+})
 
 const ARTIFACTS = [
   {
@@ -134,34 +139,22 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      {/* Hero */}
-      <section className="relative overflow-hidden border-b border-border/60">
-        <div className="pointer-events-none absolute inset-0 z-0">
-          <div className="absolute left-[15%] top-[-10%] h-[520px] w-[520px] rounded-full bg-primary/15 blur-[130px]" />
-          <div className="absolute right-[10%] top-[20%] h-[420px] w-[420px] rounded-full bg-accent/10 blur-[140px]" />
-          <div
-            className="absolute inset-0 opacity-[0.5]"
-            style={{
-              backgroundImage:
-                'linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)',
-              backgroundSize: '64px 64px',
-              maskImage: 'radial-gradient(ellipse at top, black 15%, transparent 75%)',
-              WebkitMaskImage: 'radial-gradient(ellipse at top, black 15%, transparent 75%)',
-            }}
-          />
-        </div>
+      {/* Hero — cinematic 3D (substitui o hero anterior) */}
+      <Hero3DSceneClient />
 
-        <div className="container-fluid relative z-10 py-24 sm:py-32">
+      {/* Stats bar (mantida como seção logo abaixo do hero 3D) */}
+      <section className="relative overflow-hidden border-b border-border/60">
+        <div className="container-fluid relative z-10 py-16 sm:py-20">
           <div className="mx-auto max-w-3xl text-center">
             <div className="hero-tag mx-auto">
               <span className="hero-tag-dot" />
               Lei 14.133/2021 · Compliance TCU determinístico
             </div>
 
-            <h1 className="mt-8 text-display-lg font-light-display text-balance text-foreground">
+            <h2 className="mt-8 text-display-lg font-light-display text-balance text-foreground">
               A fase interna da licitação,{' '}
               <span className="text-gradient-brand">do DFD ao Edital</span>, em horas.
-            </h1>
+            </h2>
             <p className="mt-6 text-pretty text-body-lg leading-relaxed text-muted-foreground">
               Copiloto agêntico pra órgãos públicos. Gera DFD, ETP, Mapa de Riscos, Cesta de Preços, TR, Edital e Parecer
               jurídico — cada parágrafo com citação legal rastreável. Compliance Engine determinístico bloqueia publicações
