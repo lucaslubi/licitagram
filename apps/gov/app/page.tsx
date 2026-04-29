@@ -15,7 +15,6 @@ import {
   TrendingUp,
 } from 'lucide-react'
 import { Logo } from '@/components/app/Logo'
-import { MissionGate } from '@/components/marketing/MissionGate'
 
 const ARTIFACTS = [
   {
@@ -104,14 +103,6 @@ const PILLARS = [
 ]
 
 export default function LandingPage() {
-  return (
-    <MissionGate>
-      <LandingContent />
-    </MissionGate>
-  )
-}
-
-function LandingContent() {
   return (
     <div className="min-h-screen bg-background font-sans">
       {/* Top nav */}
