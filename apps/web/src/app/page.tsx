@@ -9,6 +9,7 @@ import {
   StickyHeader,
 } from '@/components/landing/ScrollEffects'
 import { MapRadarShowcase } from '@/components/landing/MapRadarShowcase'
+import { HeroGameAnimation } from '@/components/landing/HeroGameAnimation'
 import { PrecosMercadoShowcase } from '@/components/landing/PrecosMercadoShowcase'
 import { createClient } from '@supabase/supabase-js'
 import { PricingCards } from '@/components/pricing/PricingCards'
@@ -155,18 +156,12 @@ export default async function LandingPage() {
 
       {/* ── Hero — Centered layout ── */}
       <section className="relative bg-[#1A1C1F] overflow-hidden">
-        {/* Video background */}
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="absolute inset-0 w-full h-full object-cover"
-        >
-          <source src="/videos/hero-bg.mp4" type="video/mp4" />
-        </video>
+        {/* Animated 2D game background */}
+        <div className="absolute inset-0 w-full h-full">
+          <HeroGameAnimation />
+        </div>
         {/* Dark overlay for readability */}
-        <div className="absolute inset-0 bg-[#1A1C1F]/75" />
+        <div className="absolute inset-0 bg-[#1A1C1F]/65" />
         {/* Subtle dot pattern overlay */}
         <div
           className="absolute inset-0 opacity-[0.03]"
