@@ -289,6 +289,29 @@ export async function runNexusSession(input: RunnerInput): Promise<RunnerOutput>
         fase: item.faseOriginal,
       })
     },
+    onBidSkip: async (item, reason, ctx) => {
+      // F1: emit motivos pelos quais o engine NÃO disparou. Antes 100%
+      // silencioso → sessão ficava "em execução" com 0 lances sem
+      // diagnóstico. Crítico pro design partner entender o que tá rolando.
+      await emitBotEvent(sessionId, 'our_bid_skip', {
+        item: item.numero,
+        reason,
+        fase: item.faseOriginal,
+        ...(ctx || {}),
+      })
+    },
+    onFloorBreachPrevented: async (item, attempted, floor) => {
+      await emitBotEvent(sessionId, 'floor_breach_prevented', {
+        item: item.numero,
+        attempted,
+        floor,
+        fase: item.faseOriginal,
+      })
+      logger.warn(
+        { sessionId, item: item.numero, attempted, floor },
+        '[nexus-runner] floor breach prevented at submit',
+      )
+    },
     onScan: async (items) => {
       await supabase
         .from('bot_sessions')

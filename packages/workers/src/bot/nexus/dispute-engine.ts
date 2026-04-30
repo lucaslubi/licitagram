@@ -69,11 +69,25 @@ export interface EngineCallbacks {
   onBidPlaced?: (item: DisputeItem, bid: number) => Promise<void>
   /** Lance rejeitado pelo portal */
   onBidRejected?: (item: DisputeItem, erro: string) => Promise<void>
+  /** Lance NÃO disparado (estratégia rejeitou ou bloqueou). Crítico
+   *  pra observabilidade — sem isso, sessão fica "em execução" com
+   *  zero lances e ninguém sabe por quê (P0-1 root cause). */
+  onBidSkip?: (item: DisputeItem, reason: string, ctx?: Record<string, unknown>) => Promise<void>
+  /** Floor enforcement bloqueou um disparo iminente (lance < piso). */
+  onFloorBreachPrevented?: (item: DisputeItem, attempted: number, floor: number) => Promise<void>
   /** Snapshot de scan (debug/UI) */
   onScan?: (items: DisputeItem[], modoDisputa: string) => Promise<void>
   /** Erro no loop */
   onError?: (err: Error) => Promise<void>
 }
+
+/** Reasons que NÃO devem virar evento (ruído de housekeeping). Tudo
+ *  fora dessa lista vira `our_bid_skip` pra termos trilha completa. */
+const SILENT_CANCEL_REASONS = new Set([
+  'shot_terminou',
+  'reagendando_mercado_mudou',
+  'engine_parada',
+])
 
 interface PendingShot {
   itemId: number
@@ -202,6 +216,7 @@ export class DisputeEngine {
     const config = this.strategyByItem(lote.numero)
     if (!config || config.ativo === false) {
       this.cancelPending(lote.numero, 'sem_config_ativa')
+      this.emitSkip(lote, 'sem_config_ativa')
       return
     }
     const casasDecimais = config.casasDecimais ?? lote.casasDecimais ?? 4
@@ -252,6 +267,14 @@ export class DisputeEngine {
 
     if (!decision.allowed || decision.bid === null) {
       this.cancelPending(lote.numero, decision.reason)
+      // P0-1 root cause: ANTES esse path era 100% silencioso. Agora
+      // emite our_bid_skip com mercado/chao pra UI mostrar "por quê".
+      this.emitSkip(lote, decision.reason, {
+        mercado: lote.melhorValor,
+        chao: config.chaoFinanceiro,
+        meu: lote.seuValor,
+        fase: lote.fase,
+      })
       return
     }
 
@@ -300,11 +323,30 @@ export class DisputeEngine {
     })
   }
 
-  private cancelPending(itemId: number, _reason: string): void {
+  private cancelPending(itemId: number, reason: string): void {
     const p = this.pendingShots.get(itemId)
     if (!p) return
     clearTimeout(p.timer)
     this.pendingShots.delete(itemId)
+    if (!SILENT_CANCEL_REASONS.has(reason)) {
+      const item = this.lastScan.find((i) => i.numero === itemId)
+      if (item) {
+        void this.callbacks.onBidSkip?.(item, reason, {
+          attempted_bid: p.bid,
+          mercado: item.melhorValor,
+          chao: this.strategyByItem(itemId)?.chaoFinanceiro ?? null,
+          fase: item.fase,
+        })
+      }
+    }
+  }
+
+  /** Versão de skip pra rejeição que acontece ANTES de criar pendingShot
+   *  (i.e., evaluateBid retornou deny). Sem essa versão, o motivo da
+   *  rejeição na primeira fase do loop nunca é emitido. */
+  private emitSkip(item: DisputeItem, reason: string, ctx?: Record<string, unknown>): void {
+    if (SILENT_CANCEL_REASONS.has(reason)) return
+    void this.callbacks.onBidSkip?.(item, reason, ctx)
   }
 
   private async waitHftSlot(): Promise<void> {
