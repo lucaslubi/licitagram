@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { NotificacoesForm, type NotifPrefs, type ChannelStatus } from './form'
+import { WhatsAppConnect } from '@/components/settings/WhatsAppConnect'
+import { TelegramConnect } from '@/components/settings/TelegramConnect'
 
 export const dynamic = 'force-dynamic'
 
@@ -80,6 +82,22 @@ export default async function NotificacoesPage() {
           Configure como nossa IA Licitagram filtra e entrega oportunidades nos seus canais.
         </p>
       </div>
+
+      {/* ── Conectar canais (cadastro / desconexão) ───────────────────── */}
+      <div className="mb-8 space-y-3">
+        <h3 className="text-sm font-medium text-foreground">Canais de comunicação</h3>
+        <p className="text-xs text-muted-foreground">
+          Conecte WhatsApp e Telegram pra começar a receber alertas. O canal de email está sempre disponível.
+        </p>
+        <div className="grid gap-4 md:grid-cols-2">
+          <WhatsAppConnect />
+          <TelegramConnect
+            email={profile.email ?? null}
+            telegramChatId={(profile.telegram_chat_id as number | null) ?? null}
+          />
+        </div>
+      </div>
+
       <NotificacoesForm initial={initial} defaults={DEFAULT_PREFS} channelStatus={channelStatus} />
     </div>
   )
