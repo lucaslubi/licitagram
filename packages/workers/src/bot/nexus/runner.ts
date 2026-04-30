@@ -260,6 +260,28 @@ export async function runNexusSession(input: RunnerInput): Promise<RunnerOutput>
   let bidsPlaced = 0
   let terminalError: string | null = null
 
+  // F5: refs mutáveis pra strategy/floor — UI pode atualizar via PATCH e o
+  //     poll abaixo propaga pro engine sem reiniciar a sessão.
+  const liveState = {
+    minPrice: minPrice,
+    rateLimit: {
+      minDelayBetweenOwnBidsMs: (strategyConfig as { minDelayBetweenOwnBidsMs?: number } | null)
+        ?.minDelayBetweenOwnBidsMs ?? 3000,
+      maxBidsPerMinute: (strategyConfig as { maxBidsPerMinute?: number } | null)
+        ?.maxBidsPerMinute ?? 15,
+    },
+    stopLoss: {
+      enabled: Boolean(
+        (strategyConfig as { stopLossPct?: number; stopLossWindowSec?: number } | null)?.stopLossPct,
+      ),
+      pct: (strategyConfig as { stopLossPct?: number } | null)?.stopLossPct ?? 0,
+      windowSec: (strategyConfig as { stopLossWindowSec?: number } | null)?.stopLossWindowSec ?? 60,
+    },
+  }
+
+  // F6: histórico de preço por item pra stop-loss
+  const priceHistory = new Map<number, Array<{ t: number; p: number }>>()
+
   const engine = new DisputeEngine(compraId, loaded.tokens, strategyByItem, {
     onTokenRefreshed: async (t) => {
       await persistRefreshedTokens(loaded.rowId, t)
@@ -345,27 +367,123 @@ export async function runNexusSession(input: RunnerInput): Promise<RunnerOutput>
     baseStrategy.puloMaximo = 999999999
   }
 
+  // F4: aplica rate-limit inicial
+  engine.setRateLimit(liveState.rateLimit)
+
   try {
     await engine.start(500) // sweep 500ms
 
-    // Loop até sessão ser cancelada externamente ou o pregão encerrar
+    // Loop até sessão ser cancelada externamente ou o pregão encerrar.
+    // F7: poll de 1s (era 3s) → reação <1s a PAUSE/CANCEL.
+    // F5: refetch min_price/strategy_config a cada loop pra propagar
+    //     edição ao vivo do operador SEM reiniciar a sessão.
+    // F6: stop-loss avalia queda de preço por janela.
     const MAX_RUNTIME_MS = 6 * 60 * 60 * 1000 // 6h teto
     const start = Date.now()
+    let cancelled = false
     // eslint-disable-next-line no-constant-condition
     while (true) {
-      await new Promise((r) => setTimeout(r, 3000))
+      await new Promise((r) => setTimeout(r, 1000)) // F7: 1s
 
       const { data: cur } = await supabase
         .from('bot_sessions')
-        .select('status')
+        .select('status, min_price, strategy_config')
         .eq('id', sessionId)
         .single()
 
-      if (!cur || cur.status === 'cancelled' || cur.status === 'paused') {
+      if (!cur) break
+      if (cur.status === 'cancelled') {
+        cancelled = true
         break
+      }
+      // F7: pausa imediata via DB status='paused' (UI dispara isso).
+      if (cur.status === 'paused') {
+        if (!engine.isPaused()) {
+          engine.pause()
+          await emitBotEvent(sessionId, 'session_paused', {})
+          logger.info({ sessionId }, '[nexus-runner] sessão pausada pelo operador')
+        }
+      } else if (cur.status === 'active' && engine.isPaused()) {
+        engine.resume()
+        await emitBotEvent(sessionId, 'session_resumed', {})
       }
       if (terminalError) break
       if (Date.now() - start > MAX_RUNTIME_MS) break
+
+      // F5: aplica updates de strategy ao vivo
+      if (cur.min_price !== liveState.minPrice) {
+        await emitBotEvent(sessionId, 'strategy_updated', {
+          field: 'min_price',
+          old: liveState.minPrice,
+          new: cur.min_price,
+        })
+        liveState.minPrice = cur.min_price as number | null
+        baseStrategy.chaoFinanceiro = cur.min_price as number | null
+      }
+      const cfgRaw = cur.strategy_config as Record<string, unknown> | null
+      if (cfgRaw) {
+        const newRL = {
+          minDelayBetweenOwnBidsMs:
+            typeof cfgRaw.minDelayBetweenOwnBidsMs === 'number'
+              ? (cfgRaw.minDelayBetweenOwnBidsMs as number)
+              : liveState.rateLimit.minDelayBetweenOwnBidsMs,
+          maxBidsPerMinute:
+            typeof cfgRaw.maxBidsPerMinute === 'number'
+              ? (cfgRaw.maxBidsPerMinute as number)
+              : liveState.rateLimit.maxBidsPerMinute,
+        }
+        if (
+          newRL.minDelayBetweenOwnBidsMs !== liveState.rateLimit.minDelayBetweenOwnBidsMs ||
+          newRL.maxBidsPerMinute !== liveState.rateLimit.maxBidsPerMinute
+        ) {
+          liveState.rateLimit = newRL
+          engine.setRateLimit(newRL)
+          await emitBotEvent(sessionId, 'strategy_updated', { field: 'rateLimit', new: newRL })
+        }
+        if (typeof cfgRaw.stopLossPct === 'number' || typeof cfgRaw.stopLossWindowSec === 'number') {
+          liveState.stopLoss = {
+            enabled: true,
+            pct: (cfgRaw.stopLossPct as number) ?? liveState.stopLoss.pct,
+            windowSec: (cfgRaw.stopLossWindowSec as number) ?? liveState.stopLoss.windowSec,
+          }
+        }
+      }
+
+      // F6: stop-loss — se o preço CAIR mais que pct% em windowSec
+      //     em qualquer item ativo, pausa engine e alerta.
+      if (liveState.stopLoss.enabled && liveState.stopLoss.pct > 0) {
+        const nowMs = Date.now()
+        const cutoff = nowMs - liveState.stopLoss.windowSec * 1000
+        for (const item of engine.getLastScan()) {
+          if (item.melhorValor === null) continue
+          const hist = priceHistory.get(item.numero) || []
+          hist.push({ t: nowMs, p: item.melhorValor })
+          while (hist.length > 0 && hist[0]!.t < cutoff) hist.shift()
+          priceHistory.set(item.numero, hist)
+          if (hist.length >= 2) {
+            const oldest = hist[0]!
+            const dropPct = ((oldest.p - item.melhorValor) / oldest.p) * 100
+            if (dropPct >= liveState.stopLoss.pct) {
+              await emitBotEvent(sessionId, 'stop_loss_triggered', {
+                item: item.numero,
+                from: oldest.p,
+                to: item.melhorValor,
+                drop_pct: Number(dropPct.toFixed(2)),
+                window_sec: liveState.stopLoss.windowSec,
+              })
+              await supabase
+                .from('bot_sessions')
+                .update({ status: 'paused' })
+                .eq('id', sessionId)
+              logger.warn(
+                { sessionId, item: item.numero, dropPct },
+                '[nexus-runner] STOP-LOSS triggered',
+              )
+              break
+            }
+          }
+        }
+      }
 
       // Pregão acabou (todos os itens encerrados)?
       const scan = engine.getLastScan()
@@ -376,6 +494,10 @@ export async function runNexusSession(input: RunnerInput): Promise<RunnerOutput>
         logger.info({ sessionId }, '[nexus-runner] pregão encerrado, finalizando')
         break
       }
+    }
+    if (cancelled) {
+      // F7: cancelamento explícito pelo operador
+      await emitBotEvent(sessionId, 'session_cancelled', {})
     }
   } finally {
     engine.stop()

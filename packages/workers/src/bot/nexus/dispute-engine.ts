@@ -62,6 +62,20 @@ export interface EngineStrategy {
   ativo?: boolean
 }
 
+/** F4: rate limiter por sessão. Limita lances DO PRÓPRIO BOT pra evitar
+ *  fechar muito rápido sem operador conseguir intervir (P0-2). */
+export interface RateLimitConfig {
+  /** Tempo mínimo entre 2 lances do bot, em ms. Default 3000. */
+  minDelayBetweenOwnBidsMs: number
+  /** Teto de lances do bot por minuto. Default 15. */
+  maxBidsPerMinute: number
+}
+
+const DEFAULT_RATE_LIMIT: RateLimitConfig = {
+  minDelayBetweenOwnBidsMs: 3000,
+  maxBidsPerMinute: 15,
+}
+
 export interface EngineCallbacks {
   /** Token refreshado — persistir no DB */
   onTokenRefreshed?: (tokens: TokenPair) => Promise<void>
@@ -104,6 +118,7 @@ interface RecoilMemory {
 
 export class DisputeEngine {
   private running = false
+  private paused = false
   private sweeping = false
   private tokens: TokenPair
   private modoDisputa = 'ABERTO E FECHADO'
@@ -114,14 +129,49 @@ export class DisputeEngine {
   private hftFireRate: number[] = []
   private activeShots = 0
   private inicioFaseFechada = new Map<number, number>()
+  /** F4: bucket de timestamps dos lances disparados (ms). */
+  private ownBidsLog: number[] = []
+  private rateLimit: RateLimitConfig
 
   constructor(
     private readonly compraId: string,
     initialTokens: TokenPair,
     private readonly strategyByItem: (itemNumero: number) => EngineStrategy | null,
     private readonly callbacks: EngineCallbacks = {},
+    rateLimit?: Partial<RateLimitConfig>,
   ) {
     this.tokens = initialTokens
+    this.rateLimit = { ...DEFAULT_RATE_LIMIT, ...rateLimit }
+  }
+
+  /** F7: pause sem desligar. Sweep continua (mantém token quente) mas
+   *  bloqueia novos disparos. */
+  pause(): void {
+    this.paused = true
+  }
+  resume(): void {
+    this.paused = false
+  }
+  isPaused(): boolean {
+    return this.paused
+  }
+  /** F4: ajusta rate-limit em runtime (usado por F5 live-update). */
+  setRateLimit(cfg: Partial<RateLimitConfig>): void {
+    this.rateLimit = { ...this.rateLimit, ...cfg }
+  }
+  /** F4: avalia se podemos disparar agora pelo rate-limit. Retorna
+   *  null se OK, ou string com o motivo se bloqueado. */
+  private rateLimitCheck(now: number): string | null {
+    // Janela móvel de 1 minuto
+    this.ownBidsLog = this.ownBidsLog.filter((t) => now - t < 60_000)
+    if (this.ownBidsLog.length >= this.rateLimit.maxBidsPerMinute) {
+      return `rate_limit_per_minute_${this.rateLimit.maxBidsPerMinute}`
+    }
+    const last = this.ownBidsLog[this.ownBidsLog.length - 1]
+    if (last !== undefined && now - last < this.rateLimit.minDelayBetweenOwnBidsMs) {
+      return `rate_limit_min_delay_${this.rateLimit.minDelayBetweenOwnBidsMs}ms`
+    }
+    return null
   }
 
   async start(sweepIntervalMs = 500): Promise<void> {
@@ -191,6 +241,12 @@ export class DisputeEngine {
   }
 
   private async processLot(lote: DisputeItem): Promise<void> {
+    // F7: paused — não dispara mas mantém scan rolando.
+    if (this.paused) {
+      this.cancelPending(lote.numero, 'paused')
+      return
+    }
+
     // Item está em combate?
     const emCombate =
       lote.podeEnviarLances && lote.fase !== 'encerrada' && lote.fase !== 'aguardando'
@@ -387,6 +443,36 @@ export class DisputeEngine {
       const item = this.lastScan.find((i) => i.numero === itemId)
       if (!item) return
 
+      // F4: rate-limit guard antes de qualquer outra coisa.
+      const now = Date.now()
+      const rateBlock = this.rateLimitCheck(now)
+      if (rateBlock) {
+        this.cancelPending(itemId, rateBlock)
+        await this.callbacks.onBidSkip?.(item, rateBlock, {
+          attempted_bid: pending.bid,
+          mercado: item.melhorValor,
+        })
+        return
+      }
+      // F7: re-check paused (pode ter sido pausado entre schedule e execute)
+      if (this.paused) {
+        this.cancelPending(itemId, 'paused_at_submit')
+        return
+      }
+
+      // F3: hard floor enforcement IMEDIATAMENTE antes do submit.
+      // Strategy pode ter mudado depois do scheduleShot (live update via F5).
+      // Garante que o piso AGORA é respeitado, mesmo se o pending.bid foi
+      // calculado com piso anterior. Defesa em profundidade — evaluateBid
+      // já checa, mas isso protege contra race entre evaluate e submit.
+      const cfgNow = this.strategyByItem(itemId)
+      const floorNow = cfgNow?.chaoFinanceiro ?? null
+      if (floorNow !== null && floorNow > 0 && pending.bid < floorNow - 0.0001) {
+        await this.callbacks.onFloorBreachPrevented?.(item, pending.bid, floorNow)
+        this.cancelPending(itemId, 'floor_breach_prevented')
+        return
+      }
+
       // Ensure token fresh bem antes do disparo
       const refreshed = await ensureAccessToken(this.tokens)
       if (!refreshed) {
@@ -409,6 +495,7 @@ export class DisputeEngine {
       )
 
       if (result.sucesso) {
+        this.ownBidsLog.push(Date.now()) // F4: registra no rate-limiter
         this.recoil.set(itemId, { bid: pending.bid, timestamp: Date.now() })
         await this.callbacks.onBidPlaced?.(item, pending.bid)
       } else {
