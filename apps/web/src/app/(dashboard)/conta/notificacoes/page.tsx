@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { NotificacoesForm, type NotifPrefs, type ChannelStatus } from './form'
 import { WhatsAppConnect } from '@/components/settings/WhatsAppConnect'
 import { TelegramConnect } from '@/components/settings/TelegramConnect'
+import { EmailConnect } from '@/components/settings/EmailConnect'
 
 export const dynamic = 'force-dynamic'
 
@@ -89,7 +90,8 @@ export default async function NotificacoesPage() {
         <p className="text-xs text-muted-foreground">
           Conecte WhatsApp e Telegram pra começar a receber alertas. O canal de email está sempre disponível.
         </p>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-3">
+          <EmailConnect email={profile.email ?? null} />
           <WhatsAppConnect />
           <TelegramConnect
             email={profile.email ?? null}
