@@ -90,6 +90,23 @@ export async function POST(req: NextRequest) {
           { status: 400 },
         )
       }
+      // F2: floor obrigatório no auto_bid (vide P0-1).
+      if ((s.mode ?? 'supervisor') === 'auto_bid') {
+        const piso = (s as { min_price?: number }).min_price
+        const itemsHavePiso = Array.isArray((s as { items?: Array<{ piso?: number | null }> }).items)
+          && (s as { items: Array<{ piso?: number | null }> }).items.length > 0
+          && (s as { items: Array<{ piso?: number | null }> }).items.every((it) => typeof it.piso === 'number' && it.piso > 0)
+        const pisoGlobal = typeof piso === 'number' && piso > 0
+        if (!pisoGlobal && !itemsHavePiso) {
+          return NextResponse.json(
+            {
+              error: `Item ${idx}: piso obrigatório em auto_bid (defina min_price global ou piso por item).`,
+              code: 'piso_obrigatorio',
+            },
+            { status: 400 },
+          )
+        }
+      }
       if (s.scheduled_at) {
         const d = new Date(s.scheduled_at)
         if (isNaN(d.getTime())) {

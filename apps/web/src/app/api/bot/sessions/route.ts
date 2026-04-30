@@ -106,6 +106,23 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // F2: floor obrigatório no auto_bid. Sem piso, evaluateBid rejeita
+    // 100% dos lances silenciosamente (P0-1) — sessão entra em loop de
+    // tick infinito sem disparar nada. Bloqueamos antes de chegar lá.
+    if ((mode ?? 'supervisor') === 'auto_bid') {
+      const pisoValido = typeof min_price === 'number' && min_price > 0
+      if (!pisoValido) {
+        return NextResponse.json(
+          {
+            error:
+              'Configure um piso (min_price > 0) antes de iniciar uma sessão auto_bid. Sem piso o robô não dispara lances.',
+            code: 'piso_obrigatorio',
+          },
+          { status: 400 },
+        )
+      }
+    }
+
     // Validate mode
     const validModes = ['supervisor', 'auto_bid', 'shadow']
     const finalMode = mode ?? 'supervisor'

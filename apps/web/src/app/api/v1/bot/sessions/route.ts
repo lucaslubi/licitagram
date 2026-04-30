@@ -177,6 +177,18 @@ export async function POST(req: NextRequest) {
     const validModes = ['supervisor', 'auto_bid', 'shadow']
     const finalMode = (typeof mode === 'string' && validModes.includes(mode)) ? mode : 'supervisor'
 
+    // F2: piso obrigatório no auto_bid (P0-1).
+    if (finalMode === 'auto_bid') {
+      const piso = typeof min_price === 'number' && min_price > 0
+      if (!piso) {
+        logApi('warn', 'validation_failed', { reqId, keyId: auth.key.keyId, field: 'min_price' })
+        return NextResponse.json(
+          { error: 'min_price > 0 obrigatório em auto_bid', code: 'piso_obrigatorio' },
+          { status: 400 },
+        )
+      }
+    }
+
     const supabase = getServiceSupabase()
 
     // Verify the config belongs to the API key's company.
