@@ -15,3 +15,6 @@ const redis = new IORedis(redisUrl, {
 
 // Cast needed due to ioredis version mismatch between direct dep and bullmq's bundled version
 export const connection = redis as unknown as ConnectionOptions
+
+// Cliente direto pra ops Redis fora do BullMQ (locks, etc).
+export const redisClient = redis

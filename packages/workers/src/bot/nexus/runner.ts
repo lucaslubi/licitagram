@@ -13,6 +13,7 @@
 
 import { supabase } from '../../lib/supabase'
 import { logger } from '../../lib/logger'
+import { redisClient } from '../../queues/connection'
 import { DisputeEngine, type EngineStrategy } from './dispute-engine'
 import {
   extractCompraId,
@@ -175,10 +176,73 @@ async function emitBotEvent(
 }
 
 /**
+ * F8: single-account lock. Evita 2 sessões da mesma conta gov.br
+ * (mesmo accountId/companyId+portal) rodando em paralelo — o portal
+ * derruba a sessão mais antiga e o operador perde a conexão.
+ *
+ * Lock TTL = 6h (mesmo MAX_RUNTIME do engine). Se worker morre, lock
+ * expira sozinho. Renovado a cada 5min via heartbeat.
+ */
+const ACCOUNT_LOCK_TTL_SEC = 6 * 60 * 60
+
+async function acquireAccountLock(
+  accountKey: string,
+  sessionId: string,
+): Promise<boolean> {
+  const key = `bot:account:${accountKey}`
+  // SET NX EX — atomic acquire
+  const res = await redisClient.set(key, sessionId, 'EX', ACCOUNT_LOCK_TTL_SEC, 'NX')
+  return res === 'OK'
+}
+
+async function refreshAccountLock(accountKey: string, sessionId: string): Promise<void> {
+  const key = `bot:account:${accountKey}`
+  // só refresh se EU é o dono
+  const cur = await redisClient.get(key)
+  if (cur === sessionId) {
+    await redisClient.expire(key, ACCOUNT_LOCK_TTL_SEC)
+  }
+}
+
+async function releaseAccountLock(accountKey: string, sessionId: string): Promise<void> {
+  const key = `bot:account:${accountKey}`
+  const cur = await redisClient.get(key)
+  if (cur === sessionId) {
+    await redisClient.del(key)
+  }
+}
+
+/**
  * Roda uma sessão até o fim (ou crash). Retorna outcome pro processor.
  */
 export async function runNexusSession(input: RunnerInput): Promise<RunnerOutput> {
   const { sessionId, companyId, pregaoId, mode, minPrice, strategyConfig } = input
+
+  // F8: lock por conta gov.br (companyId + portal). Bloqueia sessões
+  // concorrentes da mesma conta — portal invalida quando há login duplo.
+  const accountKey = `${companyId}:comprasgov`
+  const got = await acquireAccountLock(accountKey, sessionId)
+  if (!got) {
+    const holder = await redisClient.get(`bot:account:${accountKey}`)
+    logger.warn(
+      { sessionId, accountKey, holder },
+      '[nexus-runner] Conta gov.br já em uso por outra sessão',
+    )
+    await supabase
+      .from('bot_sessions')
+      .update({
+        status: 'failed',
+        completed_at: new Date().toISOString(),
+        result: {
+          error:
+            'Outra sessão dessa empresa já está rodando no Compras.gov.br. Cancele a sessão ativa antes de iniciar uma nova.',
+          code: 'account_lock_held',
+          holder_session_id: holder,
+        },
+      })
+      .eq('id', sessionId)
+    return { ok: false, reason: 'account_lock_held', details: { holder } }
+  }
 
   // 1. Compra ID do pregão
   const compraId = extractCompraId(pregaoId)
@@ -381,6 +445,8 @@ export async function runNexusSession(input: RunnerInput): Promise<RunnerOutput>
     const MAX_RUNTIME_MS = 6 * 60 * 60 * 1000 // 6h teto
     const start = Date.now()
     let cancelled = false
+    let lastHeartbeatAt = 0
+    const HEARTBEAT_INTERVAL_MS = 5 * 60 * 1000 // F9: 5min
     // eslint-disable-next-line no-constant-condition
     while (true) {
       await new Promise((r) => setTimeout(r, 1000)) // F7: 1s
@@ -409,6 +475,27 @@ export async function runNexusSession(input: RunnerInput): Promise<RunnerOutput>
       }
       if (terminalError) break
       if (Date.now() - start > MAX_RUNTIME_MS) break
+
+      // F9: heartbeat — renova lock Redis + atualiza last_heartbeat no DB.
+      // Engine sweep já mantém o token quente via ensureAccessToken, mas
+      // o lock precisa de refresh explícito pra não expirar em sessões
+      // longas.
+      const now2 = Date.now()
+      if (now2 - lastHeartbeatAt > HEARTBEAT_INTERVAL_MS) {
+        lastHeartbeatAt = now2
+        try {
+          await refreshAccountLock(accountKey, sessionId)
+          await supabase
+            .from('bot_sessions')
+            .update({ last_heartbeat: new Date().toISOString() })
+            .eq('id', sessionId)
+        } catch (err) {
+          logger.warn(
+            { sessionId, err: err instanceof Error ? err.message : err },
+            '[nexus-runner] heartbeat refresh failed',
+          )
+        }
+      }
 
       // F5: aplica updates de strategy ao vivo
       if (cur.min_price !== liveState.minPrice) {
@@ -501,6 +588,12 @@ export async function runNexusSession(input: RunnerInput): Promise<RunnerOutput>
     }
   } finally {
     engine.stop()
+    // F8: libera lock independente de outcome
+    try {
+      await releaseAccountLock(accountKey, sessionId)
+    } catch {
+      /* lock vai expirar pelo TTL */
+    }
   }
 
   if (terminalError) {
