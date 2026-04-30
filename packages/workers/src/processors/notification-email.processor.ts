@@ -219,7 +219,13 @@ const emailWorker = new Worker<EmailNotificationJobData>(
         ? `R$ ${Number(tender.valor_estimado).toLocaleString('pt-BR')}`
         : 'Não informado'
 
-      const subject = `Nova oportunidade (Score ${match.score}) — ${(tender?.objeto || '').substring(0, 60)}`
+      // Resend rejeita subject com \n/\r/\t (422 validation_error). Editais costumam
+      // ter quebras de linha no objeto — sanitizamos antes de truncar.
+      const objetoSanitized = (tender?.objeto || '')
+        .replace(/[\r\n\t]+/g, ' ')
+        .replace(/\s{2,}/g, ' ')
+        .trim()
+      const subject = `Nova oportunidade (Score ${match.score}) — ${objetoSanitized.substring(0, 60)}`
       const html = matchAlertHtml({
         objeto: (tender?.objeto || '').substring(0, 200),
         orgao: tender?.orgao_nome || 'N/I',
