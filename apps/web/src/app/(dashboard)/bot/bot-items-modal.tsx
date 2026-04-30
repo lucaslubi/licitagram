@@ -44,6 +44,7 @@ export function BotItemsModal({ pregaoId, initialConfig, onSave, onClose }: Prop
   const [items, setItems] = useState<ItemConfig[]>([])
   const [error, setError] = useState<string | null>(null)
   const [pisoGlobalInput, setPisoGlobalInput] = useState('')
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
 
   const loadPreview = useCallback(async () => {
     setLoading(true)
@@ -142,12 +143,23 @@ export function BotItemsModal({ pregaoId, initialConfig, onSave, onClose }: Prop
       <div className="flex max-h-[90vh] w-full max-w-3xl flex-col rounded-xl border border-border bg-card shadow-2xl">
         {/* Header */}
         <div className="flex items-start justify-between gap-3 border-b border-border p-5">
-          <div>
+          <div className="min-w-0">
             <h2 className="text-lg font-semibold text-foreground">
               Configurar itens do pregão
+              {!loading && items.length > 0 && (
+                <span className="ml-2 inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-mono font-medium text-emerald-400">
+                  {items.filter((i) => i.ativo).length}/{items.length} ativos
+                </span>
+              )}
             </h2>
-            <p className="mt-0.5 font-mono text-xs text-muted-foreground">
+            <p className="mt-0.5 font-mono text-xs text-muted-foreground truncate">
               {pregaoId}
+            </p>
+            <p
+              className="mt-2 text-[11px] text-muted-foreground"
+              title="Hierarquia de piso: piso por item > piso global do modal > min_price da tela anterior. Se item tiver piso próprio, ele vence sempre."
+            >
+              📊 Hierarquia: <span className="text-foreground">piso por item</span> &gt; <span className="text-foreground">piso global</span> &gt; <span className="text-foreground">piso da tela anterior</span>
             </p>
           </div>
           <button
@@ -323,9 +335,14 @@ export function BotItemsModal({ pregaoId, initialConfig, onSave, onClose }: Prop
         {/* Footer */}
         <div className="flex items-center justify-between gap-3 border-t border-border bg-card/40 p-4">
           <p className="text-xs text-muted-foreground">
-            Se fechar sem salvar, o robô usa piso único da tela anterior pra todos os itens.
+            Sem salvar, o robô usa o <strong className="text-foreground">piso da tela anterior</strong> pra todos os itens.
           </p>
           <div className="flex items-center gap-2">
+            {saveStatus === 'saved' && (
+              <span className="rounded bg-emerald-500/10 px-2 py-1 text-xs text-emerald-400">
+                ✓ Configuração salva
+              </span>
+            )}
             <button
               type="button"
               onClick={onClose}
@@ -335,11 +352,23 @@ export function BotItemsModal({ pregaoId, initialConfig, onSave, onClose }: Prop
             </button>
             <button
               type="button"
-              onClick={save}
-              disabled={loading || items.length === 0}
-              className="rounded-lg bg-brand px-4 py-2 text-xs font-medium text-white hover:bg-brand-dark disabled:opacity-50"
+              onClick={() => {
+                setSaveStatus('saving')
+                save()
+                setSaveStatus('saved')
+                setTimeout(() => setSaveStatus('idle'), 1800)
+              }}
+              disabled={loading || items.length === 0 || saveStatus === 'saving'}
+              className="rounded-lg bg-brand px-4 py-2 text-xs font-medium text-white hover:bg-brand-dark disabled:opacity-50 inline-flex items-center gap-2"
             >
-              Salvar configuração
+              {saveStatus === 'saving' ? (
+                <>
+                  <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  Salvando…
+                </>
+              ) : (
+                'Salvar configuração'
+              )}
             </button>
           </div>
         </div>
