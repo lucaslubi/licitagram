@@ -31,9 +31,11 @@ export async function GET(req: NextRequest) {
   const { data: { user } } = await authClient.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // Heavy queries go through a 45-second Postgres statement timeout client.
-  // PostgREST's Prefer: timeout=45 overrides the authenticated role default.
-  const supabase = await createClientWithTimeout(45)
+  // Heavy queries: 55s Postgres timeout (Vercel maxDuration=60). Sub-queries
+  // que estourarem viram partial result via Promise.allSettled, então o
+  // cliente não vê mais "canceling statement" — fica em loading indefinido
+  // OU recebe dados parciais com flag `partial`.
+  const supabase = await createClientWithTimeout(55)
 
   // Rate limiting: 30 req/min per user
   const rateLimit = await checkRedisRateLimit(`search:${user.id}`, 30, 60)
@@ -153,10 +155,14 @@ export async function GET(req: NextRequest) {
     // query in parallel and await once. This brings the common case to well
     // under 10 s on warm DB cache.
 
-    // Count query (head:true, no inner join — accurate distinct-tender count)
+    // Count query — usa 'estimated' em vez de 'exact'.
+    // 'exact' força sequential scan sobre milhões de tenders e é o
+    // PRINCIPAL motivo do "canceling statement due to statement timeout"
+    // que o cliente reportou. 'estimated' usa pg_class.reltuples (instant)
+    // e pra UI de Preços de Mercado serve de sobra ("~12,5k registros").
     let countQuery = supabase
       .from('tenders')
-      .select('id', { count: 'exact', head: true })
+      .select('id', { count: 'estimated', head: true })
       .textSearch('objeto', q, { type: 'websearch', config: 'portuguese' })
 
     if (homologatedOnly) countQuery = countQuery.not('valor_homologado', 'is', null)
@@ -211,7 +217,12 @@ export async function GET(req: NextRequest) {
           .limit(50)
       : Promise.resolve({ data: null })
 
-    const [pageResult, countResult, statsResult, itemSearchResult, refsResult] = await Promise.all([
+    // ── Tolerância a timeout: cada sub-query é settled separadamente.
+    // Se alguma estourar o statement_timeout do Postgres, a outra ainda
+    // pode entregar resultado útil. UI mostra dados parciais com aviso
+    // em vez de "canceling statement due to statement timeout" (erro
+    // bruto que o cliente reportou).
+    const settled = await Promise.allSettled([
       query,
       countQuery,
       statsQueryPromise,
@@ -219,10 +230,61 @@ export async function GET(req: NextRequest) {
       refsSearchPromise,
     ])
 
-    const { data, error } = pageResult
-    const { count } = countResult
-    const allRecordsForStats = statsResult.data
-    const itemSearch = itemSearchResult.data as Array<{
+    const isTimeoutErr = (e: unknown): boolean => {
+      if (!e || typeof e !== 'object') return false
+      const m = ('message' in e && typeof e.message === 'string') ? (e as { message: string }).message : ''
+      const c = ('code' in e && typeof e.code === 'string') ? (e as { code: string }).code : ''
+      return /canceling statement|statement timeout|57014/i.test(m) || c === '57014'
+    }
+    const partialFlags: string[] = []
+    const safeData = <T,>(idx: number, label: string, fallback: T): T => {
+      const r = settled[idx]
+      if (r && r.status === 'fulfilled') {
+        const val = r.value as { data?: T; error?: unknown }
+        if (val && val.error && isTimeoutErr(val.error)) {
+          partialFlags.push(label)
+          return fallback
+        }
+        return (val?.data ?? fallback) as T
+      }
+      // rejected
+      if (r && r.status === 'rejected' && isTimeoutErr(r.reason)) {
+        partialFlags.push(label)
+      } else if (r && r.status === 'rejected') {
+        partialFlags.push(`${label}_err`)
+      }
+      return fallback
+    }
+    const safeCount = (idx: number, label: string): number | null => {
+      const r = settled[idx]
+      if (r && r.status === 'fulfilled') {
+        const val = r.value as { count?: number; error?: unknown }
+        if (val && val.error && isTimeoutErr(val.error)) {
+          partialFlags.push(label)
+          return null
+        }
+        return (val?.count ?? null) as number | null
+      }
+      if (r && r.status === 'rejected' && isTimeoutErr(r.reason)) {
+        partialFlags.push(label)
+      } else if (r && r.status === 'rejected') {
+        partialFlags.push(`${label}_err`)
+      }
+      return null
+    }
+
+    const data = safeData<Array<Record<string, unknown>> | null>(0, 'page', null)
+    const error = (() => {
+      const r = settled[0]
+      if (r && r.status === 'fulfilled') {
+        const v = r.value as { error?: { message?: string; code?: string } | null }
+        return v?.error ?? null
+      }
+      return r && r.status === 'rejected' ? (r.reason as Error) : null
+    })()
+    const count = safeCount(1, 'count')
+    const allRecordsForStats = safeData<unknown[] | null>(2, 'stats', null)
+    const itemSearch = safeData<Array<{
       id: string
       tender_id: string
       numero_item: number | null
@@ -231,19 +293,48 @@ export async function GET(req: NextRequest) {
       unidade_medida: string | null
       valor_unitario_estimado: number | null
       valor_total_estimado: number | null
-    }> | null
-    const refData = refsResult.data
+    }> | null>(3, 'item_search', null)
+    const refData = safeData<unknown[] | null>(4, 'refs', null)
 
     if (error) {
-      console.error('Price history search error:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      // Se TUDO falhou (até a query principal), aí sim erro de verdade.
+      // Quando só sub-queries timeoutaram, partial_data flags avisam UI.
+      if (isTimeoutErr(error)) {
+        console.warn('[price-search] main query timeout — returning partial empty result')
+        // Cai pra fora pra montar resposta vazia com partial=true em vez de 500
+      } else {
+        const msg = (error as { message?: string }).message || 'Erro na busca'
+        console.error('Price history search error:', error)
+        return NextResponse.json({ error: msg }, { status: 500 })
+      }
     }
 
     // Transform results into PriceRecord[] format
     const records: PriceRecord[] = []
 
-    if (data) {
-      for (const tender of data) {
+    type TenderRow = {
+      id: string
+      objeto: string | null
+      valor_estimado: number | null
+      valor_homologado: number | null
+      uf: string | null
+      municipio: string | null
+      modalidade_nome: string | null
+      orgao_nome: string | null
+      data_publicacao: string | null
+      data_encerramento: string | null
+      competitors?: Array<{
+        cnpj: string | null
+        nome: string | null
+        valor_proposta: number | null
+        situacao: string | null
+        porte: string | null
+        uf_fornecedor: string | null
+      }>
+    }
+    const tenders = (data || []) as unknown as TenderRow[]
+    if (tenders.length > 0) {
+      for (const tender of tenders) {
         const competitors = (tender.competitors || []) as Array<{
           cnpj: string | null
           nome: string | null
@@ -438,9 +529,28 @@ export async function GET(req: NextRequest) {
 
     // Also fetch cross-reference prices from price_references (multi-source).
     // Pre-fetched in the parallel batch above.
+    type RefRow = {
+      id: string
+      fonte: string
+      fonte_id: string | null
+      modalidade: string | null
+      orgao_nome: string | null
+      orgao_uf: string | null
+      descricao: string
+      unidade_medida: string | null
+      quantidade: number | null
+      valor_unitario: number | null
+      valor_total: number | null
+      nome_fornecedor: string | null
+      cnpj_fornecedor: string | null
+      porte_fornecedor: PriceRecord['supplier_porte'] | null
+      data_referencia: string
+      confiabilidade: number | null
+    }
+    const refRows = (refData || []) as unknown as RefRow[]
     try {
-      if (refData && refData.length > 0) {
-        for (const ref of refData) {
+      if (refRows.length > 0) {
+        for (const ref of refRows) {
           if (!ref.valor_unitario || ref.valor_unitario <= 0) continue
 
           records.push({
@@ -591,6 +701,9 @@ export async function GET(req: NextRequest) {
       query: searchQuery,
       cache_hit: false,
       query_time_ms: Date.now() - startTime,
+      // Indica se algum sub-resultado caiu por timeout. UI usa pra mostrar
+      // "alguns recortes ainda estão sendo calculados" em vez de erro.
+      partial: partialFlags.length > 0 ? partialFlags : undefined,
     }
 
     // Track trending in background

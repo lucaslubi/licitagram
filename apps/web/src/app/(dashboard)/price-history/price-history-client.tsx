@@ -153,68 +153,88 @@ export function PriceHistoryClient() {
     setShowSuggestions(false)
     saveRecentSearch(q)
 
-    // Reset pricing state when query changes
     if (page === 1) {
       setValorEstimado(null)
       setSelectedBandLabel(null)
     }
 
-    // Client-side timeout: Vercel maxDuration is 60s; abort at 55s so we can
-    // show a friendly message instead of letting the platform kill the request.
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 55_000)
+    const params = new URLSearchParams({ q, page: String(page), page_size: '20' })
+    if (uf) params.set('uf', uf)
+    if (modalidade) params.set('modalidade', modalidade)
+    if (dateFrom) params.set('date_from', dateFrom)
+    if (dateTo) params.set('date_to', dateTo)
+    if (winOnly) params.set('win_only', 'true')
 
-    try {
-      const params = new URLSearchParams({ q, page: String(page), page_size: '20' })
-      if (uf) params.set('uf', uf)
-      if (modalidade) params.set('modalidade', modalidade)
-      if (dateFrom) params.set('date_from', dateFrom)
-      if (dateTo) params.set('date_to', dateTo)
-      if (winOnly) params.set('win_only', 'true')
-
-      const res = await fetch(`/api/price-history/search?${params.toString()}`, {
-        signal: controller.signal,
-      })
-
-      // Read body as text first — the server may return HTML (timeouts,
-      // platform errors, middleware redirects) and .json() would throw with
-      // a cryptic "Unexpected token 'A'..." message.
-      const raw = await res.text()
-
-      if (!res.ok) {
-        let msg = `Erro ${res.status} na busca.`
-        try {
-          const parsed = JSON.parse(raw) as { error?: string }
-          if (parsed.error) msg = parsed.error
-        } catch {
-          if (res.status === 504 || raw.includes('timeout')) {
-            msg = 'A busca demorou demais. Tente um termo mais específico ou use filtros (UF, data).'
-          } else if (res.status >= 500) {
-            msg = 'O servidor está indisponível no momento. Tente novamente em alguns instantes.'
-          }
-        }
-        throw new Error(msg)
-      }
-
-      let data: PriceSearchResult
+    // Retry transparente até 3 tentativas. Cliente NUNCA vê "canceling
+    // statement" ou erros crus — fica em estado de loading e o servidor
+    // já degrada gracefully (partial: true) quando uma sub-query timeout.
+    const maxAttempts = 3
+    let lastErrMsg = ''
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const controller = new AbortController()
+      // Cada tentativa tem 55s — total de até ~3min se todas estourarem.
+      const timeoutId = setTimeout(() => controller.abort(), 55_000)
       try {
-        data = JSON.parse(raw) as PriceSearchResult
-      } catch {
-        throw new Error('Resposta inválida do servidor. Tente novamente.')
+        const res = await fetch(`/api/price-history/search?${params.toString()}`, {
+          signal: controller.signal,
+        })
+        const raw = await res.text()
+
+        if (!res.ok) {
+          // Inclui 5xx, 502 (Vercel platform), 504 (gateway timeout). Retry.
+          let parsedErr = ''
+          try { parsedErr = (JSON.parse(raw) as { error?: string }).error || '' } catch {}
+          // Erro do Postgres: NUNCA mostrar pro cliente
+          if (/canceling statement|statement timeout|57014/i.test(parsedErr)) {
+            lastErrMsg = 'still_calculating'
+          } else {
+            lastErrMsg = parsedErr || `http_${res.status}`
+          }
+          if (attempt < maxAttempts) {
+            // Backoff progressivo entre tentativas
+            await new Promise((r) => setTimeout(r, 800 * attempt))
+            continue
+          }
+        } else {
+          let data: PriceSearchResult
+          try {
+            data = JSON.parse(raw) as PriceSearchResult
+          } catch {
+            // Resposta corrompida: retry
+            if (attempt < maxAttempts) {
+              await new Promise((r) => setTimeout(r, 500 * attempt))
+              continue
+            }
+            lastErrMsg = 'invalid_response'
+            break
+          }
+          setResult(data)
+          setCurrentPage(page)
+          clearTimeout(timeoutId)
+          setLoading(false)
+          return
+        }
+      } catch (e: unknown) {
+        if (e instanceof Error && e.name === 'AbortError') {
+          lastErrMsg = 'aborted'
+        } else {
+          lastErrMsg = e instanceof Error ? e.message : 'unknown'
+        }
+        if (attempt < maxAttempts) {
+          await new Promise((r) => setTimeout(r, 800 * attempt))
+        }
+      } finally {
+        clearTimeout(timeoutId)
       }
-      setResult(data)
-      setCurrentPage(page)
-    } catch (e: unknown) {
-      if (e instanceof Error && e.name === 'AbortError') {
-        setError('A busca demorou mais de 55 segundos. Tente um termo mais específico ou aplique filtros (UF, modalidade, data).')
-      } else {
-        setError(e instanceof Error ? e.message : 'Erro desconhecido')
-      }
-      setResult(null)
-    } finally {
-      clearTimeout(timeoutId)
-      setLoading(false)
     }
+
+    // Todas as tentativas esgotadas — mensagem amigável, sem detalhe técnico.
+    setLoading(false)
+    setResult(null)
+    setError(
+      'A consulta está demorando mais que o normal. Sugestões: refine o termo (mais específico), filtre por UF ou faixa de data, e tente novamente.',
+    )
+    void lastErrMsg
   }, [query, uf, modalidade, dateFrom, dateTo, winOnly])
 
   const handleExport = async () => {
