@@ -41,12 +41,25 @@ export async function signUp(formData: FormData, redirectTo?: string) {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://licitagram.com'
 
+  // WhatsApp obrigatório no trial (server-side double-check; UI também valida).
+  // Normaliza pra E.164-like sem '+': 11 dígitos BR. Aceita 10 (DDD+8) também.
+  const rawWa = (formData.get('whatsapp') as string | null) || ''
+  const waDigits = rawWa.replace(/\D/g, '')
+  if (waDigits.length < 10 || waDigits.length > 11) {
+    return {
+      error: 'Informe um WhatsApp válido com DDD (ex: (11) 98765-4321).',
+    }
+  }
+  // Normaliza pra formato BR completo: 55 + DDD + número
+  const waE164 = waDigits.startsWith('55') ? waDigits : `55${waDigits}`
+
   const { data, error } = await supabase.auth.signUp({
     email: formData.get('email') as string,
     password: formData.get('password') as string,
     options: {
       data: {
         full_name: formData.get('full_name') as string,
+        whatsapp_number: waE164,
       },
       emailRedirectTo: `${appUrl}/auth/callback`,
     },

@@ -7,16 +7,26 @@ import { signUp, signInWithGoogle } from '@/actions/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { formatPhoneBR } from '@/lib/format'
 
 export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [whatsapp, setWhatsapp] = useState('')
 
   async function handleSubmit(formData: FormData) {
     setLoading(true)
     setError(null)
     setSuccess(null)
+    // Validação client-side do WhatsApp (10 ou 11 dígitos BR)
+    const waDigits = (formData.get('whatsapp') as string || '').replace(/\D/g, '')
+    if (waDigits.length < 10 || waDigits.length > 11) {
+      setError('Informe um WhatsApp válido com DDD (ex: (11) 98765-4321).')
+      setLoading(false)
+      return
+    }
+    formData.set('whatsapp', waDigits)
     const result = await signUp(formData)
     if (result?.error) {
       setError(result.error)
@@ -92,6 +102,26 @@ export default function RegisterPage() {
                   type="email"
                   placeholder="seu@email.com"
                   required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="whatsapp" className="text-sm font-medium">
+                  WhatsApp
+                  <span className="ml-1 text-xs font-normal text-muted-foreground">
+                    (com DDD — usaremos pra te enviar oportunidades)
+                  </span>
+                </Label>
+                <Input
+                  id="whatsapp"
+                  name="whatsapp"
+                  type="tel"
+                  inputMode="numeric"
+                  autoComplete="tel"
+                  placeholder="(11) 98765-4321"
+                  value={whatsapp}
+                  onChange={(e) => setWhatsapp(formatPhoneBR(e.target.value))}
+                  required
+                  maxLength={16}
                 />
               </div>
               <div className="space-y-2">

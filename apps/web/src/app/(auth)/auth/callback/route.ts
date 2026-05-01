@@ -29,6 +29,14 @@ export async function GET(request: Request) {
         // Don't block login — trial creation is best-effort here
       }
 
+      // Copia whatsapp_number do user_metadata pra users.whatsapp_number
+      // (signUp salvou em metadata; agora persistimos no perfil)
+      try {
+        await syncWhatsappFromMetadata(supabase)
+      } catch (err) {
+        console.error('[Auth Callback] syncWhatsappFromMetadata error:', err)
+      }
+
       return NextResponse.redirect(`${origin}/map`)
     }
     console.error('[Auth Callback] Exchange error:', exchangeError.message)
@@ -97,5 +105,63 @@ async function ensureTrialSubscription(supabase: Awaited<ReturnType<typeof creat
     }
   } else {
     console.log('[Auth Callback] Created trial subscription for company:', profile.company_id)
+  }
+}
+
+/**
+ * Sincroniza whatsapp_number do user_metadata (preenchido no signup form)
+ * para users.whatsapp_number. Marca whatsapp_verified=false — usuário ainda
+ * precisa confirmar via código no /conta/notificacoes pra começar a
+ * receber notificações pelo canal. O número fica disponível desde já pra
+ * automações de outbound (mensagens de venda do trial).
+ */
+async function syncWhatsappFromMetadata(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+) {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+
+  const meta = (user.user_metadata || {}) as Record<string, unknown>
+  const wa = typeof meta.whatsapp_number === 'string' ? meta.whatsapp_number : null
+  if (!wa) return
+
+  const service = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
+
+  // Lê estado atual antes de sobrescrever — só atualiza se ainda tá vazio,
+  // pra não esmagar um número já verificado pelo /conta/notificacoes.
+  const { data: row } = await service
+    .from('users')
+    .select('whatsapp_number, whatsapp_verified')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  if (!row || row.whatsapp_verified) return // verificado: respeita o existente
+  if (row.whatsapp_number === wa) return // já igual
+
+  await service
+    .from('users')
+    .update({ whatsapp_number: wa, whatsapp_verified: false })
+    .eq('id', user.id)
+
+  // Enfileira lead pra automação de vendas (best-effort).
+  // A tabela `trial_leads` é alimentada aqui e consumida pelo worker
+  // outbound-personalize que decide quando mandar mensagem.
+  try {
+    await service.from('trial_leads').insert({
+      user_id: user.id,
+      email: user.email || null,
+      whatsapp_number: wa,
+      full_name: (meta.full_name as string) || null,
+      source: 'register_form',
+      status: 'queued',
+    })
+  } catch (err) {
+    // Tabela pode não existir ainda no DB de prod; não bloqueia signup.
+    if (err && typeof err === 'object' && 'code' in err && err.code !== '42P01') {
+      console.error('[Auth Callback] trial_leads insert error:', err)
+    }
   }
 }
