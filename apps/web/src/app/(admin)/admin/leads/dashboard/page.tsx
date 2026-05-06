@@ -29,7 +29,7 @@ export default async function LeadsDashboardPage() {
     return (
       <div className="p-8 text-center bg-red-900/20 rounded-xl border border-red-800">
         <h1 className="text-xl font-bold mb-2">Lead Engine Dashboard</h1>
-        <p className="text-red-400">Erro ao conectar com o Data API (VPS2). Verifique se o serviço está rodando.</p>
+        <p className="text-destructive">Erro ao conectar com o Data API (VPS2). Verifique se o serviço está rodando.</p>
       </div>
     )
   }
@@ -45,7 +45,7 @@ export default async function LeadsDashboardPage() {
         </div>
         <Link
           href="/admin/leads"
-          className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors"
+          className="px-4 py-2 bg-brand text-white rounded-lg text-sm font-medium hover:bg-brand-dark transition-colors"
         >
           Ver Leads →
         </Link>
@@ -59,12 +59,12 @@ export default async function LeadsDashboardPage() {
         </Card>
         <Card className="p-4 bg-zinc-900/60 border-zinc-800">
           <div className="text-xs text-zinc-500 uppercase tracking-wider">Com Email Genérico</div>
-          <div className="text-2xl font-bold text-emerald-400 mt-1">{formatNumber(emailStats.comEmail || 0)}</div>
+          <div className="text-2xl font-bold text-brand mt-1">{formatNumber(emailStats.comEmail || 0)}</div>
           <div className="text-xs text-zinc-500">{emailStats.taxaEnriquecimentoEmail || 0}% da base</div>
         </Card>
         <Card className="p-4 bg-zinc-900/60 border-zinc-800">
           <div className="text-xs text-zinc-500 uppercase tracking-wider">Com Site</div>
-          <div className="text-2xl font-bold text-blue-400 mt-1">{formatNumber(emailStats.comSite || 0)}</div>
+          <div className="text-2xl font-bold text-foreground mt-1">{formatNumber(emailStats.comSite || 0)}</div>
           <div className="text-xs text-zinc-500">{emailStats.taxaEnriquecimentoSite || 0}% da base</div>
         </Card>
         <Card className="p-4 bg-zinc-900/60 border-zinc-800">
@@ -147,7 +147,7 @@ export default async function LeadsDashboardPage() {
           <div className="space-y-2 max-h-64 overflow-y-auto">
             {(dashboard.distribuicaoUf || []).slice(0, 15).map((row: any) => (
               <div key={row.uf} className="flex items-center justify-between text-sm">
-                <Link href={`/admin/leads?uf=${row.uf}`} className="text-emerald-400 hover:underline font-mono">{row.uf}</Link>
+                <Link href={`/admin/leads?uf=${row.uf}`} className="text-brand hover:underline font-mono">{row.uf}</Link>
                 <div className="flex gap-3">
                   <span className="text-zinc-300 font-mono">{formatNumber(row.count)}</span>
                   <span className="text-zinc-500 text-xs">score médio: {Number(row.score_medio).toFixed(0)}</span>
@@ -163,7 +163,7 @@ export default async function LeadsDashboardPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-72 overflow-y-auto">
             {(dashboard.distribuicaoSegmento || []).map((row: any) => (
               <div key={row.segmento_vertical} className="flex items-center justify-between text-sm p-2 bg-zinc-800/40 rounded-lg">
-                <Link href={`/admin/leads?segmento=${encodeURIComponent(row.segmento_vertical)}`} className="text-zinc-300 hover:text-emerald-400 truncate max-w-[60%]">
+                <Link href={`/admin/leads?segmento=${encodeURIComponent(row.segmento_vertical)}`} className="text-zinc-300 hover:text-brand truncate max-w-[60%]">
                   {row.segmento_vertical}
                 </Link>
                 <div className="flex gap-3 shrink-0">
@@ -182,7 +182,7 @@ export default async function LeadsDashboardPage() {
             {(dashboard.funilOutreach || []).map((row: any) => {
               const statusColors: Record<string, string> = {
                 NAO_CONTACTADO: 'bg-zinc-700', FILA: 'bg-yellow-700', ENVIADO: 'bg-blue-700',
-                ENTREGUE: 'bg-blue-600', ABERTO: 'bg-emerald-700', CLICOU: 'bg-emerald-600',
+                ENTREGUE: 'bg-blue-600', ABERTO: 'bg-brand-dark', CLICOU: 'bg-brand',
                 RESPONDEU: 'bg-emerald-500', CONVERTIDO: 'bg-violet-600', BOUNCE: 'bg-red-700', OPT_OUT: 'bg-orange-700',
               }
               return (

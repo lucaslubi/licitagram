@@ -30,7 +30,7 @@ function formatRelativeDate(dateStr: string | null): string {
 }
 
 function scoreBadge(score: number) {
-  if (score >= 80) return <Badge className="bg-emerald-600 text-white">{score}</Badge>
+  if (score >= 80) return <Badge className="bg-brand text-white">{score}</Badge>
   if (score >= 50) return <Badge className="bg-amber-500 text-white">{score}</Badge>
   if (score >= 20) return <Badge className="bg-orange-500 text-white">{score}</Badge>
   return <Badge className="bg-zinc-600 text-white">{score}</Badge>
@@ -224,7 +224,7 @@ export default async function AdminLeadsPage({
             <input type="checkbox" name="excluirContactados" value="false" defaultChecked={params.excluirContactados === 'false'} className="rounded" />
             Incluir já contactados
           </label>
-          <button type="submit" className="ml-auto px-4 py-2 bg-emerald-600 text-white rounded-md text-sm font-medium hover:bg-emerald-700 transition-colors">
+          <button type="submit" className="ml-auto px-4 py-2 bg-brand text-white rounded-md text-sm font-medium hover:bg-brand-dark transition-colors">
             Filtrar
           </button>
           <Link href="/admin/leads" className="px-4 py-2 bg-zinc-700 text-white rounded-md text-sm font-medium hover:bg-zinc-600 transition-colors">
@@ -235,7 +235,7 @@ export default async function AdminLeadsPage({
 
       {fetchError ? (
         <div className="p-8 text-center bg-red-900/20 rounded-xl border border-red-800">
-          <p className="text-red-400">Erro ao conectar com o Data API (VPS2). Verifique se o serviço está rodando em 85.31.60.53:3997.</p>
+          <p className="text-destructive">Erro ao conectar com o Data API (VPS2). Verifique se o serviço está rodando em 85.31.60.53:3997.</p>
         </div>
       ) : leads.length === 0 ? (
         <div className="p-8 text-center bg-zinc-900/50 rounded-xl border border-zinc-800">
@@ -278,14 +278,14 @@ export default async function AdminLeadsPage({
                 {leads.map((lead: any) => (
                   <tr key={lead.cnpj} className="hover:bg-zinc-900/40 transition-colors">
                     <td className="px-3 py-3">
-                      <Link href={`/admin/leads/${lead.cnpj}`} className="hover:underline text-emerald-400 font-medium">
+                      <Link href={`/admin/leads/${lead.cnpj}`} className="hover:underline text-brand font-medium">
                         {lead.razao_social || lead.cnpj}
                       </Link>
                       <div className="text-xs text-zinc-500 mt-0.5 font-mono">
                         {lead.cnpj?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')}
                       </div>
                       {lead.bloqueado_disparo && (
-                        <Badge className="bg-red-900/40 text-red-400 text-[10px] mt-1">BLOQUEADO: {lead.motivo_bloqueio}</Badge>
+                        <Badge className="bg-red-900/40 text-destructive text-[10px] mt-1">BLOQUEADO: {lead.motivo_bloqueio}</Badge>
                       )}
                       {lead.opt_out && (
                         <Badge className="bg-yellow-900/40 text-yellow-400 text-[10px] mt-1">OPT-OUT</Badge>
@@ -307,7 +307,7 @@ export default async function AdminLeadsPage({
                     </td>
                     <td className="px-3 py-3 text-center">
                       {lead.licitacoes_perdidas_por_pouco > 0 ? (
-                        <span className="text-red-400 font-bold">{lead.licitacoes_perdidas_por_pouco}</span>
+                        <span className="text-destructive font-bold">{lead.licitacoes_perdidas_por_pouco}</span>
                       ) : (
                         <span className="text-zinc-600">0</span>
                       )}
@@ -317,14 +317,14 @@ export default async function AdminLeadsPage({
                     </td>
                     <td className="px-3 py-3 text-center">
                       {lead.email_institucional_generico ? (
-                        <span title={lead.email_institucional_generico} className="text-emerald-400">✓</span>
+                        <span title={lead.email_institucional_generico} className="text-brand">✓</span>
                       ) : (
                         <span className="text-zinc-600">✗</span>
                       )}
                     </td>
                     <td className="px-3 py-3 text-center">
                       {lead.site_institucional ? (
-                        <a href={lead.site_institucional} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">↗</a>
+                        <a href={lead.site_institucional} target="_blank" rel="noopener noreferrer" className="text-foreground hover:text-blue-300">↗</a>
                       ) : (
                         <span className="text-zinc-600">—</span>
                       )}

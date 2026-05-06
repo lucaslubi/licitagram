@@ -1,13 +1,40 @@
+import { Skeleton } from '@/components/ui/skeleton'
+
 export default function Loading() {
   return (
-    <div className="p-6 space-y-6 animate-pulse">
-      <div className="h-8 w-48 bg-gray-200 dark:bg-gray-800 rounded" />
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[1,2,3].map(i => (
-          <div key={i} className="h-24 bg-gray-200 dark:bg-gray-800 rounded-lg" />
+    <div className="space-y-6 p-6">
+      {/* Header */}
+      <div className="flex items-end justify-between">
+        <div className="space-y-2">
+          <Skeleton className="h-7 w-56" />
+          <Skeleton className="h-4 w-72" />
+        </div>
+        <Skeleton className="h-9 w-28" />
+      </div>
+
+      {/* Filtros */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-9 w-full" />
         ))}
       </div>
-      <div className="h-96 bg-gray-200 dark:bg-gray-800 rounded-lg" />
+
+      {/* Lista de oportunidades */}
+      <div className="space-y-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div
+            key={i}
+            className="flex items-center gap-4 rounded-xl border border-border bg-card/50 p-4"
+          >
+            <Skeleton className="h-12 w-12 rounded-full" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-3 w-1/2" />
+            </div>
+            <Skeleton className="h-8 w-20" />
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

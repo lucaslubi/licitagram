@@ -21,7 +21,7 @@ export default async function ClientDetailPage({
   const overview = enriched.overview as any
 
   if (!detail.company) {
-    return <div className="text-center py-20 text-gray-400">Cliente não encontrado.</div>
+    return <div className="text-center py-20 text-muted-foreground">Cliente não encontrado.</div>
   }
 
   const company = detail.company
@@ -31,7 +31,7 @@ export default async function ClientDetailPage({
   return (
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-6">
-        <Link href="/admin/clients" className="text-sm text-gray-400 hover:text-gray-300">← Clientes</Link>
+        <Link href="/admin/clients" className="text-sm text-muted-foreground hover:text-foreground">← Clientes</Link>
         <h1 className="text-xl sm:text-2xl font-bold truncate">{company.razao_social || company.cnpj}</h1>
       </div>
 
@@ -40,12 +40,12 @@ export default async function ClientDetailPage({
         <Card>
           <CardHeader><CardTitle>Dados da Empresa</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <div className="flex justify-between"><span className="text-gray-400">CNPJ</span><span className="font-mono">{company.cnpj}</span></div>
-            <div className="flex justify-between"><span className="text-gray-400">Razão Social</span><span>{company.razao_social}</span></div>
-            {company.nome_fantasia && <div className="flex justify-between"><span className="text-gray-400">Nome Fantasia</span><span>{company.nome_fantasia}</span></div>}
-            <div className="flex justify-between"><span className="text-gray-400">UF</span><span>{company.uf || '—'}</span></div>
-            <div className="flex justify-between"><span className="text-gray-400">Porte</span><span>{company.porte || '—'}</span></div>
-            <div className="flex justify-between"><span className="text-gray-400">Cadastro</span><span>{new Date(company.created_at).toLocaleDateString('pt-BR')}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">CNPJ</span><span className="font-mono">{company.cnpj}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Razão Social</span><span>{company.razao_social}</span></div>
+            {company.nome_fantasia && <div className="flex justify-between"><span className="text-muted-foreground">Nome Fantasia</span><span>{company.nome_fantasia}</span></div>}
+            <div className="flex justify-between"><span className="text-muted-foreground">UF</span><span>{company.uf || '—'}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Porte</span><span>{company.porte || '—'}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Cadastro</span><span>{new Date(company.created_at).toLocaleDateString('pt-BR')}</span></div>
           </CardContent>
         </Card>
 
@@ -54,20 +54,20 @@ export default async function ClientDetailPage({
           <CardHeader><CardTitle>Assinatura</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-400">Plano</span>
+              <span className="text-muted-foreground">Plano</span>
               <span className="font-medium">{plan?.name || 'Nenhum'}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-400">Status</span>
+              <span className="text-muted-foreground">Status</span>
               <Badge variant="outline" className={
-                sub?.status === 'active' ? 'bg-emerald-900/20 text-emerald-400' : 'bg-[#2d2f33] text-gray-400'
+                sub?.status === 'active' ? 'border border-brand/30 bg-brand/10 text-brand' : 'bg-secondary text-muted-foreground'
               }>{sub?.status || 'N/A'}</Badge>
             </div>
             {plan?.price_cents && (
-              <div className="flex justify-between"><span className="text-gray-400">Valor</span><span>{formatBRL(plan.price_cents)}/mês</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Valor</span><span>{formatBRL(plan.price_cents)}/mês</span></div>
             )}
-            <div className="flex justify-between"><span className="text-gray-400">Matches usados</span><span>{sub?.matches_used_this_month ?? 0} / {plan?.max_matches_per_month ?? '∞'}</span></div>
-            <div className="flex justify-between"><span className="text-gray-400">Total Matches</span><span>{detail.matchCount}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Matches usados</span><span>{sub?.matches_used_this_month ?? 0} / {plan?.max_matches_per_month ?? '∞'}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Total Matches</span><span>{detail.matchCount}</span></div>
 
             <ClientSubscriptionActions
               companyId={id}
@@ -85,17 +85,17 @@ export default async function ClientDetailPage({
           <CardHeader><CardTitle className="text-amber-400">⚠️ Alertas Ativos ({enriched.activeAlerts.length})</CardTitle></CardHeader>
           <CardContent className="space-y-2">
             {enriched.activeAlerts.map((a: any) => (
-              <div key={a.id} className="flex items-start justify-between gap-3 text-sm border-b border-[#2d2f33] pb-2 last:border-0">
+              <div key={a.id} className="flex items-start justify-between gap-3 text-sm border-b border-border pb-2 last:border-0">
                 <div>
                   <Badge variant="outline" className={
-                    a.severity === 'critical' ? 'bg-red-900/20 text-red-400' :
+                    a.severity === 'critical' ? 'border border-destructive/30 bg-destructive/10 text-destructive' :
                     a.severity === 'warning' ? 'bg-amber-900/20 text-amber-400' :
-                    'bg-blue-900/20 text-blue-400'
+                    'border border-border bg-secondary text-foreground'
                   }>{a.type}</Badge>
-                  <p className="mt-1 text-gray-300">{a.message}</p>
+                  <p className="mt-1 text-foreground">{a.message}</p>
                 </div>
                 <form action={async () => { 'use server'; await resolveAlert(a.id) }}>
-                  <button className="text-xs text-gray-400 hover:text-white">Resolver</button>
+                  <button className="text-xs text-muted-foreground hover:text-white">Resolver</button>
                 </form>
               </div>
             ))}
@@ -108,15 +108,15 @@ export default async function ClientDetailPage({
         <Card>
           <CardHeader><CardTitle>Contatos</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <div className="flex justify-between"><span className="text-gray-400">Email principal</span><span>{overview?.email_principal || '—'}</span></div>
-            <div className="flex justify-between"><span className="text-gray-400">WhatsApp</span>
-              <span>{overview?.whatsapp_number ? <span className="text-emerald-400">{overview.whatsapp_number}</span> : <span className="text-gray-500">não conectado</span>}</span>
+            <div className="flex justify-between"><span className="text-muted-foreground">Email principal</span><span>{overview?.email_principal || '—'}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">WhatsApp</span>
+              <span>{overview?.whatsapp_number ? <span className="text-brand">{overview.whatsapp_number}</span> : <span className="text-muted-foreground/80">não conectado</span>}</span>
             </div>
-            <div className="flex justify-between"><span className="text-gray-400">Telegram</span>
-              <span>{overview?.telegram_connected ? <span className="text-emerald-400">conectado</span> : <span className="text-gray-500">não conectado</span>}</span>
+            <div className="flex justify-between"><span className="text-muted-foreground">Telegram</span>
+              <span>{overview?.telegram_connected ? <span className="text-brand">conectado</span> : <span className="text-muted-foreground/80">não conectado</span>}</span>
             </div>
-            <div className="flex justify-between"><span className="text-gray-400">CNAE principal</span>
-              <span className="font-mono">{overview?.has_valid_cnae ? overview.cnae_principal : <span className="text-red-400">inválido</span>}</span>
+            <div className="flex justify-between"><span className="text-muted-foreground">CNAE principal</span>
+              <span className="font-mono">{overview?.has_valid_cnae ? overview.cnae_principal : <span className="text-destructive">inválido</span>}</span>
             </div>
           </CardContent>
         </Card>
@@ -124,16 +124,16 @@ export default async function ClientDetailPage({
         <Card>
           <CardHeader><CardTitle>Atividade</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <div className="flex justify-between"><span className="text-gray-400">Último login</span>
-              <span>{overview?.last_login_at ? new Date(overview.last_login_at).toLocaleString('pt-BR') : <span className="text-red-400">nunca</span>}</span>
+            <div className="flex justify-between"><span className="text-muted-foreground">Último login</span>
+              <span>{overview?.last_login_at ? new Date(overview.last_login_at).toLocaleString('pt-BR') : <span className="text-destructive">nunca</span>}</span>
             </div>
-            <div className="flex justify-between"><span className="text-gray-400">Último match</span>
+            <div className="flex justify-between"><span className="text-muted-foreground">Último match</span>
               <span>{overview?.last_match_at ? new Date(overview.last_match_at).toLocaleString('pt-BR') : '—'}</span>
             </div>
-            <div className="flex justify-between"><span className="text-gray-400">Matches 7d / 30d</span>
+            <div className="flex justify-between"><span className="text-muted-foreground">Matches 7d / 30d</span>
               <span>{overview?.matches_7d ?? 0} / {overview?.matches_30d ?? 0}</span>
             </div>
-            <div className="flex justify-between"><span className="text-gray-400">Notificações não lidas</span>
+            <div className="flex justify-between"><span className="text-muted-foreground">Notificações não lidas</span>
               <span>{overview?.notifications_unread ?? 0}</span>
             </div>
           </CardContent>
@@ -146,14 +146,14 @@ export default async function ClientDetailPage({
           <CardHeader><CardTitle>Matches recentes</CardTitle></CardHeader>
           <CardContent>
             {enriched.recentMatches.length === 0 ? (
-              <p className="text-sm text-gray-400">Nenhum match.</p>
+              <p className="text-sm text-muted-foreground">Nenhum match.</p>
             ) : (
               <ul className="text-xs space-y-1">
                 {enriched.recentMatches.map((m: any) => (
-                  <li key={m.id} className="flex justify-between gap-2 text-gray-300">
+                  <li key={m.id} className="flex justify-between gap-2 text-foreground">
                     <span className="font-mono truncate">{m.tender_id?.slice(0, 8)}…</span>
                     <span>score {Math.round((m.score || 0) * 100)}%</span>
-                    <span className="text-gray-500">{new Date(m.created_at).toLocaleDateString('pt-BR')}</span>
+                    <span className="text-muted-foreground/80">{new Date(m.created_at).toLocaleDateString('pt-BR')}</span>
                   </li>
                 ))}
               </ul>
@@ -165,13 +165,13 @@ export default async function ClientDetailPage({
           <CardHeader><CardTitle>Notificações recentes</CardTitle></CardHeader>
           <CardContent>
             {enriched.recentNotifications.length === 0 ? (
-              <p className="text-sm text-gray-400">Nenhuma notificação.</p>
+              <p className="text-sm text-muted-foreground">Nenhuma notificação.</p>
             ) : (
               <ul className="text-xs space-y-1">
                 {enriched.recentNotifications.map((n: any) => (
                   <li key={n.id} className="flex justify-between gap-2">
-                    <span className={n.read ? 'text-gray-500' : 'text-white'}>{n.title}</span>
-                    <span className="text-gray-500">{new Date(n.created_at).toLocaleDateString('pt-BR')}</span>
+                    <span className={n.read ? 'text-muted-foreground/80' : 'text-white'}>{n.title}</span>
+                    <span className="text-muted-foreground/80">{new Date(n.created_at).toLocaleDateString('pt-BR')}</span>
                   </li>
                 ))}
               </ul>
@@ -187,24 +187,24 @@ export default async function ClientDetailPage({
           <table className="w-full text-sm">
             <thead className="border-b">
               <tr>
-                <th className="text-left py-2 text-gray-400 font-medium">Nome</th>
-                <th className="text-left py-2 text-gray-400 font-medium hidden sm:table-cell">Email</th>
-                <th className="text-left py-2 text-gray-400 font-medium">Status</th>
-                <th className="text-left py-2 text-gray-400 font-medium hidden md:table-cell">Cadastro</th>
-                <th className="text-left py-2 text-gray-400 font-medium">Ações</th>
+                <th className="text-left py-2 text-muted-foreground font-medium">Nome</th>
+                <th className="text-left py-2 text-muted-foreground font-medium hidden sm:table-cell">Email</th>
+                <th className="text-left py-2 text-muted-foreground font-medium">Status</th>
+                <th className="text-left py-2 text-muted-foreground font-medium hidden md:table-cell">Cadastro</th>
+                <th className="text-left py-2 text-muted-foreground font-medium">Ações</th>
               </tr>
             </thead>
             <tbody>
               {detail.users.map((u: any) => (
                 <tr key={u.id} className="border-b last:border-0">
                   <td className="py-2">{u.full_name || u.email || u.id}</td>
-                  <td className="py-2 text-gray-400 hidden sm:table-cell">{u.email}</td>
+                  <td className="py-2 text-muted-foreground hidden sm:table-cell">{u.email}</td>
                   <td className="py-2">
-                    <Badge variant="outline" className={u.is_active !== false ? 'bg-emerald-900/20 text-emerald-400' : 'bg-red-900/20 text-red-400'}>
+                    <Badge variant="outline" className={u.is_active !== false ? 'border border-brand/30 bg-brand/10 text-brand' : 'border border-destructive/30 bg-destructive/10 text-destructive'}>
                       {u.is_active !== false ? 'Ativo' : 'Inativo'}
                     </Badge>
                   </td>
-                  <td className="py-2 text-gray-400 hidden md:table-cell">{new Date(u.created_at).toLocaleDateString('pt-BR')}</td>
+                  <td className="py-2 text-muted-foreground hidden md:table-cell">{new Date(u.created_at).toLocaleDateString('pt-BR')}</td>
                   <td className="py-2">
                     <UserActions user={u} />
                   </td>

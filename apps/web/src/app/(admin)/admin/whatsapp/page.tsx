@@ -70,12 +70,12 @@ export default function WhatsAppAdminPage() {
   return (
     <div className="max-w-2xl">
       <h1 className="text-2xl font-bold text-white mb-1">WhatsApp Business</h1>
-      <p className="text-sm text-gray-400 mb-6">
+      <p className="text-sm text-muted-foreground mb-6">
         Gerencie a conexão do WhatsApp via WAHA (WhatsApp HTTP API)
       </p>
 
       {/* Status Card */}
-      <div className="bg-[#23262a] border border-[#2d2f33] rounded-lg p-6 mb-6">
+      <div className="bg-[#23262a] border border-border rounded-lg p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-white">Status da Conexao</h2>
           <StatusBadge state={state} />
@@ -89,8 +89,8 @@ export default function WhatsAppAdminPage() {
 
         {state === 'error' && (
           <div className="bg-red-900/20 border border-red-800 rounded-lg p-4">
-            <p className="text-sm text-red-400">{error}</p>
-            <p className="text-xs text-red-400 mt-1">
+            <p className="text-sm text-destructive">{error}</p>
+            <p className="text-xs text-destructive mt-1">
               Verifique se o WAHA está rodando no VPS (Docker container `waha`)
             </p>
           </div>
@@ -115,10 +115,10 @@ export default function WhatsAppAdminPage() {
 
         {state === 'connecting' && status === 'STARTING' && !qrBase64 && (
           <div className="bg-blue-900/20 border border-blue-800 rounded-lg p-4">
-            <p className="text-sm text-blue-400 font-medium">
+            <p className="text-sm text-foreground font-medium">
               Inicializando sessão WAHA...
             </p>
-            <p className="text-xs text-blue-400 mt-1">
+            <p className="text-xs text-foreground mt-1">
               Aguarde alguns segundos para o QR aparecer
             </p>
           </div>
@@ -135,7 +135,7 @@ export default function WhatsAppAdminPage() {
               </p>
             </div>
 
-            <div className="flex justify-center p-4 bg-[#23262a] border border-[#2d2f33] rounded-lg">
+            <div className="flex justify-center p-4 bg-[#23262a] border border-border rounded-lg">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={qrBase64}
@@ -144,15 +144,15 @@ export default function WhatsAppAdminPage() {
               />
             </div>
 
-            <p className="text-xs text-gray-400 text-center">
+            <p className="text-xs text-muted-foreground text-center">
               O QR Code atualiza automaticamente a cada 8 segundos
             </p>
           </div>
         )}
 
         {(state === 'connecting' || state === 'close' || state === 'unknown') && !qrBase64 && (
-          <div className="bg-[#1a1c1f] border border-[#2d2f33] rounded-lg p-4">
-            <p className="text-sm text-gray-400">
+          <div className="bg-card border border-border rounded-lg p-4">
+            <p className="text-sm text-muted-foreground">
               Não foi possível gerar o QR Code. Tente reiniciar a instância.
             </p>
           </div>
@@ -160,16 +160,16 @@ export default function WhatsAppAdminPage() {
       </div>
 
       {/* Actions */}
-      <div className="bg-[#23262a] border border-[#2d2f33] rounded-lg p-6">
+      <div className="bg-[#23262a] border border-border rounded-lg p-6">
         <h2 className="text-lg font-semibold text-white mb-4">Ações</h2>
 
         <div className="space-y-3">
           <button
             onClick={() => setRefreshCount((c) => c + 1)}
-            className="w-full text-left px-4 py-3 border border-[#2d2f33] rounded-lg hover:bg-[#2d2f33] transition-colors"
+            className="w-full text-left px-4 py-3 border border-border rounded-lg hover:bg-secondary transition-colors"
           >
             <p className="text-sm font-medium text-white">Atualizar Status</p>
-            <p className="text-xs text-gray-400">Verificar conexão atual</p>
+            <p className="text-xs text-muted-foreground">Verificar conexão atual</p>
           </button>
 
           <button
@@ -186,16 +186,16 @@ export default function WhatsAppAdminPage() {
             disabled={actionLoading}
             className="w-full text-left px-4 py-3 border border-red-800 rounded-lg hover:bg-red-900/30 transition-colors disabled:opacity-50"
           >
-            <p className="text-sm font-medium text-red-400">Desconectar WhatsApp</p>
-            <p className="text-xs text-red-400">Desloga o dispositivo (precisará escanear QR novamente)</p>
+            <p className="text-sm font-medium text-destructive">Desconectar WhatsApp</p>
+            <p className="text-xs text-destructive">Desloga o dispositivo (precisará escanear QR novamente)</p>
           </button>
         </div>
       </div>
 
       {/* Info */}
-      <div className="mt-6 p-4 bg-[#1a1c1f] border border-[#2d2f33] rounded-lg">
-        <h3 className="text-sm font-medium text-gray-300 mb-2">Informações Técnicas</h3>
-        <div className="grid grid-cols-2 gap-2 text-xs text-gray-400">
+      <div className="mt-6 p-4 bg-card border border-border rounded-lg">
+        <h3 className="text-sm font-medium text-foreground mb-2">Informações Técnicas</h3>
+        <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
           <span>Engine</span>
           <span className="text-right font-mono">WAHA (devlikeapro/waha)</span>
           <span>Sessão</span>
@@ -210,12 +210,12 @@ export default function WhatsAppAdminPage() {
 
 function StatusBadge({ state }: { state: ConnectionState }) {
   const config: Record<string, { label: string; color: string }> = {
-    loading: { label: 'Carregando...', color: 'bg-[#2d2f33] text-gray-400' },
+    loading: { label: 'Carregando...', color: 'bg-secondary text-muted-foreground' },
     open: { label: 'Conectado', color: 'bg-green-900/20 text-green-400' },
     connecting: { label: 'Aguardando QR', color: 'bg-amber-900/20 text-amber-400' },
-    close: { label: 'Desconectado', color: 'bg-red-900/20 text-red-400' },
-    error: { label: 'Erro', color: 'bg-red-900/20 text-red-400' },
-    unknown: { label: 'Desconhecido', color: 'bg-[#2d2f33] text-gray-400' },
+    close: { label: 'Desconectado', color: 'border border-destructive/30 bg-destructive/10 text-destructive' },
+    error: { label: 'Erro', color: 'border border-destructive/30 bg-destructive/10 text-destructive' },
+    unknown: { label: 'Desconhecido', color: 'bg-secondary text-muted-foreground' },
   }
 
   const { label, color } = config[state] || config.unknown

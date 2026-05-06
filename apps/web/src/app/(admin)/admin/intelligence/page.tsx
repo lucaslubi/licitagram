@@ -59,14 +59,14 @@ const SEVERITY_STYLES: Record<string, { bg: string; border: string; text: string
   CRITICAL: {
     bg: 'bg-red-950/30',
     border: 'border-red-500/40',
-    text: 'text-red-400',
+    text: 'text-destructive',
     badge: 'bg-red-900/60 text-red-300 border-red-500/50',
     glow: 'shadow-[0_0_15px_rgba(239,68,68,0.1)]',
   },
   critical: {
     bg: 'bg-red-950/30',
     border: 'border-red-500/40',
-    text: 'text-red-400',
+    text: 'text-destructive',
     badge: 'bg-red-900/60 text-red-300 border-red-500/50',
     glow: 'shadow-[0_0_15px_rgba(239,68,68,0.1)]',
   },
@@ -102,7 +102,7 @@ const SEVERITY_STYLES: Record<string, { bg: string; border: string; text: string
 
 const STATUS_STYLES: Record<string, string> = {
   new: 'bg-blue-900/40 text-blue-300 border border-blue-500/30',
-  dismissed: 'bg-gray-800/40 text-gray-400 border border-gray-600/30',
+  dismissed: 'bg-gray-800/40 text-muted-foreground border border-gray-600/30',
   resolved: 'bg-emerald-900/40 text-emerald-300 border border-emerald-500/30',
 }
 
@@ -156,8 +156,8 @@ function timeAgo(dateStr: string): string {
 function AnalysisSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mb-3 last:mb-0">
-      <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">{title}</h4>
-      <div className="text-sm text-gray-300 leading-relaxed">{children}</div>
+      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">{title}</h4>
+      <div className="text-sm text-foreground leading-relaxed">{children}</div>
     </div>
   )
 }
@@ -165,10 +165,10 @@ function AnalysisSection({ title, children }: { title: string; children: React.R
 function RiskIndicator({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
     <div className="flex items-start gap-2 py-1">
-      <span className="text-gray-500 mt-0.5">{'\u25B8'}</span>
+      <span className="text-muted-foreground/80 mt-0.5">{'\u25B8'}</span>
       <div>
-        <span className="text-gray-400 text-xs">{label}:</span>{' '}
-        <span className={`text-sm ${highlight ? 'text-red-400 font-medium' : 'text-gray-200'}`}>{value}</span>
+        <span className="text-muted-foreground text-xs">{label}:</span>{' '}
+        <span className={`text-sm ${highlight ? 'text-destructive font-medium' : 'text-foreground'}`}>{value}</span>
       </div>
     </div>
   )
@@ -178,7 +178,7 @@ function LegalBadge({ refs }: { refs: string[] }) {
   return (
     <div className="flex flex-wrap gap-1.5 mt-1">
       {refs.map((ref) => (
-        <span key={ref} className="text-[10px] px-1.5 py-0.5 bg-gray-800/80 text-gray-400 rounded border border-gray-700/50 font-mono">
+        <span key={ref} className="text-[10px] px-1.5 py-0.5 bg-gray-800/80 text-muted-foreground rounded border border-border/50 font-mono">
           {ref}
         </span>
       ))}
@@ -200,22 +200,22 @@ function renderSocioEmComumAnalysis(alert: any, sharedCount: number) {
       <AnalysisSection title="O que foi detectado">
         <p>
           As empresas <strong className="text-white">&quot;{empresa1}&quot;</strong>
-          {cnpj1 && <span className="text-gray-400"> ({formatCNPJ(cnpj1)})</span>}
+          {cnpj1 && <span className="text-muted-foreground"> ({formatCNPJ(cnpj1)})</span>}
           {' '}e{' '}
           <strong className="text-white">&quot;{empresa2}&quot;</strong>
-          {cnpj2 && <span className="text-gray-400"> ({formatCNPJ(cnpj2)})</span>}
+          {cnpj2 && <span className="text-muted-foreground"> ({formatCNPJ(cnpj2)})</span>}
           {' '}compartilham <strong className="text-orange-400">{socios.length || 'múltiplos'} sócio(s) em comum</strong> e
           participaram como concorrentes na mesma licitação.
         </p>
         {detail && (
-          <p className="mt-2 text-gray-400 text-xs italic">{detail}</p>
+          <p className="mt-2 text-muted-foreground text-xs italic">{detail}</p>
         )}
       </AnalysisSection>
 
       <AnalysisSection title="Por que isso representa possível fraude">
         <p>
           Quando a mesma pessoa física controla múltiplas empresas que disputam o mesmo certame, há forte indicação de{' '}
-          <strong className="text-red-400">conluio e direcionamento</strong>. As propostas podem ter sido coordenadas para
+          <strong className="text-destructive">conluio e direcionamento</strong>. As propostas podem ter sido coordenadas para
           simular competição &mdash; uma prática conhecida como &quot;cartel em licitação&quot; ou &quot;rodízio de propostas&quot;.
           O socio em comum pode definir previamente qual empresa vencerá e calibrar os preços das demais acima do valor combinado,
           eliminando a competitividade real do certame e causando prejuízo ao erário.
@@ -246,7 +246,7 @@ function renderSocioEmComumAnalysis(alert: any, sharedCount: number) {
       </AnalysisSection>
 
       <AnalysisSection title="Fundamentação legal">
-        <p className="text-xs text-gray-400 mb-1">
+        <p className="text-xs text-muted-foreground mb-1">
           A participação coordenada entre empresas com sócios em comum configura:
         </p>
         <LegalBadge refs={[
@@ -271,16 +271,16 @@ function renderEmpresaRecenteAnalysis(evidence: Record<string, any>) {
       <AnalysisSection title="O que foi detectado">
         <p>
           A empresa vencedora <strong className="text-white">&quot;{razaoSocial}&quot;</strong>
-          {evidence.cnpj && <span className="text-gray-400"> ({formatCNPJ(evidence.cnpj)})</span>}{' '}
+          {evidence.cnpj && <span className="text-muted-foreground"> ({formatCNPJ(evidence.cnpj)})</span>}{' '}
           foi constituída em <strong className="text-orange-400">{formatDateNullable(dataAbertura)}</strong>,
-          apenas <strong className="text-red-400">{diasAntes} dias</strong> antes da abertura da licitação
+          apenas <strong className="text-destructive">{diasAntes} dias</strong> antes da abertura da licitação
           ({formatDateNullable(dataLicitacao)}).
         </p>
       </AnalysisSection>
 
       <AnalysisSection title="Por que isso representa possível fraude">
         <p>
-          Empresas criadas pouco tempo antes de uma licitação podem ter sido constituídas <strong className="text-red-400">
+          Empresas criadas pouco tempo antes de uma licitação podem ter sido constituídas <strong className="text-destructive">
           especificamente para participar do certame</strong>, possívelmente como &quot;empresa de fachada&quot; ou
           &quot;laranja&quot;. Uma empresa legítima normalmente possui histórico operacional, clientes anteriores e
           experiência comprovável no ramo de atuação. A abertura recente levanta suspeita de que a empresa foi criada
@@ -302,7 +302,7 @@ function renderEmpresaRecenteAnalysis(evidence: Record<string, any>) {
       </AnalysisSection>
 
       <AnalysisSection title="Fundamentação legal">
-        <p className="text-xs text-gray-400 mb-1">
+        <p className="text-xs text-muted-foreground mb-1">
           A ausência de capacidade técnica e operacional pode configurar:
         </p>
         <LegalBadge refs={[
@@ -326,17 +326,17 @@ function renderCapitalIncompativelAnalysis(evidence: Record<string, any>) {
       <AnalysisSection title="O que foi detectado">
         <p>
           A empresa vencedora <strong className="text-white">&quot;{razaoSocial}&quot;</strong>
-          {evidence.cnpj && <span className="text-gray-400"> ({formatCNPJ(evidence.cnpj)})</span>}{' '}
-          possui capital social de <strong className="text-red-400">{formatCurrency(capitalSocial)}</strong>{' '}
+          {evidence.cnpj && <span className="text-muted-foreground"> ({formatCNPJ(evidence.cnpj)})</span>}{' '}
+          possui capital social de <strong className="text-destructive">{formatCurrency(capitalSocial)}</strong>{' '}
           para executar contrato avaliado em <strong className="text-orange-400">{formatCurrency(valorContrato)}</strong>.
-          O capital social representa apenas <strong className="text-red-400">{percentual}%</strong> do valor contratado.
+          O capital social representa apenas <strong className="text-destructive">{percentual}%</strong> do valor contratado.
         </p>
       </AnalysisSection>
 
       <AnalysisSection title="Por que isso representa possível fraude">
         <p>
           Uma empresa com capital social desproporcional ao valor do contrato pode{' '}
-          <strong className="text-red-400">não possuir capacidade econômico-financeira real</strong> para executar o serviço.
+          <strong className="text-destructive">não possuir capacidade econômico-financeira real</strong> para executar o serviço.
           Isso pode indicar uma &quot;empresa de fachada&quot; &mdash; constituída apenas no papel, sem estrutura real,
           funcionários ou equipamentos &mdash; criada para fraudar licitações e desviar recursos públicos.
           A desproporção entre capital e contrato também sugere possível inexequibilidade da proposta.
@@ -357,7 +357,7 @@ function renderCapitalIncompativelAnalysis(evidence: Record<string, any>) {
       </AnalysisSection>
 
       <AnalysisSection title="Fundamentação legal">
-        <p className="text-xs text-gray-400 mb-1">
+        <p className="text-xs text-muted-foreground mb-1">
           A ausência de capacidade econômico-financeira pode configurar:
         </p>
         <LegalBadge refs={[
@@ -383,16 +383,16 @@ function renderSancionadaAnalysis(alert: any) {
       <AnalysisSection title="O que foi detectado">
         <p>
           A empresa <strong className="text-white">&quot;{empresa}&quot;</strong>
-          {cnpj && <span className="text-gray-400"> ({formatCNPJ(cnpj)})</span>}{' '}
-          possui <strong className="text-red-400">{sancoes.length > 0 ? sancoes.length : ''} sanção(ões)</strong> registrada(s)
+          {cnpj && <span className="text-muted-foreground"> ({formatCNPJ(cnpj)})</span>}{' '}
+          possui <strong className="text-destructive">{sancoes.length > 0 ? sancoes.length : ''} sanção(ões)</strong> registrada(s)
           em bases oficiais de penalidades da administração pública (CEIS/CNEP).
         </p>
-        {detail && <p className="mt-2 text-gray-400 text-xs italic">{detail}</p>}
+        {detail && <p className="mt-2 text-muted-foreground text-xs italic">{detail}</p>}
       </AnalysisSection>
 
       <AnalysisSection title="Por que isso é crítico">
         <p>
-          Empresas sancionadas estão <strong className="text-red-400">legalmente impedidas de contratar com a administração pública</strong>{' '}
+          Empresas sancionadas estão <strong className="text-destructive">legalmente impedidas de contratar com a administração pública</strong>{' '}
           durante a vigência da penalidade. A participação em licitações durante o período de sanção constitui
           irregularidade grave, podendo configurar crime de fraude licitatória. Além disso, a existência de sanções
           revela histórico de descumprimento contratual, conduta imprópria ou fraude anterior &mdash; representando
@@ -411,14 +411,14 @@ function renderSancionadaAnalysis(alert: any) {
                       {s.tipo || 'Sanção não especificada'}
                     </div>
                     {s.orgao && (
-                      <div className="text-xs text-gray-400">
-                        Órgão sancionador: <span className="text-gray-300">{s.orgao}</span>
+                      <div className="text-xs text-muted-foreground">
+                        Órgão sancionador: <span className="text-foreground">{s.orgao}</span>
                       </div>
                     )}
-                    <div className="text-xs text-gray-400 mt-0.5">
-                      Período: <span className="text-gray-300">{formatDateNullable(s.inicio)}</span>
-                      {s.fim && <> ate <span className="text-gray-300">{formatDateNullable(s.fim)}</span></>}
-                      {!s.fim && <span className="text-red-400 ml-1">(vigente)</span>}
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      Período: <span className="text-foreground">{formatDateNullable(s.inicio)}</span>
+                      {s.fim && <> ate <span className="text-foreground">{formatDateNullable(s.fim)}</span></>}
+                      {!s.fim && <span className="text-destructive ml-1">(vigente)</span>}
                     </div>
                   </div>
                   <span className="text-xs px-2 py-0.5 bg-red-900/50 text-red-300 rounded-full border border-red-800/50 shrink-0">
@@ -441,7 +441,7 @@ function renderSancionadaAnalysis(alert: any) {
       </AnalysisSection>
 
       <AnalysisSection title="Fundamentação legal">
-        <p className="text-xs text-gray-400 mb-1">
+        <p className="text-xs text-muted-foreground mb-1">
           A participação de empresa sancionada em licitação configura:
         </p>
         <LegalBadge refs={[
@@ -473,7 +473,7 @@ function renderEnderecoCompartilhadoAnalysis(evidence: Record<string, any>, shar
       <AnalysisSection title="Por que isso representa possível fraude">
         <p>
           Empresas supostamente independentes e concorrentes que operam no mesmo endereço físico levantam
-          forte suspeita de <strong className="text-red-400">pertencerem ao mesmo grupo econômico</strong> ou
+          forte suspeita de <strong className="text-destructive">pertencerem ao mesmo grupo econômico</strong> ou
           serem controladas pelas mesmas pessoas. Esse padrão é clássico em esquemas de &quot;conluio licitatório&quot;
           onde varias empresas são criadas no mesmo local para simular competição. Na prática, todas as propostas
           podem ser elaboradas pela mesma equipe, no mesmo escritório, com preços previamente combinados.
@@ -500,7 +500,7 @@ function renderEnderecoCompartilhadoAnalysis(evidence: Record<string, any>, shar
       </AnalysisSection>
 
       <AnalysisSection title="Fundamentação legal">
-        <p className="text-xs text-gray-400 mb-1">
+        <p className="text-xs text-muted-foreground mb-1">
           O compartilhamento de infraestrutura entre concorrentes pode configurar:
         </p>
         <LegalBadge refs={[
@@ -531,22 +531,22 @@ function renderEntidadeRelacionadaAnalysis(alert: any) {
       <AnalysisSection title="O que foi detectado">
         <p>
           As empresas <strong className="text-white">&quot;{empresa1}&quot;</strong>
-          {cnpj1 && <span className="text-gray-400"> ({formatCNPJ(cnpj1)})</span>}
+          {cnpj1 && <span className="text-muted-foreground"> ({formatCNPJ(cnpj1)})</span>}
           {' '}e{' '}
           <strong className="text-white">&quot;{empresa2}&quot;</strong>
-          {cnpj2 && <span className="text-gray-400"> ({formatCNPJ(cnpj2)})</span>}
+          {cnpj2 && <span className="text-muted-foreground"> ({formatCNPJ(cnpj2)})</span>}
           {' '}apresentam <strong className="text-orange-400">{matchScore.toFixed(0)}% de similaridade</strong> e
-          participam juntas em <strong className="text-red-400">{commonTenders} licitação(oes)</strong>.
+          participam juntas em <strong className="text-destructive">{commonTenders} licitação(oes)</strong>.
         </p>
         {alert.detail && (
-          <p className="mt-2 text-gray-400 text-xs italic">{alert.detail}</p>
+          <p className="mt-2 text-muted-foreground text-xs italic">{alert.detail}</p>
         )}
       </AnalysisSection>
 
       <AnalysisSection title="Por que isso e suspeito">
         <p>
           Empresas com alta similaridade em razão social e/ou quadro societário que competem entre si
-          podem ser entidades controladas pelo mesmo grupo econômico, configurando <strong className="text-red-400">
+          podem ser entidades controladas pelo mesmo grupo econômico, configurando <strong className="text-destructive">
           simulacao de competição</strong> para manipular resultados de licitações.
         </p>
       </AnalysisSection>
@@ -570,7 +570,7 @@ function renderEntidadeRelacionadaAnalysis(alert: any) {
       </AnalysisSection>
 
       <AnalysisSection title="Fundamentação legal">
-        <p className="text-xs text-gray-400 mb-1">
+        <p className="text-xs text-muted-foreground mb-1">
           A participação de entidades relacionadas como concorrentes independentes configura:
         </p>
         <LegalBadge refs={[
@@ -608,7 +608,7 @@ function renderAnalysis(alert: any, sharedCount: number) {
         <AnalysisSection title="Detalhes">
           <p>{getDescription(alert) || 'Sem detalhes disponíveis.'}</p>
           {Object.keys(evidence).length > 0 && (
-            <pre className="mt-2 text-xs text-gray-400 bg-[#111315] rounded p-3 overflow-x-auto max-h-48 border border-[#2d2f33]">
+            <pre className="mt-2 text-xs text-muted-foreground bg-[#111315] rounded p-3 overflow-x-auto max-h-48 border border-border">
               {JSON.stringify(evidence, null, 2)}
             </pre>
           )}
@@ -799,7 +799,7 @@ export default async function AdminIntelligencePage({
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <h1 className="text-xl sm:text-2xl font-bold">Licitagram Intelligence</h1>
           </div>
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-muted-foreground">
             Inteligência de Mercado e Análise automatizada de padrões de fraude e conluio em licitações.
           </p>
         </div>
@@ -815,12 +815,12 @@ export default async function AdminIntelligencePage({
       </div>
 
       {/* Filters */}
-      <form className="mb-8 p-4 bg-[#111315] rounded-lg border border-[#2d2f33]">
+      <form className="mb-8 p-4 bg-[#111315] rounded-lg border border-border">
         <div className="flex flex-col sm:flex-row gap-3">
           <select
             name="severity"
             defaultValue={severityFilter}
-            className="px-3 py-2 bg-[#1a1c1f] border border-[#2d2f33] rounded-md text-sm text-white"
+            className="px-3 py-2 bg-card border border-border rounded-md text-sm text-white"
           >
             <option value="">Todas severidades</option>
             <option value="CRITICAL">Crítico</option>
@@ -831,7 +831,7 @@ export default async function AdminIntelligencePage({
           <select
             name="type"
             defaultValue={typeFilter}
-            className="px-3 py-2 bg-[#1a1c1f] border border-[#2d2f33] rounded-md text-sm text-white"
+            className="px-3 py-2 bg-card border border-border rounded-md text-sm text-white"
           >
             <option value="">Todos os tipos</option>
             <option value="socio_em_comum">Sócio em Comum</option>
@@ -847,7 +847,7 @@ export default async function AdminIntelligencePage({
             type="text"
             placeholder="Buscar por CNPJ, empresa ou descrição..."
             defaultValue={searchFilter}
-            className="px-3 py-2 bg-[#1a1c1f] border border-[#2d2f33] rounded-md text-sm text-white placeholder-gray-500 flex-1 min-w-0"
+            className="px-3 py-2 bg-card border border-border rounded-md text-sm text-white placeholder-gray-500 flex-1 min-w-0"
           />
 
           <button
@@ -889,10 +889,10 @@ export default async function AdminIntelligencePage({
                     <span className={`text-xs font-bold px-2.5 py-1 rounded-md border ${styles.badge} uppercase tracking-wider`}>
                       {severity}
                     </span>
-                    <span className="text-sm text-gray-200 font-medium">
+                    <span className="text-sm text-foreground font-medium">
                       {config.icon} {config.label}
                     </span>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-muted-foreground/80">
                       {timeAgo(alert.created_at)}
                     </span>
                     {alert.status && (
@@ -919,12 +919,12 @@ export default async function AdminIntelligencePage({
                 {/* Tender Context */}
                 {tender && (
                   <div className="px-5 py-3 bg-black/20 border-b border-white/5">
-                    <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Licitacao</div>
-                    <p className="text-sm text-gray-200 line-clamp-2">{tender.objeto || 'Objeto não informado'}</p>
-                    <div className="flex flex-wrap gap-3 mt-1.5 text-xs text-gray-400">
+                    <div className="text-xs text-muted-foreground/80 uppercase tracking-wider mb-1">Licitacao</div>
+                    <p className="text-sm text-foreground line-clamp-2">{tender.objeto || 'Objeto não informado'}</p>
+                    <div className="flex flex-wrap gap-3 mt-1.5 text-xs text-muted-foreground">
                       {tender.orgao_nome && <span>{tender.orgao_nome}</span>}
                       {tender.uf && (
-                        <span className="px-1.5 py-0.5 bg-gray-800/50 rounded text-gray-300">{tender.uf}</span>
+                        <span className="px-1.5 py-0.5 bg-gray-800/50 rounded text-foreground">{tender.uf}</span>
                       )}
                       {(tender.valor_total || tender.valor_estimado) && (
                         <span>{formatCurrency(tender.valor_total || tender.valor_estimado)}</span>
@@ -940,12 +940,12 @@ export default async function AdminIntelligencePage({
 
                   return (
                     <div className="px-5 py-3 border-b border-white/5">
-                      <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">Empresas envolvidas</div>
+                      <div className="text-xs text-muted-foreground/80 uppercase tracking-wider mb-2">Empresas envolvidas</div>
                       <div className="flex flex-wrap gap-2">
                         {companies.map((company, idx) => (
-                          <div key={idx} className="bg-[#1a1c1f] border border-[#2d2f33] rounded-lg px-3 py-2">
-                            <div className="text-sm text-gray-200 font-medium">{company.name}</div>
-                            {company.cnpj && <div className="text-xs text-gray-400 font-mono">{formatCNPJ(company.cnpj)}</div>}
+                          <div key={idx} className="bg-card border border-border rounded-lg px-3 py-2">
+                            <div className="text-sm text-foreground font-medium">{company.name}</div>
+                            {company.cnpj && <div className="text-xs text-muted-foreground font-mono">{formatCNPJ(company.cnpj)}</div>}
                           </div>
                         ))}
                       </div>
@@ -957,7 +957,7 @@ export default async function AdminIntelligencePage({
                 <div className="px-5 py-4">
                   <div className="flex items-center gap-2 mb-4">
                     <div className="w-1 h-4 bg-brand rounded-full" />
-                    <div className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Análise de Inteligência</div>
+                    <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Análise de Inteligência</div>
                   </div>
                   {renderAnalysis(alert, sharedCount)}
                 </div>
@@ -977,19 +977,19 @@ export default async function AdminIntelligencePage({
             )
           })
         ) : (
-          <div className="bg-[#1a1c1f] rounded-xl border border-[#2d2f33] p-12 text-center">
+          <div className="bg-card rounded-xl border border-border p-12 text-center">
             <div className="text-3xl mb-3">{'\u{1F50D}'}</div>
-            <p className="text-gray-400">Nenhum alerta encontrado com os filtros selecionados.</p>
+            <p className="text-muted-foreground">Nenhum alerta encontrado com os filtros selecionados.</p>
           </div>
         )}
       </div>
 
       {/* Market Intelligence / Resumo de Itens */}
       <h2 className="text-lg font-bold mt-12 mb-4">Itens Mapeados Recentemente</h2>
-      <div className="bg-[#111315] rounded-xl border border-[#2d2f33] overflow-hidden mb-8">
+      <div className="bg-[#111315] rounded-xl border border-border overflow-hidden mb-8">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-[#1a1c1f] text-gray-400 text-xs uppercase tracking-wider">
+            <thead className="bg-card text-muted-foreground text-xs uppercase tracking-wider">
               <tr>
                 <th className="px-5 py-3 font-medium">Item</th>
                 <th className="px-5 py-3 font-medium">Órgão / UF</th>
@@ -1006,24 +1006,24 @@ export default async function AdminIntelligencePage({
                   const uf = item.tenders?.uf || '-';
 
                   return (
-                    <tr key={item.id} className="hover:bg-[#1a1c1f]/50 transition-colors">
+                    <tr key={item.id} className="hover:bg-card/50 transition-colors">
                       <td className="px-5 py-4 max-w-[300px] truncate" title={item.descricao_completa || item.descricao}>
                         <div className="font-medium text-white">{item.descricao}</div>
-                        {item.cnae_grupo && <div className="text-xs text-gray-500 mt-0.5">Grupo CNAE: {item.cnae_grupo}</div>}
+                        {item.cnae_grupo && <div className="text-xs text-muted-foreground/80 mt-0.5">Grupo CNAE: {item.cnae_grupo}</div>}
                       </td>
-                      <td className="px-5 py-4 max-w-[200px] truncate text-gray-300" title={orgao_nome}>
-                        {orgao_nome} <span className="text-gray-500">[{uf}]</span>
+                      <td className="px-5 py-4 max-w-[200px] truncate text-foreground" title={orgao_nome}>
+                        {orgao_nome} <span className="text-muted-foreground/80">[{uf}]</span>
                       </td>
-                      <td className="px-5 py-4 text-gray-300">{Number(item.quantidade)} <span className="text-gray-500 text-xs">{item.unidade}</span></td>
+                      <td className="px-5 py-4 text-foreground">{Number(item.quantidade)} <span className="text-muted-foreground/80 text-xs">{item.unidade}</span></td>
                       <td className="px-5 py-4 text-right">
                         {valorEst > 0 ? (
-                          <div className="text-emerald-400 font-medium">{formatCurrency(valorEst)}</div>
+                          <div className="text-brand font-medium">{formatCurrency(valorEst)}</div>
                         ) : (
-                          <span className="text-gray-500">—</span>
+                          <span className="text-muted-foreground/80">—</span>
                         )}
-                        {item.valor_total_estimado > 0 && <div className="text-xs text-gray-500 mt-0.5">Total: {formatCurrency(item.valor_total_estimado)}</div>}
+                        {item.valor_total_estimado > 0 && <div className="text-xs text-muted-foreground/80 mt-0.5">Total: {formatCurrency(item.valor_total_estimado)}</div>}
                       </td>
-                      <td className="px-5 py-4 text-right text-gray-400">
+                      <td className="px-5 py-4 text-right text-muted-foreground">
                         {timeAgo(item.created_at)}
                       </td>
                     </tr>
@@ -1031,7 +1031,7 @@ export default async function AdminIntelligencePage({
                 })
               ) : (
                 <tr>
-                  <td colSpan={5} className="px-5 py-8 text-center text-gray-500">Nenhum item mapeado recentemente</td>
+                  <td colSpan={5} className="px-5 py-8 text-center text-muted-foreground/80">Nenhum item mapeado recentemente</td>
                 </tr>
               )}
             </tbody>
@@ -1041,14 +1041,14 @@ export default async function AdminIntelligencePage({
 
       {/* Pagination */}
       <div className="flex justify-between items-center mt-8 pb-4">
-        <p className="text-sm text-gray-400">
+        <p className="text-sm text-muted-foreground">
           {(filteredCount || 0).toLocaleString('pt-BR')} alertas {'\u00B7'} Página {page} de {totalPages || 1}
         </p>
         <div className="flex gap-2">
           {page > 1 && (
             <Link
               href={buildUrl({ page: String(page - 1) })}
-              className="px-4 py-2 border border-[#2d2f33] rounded-lg text-sm hover:bg-[#2d2f33] transition-colors"
+              className="px-4 py-2 border border-border rounded-lg text-sm hover:bg-secondary transition-colors"
             >
               {'\u2190'} Anterior
             </Link>
@@ -1056,7 +1056,7 @@ export default async function AdminIntelligencePage({
           {page < totalPages && (
             <Link
               href={buildUrl({ page: String(page + 1) })}
-              className="px-4 py-2 border border-[#2d2f33] rounded-lg text-sm hover:bg-[#2d2f33] transition-colors"
+              className="px-4 py-2 border border-border rounded-lg text-sm hover:bg-secondary transition-colors"
             >
               Próxima {'\u2192'}
             </Link>

@@ -42,26 +42,26 @@ export default async function AdminUsersPage({
         </button>
       </form>
 
-      <div className="bg-[#1a1c1f] rounded-lg border overflow-x-auto">
+      <div className="bg-card rounded-lg border overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-[#1a1c1f] border-b">
+          <thead className="bg-card border-b">
             <tr>
-              <th className="text-left px-4 py-3 font-medium text-gray-400">Nome</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-400 hidden sm:table-cell">Email</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-400">Status</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-400 hidden md:table-cell">Admin</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-400 hidden md:table-cell">Cadastro</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-400">Ações</th>
+              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Nome</th>
+              <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Email</th>
+              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
+              <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Admin</th>
+              <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Cadastro</th>
+              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Ações</th>
             </tr>
           </thead>
           <tbody>
             {result.users.map((user: any) => (
-              <tr key={user.id} className="border-b hover:bg-[#2d2f33]">
+              <tr key={user.id} className="border-b hover:bg-secondary">
                 <td className="px-4 py-3 font-medium">{user.full_name || '—'}</td>
-                <td className="px-4 py-3 text-gray-400 hidden sm:table-cell">{user.email || '—'}</td>
+                <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{user.email || '—'}</td>
                 <td className="px-4 py-3">
                   <Badge variant="outline" className={
-                    user.is_active ? 'bg-emerald-900/20 text-emerald-400' : 'bg-red-900/20 text-red-400'
+                    user.is_active ? 'border border-brand/30 bg-brand/10 text-brand' : 'border border-destructive/30 bg-destructive/10 text-destructive'
                   }>
                     {user.is_active ? 'Ativo' : 'Inativo'}
                   </Badge>
@@ -69,7 +69,7 @@ export default async function AdminUsersPage({
                 <td className="px-4 py-3 hidden md:table-cell">
                   {user.is_platform_admin && <Badge className="bg-amber-900/20 text-amber-400 border-amber-800" variant="outline">Admin</Badge>}
                 </td>
-                <td className="px-4 py-3 text-gray-400 hidden md:table-cell">
+                <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">
                   {new Date(user.created_at).toLocaleDateString('pt-BR')}
                 </td>
                 <td className="px-4 py-3">
@@ -78,20 +78,20 @@ export default async function AdminUsersPage({
               </tr>
             ))}
             {result.users.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">Nenhum usuário encontrado.</td></tr>
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">Nenhum usuário encontrado.</td></tr>
             )}
           </tbody>
         </table>
       </div>
 
       <div className="flex justify-between items-center mt-4">
-        <p className="text-sm text-gray-400">{result.count} usuários · Página {page} de {result.totalPages || 1}</p>
+        <p className="text-sm text-muted-foreground">{result.count} usuários · Página {page} de {result.totalPages || 1}</p>
         <div className="flex gap-2">
           {page > 1 && (
-            <Link href={`/admin/users?page=${page - 1}&search=${params.search || ''}&role=${params.role || ''}`} className="px-3 py-1.5 border rounded text-sm hover:bg-[#2d2f33]">Anterior</Link>
+            <Link href={`/admin/users?page=${page - 1}&search=${params.search || ''}&role=${params.role || ''}`} className="px-3 py-1.5 border rounded text-sm hover:bg-secondary">Anterior</Link>
           )}
           {page < result.totalPages && (
-            <Link href={`/admin/users?page=${page + 1}&search=${params.search || ''}&role=${params.role || ''}`} className="px-3 py-1.5 border rounded text-sm hover:bg-[#2d2f33]">Próxima</Link>
+            <Link href={`/admin/users?page=${page + 1}&search=${params.search || ''}&role=${params.role || ''}`} className="px-3 py-1.5 border rounded text-sm hover:bg-secondary">Próxima</Link>
           )}
         </div>
       </div>

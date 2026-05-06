@@ -77,38 +77,40 @@ export default async function AdminDashboardPage() {
       </div>
 
       {/* Revenue by Plan */}
-      <div className="bg-[#1a1c1f] rounded-lg border border-[#2d2f33] p-4 sm:p-6 mb-8">
+      <div className="bg-card rounded-xl border border-border p-4 sm:p-6 mb-8">
         <h2 className="text-lg font-semibold mb-4">Receita por Plano</h2>
         <div className="space-y-3">
           {Object.entries(metrics.revenueByPlan).map(([slug, data]) => (
-            <div key={slug} className="flex items-center justify-between py-2 border-b border-[#2d2f33] last:border-0">
+            <div key={slug} className="flex items-center justify-between py-2 border-b border-border last:border-0">
               <div>
                 <p className="font-medium">{data.name}</p>
-                <p className="text-sm text-gray-400">{data.count} assinaturas</p>
+                <p className="text-sm text-muted-foreground">{data.count} assinaturas</p>
               </div>
               <p className="font-bold">{formatBRL(data.revenue)}/mes</p>
             </div>
           ))}
           {Object.keys(metrics.revenueByPlan).length === 0 && (
-            <p className="text-gray-400 text-sm">Nenhuma assinatura ativa.</p>
+            <p className="text-muted-foreground text-sm">Nenhuma assinatura ativa.</p>
           )}
         </div>
       </div>
 
       {/* Recent Clients */}
-      <div className="bg-[#1a1c1f] rounded-lg border border-[#2d2f33] p-4 sm:p-6">
+      <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
         <h2 className="text-lg font-semibold mb-4">Clientes Recentes</h2>
         <div className="space-y-2">
           {clientsResult.clients.slice(0, 5).map((client: any) => (
-            <div key={client.company_id} className="flex items-center justify-between py-2 border-b border-[#2d2f33] last:border-0">
+            <div key={client.company_id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
               <div>
                 <p className="font-medium text-sm">{client.razao_social || client.cnpj}</p>
-                <p className="text-xs text-gray-400">{client.plan_name || 'Sem plano'} · {client.uf || '—'}</p>
+                <p className="text-xs text-muted-foreground">{client.plan_name || 'Sem plano'} · {client.uf || '—'}</p>
               </div>
-              <span className={`text-xs px-2 py-0.5 rounded-full ${
-                client.subscription_status === 'active' ? 'bg-emerald-900/20 text-emerald-400'
-                : client.subscription_status === 'trialing' ? 'bg-blue-900/20 text-blue-400'
-                : 'bg-[#2d2f33] text-gray-400'
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono uppercase tracking-wider ${
+                client.subscription_status === 'active'
+                  ? 'border border-brand/30 bg-brand/10 text-brand'
+                  : client.subscription_status === 'trialing'
+                  ? 'border border-border bg-secondary text-foreground'
+                  : 'border border-border bg-muted text-muted-foreground'
               }`}>
                 {client.subscription_status || 'N/A'}
               </span>

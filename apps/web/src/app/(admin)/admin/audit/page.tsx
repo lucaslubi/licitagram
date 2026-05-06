@@ -36,31 +36,31 @@ export default async function AdminAuditPage({
         </button>
       </form>
 
-      <div className="bg-[#1a1c1f] rounded-lg border overflow-x-auto">
+      <div className="bg-card rounded-lg border overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-[#1a1c1f] border-b">
+          <thead className="bg-card border-b">
             <tr>
-              <th className="text-left px-4 py-3 font-medium text-gray-400">Data</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-400">Acao</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-400 hidden sm:table-cell">Tipo</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-400 hidden md:table-cell">Ator</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-400 hidden lg:table-cell">Detalhes</th>
+              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Data</th>
+              <th className="text-left px-4 py-3 font-medium text-muted-foreground">Acao</th>
+              <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">Tipo</th>
+              <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">Ator</th>
+              <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">Detalhes</th>
             </tr>
           </thead>
           <tbody>
             {result.logs.map((log: any) => (
-              <tr key={log.id} className="border-b hover:bg-[#2d2f33]">
-                <td className="px-4 py-3 text-gray-400 whitespace-nowrap">
+              <tr key={log.id} className="border-b hover:bg-secondary">
+                <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
                   {new Date(log.created_at).toLocaleString('pt-BR')}
                 </td>
                 <td className="px-4 py-3">
-                  <code className="bg-[#2d2f33] px-1.5 py-0.5 rounded text-xs">{log.action}</code>
+                  <code className="bg-secondary px-1.5 py-0.5 rounded text-xs">{log.action}</code>
                 </td>
                 <td className="px-4 py-3 hidden sm:table-cell">
                   {log.target_type && <Badge variant="outline">{log.target_type}</Badge>}
                 </td>
-                <td className="px-4 py-3 text-gray-400 hidden md:table-cell">{log.actor_email || '—'}</td>
-                <td className="px-4 py-3 text-gray-400 truncate max-w-xs hidden lg:table-cell">
+                <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">{log.actor_email || '—'}</td>
+                <td className="px-4 py-3 text-muted-foreground truncate max-w-xs hidden lg:table-cell">
                   {log.details && Object.keys(log.details).length > 0
                     ? JSON.stringify(log.details).slice(0, 80) + '...'
                     : '—'}
@@ -68,20 +68,20 @@ export default async function AdminAuditPage({
               </tr>
             ))}
             {result.logs.length === 0 && (
-              <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">Nenhum log encontrado.</td></tr>
+              <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">Nenhum log encontrado.</td></tr>
             )}
           </tbody>
         </table>
       </div>
 
       <div className="flex justify-between items-center mt-4">
-        <p className="text-sm text-gray-400">{result.count} registros · Pagina {page} de {result.totalPages || 1}</p>
+        <p className="text-sm text-muted-foreground">{result.count} registros · Pagina {page} de {result.totalPages || 1}</p>
         <div className="flex gap-2">
           {page > 1 && (
-            <Link href={`/admin/audit?page=${page - 1}&targetType=${params.targetType || ''}`} className="px-3 py-1.5 border rounded text-sm hover:bg-[#2d2f33]">Anterior</Link>
+            <Link href={`/admin/audit?page=${page - 1}&targetType=${params.targetType || ''}`} className="px-3 py-1.5 border rounded text-sm hover:bg-secondary">Anterior</Link>
           )}
           {page < result.totalPages && (
-            <Link href={`/admin/audit?page=${page + 1}&targetType=${params.targetType || ''}`} className="px-3 py-1.5 border rounded text-sm hover:bg-[#2d2f33]">Proxima</Link>
+            <Link href={`/admin/audit?page=${page + 1}&targetType=${params.targetType || ''}`} className="px-3 py-1.5 border rounded text-sm hover:bg-secondary">Proxima</Link>
           )}
         </div>
       </div>

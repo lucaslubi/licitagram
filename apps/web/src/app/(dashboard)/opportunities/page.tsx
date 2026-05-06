@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
+import { ProfileCompletenessAlert } from '@/components/profile-completeness-alert'
+import { getProfileCompleteness } from '@/lib/profile-completeness'
 import { formatDate, PNCP_MODALITIES } from '@licitagram/shared'
 import { formatCurrencyBR as formatCurrencyFull } from '@/lib/format'
 import {
@@ -183,8 +185,18 @@ export default async function OpportunitiesPage({
       }
     }
 
+    // Avaliação não-bloqueante de completude de perfil — banner aparece no
+    // topo só se faltar dado relevante pro matching. Estilo segue tokens do
+    // design system (sem cor solta).
+    const profileCompleteness = await getProfileCompleteness(companyId)
+
     return (
       <div>
+        {profileCompleteness && !profileCompleteness.isComplete && (
+          <div className="mb-5">
+            <ProfileCompletenessAlert result={profileCompleteness} />
+          </div>
+        )}
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-5">
           <div>

@@ -35,7 +35,7 @@ export default async function LeadDetailPage({
       <div className="p-8 text-center">
         <h1 className="text-xl font-bold mb-2">Lead não encontrado</h1>
         <p className="text-zinc-400 mb-4">CNPJ: {cnpj}</p>
-        <Link href="/admin/leads" className="text-emerald-400 hover:underline">← Voltar para leads</Link>
+        <Link href="/admin/leads" className="text-brand hover:underline">← Voltar para leads</Link>
       </div>
     )
   }
@@ -53,7 +53,7 @@ export default async function LeadDetailPage({
           <p className="text-sm text-zinc-500 font-mono mt-1">{cnpjFormatado}</p>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
-          {lead.score_fit_licitagram >= 80 && <Badge className="bg-emerald-600 text-white text-lg px-3 py-1">Score: {lead.score_fit_licitagram}</Badge>}
+          {lead.score_fit_licitagram >= 80 && <Badge className="bg-brand text-white text-lg px-3 py-1">Score: {lead.score_fit_licitagram}</Badge>}
           {lead.score_fit_licitagram >= 50 && lead.score_fit_licitagram < 80 && <Badge className="bg-amber-500 text-white text-lg px-3 py-1">Score: {lead.score_fit_licitagram}</Badge>}
           {lead.score_fit_licitagram < 50 && <Badge className="bg-zinc-600 text-white text-lg px-3 py-1">Score: {lead.score_fit_licitagram}</Badge>}
           {lead.plano_recomendado && (
@@ -72,14 +72,14 @@ export default async function LeadDetailPage({
       {/* Motivo qualificação */}
       {lead.motivo_qualificacao && (
         <Card className="p-4 bg-emerald-900/20 border-emerald-800/40 mb-6">
-          <div className="text-xs text-emerald-400 uppercase tracking-wider mb-1">Motivo de qualificação</div>
+          <div className="text-xs text-brand uppercase tracking-wider mb-1">Motivo de qualificação</div>
           <p className="text-sm text-zinc-200">{lead.motivo_qualificacao}</p>
         </Card>
       )}
 
       {lead.motivo_bloqueio && (
         <Card className="p-4 bg-red-900/20 border-red-800/40 mb-6">
-          <div className="text-xs text-red-400 uppercase tracking-wider mb-1">Motivo do bloqueio</div>
+          <div className="text-xs text-destructive uppercase tracking-wider mb-1">Motivo do bloqueio</div>
           <p className="text-sm text-zinc-200">{lead.motivo_bloqueio}</p>
         </Card>
       )}
@@ -107,11 +107,11 @@ export default async function LeadDetailPage({
             <div className="flex justify-between"><dt className="text-zinc-500">UF / Município</dt><dd className="text-zinc-200">{lead.uf || '—'} / {lead.municipio || '—'}</dd></div>
             <div className="flex justify-between"><dt className="text-zinc-500">CEP</dt><dd className="text-zinc-200 font-mono">{lead.cep || '—'}</dd></div>
             {lead.endereco_completo && <div><dt className="text-zinc-500 mb-1">Endereço</dt><dd className="text-zinc-200">{lead.endereco_completo}</dd></div>}
-            <div className="flex justify-between"><dt className="text-zinc-500">Email</dt><dd className="text-emerald-400">{lead.email_institucional_generico || <span className="text-zinc-600">Não disponível</span>}</dd></div>
+            <div className="flex justify-between"><dt className="text-zinc-500">Email</dt><dd className="text-brand">{lead.email_institucional_generico || <span className="text-zinc-600">Não disponível</span>}</dd></div>
             <div className="flex justify-between"><dt className="text-zinc-500">Fonte Email</dt><dd className="text-zinc-200">{lead.email_institucional_fonte}</dd></div>
-            <div className="flex justify-between"><dt className="text-zinc-500">Email Validado</dt><dd>{lead.email_institucional_validado ? <span className="text-emerald-400">✓ Sim</span> : <span className="text-zinc-500">Não</span>}</dd></div>
+            <div className="flex justify-between"><dt className="text-zinc-500">Email Validado</dt><dd>{lead.email_institucional_validado ? <span className="text-brand">✓ Sim</span> : <span className="text-zinc-500">Não</span>}</dd></div>
             <div className="flex justify-between"><dt className="text-zinc-500">Telefone</dt><dd className="text-zinc-200">{lead.telefone_comercial || '—'}</dd></div>
-            {lead.site_institucional && <div className="flex justify-between"><dt className="text-zinc-500">Site</dt><dd><a href={lead.site_institucional} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">{lead.site_institucional}</a></dd></div>}
+            {lead.site_institucional && <div className="flex justify-between"><dt className="text-zinc-500">Site</dt><dd><a href={lead.site_institucional} target="_blank" rel="noopener noreferrer" className="text-foreground hover:underline">{lead.site_institucional}</a></dd></div>}
           </dl>
         </Card>
 
@@ -124,7 +124,7 @@ export default async function LeadDetailPage({
               <div className="text-xs text-zinc-500">Participações 12m</div>
             </div>
             <div className="text-center p-3 bg-zinc-800/50 rounded-lg">
-              <div className="text-2xl font-bold text-emerald-400">{lead.total_licitacoes_ganhas_12m || 0}</div>
+              <div className="text-2xl font-bold text-brand">{lead.total_licitacoes_ganhas_12m || 0}</div>
               <div className="text-xs text-zinc-500">Vitórias 12m</div>
             </div>
             <div className="text-center p-3 bg-zinc-800/50 rounded-lg">
@@ -132,7 +132,7 @@ export default async function LeadDetailPage({
               <div className="text-xs text-zinc-500">Part. Total</div>
             </div>
             <div className="text-center p-3 bg-zinc-800/50 rounded-lg">
-              <div className="text-2xl font-bold text-emerald-400">{lead.total_licitacoes_ganhas_total || 0}</div>
+              <div className="text-2xl font-bold text-brand">{lead.total_licitacoes_ganhas_total || 0}</div>
               <div className="text-xs text-zinc-500">Vitórias Total</div>
             </div>
           </div>
@@ -147,7 +147,7 @@ export default async function LeadDetailPage({
             <div className="flex justify-between"><dt className="text-zinc-500">Última Participação</dt><dd className="text-zinc-200">{formatDate(lead.ultima_participacao_data)}</dd></div>
             <div className="flex justify-between">
               <dt className="text-zinc-500">Perdeu por Pouco (&lt;5%)</dt>
-              <dd className={lead.licitacoes_perdidas_por_pouco > 0 ? 'text-red-400 font-bold' : 'text-zinc-500'}>
+              <dd className={lead.licitacoes_perdidas_por_pouco > 0 ? 'text-destructive font-bold' : 'text-zinc-500'}>
                 {lead.licitacoes_perdidas_por_pouco || 0}
               </dd>
             </div>
@@ -160,25 +160,25 @@ export default async function LeadDetailPage({
           <dl className="space-y-2 text-sm">
             <div className="flex justify-between">
               <dt className="text-zinc-500">CEIS</dt>
-              <dd>{lead.status_ceis ? <span className="text-red-400 font-bold">⚠️ SANCIONADO</span> : <span className="text-emerald-400">✓ Limpo</span>}</dd>
+              <dd>{lead.status_ceis ? <span className="text-destructive font-bold">⚠️ SANCIONADO</span> : <span className="text-brand">✓ Limpo</span>}</dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-zinc-500">CNEP</dt>
-              <dd>{lead.status_cnep ? <span className="text-red-400 font-bold">⚠️ SANCIONADO</span> : <span className="text-emerald-400">✓ Limpo</span>}</dd>
+              <dd>{lead.status_cnep ? <span className="text-destructive font-bold">⚠️ SANCIONADO</span> : <span className="text-brand">✓ Limpo</span>}</dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-zinc-500">CEPIM</dt>
-              <dd>{lead.status_cepim ? <span className="text-red-400 font-bold">⚠️ SANCIONADO</span> : <span className="text-emerald-400">✓ Limpo</span>}</dd>
+              <dd>{lead.status_cepim ? <span className="text-destructive font-bold">⚠️ SANCIONADO</span> : <span className="text-brand">✓ Limpo</span>}</dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-zinc-500">Status Geral</dt>
-              <dd>{lead.esta_limpo ? <Badge className="bg-emerald-600 text-white">LIMPO</Badge> : <Badge className="bg-red-600 text-white">COM RESTRIÇÃO</Badge>}</dd>
+              <dd>{lead.esta_limpo ? <Badge className="bg-brand text-white">LIMPO</Badge> : <Badge className="bg-red-600 text-white">COM RESTRIÇÃO</Badge>}</dd>
             </div>
             <div className="flex justify-between"><dt className="text-zinc-500">Verificação Sanções</dt><dd className="text-zinc-200">{formatDate(lead.data_ultima_verificacao_sancoes)}</dd></div>
             <div className="border-t border-zinc-700 pt-2 mt-2"></div>
             <div className="flex justify-between"><dt className="text-zinc-500">Opt-Out</dt><dd>{lead.opt_out ? <span className="text-yellow-400">Sim — {formatDate(lead.opt_out_data)}</span> : <span className="text-zinc-400">Não</span>}</dd></div>
             {lead.opt_out_origem && <div className="flex justify-between"><dt className="text-zinc-500">Origem Opt-Out</dt><dd className="text-zinc-200">{lead.opt_out_origem}</dd></div>}
-            <div className="flex justify-between"><dt className="text-zinc-500">Bloqueado</dt><dd>{lead.bloqueado_disparo ? <span className="text-red-400">Sim</span> : <span className="text-zinc-400">Não</span>}</dd></div>
+            <div className="flex justify-between"><dt className="text-zinc-500">Bloqueado</dt><dd>{lead.bloqueado_disparo ? <span className="text-destructive">Sim</span> : <span className="text-zinc-400">Não</span>}</dd></div>
             <div className="flex justify-between"><dt className="text-zinc-500">Base Legal</dt><dd className="text-zinc-400 text-xs max-w-[60%] text-right">{lead.base_legal_lgpd || '—'}</dd></div>
             <div className="flex justify-between"><dt className="text-zinc-500">LIA Versão</dt><dd className="text-zinc-200">{lead.lia_versao || '—'}</dd></div>
           </dl>

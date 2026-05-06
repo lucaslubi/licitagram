@@ -23,21 +23,21 @@ export default async function AdminFinancialPage() {
       </div>
 
       {/* Revenue by Plan */}
-      <div className="bg-[#1a1c1f] rounded-lg border p-4 sm:p-6 mb-8 overflow-x-auto">
+      <div className="bg-card rounded-lg border p-4 sm:p-6 mb-8 overflow-x-auto">
         <h2 className="text-lg font-semibold mb-4">Receita por Plano</h2>
         <table className="w-full text-sm">
           <thead className="border-b">
             <tr>
-              <th className="text-left py-2 font-medium text-gray-400">Plano</th>
-              <th className="text-left py-2 font-medium text-gray-400">Assinantes</th>
-              <th className="text-left py-2 font-medium text-gray-400">MRR</th>
+              <th className="text-left py-2 font-medium text-muted-foreground">Plano</th>
+              <th className="text-left py-2 font-medium text-muted-foreground">Assinantes</th>
+              <th className="text-left py-2 font-medium text-muted-foreground">MRR</th>
             </tr>
           </thead>
           <tbody>
             {Object.entries(metrics.revenueByPlan).map(([slug, data]) => (
               <tr key={slug} className="border-b last:border-0">
                 <td className="py-2 font-medium">{data.name}</td>
-                <td className="py-2 text-gray-400">{data.count}</td>
+                <td className="py-2 text-muted-foreground">{data.count}</td>
                 <td className="py-2 font-bold">{formatBRL(data.revenue)}</td>
               </tr>
             ))}
@@ -46,25 +46,25 @@ export default async function AdminFinancialPage() {
       </div>
 
       {/* Delinquents */}
-      <div className="bg-[#1a1c1f] rounded-lg border p-4 sm:p-6 overflow-x-auto">
+      <div className="bg-card rounded-lg border p-4 sm:p-6 overflow-x-auto">
         <h2 className="text-lg font-semibold mb-4">Inadimplentes</h2>
         {delinquents.length === 0 ? (
-          <p className="text-gray-400 text-sm">Nenhum inadimplente no momento.</p>
+          <p className="text-muted-foreground text-sm">Nenhum inadimplente no momento.</p>
         ) : (
           <table className="w-full text-sm">
             <thead className="border-b">
               <tr>
-                <th className="text-left py-2 font-medium text-gray-400">Empresa</th>
-                <th className="text-left py-2 font-medium text-gray-400">CNPJ</th>
-                <th className="text-left py-2 font-medium text-gray-400">Plano</th>
-                <th className="text-left py-2 font-medium text-gray-400">Status</th>
+                <th className="text-left py-2 font-medium text-muted-foreground">Empresa</th>
+                <th className="text-left py-2 font-medium text-muted-foreground">CNPJ</th>
+                <th className="text-left py-2 font-medium text-muted-foreground">Plano</th>
+                <th className="text-left py-2 font-medium text-muted-foreground">Status</th>
               </tr>
             </thead>
             <tbody>
               {delinquents.map((d: any) => (
                 <tr key={d.id} className="border-b last:border-0">
                   <td className="py-2">{d.companies?.razao_social || '—'}</td>
-                  <td className="py-2 text-gray-400 font-mono text-xs">{d.companies?.cnpj || '—'}</td>
+                  <td className="py-2 text-muted-foreground font-mono text-xs">{d.companies?.cnpj || '—'}</td>
                   <td className="py-2">{d.plans?.name || '—'}</td>
                   <td className="py-2"><Badge variant="outline" className="bg-amber-900/20 text-amber-400">{d.status}</Badge></td>
                 </tr>

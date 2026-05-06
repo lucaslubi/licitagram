@@ -28,14 +28,14 @@ export default async function AdminAlertsPage({
 
       <div className="flex gap-2 mb-4">
         <Link href="/admin/alerts" className="px-3 py-1.5 text-sm border rounded">Todos</Link>
-        <Link href="/admin/alerts?severity=critical" className="px-3 py-1.5 text-sm border rounded text-red-400">Críticos</Link>
+        <Link href="/admin/alerts?severity=critical" className="px-3 py-1.5 text-sm border rounded text-destructive">Críticos</Link>
         <Link href="/admin/alerts?severity=warning" className="px-3 py-1.5 text-sm border rounded text-amber-400">Avisos</Link>
-        <Link href="/admin/alerts?severity=info" className="px-3 py-1.5 text-sm border rounded text-blue-400">Info</Link>
+        <Link href="/admin/alerts?severity=info" className="px-3 py-1.5 text-sm border rounded text-foreground">Info</Link>
       </div>
 
-      <div className="bg-[#1a1c1f] rounded-lg border">
+      <div className="bg-card rounded-lg border">
         {alerts.length === 0 ? (
-          <p className="p-8 text-center text-gray-400">Nenhum alerta ativo. 🎉</p>
+          <p className="p-8 text-center text-muted-foreground">Nenhum alerta ativo. 🎉</p>
         ) : (
           <ul className="divide-y divide-[#2d2f33]">
             {alerts.map(a => (
@@ -43,21 +43,21 @@ export default async function AdminAlertsPage({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <Badge variant="outline" className={
-                      a.severity === 'critical' ? 'bg-red-900/20 text-red-400' :
+                      a.severity === 'critical' ? 'border border-destructive/30 bg-destructive/10 text-destructive' :
                       a.severity === 'warning' ? 'bg-amber-900/20 text-amber-400' :
-                      'bg-blue-900/20 text-blue-400'
+                      'border border-border bg-secondary text-foreground'
                     }>{a.type}</Badge>
                     {a.companies && (
-                      <Link href={`/admin/clients/${a.company_id}`} className="text-sm text-blue-400 hover:underline truncate">
+                      <Link href={`/admin/clients/${a.company_id}`} className="text-sm text-foreground hover:underline truncate">
                         {a.companies.razao_social || a.companies.cnpj}
                       </Link>
                     )}
                   </div>
-                  <p className="text-sm text-gray-300">{a.message}</p>
-                  <p className="text-xs text-gray-500 mt-1">{new Date(a.created_at).toLocaleString('pt-BR')}</p>
+                  <p className="text-sm text-foreground">{a.message}</p>
+                  <p className="text-xs text-muted-foreground/80 mt-1">{new Date(a.created_at).toLocaleString('pt-BR')}</p>
                 </div>
                 <form action={async () => { 'use server'; await resolveAlert(a.id) }}>
-                  <button className="text-xs text-gray-400 hover:text-white border px-2 py-1 rounded">Resolver</button>
+                  <button className="text-xs text-muted-foreground hover:text-white border px-2 py-1 rounded">Resolver</button>
                 </form>
               </li>
             ))}
