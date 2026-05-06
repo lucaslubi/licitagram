@@ -301,8 +301,8 @@ export function CalculadoraConsultoriaClient() {
 
         <p style={{ marginTop: 24, fontSize: 13, color: '#7a7a7d' }}>
           Ou fale direto pelo WhatsApp:{' '}
-          <a href="https://wa.me/" style={{ fontWeight: 700, color: '#F57709' }}>
-            +55 11 0000-0000
+          <a href="https://wa.me/13163069673" style={{ fontWeight: 700, color: '#F57709' }}>
+            +1 (316) 306-9673
           </a>
         </p>
       </section>
