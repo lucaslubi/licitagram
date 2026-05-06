@@ -481,12 +481,43 @@ export async function runKeywordMatching(tenderId: string, excludeCompanyIds?: S
       // HARD GATE: if tender has CNAE classification and company has NO overlap → BLOCK
       if (cnaeScore === 0) continue
 
+      // ── Renormalização de pesos pra perfis incompletos ──
+      // Trials que ainda não preencheram palavras_chave / descricao_servicos
+      // ficavam matematicamente capados em ~50 quando CNAE batia perfeito
+      // (peso CNAE = 0.50 × score 100 = 50, demais zerados). Score 53 era
+      // o teto típico — não refletia a qualidade real do match.
+      // Solução: se um componente do perfil tá vazio, seu peso é redistribuído
+      // pros componentes que TEM dado. CNAE-only continua atingindo 70-90.
+      const profileHasKw = ((company.palavras_chave as string[] | null)?.length || 0) > 0
+      const profileHasDesc =
+        typeof (company as { descricao_servicos?: string | null }).descricao_servicos === 'string' &&
+        ((company as { descricao_servicos?: string }).descricao_servicos as string).length >= 30
+      let wKw = KEYWORD_WEIGHT_A
+      let wCnae = CNAE_WEIGHT
+      let wDesc = DESCRIPTION_WEIGHT_A
+      if (!profileHasKw && !profileHasDesc) {
+        // CNAE absorve tudo
+        wKw = 0
+        wDesc = 0
+        wCnae = 1.0
+      } else if (!profileHasKw) {
+        // kw 0.30 → vai pra cnae e desc proporcionalmente
+        wCnae += KEYWORD_WEIGHT_A * (CNAE_WEIGHT / (CNAE_WEIGHT + DESCRIPTION_WEIGHT_A))
+        wDesc += KEYWORD_WEIGHT_A * (DESCRIPTION_WEIGHT_A / (CNAE_WEIGHT + DESCRIPTION_WEIGHT_A))
+        wKw = 0
+      } else if (!profileHasDesc) {
+        // desc 0.20 → vai pra cnae e kw proporcionalmente
+        wCnae += DESCRIPTION_WEIGHT_A * (CNAE_WEIGHT / (CNAE_WEIGHT + KEYWORD_WEIGHT_A))
+        wKw += DESCRIPTION_WEIGHT_A * (KEYWORD_WEIGHT_A / (CNAE_WEIGHT + KEYWORD_WEIGHT_A))
+        wDesc = 0
+      }
+
       finalScore = Math.min(
         MAX_KEYWORD_SCORE_MODE_A,
         Math.round(
-          kwScore * KEYWORD_WEIGHT_A +
-          cnaeScore * CNAE_WEIGHT +
-          descScore * DESCRIPTION_WEIGHT_A,
+          kwScore * wKw +
+          cnaeScore * wCnae +
+          descScore * wDesc,
         ),
       )
 
