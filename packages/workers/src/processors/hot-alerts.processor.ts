@@ -630,6 +630,11 @@ const hotAlertsWorker = new Worker(
       case 'new-matches-digest':
         await handleNewMatchesDigest()
         break
+      case 'consultancy-leads-followup': {
+        const { processConsultancyLeadsFollowup } = await import('./consultancy-leads-followup.processor')
+        await processConsultancyLeadsFollowup()
+        break
+      }
       default:
         logger.warn({ jobName: job.name }, 'Unknown hot-alerts job name')
     }

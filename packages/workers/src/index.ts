@@ -647,6 +647,17 @@ async function setupAlertRepeatableJobs() {
   )
   logger.info('[alerts] New matches digest scheduled (every 3h)')
 
+  // Consultancy leads followup (calculadora /calculadora-consultoria) every 5 min
+  await hotAlertsQueue.add(
+    'consultancy-leads-followup',
+    {},
+    {
+      repeat: { every: 5 * 60 * 1000 },
+      jobId: 'consultancy-followup-5min',
+    },
+  )
+  logger.info('[alerts] Consultancy leads followup scheduled (every 5 min)')
+
   // Trial expiry sweep daily at 2 AM BRT (05:00 UTC)
   await trialExpiryQueue.add(
     'trial-expiry-sweep',
